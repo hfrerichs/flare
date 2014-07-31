@@ -80,6 +80,7 @@ module pfc
         n_axi = n_axi + 1
         if (irun == 2) then
            call export_PFC(S_axi(n_axi))
+           write (6, *)
            write (6, 3000) 'Provided by equilibrium'
            write (6, 3001) S_axi(n_axi)%n_seg
         endif
