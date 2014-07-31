@@ -86,16 +86,25 @@ module ode_solver
 !   f		function to be integrated
 !   isolver	method used for intergation
 !-----------------------------------------------------------------------
-  subroutine initialize_ODE (this, n, yinit, ds, f, isolver)
+  subroutine initialize_ODE (this, n, yinit, ds, f, isolver, silent_mode)
   class(t_ODE)             :: this
   integer, intent(in)      :: n
   real*8, intent(in)       :: yinit(n), ds
   external                 :: f
   integer, intent(in)      :: isolver
+  logical, intent(in), optional :: silent_mode
 
-  write (6, *) 'initializing system with ', n, 'first order ODEs...'
+  logical :: verbose
+
+  verbose = .false.
+  if (present(silent_mode)) then
+     verbose = .not. silent_mode
+  endif
+
+
+  if (verbose) write (6, *) 'initializing system with ', n, 'first order ODEs...'
   this%n = n
-  write (6, *) 'initial values are: ', yinit
+  if (verbose) write (6, *) 'initial values are: ', yinit
   if (allocated(this%yc)) deallocate (this%yc)
   allocate (this%yc(n))
   this%ds = ds
