@@ -6,7 +6,7 @@ module run_control
   ! user defined variables
   character*120 :: &
      Machine        = ' ', &        ! select input directory (1st part)
-     Magnetic_Setup = ' ', &        ! select input directory (2nd part)
+     Configuration  = ' ', &        ! select input directory (2nd part)
      Run_Type       = ' ', &        ! select sub-program to execute
      Output_File    = '', &
      Grid_File      = ''
@@ -32,7 +32,7 @@ module run_control
 
 
   namelist /RunControl/ &
-     Machine, Magnetic_Setup, &
+     Machine, Configuration, &
      Run_Type, Output_File, Grid_File, Output_Format, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps
 
@@ -48,17 +48,17 @@ module run_control
 
 
   ! load run control on first processor
-  if (mype == 0) then
+  if (firstP) then
      open  (iu, file='run_input', err=5000)
      read  (iu, RunControl, end=5000)
      close (iu)
 
      if (Machine .ne. ' ') then
         write (6, *) 'Machine:                ', trim(Machine)
-        write (6, *) 'Magnetic configuration: ', trim(Magnetic_Setup)
+        write (6, *) 'Configuration:          ', trim(Configuration)
         call getenv("HOME", homedir)
         Prefix = trim(homedir)//'/'//base_dir//'/'//trim(Machine)//'/'// &
-                 trim(Magnetic_Setup)//'/'
+                 trim(Configuration)//'/'
      else
         Prefix = './'
      endif
