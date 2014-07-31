@@ -118,7 +118,7 @@
 
       if (mype.eq.0) then
 ! open grid file
-      write (6,1000) Grid_File
+      write (6,1000) adjustl(trim(Grid_File))
       open  (iun, file=Grid_File, err=5000)
 
 ! read grid header
@@ -140,7 +140,7 @@ c 0: irregular (1D) xyz-grid
           allocate (grid_data(n_grid, 3))
 
           do icount=1,n_xyz
-             read (iun,3000) grid_data(icount,:)
+             read (iun, *) grid_data(icount,:)
           enddo
 
           if (my_coordinates.eq.i_cylindrical) then
@@ -410,7 +410,7 @@ c-----------------------------------------------
       endif
 
       return
- 1000 format (3x,'- using grid file: ',a120)
+ 1000 format (3x,'- Using grid file: ',a)
  1001 format ('sampling data points: ',i4,' %')
  2000 format (a120)
  2001 format (8x,a72)
