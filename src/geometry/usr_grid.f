@@ -14,6 +14,10 @@
       module grid
       implicit none
 
+      character*12, dimension(2), parameter ::
+     .    COORDINATES = (/ 'cartesian   ',
+     .                     'cylindrical ' /)
+
 !> Array with grid nodes
       real*8, dimension(:,:), pointer :: grid_data
 !> Total number of grid nodes
@@ -33,7 +37,7 @@
 
 
       public ::
-     1    read_grid,
+     1    read_grid, COORDINATES,
      2    get_next_grid_point,
      3    new_grid, n_grid, grid_data
 
@@ -73,12 +77,12 @@
 !-----------------------------------------------------------------------
 !> Read grid points from data file "Grid_File" and store in "grid_data"
 !-----------------------------------------------------------------------
-      subroutine read_grid (Grid_File, log_progress, coordinates,
+      subroutine read_grid (Grid_File, log_progress, use_coordinates,
      .                      n_nodes)
       use parallel
       character*120, intent(in)     :: Grid_File
       logical, intent(in), optional :: log_progress
-      character*20, intent(in), optional :: coordinates
+      character*12, intent(in), optional :: use_coordinates
       integer, intent(out), optional     :: n_nodes
 
       character*120 :: str
@@ -101,15 +105,15 @@
 
 ! select output coordinate system for grid_data
       my_coordinates = i_cartesian
-      if (present(coordinates)) then
-         select case (coordinates)
-         case('cartesian')
+      if (present(use_coordinates)) then
+         select case (use_coordinates)
+         case(COORDINATES(1))
             my_coordinates = i_cartesian
-         case('cylindrical')
+         case(COORDINATES(2))
             my_coordinates = i_cylindrical
          case default
             write (6,*) 'error in read_grid. parameter coordinates = ',
-     .                  coordinates
+     .                  use_coordinates
             stop
          end select
       endif
