@@ -4,9 +4,9 @@ include ../../include.mk
 OBJECTS =  \
                reconstruct.o\
                geqdsk.o\
+               equilibrium.o\
                polygones.o\
                bfield.o\
-               equilibrium.o\
                fieldline.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(MATH_DIR) -I ../$(GEOMETRY_DIR)

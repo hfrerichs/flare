@@ -1,9 +1,32 @@
 !===============================================================================
 !===============================================================================
 module equilibrium
-  use bfield
   use curve2D
   implicit none
+
+
+!...............................................................................
+! user defined parameters (to be set via configuration file)                   .
+
+  character*120 :: &
+     Data_File        = ''
+
+  real*8 :: &
+     R_axis_usr       = 0.d0, &        ! user defined position of magnetic axis
+     Z_axis_usr       = 0.d0
+
+  logical :: &
+     use_PFC          = .true., &
+     Current_Fix      = .true.
+
+  integer :: &
+     Diagnostic_Level = 0
+
+  namelist /Equilibrium_Input/ &
+     Data_File, use_PFC, Current_Fix, Diagnostic_Level, &
+     R_axis_usr, Z_axis_usr
+!...............................................................................
+
 
 
   ! Direction of toroidal magnetic field and plasma current
@@ -17,6 +40,9 @@ module equilibrium
 
   ! equilibrium id (in module bfield)
   integer :: i_equi = -1
+
+
+  real*8 :: R_axis, Z_axis, psi_sepx, psi_axis
 
 
   ! Interface for specific functions to be set externally
@@ -39,13 +65,28 @@ module equilibrium
      import :: t_curve
      type(t_curve), intent(out) :: S
      end subroutine export_curve
+
+     function get_Bf_interface(y) result(Bf)
+     real*8, intent(in) :: y(3)
+     real*8             :: Bf(3)
+     end function
   end interface
+
+
+  ! get equilibrium magnetic field
+  procedure(get_Bf_interface), pointer :: &
+     ! ... in Cartesian coordinates
+     get_BCart_eq2D, &
+     ! ... in cylindrical coordinates
+     get_BCyl_eq2D
+
+
 
   ! return poloidal magnetic flux
   procedure(get_Psi_interface), pointer :: get_Psi
 
-  ! return poloidal magnetic flux at magnetic axis
-  procedure(Psi_axis_interface), pointer :: Psi_axis
+!  ! return poloidal magnetic flux at magnetic axis
+!  procedure(Psi_axis_interface), pointer :: Psi_axis
 
   ! inquire if equilibrium provides PFC setup
   procedure(logical_inquiry), pointer :: &
@@ -62,35 +103,53 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine setup_equilibrium (report)
+  subroutine load_equilibrium_config (iu, iconfig)
+  use run_control, only: Prefix
   use geqdsk
-  logical, optional :: report
+  integer, intent(in)  :: iu
+  integer, intent(out) :: iconfig
 
-  integer :: i
+
+! read user configuration
+  rewind (iu)
+  read   (iu, Equilibrium_Input, end=1000)
+  iconfig = 1
+  write (6, *)
+  write (6, 1001)
+  Data_File = trim(Prefix)//Data_File
 
 
+! set default values
   export_PFC => null()
-  i = i_config(BF_GEQDSK) + i_config(BF_DIVA)
 
-  ! no equilibrium defined?
-  if (i == 0) return
 
-  ! multiple equilibrium definitions?
-  if (i > 1) then
-     write (6, *) 'error: multiple equilibrium fields defined!'
-     stop
+! determine equilibrium type
+!...
+
+
+! load equilibrium data
+  call setup_G_EQDSK (Data_File, use_PFC, Current_Fix, Diagnostic_Level, R_axis, Z_axis, psi_axis, psi_sepx)
+  get_BCart_eq2D => get_BCart_geqdsk
+  get_BCyl_eq2D  => get_BCyl_geqdsk
+  equilibrium_provides_PFC => geqdsk_provides_PFC
+  export_PFC               => export_PFC_geqdsk
+
+
+! set user defined values, if present
+  if (R_axis_usr.gt.0.d0) then
+     R_axis = R_axis_usr
+     Z_axis = Z_axis_usr
   endif
-  
-  ! find the correct equilibrium id and setup some pointers
-  if (i_config(BF_GEQDSK) == 1) then
-     i_equi = BF_GEQDSK
-     equilibrium_provides_PFC => geqdsk_provides_PFC
-     export_PFC               => export_PFC_geqdsk
-  elseif (i_config(BF_DIVA) == 1) then
-     i_equi = BF_DIVA
-  endif
 
-  end subroutine setup_equilibrium
+
+! set dependent variables
+  !psi_axis = pol_flux(magnetic_axis())
+
+
+  return
+ 1000 iconfig = 0
+ 1001 format ('   - Axisymmetric (2D) MHD equilibrium:')
+  end subroutine load_equilibrium_config
 !=======================================================================
 
 
@@ -110,6 +169,41 @@ module equilibrium
 !  end subroutine export_PFC
 !=======================================================================
 
+
+
+!=======================================================================
+  function pol_flux(r) result(psi)
+  real*8, intent(in) :: r(3)
+  real*8             :: psi
+
+  end function pol_flux
+!=======================================================================
+
+
+!=======================================================================
+! Provide position r=(R,Z,phi) [cm,cm,rad] of magnetic axis
+! Optional input: phi (for non-axisymmetric equilibria)
+! Default: phi = 0.0
+!=======================================================================
+  function magnetic_axis(phi) result(r)
+  real*8, intent(in), optional :: phi
+  real*8                       :: r(3)
+
+  real*8 :: phi1
+
+
+  ! scan optional arguments
+  phi1 = 0.d0
+  if (present(phi)) phi1 = phi
+  r(3) = phi1
+
+  ! set magnetic axis
+  r(1) = R_axis
+  r(2) = Z_axis
+
+
+  end function magnetic_axis
+!=======================================================================
 
 
 !=======================================================================

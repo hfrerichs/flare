@@ -22,7 +22,6 @@ program main
   call load_run_control()
 
   call setup_bfield_configuration()
-  call setup_equilibrium()
 
   call setup_pfc()
 

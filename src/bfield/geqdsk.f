@@ -38,13 +38,13 @@
       logical :: switch_poloidal_field
 
       public ::
-     1    read_G_EQDSK_config,
+     1    read_G_EQDSK_config, setup_G_EQDSK,
      b    broadcast_G_EQDSK,
      a    get_Bcyl_geqdsk, get_Bcart_geqdsk,
      3    sample_psi_EQDSK,
      a    sample_psi1_EQDSK,
      b    sample_psi2_EQDSK,
-     4    equi_info_EQDSK, get_equi_domain_EQDSK,
+     4    equi_info_EQDSK, get_equi_domain_EQDSK, magnetic_axis_geqdsk,
      b    switch_poloidal_field_only_EQDSK, use_wall,
      5    guess_Xpoint_EQDSK,
      b    geqdsk_provides_PFC, export_PFC_geqdsk,get_wall_configuration,
@@ -60,13 +60,16 @@ c-------------------------------------------------------------------------------
       integer, intent(out) :: iconfig
       character*120, intent(in) :: Prefix
 
+      character*120 :: Data_File
+
       rewind (iun)
       read   (iun, G_EQDSK_Input, end=1000)
       iconfig = 1
       write (6, *)
       write (6, 1001)
 
-      call setup_G_EQDSK (Prefix)
+      Data_File = trim(Prefix)//G_file
+      call setup_G_EQDSK (Data_File)
 
       return
  1000 iconfig = 0
@@ -76,12 +79,15 @@ c-------------------------------------------------------------------------------
 
 
 c-------------------------------------------------------------------------------
-      subroutine setup_G_EQDSK (Prefix)
+      subroutine setup_G_EQDSK (Data_File, use_PFC_, CurrentFix_, DL_,
+     .                          R_axis, Z_axis, psi_axis, psi_sepx)
       use bspline
-      character*120, intent(in) :: Prefix
+      character*120, intent(in) :: Data_File
+      logical, intent(in), optional  :: use_PFC_, CurrentFix_
+      integer, intent(in), optional  :: DL_
+      real*8, intent(out), optional  :: R_axis, Z_axis,psi_axis,psi_sepx
 
       integer, parameter :: iu = 17
-      character*120 :: Input_File
 
       real*8, dimension(:), allocatable :: Rtmp, Ztmp, Psintmp
 
@@ -91,8 +97,11 @@ c-------------------------------------------------------------------------------
       logical :: lL, lR, concaveup
 
 
-      Input_File = Prefix(1:len_trim(Prefix))//G_file
-      open  (iu, file=Input_File)
+      if (present(use_PFC_)) use_wall = use_PFC_
+      if (present(CurrentFix_)) CurrentFix = CurrentFix_
+      if (present(DL_)) DiagnosticLevel = DL_
+
+      open  (iu, file=Data_File)
 
       ! read equilibrium configuration
       read  (iu, 2000) (case_(i),i=1,6), idum, nR, nZ
@@ -100,6 +109,10 @@ c-------------------------------------------------------------------------------
       read  (iu, 2020) Rmaxis, Zmaxis, Simag, Sibry, Bcentr
       read  (iu, 2020) Current, Simag, xdum, Rmaxis, xdum
       read  (iu, 2020) Zmaxis, xdum, Sibry, xdum, xdum
+      if (present(R_axis)) R_axis = Rmaxis * 1.d2
+      if (present(Z_axis)) Z_axis = Zmaxis * 1.d2
+      if (present(psi_axis)) psi_axis = Simag
+      if (present(psi_sepx)) psi_sepx = Sibry
 
 
       ! runtime feedback of characteristic values
@@ -451,6 +464,18 @@ c-------------------------------------------------------------------------------
 
       return
       end subroutine equi_info_EQDSK
+c-------------------------------------------------------------------------------
+
+
+c-------------------------------------------------------------------------------
+      function magnetic_axis_geqdsk() result(r)
+      real*8 :: r(2)
+
+      ! convert m -> cm
+      r(1) = Rmaxis * 1.d2
+      r(2) = Zmaxis * 1.d2
+
+      end function magnetic_axis_geqdsk
 c-------------------------------------------------------------------------------
 
 
