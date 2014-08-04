@@ -24,6 +24,7 @@
 !                       = 3: solve d(R,Z)/dphi   = (BR,BZ)*R/Bphi
 !                            x_start: Cylindrical coordinates [cm,deg]
 !                            Trace_step: arc segment [deg]
+!
 !    Output_File
 !    Output_Format      = 1: Cartesian coordinates
 !                       = 2: Cylindrical coordinates
@@ -62,7 +63,7 @@ subroutine trace_bline
      grid_ptr => new_grid(1, log_progress=.false.)
      grid_ptr(1,:) = x_start
   else
-     call read_grid (Grid_file, log_progress=.false.)
+     call read_grid (Grid_file, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
   endif
 
  
