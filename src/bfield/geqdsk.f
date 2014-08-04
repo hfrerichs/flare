@@ -41,7 +41,7 @@
      1    read_G_EQDSK_config, setup_G_EQDSK,
      b    broadcast_G_EQDSK,
      a    get_Bcyl_geqdsk, get_Bcart_geqdsk,
-     3    sample_psi_EQDSK,
+     3    sample_psi_EQDSK, get_Psi_geqdsk,
      a    sample_psi1_EQDSK,
      b    sample_psi2_EQDSK,
      4    equi_info_EQDSK, get_equi_domain_EQDSK, magnetic_axis_geqdsk,
@@ -111,8 +111,6 @@ c-------------------------------------------------------------------------------
       read  (iu, 2020) Zmaxis, xdum, Sibry, xdum, xdum
       if (present(R_axis)) R_axis = Rmaxis * 1.d2
       if (present(Z_axis)) Z_axis = Zmaxis * 1.d2
-      if (present(psi_axis)) psi_axis = Simag
-      if (present(psi_sepx)) psi_sepx = Sibry
 
 
       ! runtime feedback of characteristic values
@@ -246,6 +244,8 @@ c-----------------------------------------------------------------------
 
       deallocate (Rtmp, Ztmp, Psintmp)
 
+      if (present(psi_axis)) psi_axis = Simag
+      if (present(psi_sepx)) psi_sepx = Sibry
       return
  2000 format (6a8,3i4)
  2020 format (5e16.9)
@@ -401,6 +401,22 @@ c-------------------------------------------------------------------------------
       return
       end subroutine sample_psi_EQDSK
 c-------------------------------------------------------------------------------
+      function get_Psi_geqdsk(r) result(Psi)
+      use bspline
+
+      real*8, intent(in) :: r(3)
+      real*8             :: Psi
+
+      real*8 :: rr, zz
+
+
+      ! convert cm -> m
+      rr  = r(1) / 100.d0
+      zz  = r(2) / 100.d0
+      Psi =  dbs2dr(0,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+
+      end function get_Psi_geqdsk
+c-------------------------------------------------------------------------------
 
 
 c-------------------------------------------------------------------------------
@@ -544,6 +560,8 @@ c-------------------------------------------------------------------------------
       type(t_curve), intent(out) :: S
 
       call make_2D_curve (limitr, rlim, zlim, S)
+      ! m -> cm
+      S%x_data = S%x_data * 1.d2
       end subroutine export_PFC_geqdsk
 c-------------------------------------------------------------------------------
 
