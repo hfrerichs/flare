@@ -10,6 +10,8 @@ module equilibrium
 
   character*120 :: &
      Data_File        = ''
+  character*12  :: &
+     Data_Format      = ''
 
   real*8 :: &
      R_axis_usr       = 0.d0, &        ! user defined position of magnetic axis
@@ -23,7 +25,7 @@ module equilibrium
      Diagnostic_Level = 0
 
   namelist /Equilibrium_Input/ &
-     Data_File, use_PFC, Current_Fix, Diagnostic_Level, &
+     Data_File, Data_Format, use_PFC, Current_Fix, Diagnostic_Level, &
      R_axis_usr, Z_axis_usr
 !...............................................................................
 
@@ -42,14 +44,14 @@ module equilibrium
   integer :: i_equi = -1
 
 
-  real*8 :: R_axis, Z_axis, psi_sepx, psi_axis
+  real*8 :: R_axis, Z_axis, Psi_sepx, Psi_axis
 
 
   ! Interface for specific functions to be set externally
   interface
-     function get_Psi_interface(r)
+     function get_Psi_interface(r) result(Psi)
      real*8, intent(in) :: r(3)
-     real*8             :: get_Psi_interface
+     real*8             :: Psi
      end function get_Psi_interface
 
      function Psi_axis_interface(phi)
@@ -125,12 +127,19 @@ module equilibrium
 
 ! determine equilibrium type
 !...
+!  select case(Data_Format)
+!  case ('geqdsk')
+!  case default
+!     write (6, *) 'error: ', Data_Format, ' is not a valid equilibrium type!'
+!     stop
+!  end select
 
 
 ! load equilibrium data
-  call setup_G_EQDSK (Data_File, use_PFC, Current_Fix, Diagnostic_Level, R_axis, Z_axis, psi_axis, psi_sepx)
+  call setup_G_EQDSK (Data_File, use_PFC, Current_Fix, Diagnostic_Level, R_axis, Z_axis, Psi_axis, Psi_sepx)
   get_BCart_eq2D => get_BCart_geqdsk
   get_BCyl_eq2D  => get_BCyl_geqdsk
+  get_Psi        => get_Psi_geqdsk
   equilibrium_provides_PFC => geqdsk_provides_PFC
   export_PFC               => export_PFC_geqdsk
 
@@ -144,6 +153,8 @@ module equilibrium
 
 ! set dependent variables
   !psi_axis = pol_flux(magnetic_axis())
+  !Psi_axis = get_Psi(magnetic_axis())
+  !Psi_sepx = 
 
 
   return
