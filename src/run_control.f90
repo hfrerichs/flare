@@ -13,11 +13,18 @@ module run_control
 
   real*8 :: &
      x_start(3)     = 0.d0, &       ! initial position for field line tracing
-     Trace_Step     = 1.d0          ! step size for field line tracing
+     Trace_Step     = 1.d0, &       ! step size for field line tracing
+     Limit          = 2.d4, &       ! maximum distance for field line tracing (in one direction)
+     R_start        = 0.d0, &       ! radial start- and
+     R_end          = 0.d0, &       ! end position for Poincare plots
+     Phi_output     = 0.d0          ! Reference plane for Poincare plots
 
 
   integer :: &
      N_steps        = 1000, &       ! Number of discrete steps
+     N_turns        = 0, &          ! Number of toroidal turns for Poincare plots
+     N_sym          = 1, &          ! Toroidal symmetry factor (for Poincare plots)
+     N_mult         = 1, &          !
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
      Output_Format  = 1             ! See individual tools
@@ -26,15 +33,14 @@ module run_control
 
   ! internal variables
   character*120 :: Prefix, &
-                   Bfield_input_file, &
-                   PFC_input_file, &
-                   PFC_sub_dir
+                   Bfield_input_file
 
 
   namelist /RunControl/ &
      Machine, Configuration, &
      Run_Type, Output_File, Grid_File, Output_Format, &
-     x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps
+     x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
+     R_start, R_end, Phi_output, N_turns, N_sym, N_mult
 
   contains
 !=======================================================================
@@ -64,8 +70,6 @@ module run_control
      endif
 
      Bfield_input_file = trim(Prefix)//'bfield.conf'
-     PFC_input_file    = 'pfc.conf'
-     PFC_sub_dir       = 'pfc'
   endif
 
 
@@ -95,6 +99,10 @@ module run_control
      call sample_bfield
   case ('trace_bline')
      call trace_bline
+  case ('poincare_plot')
+     call poincare_plot
+  case ('connection_length')
+     call connection_length
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop

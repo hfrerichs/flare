@@ -3,9 +3,11 @@ include ../../include.mk
 
 OBJECTS =  \
                trace_bline.o\
-               sample_bfield.o
+               sample_bfield.o\
+               poincare_plot.o\
+               connection_length.o
 
-INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(MATH_DIR) -I ../$(GEOMETRY_DIR)
+INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR)
 
 
 .PHONY: all
