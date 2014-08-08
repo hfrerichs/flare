@@ -52,7 +52,8 @@ rm -rf include.mk
 touch include.mk
 
 LOG_FILE=configure.log
-echo "timestamp: $(date)" > $LOG_FILE
+echo "command: $0 $@" > $LOG_FILE
+echo "timestamp: $(date)" >> $LOG_FILE
 
 # MPI support / Fortran compiler
 if type mpif90 >/dev/null 2>/dev/null; then
