@@ -10,14 +10,11 @@ EXTERNAL_OBJ   = $(EXTERNAL_DIR)/*.o $(EMC3_OBJ_LONG)
 CORE_INC       = -I $(CORE_DIR)
 CORE_OBJ       = $(CORE_DIR)/*.o
 
-GEOMETRY_INC   = -I $(GEOMETRY_DIR)
-GEOMETRY_OBJ   = $(GEOMETRY_DIR)/*.o
-
 BFIELD_INC     = -I $(BFIELD_DIR)
 BFIELD_OBJ     = $(BFIELD_DIR)/*.o
 
-PFC_INC        = -I $(PFC_DIR)
-PFC_OBJ        = $(PFC_DIR)/*.o
+GEOMETRY_INC   = -I $(GEOMETRY_DIR)
+GEOMETRY_OBJ   = $(GEOMETRY_DIR)/*.o
 
 TOOLS_INC      = -I $(TOOLS_DIR)
 TOOLS_OBJ      = $(TOOLS_DIR)/*.o
@@ -31,12 +28,11 @@ OBJECTS = \
 all: $(OBJECTS)
 	cd $(EXTERNAL_DIR); $(MAKE) FC='$(FC)'
 	cd $(CORE_DIR); $(MAKE) FC='$(FC)'
-	cd $(GEOMETRY_DIR); $(MAKE) FC='$(FC)'
 	cd $(BFIELD_DIR); $(MAKE) FC='$(FC)'
-	cd $(PFC_DIR); $(MAKE) FC='$(FC)'
+	cd $(GEOMETRY_DIR); $(MAKE) FC='$(FC)'
 	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
-	$(FC) -c $(PFC_INC) $(BFIELD_INC) main.f90
-	$(FC) -o  $(PROGRAM) $(OBJECTS) $(TOOLS_OBJ) $(PFC_OBJ) $(BFIELD_OBJ) $(GEOMETRY_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) main.o
+	$(FC) -c $(GEOMETRY_INC) $(BFIELD_INC) main.f90
+	$(FC) -o  $(PROGRAM) $(OBJECTS) $(TOOLS_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) main.o
 
 
 %.o: %.f*
@@ -56,7 +52,6 @@ clean:
 	cd $(CORE_DIR); $(MAKE) clean
 	cd $(GEOMETRY_DIR); $(MAKE) clean
 	cd $(BFIELD_DIR); $(MAKE) clean
-	cd $(PFC_DIR); $(MAKE) clean
 	cd $(TOOLS_DIR); $(MAKE) clean
 	rm -rf *.o
 	rm -rf *.mod

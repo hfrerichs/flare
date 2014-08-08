@@ -76,9 +76,8 @@ echo "# setting local source directories" >> include.mk
 echo "EXTERNAL_DIR   = external" >> include.mk
 echo "EMC3_LINK_DIR  = \$(EXTERNAL_DIR)/EMC3" >> include.mk
 echo "CORE_DIR       = core" >> include.mk
-echo "GEOMETRY_DIR   = geometry" >> include.mk
 echo "BFIELD_DIR     = bfield" >> include.mk
-echo "PFC_DIR        = pfc" >> include.mk
+echo "GEOMETRY_DIR   = geometry" >> include.mk
 echo "TOOLS_DIR      = tools" >> include.mk
 echo "" >> include.mk
 

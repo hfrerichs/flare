@@ -8,7 +8,7 @@ OBJECTS =  \
                polygones.o\
                bfield.o
 
-INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR)
+INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(CORE_DIR)
 
 
 .PHONY: all

@@ -2,9 +2,10 @@ include ../../include.mk
 
 
 OBJECTS =  \
+               boundary.o\
+               fieldline.o
 
-
-INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR)
+INC_DIR = -I .. -I ../$(CORE_DIR) -I ../$(BFIELD_DIR)
 
 
 .PHONY: all

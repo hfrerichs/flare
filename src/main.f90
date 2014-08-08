@@ -3,7 +3,7 @@ program main
   use run_control
   use bfield
   use equilibrium
-  use pfc
+  use boundary
   implicit none
 
 
@@ -23,7 +23,7 @@ program main
 
   call setup_bfield_configuration()
 
-  call setup_pfc()
+  call setup_boundary()
 
   call run_control_main()
 
