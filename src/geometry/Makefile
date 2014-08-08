@@ -5,7 +5,7 @@ OBJECTS =  \
                curve2D.o\
                usr_grid.o
 
-INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(MATH_DIR)
+INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR)
 
 
 .PHONY: all

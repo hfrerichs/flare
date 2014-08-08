@@ -7,8 +7,8 @@ PROGRAM_DEBUG  = ../bin/flare_bin_debug
 EXTERNAL_INC   = -I $(EXTERNAL_DIR)
 EXTERNAL_OBJ   = $(EXTERNAL_DIR)/*.o $(EMC3_OBJ_LONG)
 
-MATH_INC       = -I $(MATH_DIR)
-MATH_OBJ       = $(MATH_DIR)/*.o
+CORE_INC       = -I $(CORE_DIR)
+CORE_OBJ       = $(CORE_DIR)/*.o
 
 GEOMETRY_INC   = -I $(GEOMETRY_DIR)
 GEOMETRY_OBJ   = $(GEOMETRY_DIR)/*.o
@@ -30,13 +30,13 @@ OBJECTS = \
 .PHONY: all
 all: $(OBJECTS)
 	cd $(EXTERNAL_DIR); $(MAKE) FC='$(FC)'
-	cd $(MATH_DIR); $(MAKE) FC='$(FC)'
+	cd $(CORE_DIR); $(MAKE) FC='$(FC)'
 	cd $(GEOMETRY_DIR); $(MAKE) FC='$(FC)'
 	cd $(BFIELD_DIR); $(MAKE) FC='$(FC)'
 	cd $(PFC_DIR); $(MAKE) FC='$(FC)'
 	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
 	$(FC) -c $(PFC_INC) $(BFIELD_INC) main.f90
-	$(FC) -o  $(PROGRAM) $(OBJECTS) $(TOOLS_OBJ) $(PFC_OBJ) $(BFIELD_OBJ) $(GEOMETRY_OBJ) $(MATH_OBJ) $(EXTERNAL_OBJ) main.o
+	$(FC) -o  $(PROGRAM) $(OBJECTS) $(TOOLS_OBJ) $(PFC_OBJ) $(BFIELD_OBJ) $(GEOMETRY_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) main.o
 
 
 %.o: %.f*
@@ -53,7 +53,7 @@ debug:
 .PHONY: clean
 clean:
 	cd $(EXTERNAL_DIR); $(MAKE) clean
-	cd $(MATH_DIR); $(MAKE) clean
+	cd $(CORE_DIR); $(MAKE) clean
 	cd $(GEOMETRY_DIR); $(MAKE) clean
 	cd $(BFIELD_DIR); $(MAKE) clean
 	cd $(PFC_DIR); $(MAKE) clean
