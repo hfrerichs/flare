@@ -137,6 +137,12 @@ fi
 
 echo 'FC             = $(FC_BASE) -DFLARE $(OPT)' >> include.mk
 echo 'FC_DEBUG       = $(FC_BASE) -DFLARE $(OPT_DEBUG)' >> include.mk
+
+
+# generating header file config.h
 echo "Setting base directory to" '$HOME'/$base_dir
-echo "      character(*), parameter :: base_dir = '"$base_dir"'" > config.h
+echo "  character(*), parameter :: base_dir             =  '"$base_dir"'"    > config.h
+
+echo "  character(*), parameter :: Boundary_input_file  =  'boundary.conf'" >> config.h
+echo "  character(*), parameter :: Boundary_sub_dir     =  'boundary'"      >> config.h
 ################################################################################
