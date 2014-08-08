@@ -200,8 +200,10 @@ subroutine connection_length
 ! ... main loop (end) ..................................................
 
 
-! post processing
+! finalize .............................................................
+  call wait_pe()
   call sum_real_data (lc_data, (5+nout)*n_grid)
+
   if (firstP) then
      open  (iu, file=Output_File, err=5010)
      do ig=0,n_grid-1
@@ -209,6 +211,9 @@ subroutine connection_length
      enddo
      close (iu)
   endif
+
+  deallocate (lc_data)
+! ......................................................................
 
 
   return

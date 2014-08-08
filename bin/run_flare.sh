@@ -3,19 +3,24 @@
 ###############################################################################
 # predefine parameter
 run="run.conf"
+NCPU=1
 ###############################################################################
 
 
 ###############################################################################
 # search argument list
-for opt in "$@"; do
-    par=${opt%%=*}
-    val=${opt##*=}
+for arg in "$@"; do
+    par=${arg%%=*}
+    val=${arg##*=}
     if [ "$par" == "run" ]; then
         run=$val
-        #echo "run =" $run
-    elif [ "$opt" == "-debug" ]; then
+    elif [ "$par" == "ncpu" ]; then
+        NCPU=$val
+    elif [ "$arg" == "-debug" ]; then
         FLAG_DEBUG=1
+    else
+        echo "error: unkown parameter " $arg
+        exit -1
     fi
 done
 ###############################################################################
@@ -35,9 +40,17 @@ cp $run run_input
 # run FLARE
 
 if [ "$FLAG_DEBUG" == "" ]; then
-	flare_bin
+	if [ "$NCPU" == 1 ]; then
+		flare_bin
+	else
+		mpiexec -n $NCPU flare_bin
+	fi
 else # for debugging only
-	gdb flare_bin_debug
+	if [ "$NCPU" == 1 ]; then
+		gdb flare_bin_debug
+	else
+		mpiexec -n $NCPU xterm -e gdb flare_bin_debug
+	fi
 fi
 ###############################################################################
 

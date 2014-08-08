@@ -38,8 +38,8 @@
       logical :: switch_poloidal_field
 
       public ::
-     1    read_G_EQDSK_config, setup_G_EQDSK,
-     b    broadcast_G_EQDSK,
+     1    read_G_EQDSK_config, load_mod_geqdsk,
+     b    broadcast_mod_geqdsk,
      a    get_Bcyl_geqdsk, get_Bcart_geqdsk,
      3    sample_psi_EQDSK, get_Psi_geqdsk,
      a    sample_psi1_EQDSK,
@@ -69,7 +69,7 @@ c-------------------------------------------------------------------------------
       write (6, 1001)
 
       Data_File = trim(Prefix)//G_file
-      call setup_G_EQDSK (Data_File)
+      call load_mod_geqdsk (Data_File)
 
       return
  1000 iconfig = 0
@@ -79,7 +79,7 @@ c-------------------------------------------------------------------------------
 
 
 c-------------------------------------------------------------------------------
-      subroutine setup_G_EQDSK (Data_File, use_PFC_, CurrentFix_, DL_,
+      subroutine load_mod_geqdsk (Data_File, use_PFC_, CurrentFix_, DL_,
      .                          R_axis, Z_axis, psi_axis, psi_sepx)
       use bspline
       character*120, intent(in) :: Data_File
@@ -263,12 +263,12 @@ c-----------------------------------------------------------------------
  3005 format (8x,'Total plasma current:       Ip     = ',f8.3,' MA')
  3006 format (8x,'Direction of plasma current is taken from flux',
      .        ' distribution!')
-      end subroutine setup_G_EQDSK
+      end subroutine load_mod_geqdsk
 c-------------------------------------------------------------------------------
 
 
 c-------------------------------------------------------------------------------
-      subroutine broadcast_G_EQDSK
+      subroutine broadcast_mod_geqdsk
       use parallel
 
       call broadcast_inte_s (nR)
@@ -306,7 +306,7 @@ c-------------------------------------------------------------------------------
       call broadcast_real   (zlim, limitr)
 
       return
-      end subroutine broadcast_G_EQDSK
+      end subroutine broadcast_mod_geqdsk
 c-------------------------------------------------------------------------------
 
 

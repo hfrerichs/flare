@@ -75,7 +75,22 @@ module run_control
 
   ! broadcase data to other processors
   call wait_pe()
-  !call broadcast_char   (Run_Type, 120)
+  call broadcast_char   (Run_Type   , 120)
+  call broadcast_char   (Grid_File  , 120)
+  call broadcast_char   (Output_File, 120)
+  call broadcast_real   (x_start    ,   3)
+  call broadcast_real_s (Trace_Step      )
+  call broadcast_real_s (Limit           )
+  call broadcast_real_s (R_start         )
+  call broadcast_real_s (R_end           )
+  call broadcast_real_s (Phi_output      )
+  call broadcast_inte_s (N_steps         )
+  call broadcast_inte_s (N_turns         )
+  call broadcast_inte_s (N_sym           )
+  call broadcast_inte_s (N_mult          )
+  call broadcast_inte_s (Trace_Method    )
+  call broadcast_inte_s (Trace_Coords    )
+  call broadcast_inte_s (Output_Format   )
 
   return
  5000 write  (6,5001)

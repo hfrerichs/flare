@@ -161,7 +161,7 @@ c-----------------------------------------------------------------------
 
 
 c-----------------------------------------------------------------------
-      subroutine broadcast_polygones
+      subroutine broadcast_mod_polygones
       use parallel
       integer :: ip, ns
 
@@ -190,7 +190,7 @@ c-----------------------------------------------------------------------
       enddo
 
       return
-      end subroutine broadcast_polygones
+      end subroutine broadcast_mod_polygones
 c-----------------------------------------------------------------------
 
 

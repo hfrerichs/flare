@@ -146,9 +146,17 @@ end subroutine broadcast_char
 subroutine sum_inte_data(A,ndim)
 integer, intent(in)                    :: ndim
 integer, dimension(ndim), intent(inout) :: A
+integer, dimension(:), allocatable      :: B,C
 
-! to be implemented
-stop
+if (nprs.le.1) return
+#if defined(parallelMPI)
+    call MPI_BARRIER(MPI_COMM_WORLD,ER_PAR)
+    allocate (B(ndim))
+    B = A
+    call MPI_ALLREDUCE (B,A,NDIM,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ER_PAR)
+    deallocate (B)
+#endif
+
 end subroutine sum_inte_data
 !===============================================================================
 

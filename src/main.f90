@@ -12,10 +12,10 @@ program main
   if (firstP) then
      write (6, 1000)
      write (6, *) 'Running FLARE (tagname Monkey Island)'
-     write (6, *)
      if (nprs.gt.1) then
         write (6, *) 'on ', nprs, ' processors'
      endif
+     write (6, *)
   endif
 
 

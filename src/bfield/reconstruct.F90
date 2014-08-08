@@ -22,7 +22,8 @@ module reconstruct
 
 
   public :: &
-     load_reconstruct_config
+     load_reconstruct_config, &
+     broadcast_mod_reconstruct
   contains
 !=======================================================================
 
@@ -106,5 +107,18 @@ module reconstruct
   end function trace_fl
 !=======================================================================
 
+
+
+!=======================================================================
+  subroutine broadcast_mod_reconstruct
+  use parallel
+
+  if (nprs > 1) then
+     if (firstP) write (6, *) 'module reconstruct does not support parallel execution!'
+     stop
+  endif
+
+  end subroutine broadcast_mod_reconstruct
+!=======================================================================
 
 end module reconstruct

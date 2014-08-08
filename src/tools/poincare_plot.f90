@@ -172,14 +172,14 @@ subroutine poincare_plot
 
         ! check intersection with boundaries
         if (F%intersect_boundary(X)) then
-           if (firstP) write (6,4000) ig, lc/1.d2, icut
+           write (6,4000) ig, lc/1.d2, icut
            exit trace_loop
         endif
 
 
         ! check upper limit for field line tracing
         if (icut .ge. N_turns*N_mult) then
-           if (firstP) write (6,4001) ig, lc/1.d2, icut
+           write (6,4001) ig, lc/1.d2, icut
            exit trace_loop
         endif
      enddo trace_loop
@@ -190,6 +190,10 @@ subroutine poincare_plot
 
 
 ! finalize .............................................................
+  call wait_pe()
+  call sum_inte_data (Pdata%n_points, n_grid*N_mult)
+  call sum_real_data (Pdata%X       , n_grid*N_mult*N_turns*4)
+
   if (firstP) then
   ! write data
   do ig=0,n_grid-1
@@ -209,11 +213,11 @@ subroutine poincare_plot
   deallocate (Pdata%n_points, Pdata%X)
 ! ......................................................................
 
+
  1001 format (8x,'radial domain:',5x,'R_start = ',f6.2,5x, &
               'R_end = ',f6.2,5x,'with ',i4,' steps'/)
  1002 format (8x,'position:',5x,'R = ',f6.2,5x/)
 
  4000 format (5x,i5,',',8x,'L_c = ',f9.2,' m,',8x,'n_points = ',i5)
  4001 format (5x,i5,',',8x,'L_c > ',f9.2,' m,',8x,'n_points = ',i5)
-
 end subroutine poincare_plot

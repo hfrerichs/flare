@@ -136,12 +136,7 @@ module equilibrium
 
 
 ! load equilibrium data
-  call setup_G_EQDSK (Data_File, use_PFC, Current_Fix, Diagnostic_Level, R_axis, Z_axis, Psi_axis, Psi_sepx)
-  get_BCart_eq2D => get_BCart_geqdsk
-  get_BCyl_eq2D  => get_BCyl_geqdsk
-  get_Psi        => get_Psi_geqdsk
-  equilibrium_provides_PFC => geqdsk_provides_PFC
-  export_PFC               => export_PFC_geqdsk
+  call load_mod_geqdsk (Data_File, use_PFC, Current_Fix, Diagnostic_Level, R_axis, Z_axis, Psi_axis, Psi_sepx)
 
 
 ! set user defined values, if present
@@ -162,6 +157,41 @@ module equilibrium
  1001 format ('   - Axisymmetric (2D) MHD equilibrium:')
   end subroutine load_equilibrium_config
 !=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_equilibrium()
+  use geqdsk
+
+  ! select case equilibrium
+  get_BCart_eq2D => get_BCart_geqdsk
+  get_BCyl_eq2D  => get_BCyl_geqdsk
+  get_Psi        => get_Psi_geqdsk
+  equilibrium_provides_PFC => geqdsk_provides_PFC
+  export_PFC               => export_PFC_geqdsk
+
+  end subroutine setup_equilibrium
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine broadcast_mod_equilibrium()
+  use parallel
+  use geqdsk
+
+  call broadcast_real_s (R_axis)
+  call broadcast_real_s (Z_axis)
+  call broadcast_real_s (Psi_axis)
+  call broadcast_real_s (Psi_sepx)
+
+  ! select case equilibrium
+  call broadcast_mod_geqdsk()
+
+  end subroutine broadcast_mod_equilibrium
+!=======================================================================
+
 
 
 !=======================================================================
@@ -226,6 +256,5 @@ module equilibrium
   ! n = 2, y(1) = R, y(2) = Z
   end subroutine Bf_pol_sub
 !=======================================================================
-
 
 end module equilibrium

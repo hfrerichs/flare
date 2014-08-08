@@ -38,9 +38,7 @@ module boundary
 
   ! load configuration on first processor
   if (mype == 0) call load_boundary()
-
-  call wait_pe()
-  !call broadcast_inte (i_config, BF_MAX_CONFIG)
+  call broadcast_boundary()
 
   end subroutine setup_boundary
 !=======================================================================
@@ -167,6 +165,48 @@ module boundary
  3001 format (8x,'Number of segments: ',i8)
   stop
   end subroutine load_boundary
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine broadcast_boundary()
+  use parallel
+
+  if (nprs == 1) return
+
+  call wait_pe()
+  call broadcast_axisym_surf()
+
+  contains
+!-----------------------------------------------------------------------
+! axisymmetric surfaces
+  subroutine broadcast_axisym_surf()
+
+  integer :: i, n, m
+
+
+  call broadcast_inte_s (n_axi)
+  if (n_axi == 0) return
+
+  if (mype > 0) allocate (S_axi(n_axi))
+  do i=1,n_axi
+     call broadcast_inte_s (S_axi(i)%n_seg)
+     call broadcast_inte_s (S_axi(i)%n_dim)
+
+     n = S_axi(i)%n_seg
+     m = S_axi(i)%n_dim
+     if (mype > 0) then
+        allocate (S_axi(i)%x_data(0:n,m))
+        !allocate (S_axi(i)%w_seg (1:n))
+     endif
+     call broadcast_real  (S_axi(i)%x_data, (n+1)*m)
+     !call broadcast_real  (S_axi(i)%w_seg,   n)
+  enddo
+
+  end subroutine broadcast_axisym_surf
+!-----------------------------------------------------------------------
+  end subroutine broadcast_boundary
 !=======================================================================
 
 
