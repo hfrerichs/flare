@@ -3,9 +3,10 @@
 ! reconstruction)
 !===============================================================================
 module fieldline
+  use math
   use ode_solver
   use bfield
-  use math
+  use boundary
   implicit none
 
   integer, parameter :: FL_LINE  = 1
@@ -26,7 +27,9 @@ module fieldline
      integer :: iplane
 
      contains
-     procedure :: init, init_toroidal_tracing, intersect_sym_plane
+     procedure :: init, trace, init_toroidal_tracing, intersect_sym_plane
+
+     procedure :: intersect_boundary => fieldline_intersects_boundary
   end type t_fieldline
 
   contains
@@ -62,26 +65,54 @@ module fieldline
      end select
   endif
 
+
+  ! initialize internal variables
+  call coord_trans (y0, icoord, this%rc, CYLINDRICAL)
+
   end subroutine init
 !=======================================================================
 
 
 
 !=======================================================================
-  function intersect_sym_plane(this, icut, ycut) result(l)
+  function trace(this) result(yc)
+  class(t_fieldline), intent(inout) :: this
+  real*8                            :: yc(3)
+
+  this%rl = this%rc
+  yc      = this%next_step()
+  call coord_trans (yc, Trace_Coords, this%rc, CYLINDRICAL)
+
+  end function trace
+!=======================================================================
+
+
+
+!=======================================================================
+  function fieldline_intersects_boundary(this, rcut) result(l)
+  class(t_fieldline), intent(inout) :: this
+  real*8, intent(out)               :: rcut(3)
+  logical                           :: l
+
+  l = intersect_boundary (this%rl, this%rc, rcut)
+
+  end function fieldline_intersects_boundary
+!=======================================================================
+
+
+
+!=======================================================================
+  function intersect_sym_plane(this, icut, rcut) result(l)
   class(t_fieldline), intent(inout) :: this
   integer, intent(inout) :: icut
-  real*8, intent(out)    :: ycut(3)
+  real*8, intent(out)    :: rcut(3)
   logical :: l
 
-  real*8 :: yc(3), dphi, fff
+  real*8 :: dphi, fff
 
 
-  yc   = this%next_step()
-  call coord_trans (yc, Trace_Coords, this%rc, CYLINDRICAL)
   dphi      = dabs(this%rc(3) - this%rl(3))
   if (dphi > pi) dphi = pi2 - dphi
-  !write (6, *) this%rc(3)
 
 
   if ((this%phit - this%phi_sym)*(this%phit + dphi - this%phi_sym) .le. 0.d0) then
@@ -89,16 +120,14 @@ module fieldline
      this%phit = (1.d0 - fff) * dphi
      l         = .true.
      icut      = icut + 1
-     ycut      = this%rl + fff * (this%rc-this%rl)
+     rcut      = this%rl + fff * (this%rc-this%rl)
   else
      this%phit = this%phit + dphi
      l         = .false.
   endif
-  this%rl = this%rc
 
   end function intersect_sym_plane
 !=======================================================================
-! function trace_to_next_plane
 
 
 
@@ -115,9 +144,6 @@ module fieldline
 
   call this%init(y0, ds, isolver, icoord)
 
-  ! initialize internal variables
-  call coord_trans (y0, icoord, this%rl, CYLINDRICAL)
-
 
   ! for Poincare plots
   this%iplane = 0
@@ -127,7 +153,7 @@ module fieldline
   else
      sgn  = sign(1.d0, ds) * Bt_sign
   endif
-  this%phit    = mod(this%rl(3), this%phi_sym)
+  this%phit    = mod(this%rc(3), this%phi_sym)
   this%phit    = this%phit - sgn * phi_out * pi2/360.d0
 
   end subroutine
