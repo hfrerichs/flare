@@ -2,6 +2,10 @@ module math
   implicit none
 
   real*8, parameter :: pi    = 3.14159265358979323846264338328d0, pi2 = 2.d0 * pi
+
+  integer, parameter :: &
+     CARTESIAN   = 1, &
+     CYLINDRICAL = 2
   
   contains
 !=======================================================================
@@ -11,7 +15,7 @@ module math
 !=======================================================================
 ! Coordinate transformation
 ! c = 1: Cartesian coordinates [cm]
-! c > 1: Cylindrical coordinates [cm,deg]
+! c > 1: Cylindrical coordinates [cm,rad]
 !=======================================================================
   subroutine coord_trans (y_in, c_in, y_out, c_out)
   real*8,  intent(in)  :: y_in(3)
@@ -34,12 +38,12 @@ module math
   if (c_in == 1) then
      y_out(1) = sqrt(y_in(1)**2 +  y_in(2)**2)
      y_out(2) = y_in(3)
-     y_out(3) = atan2(y_in(2), y_in(1)) / pi * 180.d0
+     y_out(3) = atan2(y_in(2), y_in(1))
 
   ! input is in cylindrical coordinates, output in Cartesian coordinates
   else
-     y_out(1) = y_in(1) * cos(y_in(3)/180.d0*pi)
-     y_out(2) = y_in(1) * sin(y_in(3)/180.d0*pi)
+     y_out(1) = y_in(1) * cos(y_in(3))
+     y_out(2) = y_in(1) * sin(y_in(3))
      y_out(3) = y_in(2)
   endif
 

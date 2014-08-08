@@ -15,8 +15,18 @@ module fieldline
   integer, parameter :: FL_Reconstruction = 0
 
   type, extends(t_ODE) :: t_fieldline
+     ! integrated toroidal and poloidal angle
+     real*8 :: phic, thetac
+     ! last and current state in cylindrical coordinates
+     real*8 :: rl(3), rc(3)
+
+     ! toroidal distance to last intersection with symmetry plane
+     real*8 :: phit
+     real*8 :: phi_sym
+     integer :: iplane
+
      contains
-     procedure :: init
+     procedure :: init, init_toroidal_tracing, intersect_sym_plane
   end type t_fieldline
 
   contains
@@ -43,10 +53,8 @@ module fieldline
      case (FL_LINE)
         call this%init_ODE (3, y1, ds, Bf_sub_cart, isolver)
      case (FL_ARC)
-        y1(3) = y1(3) / 180.d0 * pi	! deg -> rad
         call this%init_ODE (3, y1, ds, Bf_sub_cyl, isolver)
      case (FL_ANGLE)
-        y1(3) = y1(3) / 180.d0 * pi	! deg -> rad
         call this%init_ODE (3, y1, ds, Bf_sub_cyl_norm, isolver)
      case default
         write (6, *) 'invalid parameter icoord = ', icoord
@@ -55,6 +63,74 @@ module fieldline
   endif
 
   end subroutine init
+!=======================================================================
+
+
+
+!=======================================================================
+  function intersect_sym_plane(this, icut, ycut) result(l)
+  class(t_fieldline), intent(inout) :: this
+  integer, intent(inout) :: icut
+  real*8, intent(out)    :: ycut(3)
+  logical :: l
+
+  real*8 :: yc(3), dphi, fff
+
+
+  yc   = this%next_step()
+  call coord_trans (yc, Trace_Coords, this%rc, CYLINDRICAL)
+  dphi      = dabs(this%rc(3) - this%rl(3))
+  if (dphi > pi) dphi = pi2 - dphi
+  !write (6, *) this%rc(3)
+
+
+  if ((this%phit - this%phi_sym)*(this%phit + dphi - this%phi_sym) .le. 0.d0) then
+     fff       = (this%phi_sym - this%phit) / dphi
+     this%phit = (1.d0 - fff) * dphi
+     l         = .true.
+     icut      = icut + 1
+     ycut      = this%rl + fff * (this%rc-this%rl)
+  else
+     this%phit = this%phit + dphi
+     l         = .false.
+  endif
+  this%rl = this%rc
+
+  end function intersect_sym_plane
+!=======================================================================
+! function trace_to_next_plane
+
+
+
+!=======================================================================
+  subroutine init_toroidal_tracing(this, y0, ds, isolver, icoord, nsym, phi_out)
+  use equilibrium
+
+  class (t_fieldline) :: this
+  real*8, intent(in)  :: y0(3), ds, phi_out
+  integer, intent(in) :: isolver, icoord, nsym
+
+  real*8 :: sgn
+
+
+  call this%init(y0, ds, isolver, icoord)
+
+  ! initialize internal variables
+  call coord_trans (y0, icoord, this%rl, CYLINDRICAL)
+
+
+  ! for Poincare plots
+  this%iplane = 0
+  this%phi_sym = pi2 / nsym
+  if (icoord == 2) then
+     sgn  = 1.d0 * Bt_sign
+  else
+     sgn  = sign(1.d0, ds) * Bt_sign
+  endif
+  this%phit    = mod(this%rl(3), this%phi_sym)
+  this%phit    = this%phit - sgn * phi_out * pi2/360.d0
+
+  end subroutine
 !=======================================================================
 
 
@@ -85,7 +161,7 @@ module fieldline
 
   f    = get_Bf_Cyl(y)
   f    = f / dsqrt(sum(f**2))
-  f(3) = f(3) / y(1) * 180.d0/pi
+  f(3) = f(3) / y(1)
 
   end subroutine Bf_sub_cyl
 !=======================================================================
@@ -101,7 +177,7 @@ module fieldline
   real*8, intent(out) :: f(n)
 
   f      = get_Bf_Cyl(y)
-  f(1:2) = y(1) * f(1:2) / f(3) *pi/180.d0
+  f(1:2) = y(1) * f(1:2) / f(3)
   f(3)   = 1.d0
 
   end subroutine Bf_sub_cyl_norm
