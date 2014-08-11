@@ -22,7 +22,7 @@ module run_control
 
   integer :: &
      N_steps        = 1000, &       ! Number of discrete steps
-     N_turns        = 0, &          ! Number of toroidal turns for Poincare plots
+     N_points       = 0, &          ! Max. number of points for Poincare plots
      N_sym          = 1, &          ! Toroidal symmetry factor (for Poincare plots)
      N_mult         = 1, &          !
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
@@ -40,7 +40,7 @@ module run_control
      Machine, Configuration, &
      Run_Type, Output_File, Grid_File, Output_Format, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
-     R_start, R_end, Phi_output, N_turns, N_sym, N_mult
+     R_start, R_end, Phi_output, N_points, N_sym, N_mult
 
   contains
 !=======================================================================
@@ -85,7 +85,7 @@ module run_control
   call broadcast_real_s (R_end           )
   call broadcast_real_s (Phi_output      )
   call broadcast_inte_s (N_steps         )
-  call broadcast_inte_s (N_turns         )
+  call broadcast_inte_s (N_points        )
   call broadcast_inte_s (N_sym           )
   call broadcast_inte_s (N_mult          )
   call broadcast_inte_s (Trace_Method    )

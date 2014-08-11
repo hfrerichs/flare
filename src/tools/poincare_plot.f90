@@ -2,7 +2,20 @@
 ! Generate Poincare plot
 !
 ! Input (taken from run control file):
-!    Grid_File          Provide initial positions for several field lines
+! start locations: 1.
+!    R_start, R_end     Equidistant steps between R_start and R_end at Z = 0, Phi = 0
+!    N_steps		Number of steps between start locations for field line tracing
+! or. 2.
+!    Grid_File          Provide file with start locations
+! or. 3.
+!    x_start            Single start location for field line tracing
+!
+!
+!    N_points           Max. number of points for each Poincare plot
+!    N_sym              Apply toroidal symmetry, i.e. Poincare sections at multiples of 2*pi/N_sym
+!    N_mult		Generate multiple Poincare plots: the toroidal domain 2*pi/N_sym is split into N_mult sub-domains
+!    Phi_Output         Toroidal position [deg] of (base) Poincare plot
+!
 !
 !    Trace_Step         Size of trace steps (see Trace_Coords)
 !    Limit              Maximum distance for field line tracing (in one direction)
@@ -27,8 +40,8 @@
 !===============================================================================
 subroutine poincare_plot
   use run_control, only: R_start, R_end, N_steps, Grid_File, Output_File, Output_Format, &
-                         Trace_Step, Trace_Method, Trace_Coords, &
-                         N_turns, N_sym, N_mult, Phi_output
+                         Trace_Step, Trace_Method, Trace_Coords, Limit, &
+                         N_points, N_sym, N_mult, Phi_output, x_start
   use parallel
   use equilibrium
   use boundary
@@ -102,12 +115,12 @@ subroutine poincare_plot
   ! use radial range R_start -> R_end
   else
      dr   = 0.d0
-     my_grid => new_grid(N_steps, log_progress=.false.)
+     my_grid => new_grid(N_steps+1, log_progress=.false.)
 
      if (N_steps .ne. 1) then
-        dr = (R_end - R_start) / (N_steps - 1)
+        dr = (R_end - R_start) / N_steps
         if (firstP) write (6,1001) R_start, R_end, N_steps
-        do ig=0,N_steps-1
+        do ig=0,N_steps
            my_grid(ig+1,1) = R_start + ig*dr
         enddo
      else
@@ -128,7 +141,7 @@ subroutine poincare_plot
   Pdata%n_cuts = N_mult
   allocate (Pdata%n_points(0:n_grid-1, 0:N_mult-1))
   Pdata%n_points = 0
-  allocate (Pdata%X       (0:n_grid-1, 0:N_mult-1, N_turns, 4))
+  allocate (Pdata%X       (0:n_grid-1, 0:N_mult-1, N_points, 4))
   Pdata%X        = 0.d0
 !.......................................................................
 
@@ -178,7 +191,7 @@ subroutine poincare_plot
 
 
         ! check upper limit for field line tracing
-        if (icut .ge. N_turns*N_mult) then
+        if (icut .ge. N_points*N_mult) then
            write (6,4001) ig, lc/1.d2, icut
            exit trace_loop
         endif
@@ -192,7 +205,7 @@ subroutine poincare_plot
 ! finalize .............................................................
   call wait_pe()
   call sum_inte_data (Pdata%n_points, n_grid*N_mult)
-  call sum_real_data (Pdata%X       , n_grid*N_mult*N_turns*4)
+  call sum_real_data (Pdata%X       , n_grid*N_mult*N_points*4)
 
   if (firstP) then
   ! write data
