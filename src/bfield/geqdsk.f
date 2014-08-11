@@ -38,49 +38,33 @@
       logical :: switch_poloidal_field
 
       public ::
-     1    read_G_EQDSK_config, load_mod_geqdsk,
-     b    broadcast_mod_geqdsk,
-     a    get_Bcyl_geqdsk, get_Bcart_geqdsk,
-     3    sample_psi_EQDSK, get_Psi_geqdsk,
-     a    sample_psi1_EQDSK, get_D1Psi_geqdsk,
-     b    sample_psi2_EQDSK, get_D2Psi_geqdsk,
-     4    equi_info_EQDSK, get_equi_domain_EQDSK, magnetic_axis_geqdsk,
-     b    switch_poloidal_field_only_EQDSK, use_wall,
-     5    guess_Xpoint_EQDSK,
-     b    geqdsk_provides_PFC, export_PFC_geqdsk,get_wall_configuration,
-     c    jt_profile,
-     6    Bcentr, Current
+     1    geqdsk_load,
+     2    geqdsk_broadcast,
+     3    geqdsk_get_Bcyl,
+     4    geqdsk_get_Bcart,
+     5    geqdsk_get_Psi, 
+     6    geqdsk_get_DPsi,
+     7    geqdsk_get_domain,
+     8    geqdsk_provides_boundary,
+     9    geqdsk_export_boundary
+!     a    sample_psi1_EQDSK, get_D1Psi_geqdsk,
+!     b    sample_psi2_EQDSK, get_D2Psi_geqdsk,
+!     4    equi_info_EQDSK, get_equi_domain_EQDSK, magnetic_axis_geqdsk,
+!     b    switch_poloidal_field_only_EQDSK, use_wall,
+!     5    guess_Xpoint_EQDSK,
+!     b    geqdsk_provides_PFC, export_PFC_geqdsk,get_wall_configuration,
+!     c    jt_profile,
+!     6    Bcentr, Current
       contains
-c-------------------------------------------------------------------------------
+!===============================================================================
 
 
-c-------------------------------------------------------------------------------
-      subroutine read_G_EQDSK_config (iun, iconfig, Prefix)
-      integer, intent(in)  :: iun
-      integer, intent(out) :: iconfig
-      character*120, intent(in) :: Prefix
 
-      character*120 :: Data_File
-
-      rewind (iun)
-      read   (iun, G_EQDSK_Input, end=1000)
-      iconfig = 1
-      write (6, *)
-      write (6, 1001)
-
-      Data_File = trim(Prefix)//G_file
-      call load_mod_geqdsk (Data_File)
-
-      return
- 1000 iconfig = 0
- 1001 format ('   - Axisymmetric (2D) MHD equilibrium (GEQDSK):')
-      end subroutine read_G_EQDSK_config
-c-------------------------------------------------------------------------------
-
-
-c-------------------------------------------------------------------------------
-      subroutine load_mod_geqdsk (Data_File, use_PFC_, CurrentFix_, DL_,
-     .                          R_axis, Z_axis, psi_axis, psi_sepx)
+!===============================================================================
+! Load equilibrum data from file
+!===============================================================================
+      subroutine geqdsk_load (Data_File, use_PFC_, CurrentFix_, DL_,
+     .                        R_axis, Z_axis, psi_axis, psi_sepx)
       use bspline
       character*120, intent(in) :: Data_File
       logical, intent(in), optional  :: use_PFC_, CurrentFix_
@@ -263,12 +247,15 @@ c-----------------------------------------------------------------------
  3005 format (8x,'Total plasma current:       Ip     = ',f8.3,' MA')
  3006 format (8x,'Direction of plasma current is taken from flux',
      .        ' distribution!')
-      end subroutine load_mod_geqdsk
-c-------------------------------------------------------------------------------
+      end subroutine geqdsk_load
+!===============================================================================
 
 
-c-------------------------------------------------------------------------------
-      subroutine broadcast_mod_geqdsk
+
+!===============================================================================
+! Broadcast data for parallel execution
+!===============================================================================
+      subroutine geqdsk_broadcast
       use parallel
 
       call broadcast_inte_s (nR)
@@ -306,19 +293,17 @@ c-------------------------------------------------------------------------------
       call broadcast_real   (zlim, limitr)
 
       return
-      end subroutine broadcast_mod_geqdsk
-c-------------------------------------------------------------------------------
+      end subroutine geqdsk_broadcast
+!===============================================================================
 
 
-!-------------------------------------------------------------------------------
-! calculate R,phi,Z components of magnetic field vector (Gauss) at R,Z (cm)
-!-------------------------------------------------------------------------------
-      function get_Bcyl_geqdsk(r) result(Bf)
-      !subroutine Bcyl_EQDSK (R, Z, BR, BP, BZ)
+
+!===============================================================================
+! Calculate R,phi,Z components of magnetic field vector [Gauss] at r=(R,Z [cm], phi [rad])
+!===============================================================================
+      function geqdsk_get_Bcyl(r) result(Bf)
       use bspline
 
-      !real*8, intent(in)  :: R, Z
-      !real*8, intent(out) :: BR, BP, BZ
       real*8, intent(in)  :: r(3)
       real*8              :: Bf(3)
 
@@ -351,57 +336,42 @@ c-------------------------------------------------------------------------------
       Bf(3)   =  dbsval(psi,nord,PsinEQD,nR,fpolcoeff) / rr
       Bf(3)   =  Bf(3) * 1.d4 ! T -> Gauss
 
-      !end subroutine Bcyl_EQDSK
-      end function get_Bcyl_geqdsk
-!-------------------------------------------------------------------------------
+      end function geqdsk_get_Bcyl
+!===============================================================================
 
 
-!-------------------------------------------------------------------------------
-      function get_Bcart_geqdsk(x) result(Bf)
-      real*8, intent(in) :: x(3)
+
+!===============================================================================
+! Calculate Cartesian components of magnetic field vector (Gauss) at x3=(x,y,z [cm])
+!===============================================================================
+      function geqdsk_get_Bcart(x3) result(Bf)
+      real*8, intent(in) :: x3(3)
       real*8             :: Bf(3)
 
       real*8 :: Bcyl(3), r(3), sin_phi, cos_phi
 
 
-      r(1)  = dsqrt(x(1)**2 + x(2)**2)
-      r(2)  = x(3)
-      r(3)  = datan2(x(2), x(1))
-      Bcyl  = get_Bcyl_geqdsk(r)
+      r(1)  = dsqrt(x3(1)**2 + x3(2)**2)
+      r(2)  = x3(3)
+      r(3)  = datan2(x3(2), x3(1))
+      Bcyl  = geqdsk_get_Bcyl(r)
 
-      cos_phi = x(1) / r(1)
-      sin_phi = x(2) / r(1)
+      cos_phi = x3(1) / r(1)
+      sin_phi = x3(2) / r(1)
       Bf(1) = Bcyl(1) * cos_phi - Bcyl(3) * sin_phi
       Bf(2) = Bcyl(1) * sin_phi + Bcyl(3) * cos_phi
       Bf(3) = Bcyl(2)
 
 
-      end function get_Bcart_geqdsk
-!-------------------------------------------------------------------------------
+      end function geqdsk_get_Bcart
+!===============================================================================
 
 
-c-------------------------------------------------------------------------------
-c- sample poloidal flux at R, Z
-c-------------------------------------------------------------------------------
-      subroutine sample_psi_EQDSK (R, Z, psi)
-      use bspline
 
-      real*8, intent(in)  :: R, z
-      real*8, intent(out) :: psi
-
-      real*8 :: rr, zz
-
-      ! convert cm -> m
-      rr   = R / 100.d0
-      zz   = Z / 100.d0
-
-      psi  =  dbs2dr(0,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
-
-
-      return
-      end subroutine sample_psi_EQDSK
-c-------------------------------------------------------------------------------
-      function get_Psi_geqdsk(r) result(Psi)
+!===============================================================================
+! Sample poloidal magnetic flux at r=(R,Z [cm], phi [rad])
+!===============================================================================
+      function geqdsk_get_Psi(r) result(Psi)
       use bspline
 
       real*8, intent(in) :: r(3)
@@ -415,8 +385,84 @@ c-------------------------------------------------------------------------------
       zz  = r(2) / 100.d0
       Psi =  dbs2dr(0,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
 
-      end function get_Psi_geqdsk
+      end function geqdsk_get_Psi
+!===============================================================================
+
+
+
+!===============================================================================
+! Sample (nR,nZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm], phi [rad])
+!===============================================================================
+      function geqdsk_get_DPsi(r, nR, nZ) result(DPsi)
+      use bspline
+
+      real*8, intent(in)  :: r(3)
+      integer, intent(in) :: nR, nZ
+      real*8              :: DPsi
+
+      real*8 :: rr, zz
+
+
+      ! convert cm -> m
+      rr   = r(1) / 100.d0
+      zz   = r(2) / 100.d0
+      DPsi = dbs2dr(nR,nZ,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+
+      end function geqdsk_get_DPsi
+!===============================================================================
+
+
+
+!===============================================================================
+! Return boundaries [cm] of equilibrium domain
+!===============================================================================
+      subroutine geqdsk_get_domain(Rbox, Zbox)
+      real*8, intent(out) :: Rbox(2), Zbox(2)
+
+
+      Rlim(1) = Rleft * 1.d2
+      Rlim(2) = (Rleft+Rdim) * 1.d2
+      Zlim(1) = (Zmid-Zdim/2.d0) * 1.d2
+      Zlim(2) = (Zmid+Zdim/2.d0) * 1.d2
+
+      return
+      end subroutine geqdsk_get_domain
+!===============================================================================
+
+
+
+!===============================================================================
+c Return the wall configuration provided in the g-file
+!===============================================================================
+      function geqdsk_provides_boundary() result(l)
+      logical :: l
+
+      l = use_wall
+      end function geqdsk_provides_boundary
 c-------------------------------------------------------------------------------
+      subroutine geqdsk_export_boundary(S)
+      use curve2D
+      type(t_curve), intent(out) :: S
+
+      call make_2D_curve (limitr, rlim, zlim, S)
+      ! m -> cm
+      S%x_data = S%x_data * 1.d2
+      end subroutine geqdsk_export_boundary
+!===============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 c-------------------------------------------------------------------------------
@@ -441,22 +487,6 @@ c-------------------------------------------------------------------------------
       return
       end subroutine sample_psi1_EQDSK
 c-------------------------------------------------------------------------------
-      function get_D1Psi_geqdsk(r) result(D1Psi)
-      use bspline
-
-      real*8, intent(in) :: r(3)
-      real*8             :: D1Psi(2)
-
-      real*8 :: rr, zz
-
-
-      ! convert cm -> m
-      rr  = r(1) / 100.d0
-      zz  = r(2) / 100.d0
-      D1Psi(1)  =  dbs2dr(1,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
-      D1Psi(2)  =  dbs2dr(0,1,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
-
-      end function get_D1Psi_geqdsk
 c-------------------------------------------------------------------------------
 
 
@@ -531,21 +561,6 @@ c-------------------------------------------------------------------------------
 
 
 c-------------------------------------------------------------------------------
-      subroutine get_equi_domain_EQDSK (Rlim, Zlim)
-      real*8, intent(out) :: Rlim(2), Zlim(2)
-
-
-      Rlim(1) = Rleft * 1.d2
-      Rlim(2) = (Rleft+Rdim) * 1.d2
-      Zlim(1) = (Zmid-Zdim/2.d0) * 1.d2
-      Zlim(2) = (Zmid+Zdim/2.d0) * 1.d2
-
-      return
-      end subroutine get_equi_domain_EQDSK
-c-------------------------------------------------------------------------------
-
-
-c-------------------------------------------------------------------------------
 c Switch between poloidal magnetic field component and full configuration
 c-------------------------------------------------------------------------------
       subroutine switch_poloidal_field_only_EQDSK (lswitch)
@@ -567,37 +582,6 @@ c-------------------------------------------------------------------------------
 
       return
       end subroutine guess_Xpoint_EQDSK
-c-------------------------------------------------------------------------------
-
-
-c-------------------------------------------------------------------------------
-c Return the wall configuration provided in the g-file
-c-------------------------------------------------------------------------------
-      function geqdsk_provides_PFC() result(l)
-      logical :: l
-
-      l = use_wall
-      end function geqdsk_provides_PFC
-c-------------------------------------------------------------------------------
-      subroutine get_wall_configuration (nwall, pRwall, pZwall)
-      integer, intent(out) :: nwall
-      real*8, dimension(:), pointer :: pRwall, pZwall
-
-      nwall = limitr
-      pRwall => rlim
-      pZwall => zlim
-
-      return
-      end subroutine get_wall_configuration
-c-------------------------------------------------------------------------------
-      subroutine export_PFC_geqdsk(S)
-      use curve2D
-      type(t_curve), intent(out) :: S
-
-      call make_2D_curve (limitr, rlim, zlim, S)
-      ! m -> cm
-      S%x_data = S%x_data * 1.d2
-      end subroutine export_PFC_geqdsk
 c-------------------------------------------------------------------------------
 
 
