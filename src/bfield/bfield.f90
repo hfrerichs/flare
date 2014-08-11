@@ -49,7 +49,6 @@ module bfield
   call broadcast_inte (iconfig, BF_MAX_CONFIG)
 
   if (iconfig(BF_RECONSTRUCT) == 1) call broadcast_mod_reconstruct()
-  if (iconfig(BF_EQ2D       ) == 1) call setup_equilibrium()
   if (iconfig(BF_EQ2D       ) == 1) call broadcast_mod_equilibrium()
   if (iconfig(BF_COILS      ) == 1) call broadcast_mod_polygones()
 

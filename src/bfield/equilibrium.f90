@@ -40,7 +40,7 @@ module equilibrium
      Ip_sign  = 0
 
 
-  ! equilibrium id (in module bfield)
+  ! equilibrium type
   integer :: i_equi = -1
 
 
@@ -126,6 +126,9 @@ module equilibrium
 
 
 ! determine equilibrium type
+   i_equi = 1
+
+
 !...
 !  select case(Data_Format)
 !  case ('geqdsk')
@@ -151,6 +154,7 @@ module equilibrium
   !Psi_axis = get_Psi(magnetic_axis())
   !Psi_sepx = 
 
+  call setup_equilibrium()
 
   return
  1000 iconfig = 0
@@ -181,13 +185,23 @@ module equilibrium
   use parallel
   use geqdsk
 
+
+  if (nprs == 1) return
+
   call broadcast_real_s (R_axis)
   call broadcast_real_s (Z_axis)
   call broadcast_real_s (Psi_axis)
   call broadcast_real_s (Psi_sepx)
+  call broadcast_inte_s (i_equi)
+  call wait_pe()
+
 
   ! select case equilibrium
-  call broadcast_mod_geqdsk()
+  select case(i_equi)
+  case(1)
+     call broadcast_mod_geqdsk()
+  end select
+  if (mype > 0) call setup_equilibrium()
 
   end subroutine broadcast_mod_equilibrium
 !=======================================================================
