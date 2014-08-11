@@ -5,11 +5,6 @@
 ! in cm (centi meter), the azimuth angle is given in rad (radians).
 !===============================================================================
 module bfield
-  use run_control
-  use parallel
-  use reconstruct
-  use equilibrium
-  use polygones
   implicit none
 
   integer, parameter :: &
@@ -31,6 +26,11 @@ module bfield
 
 !=======================================================================
   subroutine setup_bfield_configuration
+  use run_control
+  use parallel
+  use reconstruct
+  use equilibrium
+  use polygones
 
   integer, parameter :: iu = 24
 
@@ -65,6 +65,8 @@ module bfield
 ! return magnetic field components using Cylindrical coordinates
 !=======================================================================
   function get_Bf_Cyl(r) result(Bf)
+  use equilibrium
+  use polygones
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -84,6 +86,8 @@ module bfield
 ! return magnetic field components using Cartesian coordinates
 !=======================================================================
   function get_Bf_Cart(x) result(Bf)
+  use equilibrium
+  use polygones
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 

@@ -26,6 +26,8 @@ module fieldline
      real*8 :: phi_sym
      integer :: iplane
 
+     integer :: Trace_Coords
+
      contains
      procedure :: init, trace, init_toroidal_tracing, intersect_sym_plane
 
@@ -52,6 +54,8 @@ module fieldline
 
   ! use numerical integration method isolver > 0
   elseif (isolver > 0) then
+     this%Trace_Coords = icoord
+
      select case (icoord)
      case (FL_LINE)
         call this%init_ODE (3, y1, ds, Bf_sub_cart, isolver)
@@ -81,7 +85,7 @@ module fieldline
 
   this%rl = this%rc
   yc      = this%next_step()
-  call coord_trans (yc, Trace_Coords, this%rc, CYLINDRICAL)
+  call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
 
   end function trace
 !=======================================================================
