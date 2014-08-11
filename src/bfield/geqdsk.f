@@ -42,8 +42,8 @@
      b    broadcast_mod_geqdsk,
      a    get_Bcyl_geqdsk, get_Bcart_geqdsk,
      3    sample_psi_EQDSK, get_Psi_geqdsk,
-     a    sample_psi1_EQDSK,
-     b    sample_psi2_EQDSK,
+     a    sample_psi1_EQDSK, get_D1Psi_geqdsk,
+     b    sample_psi2_EQDSK, get_D2Psi_geqdsk,
      4    equi_info_EQDSK, get_equi_domain_EQDSK, magnetic_axis_geqdsk,
      b    switch_poloidal_field_only_EQDSK, use_wall,
      5    guess_Xpoint_EQDSK,
@@ -441,6 +441,23 @@ c-------------------------------------------------------------------------------
       return
       end subroutine sample_psi1_EQDSK
 c-------------------------------------------------------------------------------
+      function get_D1Psi_geqdsk(r) result(D1Psi)
+      use bspline
+
+      real*8, intent(in) :: r(3)
+      real*8             :: D1Psi(2)
+
+      real*8 :: rr, zz
+
+
+      ! convert cm -> m
+      rr  = r(1) / 100.d0
+      zz  = r(2) / 100.d0
+      D1Psi(1)  =  dbs2dr(1,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      D1Psi(2)  =  dbs2dr(0,1,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+
+      end function get_D1Psi_geqdsk
+c-------------------------------------------------------------------------------
 
 
 c-------------------------------------------------------------------------------
@@ -465,6 +482,24 @@ c-------------------------------------------------------------------------------
 
       return
       end subroutine sample_psi2_EQDSK
+c-------------------------------------------------------------------------------
+      function get_D2Psi_geqdsk(r) result(D2Psi)
+      use bspline
+
+      real*8, intent(in) :: r(3)
+      real*8             :: D2Psi(3)
+
+      real*8 :: rr, zz
+
+
+      ! convert cm -> m
+      rr  = r(1) / 100.d0
+      zz  = r(2) / 100.d0
+      D2Psi(1)  =  dbs2dr(2,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      D2Psi(2)  =  dbs2dr(1,1,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      D2Psi(3)  =  dbs2dr(0,2,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+
+      end function get_D2Psi_geqdsk
 c-------------------------------------------------------------------------------
 
 

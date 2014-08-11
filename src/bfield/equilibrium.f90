@@ -53,6 +53,14 @@ module equilibrium
      real*8, intent(in) :: r(3)
      real*8             :: Psi
      end function get_Psi_interface
+     function get_D1Psi_interface(r) result(D1Psi)
+     real*8, intent(in) :: r(3)
+     real*8             :: D1Psi(2)
+     end function get_D1Psi_interface
+     function get_D2Psi_interface(r) result(D2Psi)
+     real*8, intent(in) :: r(3)
+     real*8             :: D2Psi(3)
+     end function get_D2Psi_interface
 
      function Psi_axis_interface(phi)
      real*8, intent(in), optional :: phi
@@ -86,6 +94,8 @@ module equilibrium
 
   ! return poloidal magnetic flux
   procedure(get_Psi_interface), pointer :: get_Psi
+  procedure(get_D1Psi_interface), pointer :: get_D1Psi
+  procedure(get_D2Psi_interface), pointer :: get_D2Psi
 
 !  ! return poloidal magnetic flux at magnetic axis
 !  procedure(Psi_axis_interface), pointer :: Psi_axis
@@ -172,6 +182,8 @@ module equilibrium
   get_BCart_eq2D => get_BCart_geqdsk
   get_BCyl_eq2D  => get_BCyl_geqdsk
   get_Psi        => get_Psi_geqdsk
+  get_D1Psi      => get_D1Psi_geqdsk
+  get_D2Psi      => get_D2Psi_geqdsk
   equilibrium_provides_PFC => geqdsk_provides_PFC
   export_PFC               => export_PFC_geqdsk
 
