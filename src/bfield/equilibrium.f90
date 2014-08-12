@@ -271,10 +271,10 @@ module equilibrium
 
 
 !=======================================================================
-! Sample (nR,nZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm], phi [rad])
+! Sample (nR,nZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm])
 !=======================================================================
   function default_get_DPsi (r, nR, nZ) result(DPsi)
-  real*8, intent(in)  :: r(3)
+  real*8, intent(in)  :: r(2)
   integer, intent(in) :: nR, nZ
   real*8              :: DPsi
 
@@ -323,6 +323,86 @@ module equilibrium
 !  end subroutine export_PFC
 !=======================================================================
 
+
+
+
+
+
+
+!=======================================================================
+! Find the X-point of a magnetic configuration, provided an initial guess X
+!
+! This subroutine applies the Newton-method for the iterative approximation of
+! a critical point
+!=======================================================================
+  subroutine find_X (X)
+  use bspline
+  implicit none
+
+  real*8, dimension(2), intent(inout) :: X
+
+
+  real*8, parameter :: &
+      gamma_0 = 1.d0, &
+      delta   = 1.d-8
+  integer, parameter :: nmax = 2000
+
+
+  real*8  :: x0(2), xn(2), dx(2), dfdx, dfdy, H(2,2), Hdisc, dxmod, Rbox(2), Zbox(2)
+  integer :: n
+
+
+  ! initialize
+  call get_domain (Rbox, Zbox)
+  xn = X
+  n  = 0
+
+  approximation_loop: do
+     ! check boundaries
+     if (xn(1).lt.Rbox(1) .or. xn(1).gt.Rbox(2) .or. &
+         xn(2).lt.Zbox(1) .or. xn(2).gt.Zbox(2)) then
+        X = -1.d0
+        return
+     endif
+
+     ! calculate the gradient
+     dfdx = get_DPsi(xn, 1, 0)
+     dfdy = get_DPsi(xn, 0, 1)
+
+     ! calculate elements of the Hessian matrix
+     H(1,1) = get_DPsi(xn, 2, 0)
+     H(1,2) = get_DPsi(xn, 1, 1)
+     H(2,2) = get_DPsi(xn, 0, 2)
+     H(2,1) = H(1,2)
+     Hdisc  = H(1,1) * H(2,2) - H(1,2)*H(2,1)
+     if (Hdisc.eq.0) then
+        if (ipanic == 0) then
+           return
+        else
+           write (6, *) 'zero discriminant of Hessian matrix'
+           write (6, *) 'in subroutine find_X'
+           stop
+        endif
+     endif
+
+     ! calculate increment
+     dx(1)  =   H(2,2)*dfdx - H(1,2)*dfdy
+     dx(2)  = - H(2,1)*dfdx + H(1,1)*dfdy
+
+     x0     = xn
+     xn     = x0 - gamma_0*dx/Hdisc
+     dxmod  = sqrt(sum(dx**2))/dabs(Hdisc)
+     n      = n + 1
+
+     if (dxmod .lt. delta) exit approximation_loop
+
+     if (n.gt.nmax) exit approximation_loop
+  enddo approximation_loop
+
+  X = xn
+  return
+  end subroutine find_X
+!=======================================================================
 
 
 

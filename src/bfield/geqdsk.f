@@ -391,13 +391,13 @@ c-----------------------------------------------------------------------
 
 
 !===============================================================================
-! Sample (nR,nZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm], phi [rad])
+! Sample (mR,mZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm])
 !===============================================================================
-      function geqdsk_get_DPsi(r, nR, nZ) result(DPsi)
+      function geqdsk_get_DPsi(r, mR, mZ) result(DPsi)
       use bspline
 
-      real*8, intent(in)  :: r(3)
-      integer, intent(in) :: nR, nZ
+      real*8, intent(in)  :: r(2)
+      integer, intent(in) :: mR, mZ
       real*8              :: DPsi
 
       real*8 :: rr, zz
@@ -406,7 +406,7 @@ c-----------------------------------------------------------------------
       ! convert cm -> m
       rr   = r(1) / 100.d0
       zz   = r(2) / 100.d0
-      DPsi = dbs2dr(nR,nZ,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      DPsi = dbs2dr(mR,mZ,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
 
       end function geqdsk_get_DPsi
 !===============================================================================
@@ -420,10 +420,10 @@ c-----------------------------------------------------------------------
       real*8, intent(out) :: Rbox(2), Zbox(2)
 
 
-      Rlim(1) = Rleft * 1.d2
-      Rlim(2) = (Rleft+Rdim) * 1.d2
-      Zlim(1) = (Zmid-Zdim/2.d0) * 1.d2
-      Zlim(2) = (Zmid+Zdim/2.d0) * 1.d2
+      Rbox(1) = Rleft * 1.d2
+      Rbox(2) = (Rleft+Rdim) * 1.d2
+      Zbox(1) = (Zmid-Zdim/2.d0) * 1.d2
+      Zbox(2) = (Zmid+Zdim/2.d0) * 1.d2
 
       return
       end subroutine geqdsk_get_domain
