@@ -118,6 +118,8 @@ module run_control
      call poincare_plot
   case ('connection_length')
      call connection_length
+  case ('get_equi_info_2D')
+     call get_equi_info_2D
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop
