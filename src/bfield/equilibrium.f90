@@ -1,4 +1,5 @@
 !===============================================================================
+! Equilibrium related functions and subroutines
 !===============================================================================
 module equilibrium
   use curve2D
@@ -18,20 +19,30 @@ module equilibrium
      Z_axis_usr       = 0.d0
 
   logical :: &
-     use_PFC          = .true., &
+     use_boundary     = .true., &
      Current_Fix      = .true.
 
   integer :: &
      Diagnostic_Level = 0
 
   namelist /Equilibrium_Input/ &
-     Data_File, Data_Format, use_PFC, Current_Fix, Diagnostic_Level, &
+     Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
      R_axis_usr, Z_axis_usr
 !...............................................................................
 
 
 
-  ! Direction of toroidal magnetic field and plasma current
+!...............................................................................
+! public variables                                                             .
+
+  ! Magnetic axis (in axisymmetric configuration)
+  type t_Maxis
+     real*8 :: R, Z
+  end type t_Maxis
+  type (t_Maxis) :: Maxis2D
+
+
+  ! Direction of toroidal magnetic field (Bt) and plasma current (Ip)
   ! +1: positive direction, i.e. counter-clockwise
   ! -1: negative direction, i.e. clockwise
   !  0: no equilibrium defined
@@ -44,29 +55,39 @@ module equilibrium
   integer :: i_equi = -1
 
 
+  ! Position of magnetic axis, poloidal magnetic flux at separatrix and magnetic axis
   real*8 :: R_axis, Z_axis, Psi_sepx, Psi_axis
 
 
-  ! Interface for specific functions to be set externally
+
+
+
+
+
+
+!...............................................................................
+! Interfaces for functions/subroutines from specific equilibrium types         .
+
+  ! get equilibrium magnetic field in Cartesian coordinates
+  procedure(default_get_Bf), pointer :: get_BCart_eq2D => default_get_Bf
+
+  ! get equilibrium magnetic field in cylindrical coordinates
+  procedure(default_get_Bf), pointer :: get_BCyl_eq2D  => default_get_Bf
+
+  ! get poloidal magnetic flux
+  procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
+
+  ! get derivative of poloidal magnetic flux
+  procedure(default_get_DPsi), pointer :: get_DPsi => default_get_DPsi
+
+!  ! return poloidal magnetic flux at magnetic axis
+!  procedure(Psi_axis_interface), pointer :: Psi_axis
+
+  ! Return boundaries [cm] of equilibrium domain
+  procedure(default_get_domain), pointer :: get_domain => default_get_domain
+
+  ! inquire boundary setup from equilibrium data
   interface
-     function get_Psi_interface(r) result(Psi)
-     real*8, intent(in) :: r(3)
-     real*8             :: Psi
-     end function get_Psi_interface
-     function get_D1Psi_interface(r) result(D1Psi)
-     real*8, intent(in) :: r(3)
-     real*8             :: D1Psi(2)
-     end function get_D1Psi_interface
-     function get_D2Psi_interface(r) result(D2Psi)
-     real*8, intent(in) :: r(3)
-     real*8             :: D2Psi(3)
-     end function get_D2Psi_interface
-
-     function Psi_axis_interface(phi)
-     real*8, intent(in), optional :: phi
-     real*8                       :: Psi_axis_interface
-     end function Psi_axis_interface
-
      function logical_inquiry() result(l)
      logical :: l
      end function logical_inquiry
@@ -75,45 +96,34 @@ module equilibrium
      import :: t_curve
      type(t_curve), intent(out) :: S
      end subroutine export_curve
-
-     function get_Bf_interface(y) result(Bf)
-     real*8, intent(in) :: y(3)
-     real*8             :: Bf(3)
-     end function
   end interface
-
-
-  ! get equilibrium magnetic field
-  procedure(get_Bf_interface), pointer :: &
-     ! ... in Cartesian coordinates
-     get_BCart_eq2D, &
-     ! ... in cylindrical coordinates
-     get_BCyl_eq2D
-
-
-
-  ! return poloidal magnetic flux
-  procedure(get_Psi_interface), pointer :: get_Psi
-  procedure(get_D1Psi_interface), pointer :: get_D1Psi
-  procedure(get_D2Psi_interface), pointer :: get_D2Psi
-
-!  ! return poloidal magnetic flux at magnetic axis
-!  procedure(Psi_axis_interface), pointer :: Psi_axis
-
-  ! inquire if equilibrium provides PFC setup
   procedure(logical_inquiry), pointer :: &
-     equilibrium_provides_PFC => equilibrium_provides_PFC_generic
-  procedure(export_curve), pointer    :: export_PFC
+     equilibrium_provides_boundary => default_equilibrium_provides_boundary
+  procedure(export_curve), pointer    :: export_boundary
+
+  ! Broadcast data for parallel execution
+  procedure(), pointer :: broadcast_equilibrium
+!...............................................................................
 
 
   logical, save :: initialized = .false.
 !, get_equi_domain
 !
+
+
+  integer, parameter :: &
+     EQ_GEQDSK = 1, &
+     EQ_DIVA   = 2
+
+  integer :: ipanic = 0
+
   contains
 !=======================================================================
 
 
 
+!=======================================================================
+! Load equilibrium configuration
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
   use run_control, only: Prefix
@@ -132,11 +142,11 @@ module equilibrium
 
 
 ! set default values
-  export_PFC => null()
+  export_boundary => null()
 
 
 ! determine equilibrium type
-   i_equi = 1
+   i_equi = EQ_GEQDSK
 
 
 !...
@@ -149,7 +159,8 @@ module equilibrium
 
 
 ! load equilibrium data
-  call load_mod_geqdsk (Data_File, use_PFC, Current_Fix, Diagnostic_Level, R_axis, Z_axis, Psi_axis, Psi_sepx)
+  call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, R_axis, Z_axis, Psi_axis, Psi_sepx)
+  call setup_equilibrium()
 
 
 ! set user defined values, if present
@@ -164,7 +175,6 @@ module equilibrium
   !Psi_axis = get_Psi(magnetic_axis())
   !Psi_sepx = 
 
-  call setup_equilibrium()
 
   return
  1000 iconfig = 0
@@ -175,23 +185,31 @@ module equilibrium
 
 
 !=======================================================================
+! Setup procedure pointers
+!=======================================================================
   subroutine setup_equilibrium()
   use geqdsk
 
   ! select case equilibrium
-  get_BCart_eq2D => get_BCart_geqdsk
-  get_BCyl_eq2D  => get_BCyl_geqdsk
-  get_Psi        => get_Psi_geqdsk
-  get_D1Psi      => get_D1Psi_geqdsk
-  get_D2Psi      => get_D2Psi_geqdsk
-  equilibrium_provides_PFC => geqdsk_provides_PFC
-  export_PFC               => export_PFC_geqdsk
+  select case (i_equi)
+  case (EQ_GEQDSK)
+     get_BCart_eq2D                => geqdsk_get_BCart
+     get_BCyl_eq2D                 => geqdsk_get_BCyl
+     get_Psi                       => geqdsk_get_Psi
+     get_DPsi                      => geqdsk_get_DPsi
+     get_domain                    => geqdsk_get_domain
+     equilibrium_provides_boundary => geqdsk_provides_boundary
+     export_boundary               => geqdsk_export_boundary
+     broadcast_equilibrium         => geqdsk_broadcast
+  end select
 
   end subroutine setup_equilibrium
 !=======================================================================
 
 
 
+!=======================================================================
+! Broadcast equilibrium data
 !=======================================================================
   subroutine broadcast_mod_equilibrium()
   use parallel
@@ -208,12 +226,8 @@ module equilibrium
   call wait_pe()
 
 
-  ! select case equilibrium
-  select case(i_equi)
-  case(1)
-     call broadcast_mod_geqdsk()
-  end select
   if (mype > 0) call setup_equilibrium()
+  call broadcast_equilibrium()
 
   end subroutine broadcast_mod_equilibrium
 !=======================================================================
@@ -221,13 +235,86 @@ module equilibrium
 
 
 !=======================================================================
-! PFC provided by equilibrium
+! Sample magnetic field vector
 !=======================================================================
-  function equilibrium_provides_PFC_generic() result(l)
+  function default_get_Bf(r) result(Bf)
+  real*8, intent(in)  :: r(3)
+  real*8              :: Bf(3)
+
+  Bf = 0.d0
+  if (ipanic > 0) then
+     write (6, *) 'error: magnetic field function not defined!'
+     stop
+  endif
+
+  end function default_get_Bf
+!=======================================================================
+
+
+
+!=======================================================================
+! Sample poloidal magnetic flux at r=(R,Z [cm], phi [rad])
+!===============================================================================
+  function default_get_Psi(r) result(Psi)
+  real*8, intent(in)  :: r(3)
+  real*8              :: Psi
+
+  Psi = 0.d0
+  if (ipanic > 0) then
+     write (6, *) 'error: poloidal magnetic flux function not defined!'
+     stop
+  endif
+
+  end function default_get_Psi
+!=======================================================================
+
+
+
+!=======================================================================
+! Sample (nR,nZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm], phi [rad])
+!=======================================================================
+  function default_get_DPsi (r, nR, nZ) result(DPsi)
+  real*8, intent(in)  :: r(3)
+  integer, intent(in) :: nR, nZ
+  real*8              :: DPsi
+
+  DPsi = 0.d0
+  if (ipanic > 0) then
+     write (6, *) 'error: derivative of poloidal magnetic flux function not defined!'
+     stop
+  endif
+
+  end function default_get_DPsi
+!=======================================================================
+
+
+
+!=======================================================================
+! Return boundaries [cm] of equilibrium domain
+!=======================================================================
+  subroutine default_get_domain (Rbox, Zbox)
+  real*8, intent(out) :: Rbox(2), Zbox(2)
+
+  Rbox = 0.d0
+  Zbox = 0.d0
+  if (ipanic > 0) then
+     write (6, *) 'error: equilibrium domain not defined!'
+     stop
+  endif
+
+  end subroutine default_get_domain
+!=======================================================================
+
+
+
+!=======================================================================
+! boundary provided by equilibrium
+!=======================================================================
+  function default_equilibrium_provides_boundary() result(l)
   logical :: l
 
   l = .false.
-  end function equilibrium_provides_PFC_generic
+  end function default_equilibrium_provides_boundary
 !=======================================================================
 ! export axisymmetric boundary provided by equilibrium
 !=======================================================================
@@ -235,6 +322,19 @@ module equilibrium
 !  type(t_curve), intent(out) :: S
 !  end subroutine export_PFC
 !=======================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
