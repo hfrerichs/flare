@@ -77,9 +77,9 @@ module bfield
 
   Bf = 0.d0
 
-  if (iconfig(BF_EQ2D)   == 1) Bf = Bf + get_Bcyl_eq2D(r)
+  if (iconfig(BF_EQ2D)   == 1) Bf = Bf + get_Bf_eq2D(r)
   if (iconfig(BF_COILS)  == 1) Bf = Bf + get_Bcyl_polygones(r)
-  if (iconfig(BF_M3DC1)  == 1) Bf = Bf + m3dc1_get_Bcyl(r)
+  if (iconfig(BF_M3DC1)  == 1) Bf = Bf + m3dc1_get_Bf(r)
 
 
   end function get_Bf_Cyl
@@ -97,12 +97,29 @@ module bfield
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 
+  real*8 :: r(3), Bcyl(3), sin_phi, cos_phi
 
-  Bf = 0.d0
 
-  if (iconfig(BF_EQ2D)   == 1) Bf = Bf + get_Bcart_eq2D(x)
-  if (iconfig(BF_COILS)  == 1) Bf = Bf + get_Bcart_polygones(x)
-  if (iconfig(BF_M3DC1)  == 1) Bf = Bf + m3dc1_get_Bcart(x)
+  ! coordinate transformation (Cartesian to cylindrical coordinates)
+  r(1)    = dsqrt(x(1)**2 + x(2)**2)
+  r(2)    = x(3)
+  r(3)    = datan2(x(2), x(1))
+  cos_phi = x(1) / r(1)
+  sin_phi = x(2) / r(1)
+
+
+  ! collect all magnetic field components
+  Bf      = 0.d0
+  Bcyl    = 0.d0
+  if (iconfig(BF_EQ2D)   == 1) Bcyl = Bcyl + get_Bf_eq2D(r)
+  if (iconfig(BF_COILS)  == 1) Bf   = Bf   + get_Bcart_polygones(x)
+  if (iconfig(BF_M3DC1)  == 1) Bcyl = Bcyl + m3dc1_get_Bf(r)
+
+
+  ! combine Cartesian and cylindrical components
+  Bf(1) = Bf(1) + Bcyl(1) * cos_phi - Bcyl(3) * sin_phi
+  Bf(2) = Bf(2) + Bcyl(1) * sin_phi + Bcyl(3) * cos_phi
+  Bf(3) = Bf(3) + Bcyl(2)
 
   end function get_Bf_Cart
 !=======================================================================

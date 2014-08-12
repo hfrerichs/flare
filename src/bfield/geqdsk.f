@@ -40,8 +40,7 @@
       public ::
      1    geqdsk_load,
      2    geqdsk_broadcast,
-     3    geqdsk_get_Bcyl,
-     4    geqdsk_get_Bcart,
+     3    geqdsk_get_Bf,
      5    geqdsk_get_Psi, 
      6    geqdsk_get_DPsi,
      7    geqdsk_get_domain,
@@ -301,7 +300,7 @@ c-----------------------------------------------------------------------
 !===============================================================================
 ! Calculate R,phi,Z components of magnetic field vector [Gauss] at r=(R,Z [cm], phi [rad])
 !===============================================================================
-      function geqdsk_get_Bcyl(r) result(Bf)
+      function geqdsk_get_Bf(r) result(Bf)
       use bspline
 
       real*8, intent(in)  :: r(3)
@@ -336,34 +335,7 @@ c-----------------------------------------------------------------------
       Bf(3)   =  dbsval(psi,nord,PsinEQD,nR,fpolcoeff) / rr
       Bf(3)   =  Bf(3) * 1.d4 ! T -> Gauss
 
-      end function geqdsk_get_Bcyl
-!===============================================================================
-
-
-
-!===============================================================================
-! Calculate Cartesian components of magnetic field vector (Gauss) at x3=(x,y,z [cm])
-!===============================================================================
-      function geqdsk_get_Bcart(x3) result(Bf)
-      real*8, intent(in) :: x3(3)
-      real*8             :: Bf(3)
-
-      real*8 :: Bcyl(3), r(3), sin_phi, cos_phi
-
-
-      r(1)  = dsqrt(x3(1)**2 + x3(2)**2)
-      r(2)  = x3(3)
-      r(3)  = datan2(x3(2), x3(1))
-      Bcyl  = geqdsk_get_Bcyl(r)
-
-      cos_phi = x3(1) / r(1)
-      sin_phi = x3(2) / r(1)
-      Bf(1) = Bcyl(1) * cos_phi - Bcyl(3) * sin_phi
-      Bf(2) = Bcyl(1) * sin_phi + Bcyl(3) * cos_phi
-      Bf(3) = Bcyl(2)
-
-
-      end function geqdsk_get_Bcart
+      end function geqdsk_get_Bf
 !===============================================================================
 
 

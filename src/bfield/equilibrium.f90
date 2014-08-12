@@ -74,11 +74,8 @@ module equilibrium
 !...............................................................................
 ! Interfaces for functions/subroutines from specific equilibrium types         .
 
-  ! get equilibrium magnetic field in Cartesian coordinates
-  procedure(default_get_Bf), pointer :: get_BCart_eq2D => default_get_Bf
-
   ! get equilibrium magnetic field in cylindrical coordinates
-  procedure(default_get_Bf), pointer :: get_BCyl_eq2D  => default_get_Bf
+  procedure(default_get_Bf), pointer :: get_Bf_eq2D  => default_get_Bf
 
   ! get poloidal magnetic flux
   procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
@@ -207,23 +204,26 @@ module equilibrium
 
 
 ! set dependent variables
-  if (R_axis.eq.0.d0) then
+  ! pol. magn. flux on axis
+  if (R_axis > 0.d0) then
+     r(1) = R_axis
+     r(2) = Z_axis
+     r(3) = 0.d0
+     Psi_axis = get_Psi(r)
+  else
      R_axis = R_axis1
      Z_axis = Z_axis1
   endif
 
 
-! pol. magn. flux on axis
-  r(1) = R_axis
-  r(2) = Z_axis
-  r(3) = 0.d0
-  Psi_axis = get_Psi(r)
 
 ! pol. magn. flux at separatrix
-  r(1) = R_sepx
-  r(2) = Z_sepx
-  r(3) = 0.d0
-  Psi_sepx = get_Psi(r)
+  if (R_sepx > 0.d0) then
+     r(1) = R_sepx
+     r(2) = Z_sepx
+     r(3) = 0.d0
+     Psi_sepx = get_Psi(r)
+  endif
 
 
   return
@@ -244,8 +244,7 @@ module equilibrium
   ! select case equilibrium
   select case (i_equi)
   case (EQ_GEQDSK)
-     get_BCart_eq2D                => geqdsk_get_BCart
-     get_BCyl_eq2D                 => geqdsk_get_BCyl
+     get_Bf_eq2D                   => geqdsk_get_Bf
      get_Psi                       => geqdsk_get_Psi
      get_DPsi                      => geqdsk_get_DPsi
      get_domain                    => geqdsk_get_domain
@@ -253,7 +252,7 @@ module equilibrium
      export_boundary               => geqdsk_export_boundary
      broadcast_equilibrium         => geqdsk_broadcast
   case (EQ_DIVAMHD)
-     get_BCyl_eq2D                 => divamhd_get_Bf
+     get_Bf_eq2D                   => divamhd_get_Bf
      get_Psi                       => divamhd_get_Psi
      get_DPsi                      => divamhd_get_DPsi
      get_domain                    => divamhd_get_domain
