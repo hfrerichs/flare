@@ -3,6 +3,11 @@ module run_control
   implicit none
   include '../config.h'
 
+  integer, parameter :: &
+     INERVOUS   =  1, &
+     IMODERATE  = 10, &
+     IDONTPANIC = 42
+
   ! user defined variables
   character*120 :: &
      Machine        = ' ', &        ! select input directory (1st part)
@@ -27,7 +32,8 @@ module run_control
      N_mult         = 1, &          !
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
-     Output_Format  = 1             ! See individual tools
+     Output_Format  = 1, &          ! See individual tools
+     Panic_Level    = IMODERATE
 
 
 
@@ -38,7 +44,7 @@ module run_control
 
   namelist /RunControl/ &
      Machine, Configuration, &
-     Run_Type, Output_File, Grid_File, Output_Format, &
+     Run_Type, Output_File, Grid_File, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
      R_start, R_end, Phi_output, N_points, N_sym, N_mult
 
