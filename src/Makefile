@@ -32,7 +32,7 @@ all: $(OBJECTS)
 	cd $(GEOMETRY_DIR); $(MAKE) FC='$(FC)'
 	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
 	$(FC) -c $(GEOMETRY_INC) $(BFIELD_INC) main.f90
-	$(FC) -o  $(PROGRAM) $(OBJECTS) $(TOOLS_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) main.o
+	$(FC) -o  $(PROGRAM) $(OBJECTS) $(TOOLS_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
 
 
 %.o: %.f*

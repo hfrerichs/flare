@@ -125,9 +125,8 @@ if [ "$fusion_io_dir" == "" ]; then
 else
 	NOTE='Compiling with M3D-C1 support'
 	echo $NOTE | tee -a $LOG_FILE
-	echo $NOTE
 	echo "# $NOTE" >> include.mk
-	echo "M3DC1_FLAG     = -D_M3DC1" >> include.mk
+	echo "M3DC1_FLAG     = -DM3DC1" >> include.mk
 	echo "M3DC1_INC      = -I $fusion_io_dir/include/_$fusion_io_arch" >> include.mk
         echo "LIBS           = -L $fusion_io_dir/lib/_$fusion_io_arch -lfusionio -lm3dc1 -lhdf5 -lstdc++" >> include.mk
 	echo "" >> include.mk
