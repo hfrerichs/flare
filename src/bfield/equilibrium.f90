@@ -15,8 +15,13 @@ module equilibrium
      Data_Format      = ''
 
   real*8 :: &
-     R_axis_usr       = 0.d0, &        ! user defined position of magnetic axis
-     Z_axis_usr       = 0.d0
+     R_axis       = 0.d0, &        ! user defined position of magnetic axis
+     Z_axis       = 0.d0, &
+     R_sepx       = 0.d0, &        ! user defined position of separatrix
+     Z_sepx       = 0.d0, &
+     Bt, R0, &   ! reference toroidal magnetic field [T] and radial position [cm]
+     Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
+
 
   logical :: &
      use_boundary     = .true., &
@@ -27,7 +32,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis_usr, Z_axis_usr
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip
 !...............................................................................
 
 
@@ -56,7 +61,8 @@ module equilibrium
 
 
   ! Position of magnetic axis, poloidal magnetic flux at separatrix and magnetic axis
-  real*8 :: R_axis, Z_axis, Psi_sepx, Psi_axis
+  !real*8 :: R_axis, Z_axis, Psi_sepx, Psi_axis
+  real*8 :: Psi_sepx, Psi_axis
 
 
 
@@ -112,8 +118,9 @@ module equilibrium
 
 
   integer, parameter :: &
-     EQ_GEQDSK = 1, &
-     EQ_DIVA   = 2
+     EQ_GEQDSK  = 1, &
+     EQ_DIVAMHD = 2, &
+     EQ_JET     = 3
 
   integer :: ipanic = 0
 
@@ -128,8 +135,14 @@ module equilibrium
   subroutine load_equilibrium_config (iu, iconfig)
   use run_control, only: Prefix
   use geqdsk
+  use divamhd
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
+
+  integer, parameter :: iu_scan = 17
+
+  character*80 :: s
+  real*8       :: r(3), R_axis1, Z_axis1
 
 
 ! read user configuration
@@ -145,35 +158,72 @@ module equilibrium
   export_boundary => null()
 
 
-! determine equilibrium type
-   i_equi = EQ_GEQDSK
+! determine equilibrium type ...........................................
+  ! check if Data_Format has been set
+  if (Data_Format .ne. '') then
+     select case(Data_Format)
+     case ('geqdsk')
+        i_equi = EQ_GEQDSK
+     case ('divamhd')
+        i_equi = EQ_DIVAMHD
+     case default
+        write (6, *) 'error: ', Data_Format, ' is not a valid equilibrium type!'
+        stop
+     end select
 
+  ! otherwise guess equilibrium type
+  else
+     open  (iu_scan, file=Data_file)
+     read  (iu_scan, '(a80)') s
+     if (s(3:5) == 'TEQ'  .or.  s(3:6) == 'EFIT') then
+        i_equi = EQ_GEQDSK
+     elseif (s(5:11) == 'jm   :=') then
+        i_equi = EQ_JET
+     else
+        read  (iu_scan, '(a80)') s
+        if (s(4:9) == 'File: ') then
+           i_equi = EQ_DIVAMHD
+        else
+           i_equi = -1
+        endif
+     endif
+     close (iu_scan)
+  endif
+! ... determine equilibrium type (done) ................................
 
-!...
-!  select case(Data_Format)
-!  case ('geqdsk')
-!  case default
-!     write (6, *) 'error: ', Data_Format, ' is not a valid equilibrium type!'
-!     stop
-!  end select
 
 
 ! load equilibrium data
-  call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, R_axis, Z_axis, Psi_axis, Psi_sepx)
+  select case (i_equi)
+  case (EQ_GEQDSK)
+     call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, R_axis1, Z_axis1, Psi_axis, Psi_sepx)
+  case (EQ_DIVAMHD)
+     call divamhd_load (Data_File, Ip, Bt, R0)
+  case default
+     write (6, *) 'error: cannot determine equilibrium type!'
+     stop
+  end select
   call setup_equilibrium()
 
 
-! set user defined values, if present
-  if (R_axis_usr.gt.0.d0) then
-     R_axis = R_axis_usr
-     Z_axis = Z_axis_usr
+! set dependent variables
+  if (R_axis.eq.0.d0) then
+     R_axis = R_axis1
+     Z_axis = Z_axis1
   endif
 
 
-! set dependent variables
-  !psi_axis = pol_flux(magnetic_axis())
-  !Psi_axis = get_Psi(magnetic_axis())
-  !Psi_sepx = 
+! pol. magn. flux on axis
+  r(1) = R_axis
+  r(2) = Z_axis
+  r(3) = 0.d0
+  Psi_axis = get_Psi(r)
+
+! pol. magn. flux at separatrix
+  r(1) = R_sepx
+  r(2) = Z_sepx
+  r(3) = 0.d0
+  Psi_sepx = get_Psi(r)
 
 
   return
@@ -189,6 +239,7 @@ module equilibrium
 !=======================================================================
   subroutine setup_equilibrium()
   use geqdsk
+  use divamhd
 
   ! select case equilibrium
   select case (i_equi)
@@ -201,6 +252,12 @@ module equilibrium
      equilibrium_provides_boundary => geqdsk_provides_boundary
      export_boundary               => geqdsk_export_boundary
      broadcast_equilibrium         => geqdsk_broadcast
+  case (EQ_DIVAMHD)
+     get_BCyl_eq2D                 => divamhd_get_Bf
+     get_Psi                       => divamhd_get_Psi
+     get_DPsi                      => divamhd_get_DPsi
+     get_domain                    => divamhd_get_domain
+     broadcast_equilibrium         => divamhd_broadcast
   end select
 
   end subroutine setup_equilibrium

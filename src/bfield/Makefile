@@ -4,6 +4,7 @@ include ../../include.mk
 OBJECTS =  \
                reconstruct.o\
                geqdsk.o\
+               divamhd.o\
                equilibrium.o\
                polygones.o\
                m3dc1.o\
