@@ -161,7 +161,7 @@ subroutine poincare_plot
 
      ! start field line tracing
      trace_loop: do
-        yc = F%trace()
+        yc = F%trace_1step()
         lc = lc + Trace_Step
 
 

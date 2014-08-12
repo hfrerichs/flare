@@ -17,7 +17,7 @@ module fieldline
 
   type, extends(t_ODE) :: t_fieldline
      ! integrated toroidal and poloidal angle
-     real*8 :: phic, thetac
+     real*8 :: phi_int, theta_int
      ! last and current state in cylindrical coordinates
      real*8 :: rl(3), rc(3)
 
@@ -29,7 +29,7 @@ module fieldline
      integer :: Trace_Coords
 
      contains
-     procedure :: init, trace, init_toroidal_tracing, intersect_sym_plane
+     procedure :: init, trace, trace_1step, init_toroidal_tracing, intersect_sym_plane
 
      procedure :: intersect_boundary => fieldline_intersects_boundary
   end type t_fieldline
@@ -72,6 +72,8 @@ module fieldline
 
   ! initialize internal variables
   call coord_trans (y0, icoord, this%rc, CYLINDRICAL)
+  this%phi_int   = 0.d0
+  this%theta_int = 0.d0
 
   end subroutine init
 !=======================================================================
@@ -79,7 +81,7 @@ module fieldline
 
 
 !=======================================================================
-  function trace(this) result(yc)
+  function trace_1step(this) result(yc)
   class(t_fieldline), intent(inout) :: this
   real*8                            :: yc(3)
 
@@ -87,7 +89,31 @@ module fieldline
   yc      = this%next_step()
   call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
 
-  end function trace
+  end function trace_1step
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine trace(this, Limit, stop_at_boundary)
+  class (t_fieldline) :: this
+  real*8, intent(in)  :: Limit
+  logical, intent(in) :: stop_at_boundary
+
+  real*8 :: yc(3), lc
+
+
+  lc = 0.d0
+  trace_loop: do
+     this%rl = this%rc
+     yc      = this%next_step()
+     lc      = lc + this%ds
+     call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
+
+     if (abs(lc) > Limit) exit trace_loop
+  enddo trace_loop
+
+  end subroutine trace
 !=======================================================================
 
 
