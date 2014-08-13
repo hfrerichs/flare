@@ -181,7 +181,7 @@ c 1: irregular (1D) RZ-grid
                 read (iun,*) R, Z
                 grid_data(icount,1) = R
                 grid_data(icount,2) = Z
-                grid_data(icount,3) = phi
+                grid_data(icount,3) = phi/180.d0*pi
              enddo
           end select
 c-----------------------------------------------
@@ -214,7 +214,7 @@ c 2: irregular (1D) rmin-theta-grid
                 Z =            rmin * sin(theta/180.d0*pi)
                 grid_data(icount,1) = R
                 grid_data(icount,2) = Z
-                grid_data(icount,3) = phi
+                grid_data(icount,3) = phi/180.d0*pi
              enddo
           end select
 c-----------------------------------------------
@@ -251,7 +251,7 @@ c 3: regular (2D) RZ-grid
              do j=0,n_Z-1
                 grid_data(i*n_Z + j + 1,1) = R_tmp(i+1)
                 grid_data(i*n_Z + j + 1,2) = Z_tmp(j+1)
-                grid_data(i*n_Z + j + 1,3) = phi
+                grid_data(i*n_Z + j + 1,3) = phi/180.d0*pi
              enddo
              enddo
           end select
@@ -296,7 +296,7 @@ c 4: regular (2D) rmin-theta-grid
                 Z =            r_tmp(j+1) * sin(t_tmp(i+1)/180.d0*pi)
                 grid_data(i*n_r + j + 1,1) = R
                 grid_data(i*n_r + j + 1,2) = Z
-                grid_data(i*n_r + j + 1,3) = phi
+                grid_data(i*n_r + j + 1,3) = phi/180.d0*pi
              enddo
              enddo
           end select
@@ -343,7 +343,7 @@ c 5: regular (2D) phi-theta-grid
 
                 grid_data(i*n_t + j + 1,1) = R
                 grid_data(i*n_t + j + 1,2) = Z
-                grid_data(i*n_t + j + 1,3) = p_tmp(i+1)
+                grid_data(i*n_t + j + 1,3) = p_tmp(i+1)/180.d0*pi
              enddo
              enddo
           end select
@@ -383,7 +383,7 @@ c 6: regular (2D) toroidal RZ-grid
              do j=0,n_p-1
                 grid_data(j*n_RZ + i + 1,1) = R_tmp(i+1)
                 grid_data(j*n_RZ + i + 1,2) = Z_tmp(i+1)
-                grid_data(j*n_RZ + i + 1,3) = p_tmp(j+1)
+                grid_data(j*n_RZ + i + 1,3) = p_tmp(j+1)/180.d0*pi
              enddo
              enddo
           end select
