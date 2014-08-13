@@ -8,12 +8,12 @@ module bfield
   implicit none
 
   integer, parameter :: &
-     BF_RECONSTRUCT = 0, &
-     BF_EQ2D        = 1, &
-     BF_COILS       = 2, &
-     BF_M3DC1       = 3, &
-     BF_PARAMETRIC  = 4, &
-     BF_GRID_A      = 5
+     BF_RECONSTRUCT  = 0, &
+     BF_EQ2D         = 1, &
+     BF_COILS        = 2, &
+     BF_M3DC1        = 3, &
+     BF_INTERPOLATEB = 4, &
+     BF_GRID_A       = 5
 
   integer, parameter :: BF_MAX_CONFIG = 5
 
@@ -33,6 +33,7 @@ module bfield
   use equilibrium
   use polygones
   use m3dc1
+  use interpolateB
 
   integer, parameter :: iu = 24
 
@@ -41,20 +42,22 @@ module bfield
      open  (iu, file=Bfield_input_file)
      write (6,1000)
      write (6, *) 'Magnetic field input: '
-     call load_reconstruct_config (iu, iconfig(BF_RECONSTRUCT))
-     call load_equilibrium_config (iu, iconfig(BF_EQ2D))
-     call read_polygones_config   (iu, iconfig(BF_COILS),      Prefix)
-     call m3dc1_load              (iu, iconfig(BF_M3DC1))
+     call load_reconstruct_config (iu, iconfig(BF_RECONSTRUCT ))
+     call load_equilibrium_config (iu, iconfig(BF_EQ2D        ))
+     call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
+     call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
+     call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
      close (iu)
   endif
 
   call wait_pe()
   call broadcast_inte (iconfig, BF_MAX_CONFIG)
 
-  if (iconfig(BF_RECONSTRUCT) == 1) call broadcast_mod_reconstruct()
-  if (iconfig(BF_EQ2D       ) == 1) call broadcast_mod_equilibrium()
-  if (iconfig(BF_COILS      ) == 1) call broadcast_mod_polygones()
-  if (iconfig(BF_M3DC1      ) == 1) call m3dc1_broadcast()
+  if (iconfig(BF_RECONSTRUCT ) == 1) call broadcast_mod_reconstruct()
+  if (iconfig(BF_EQ2D        ) == 1) call broadcast_mod_equilibrium()
+  if (iconfig(BF_COILS       ) == 1) call broadcast_mod_polygones()
+  if (iconfig(BF_M3DC1       ) == 1) call        m3dc1_broadcast()
+  if (iconfig(BF_INTERPOLATEB) == 1) call interpolateB_broadcast()
 
 
 
@@ -71,15 +74,17 @@ module bfield
   use equilibrium
   use polygones
   use m3dc1
+  use interpolateB
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
 
   Bf = 0.d0
 
-  if (iconfig(BF_EQ2D)   == 1) Bf = Bf + get_Bf_eq2D(r)
-  if (iconfig(BF_COILS)  == 1) Bf = Bf + get_Bcyl_polygones(r)
-  if (iconfig(BF_M3DC1)  == 1) Bf = Bf + m3dc1_get_Bf(r)
+  if (iconfig(BF_EQ2D)          == 1) Bf = Bf + get_Bf_eq2D(r)
+  if (iconfig(BF_COILS)         == 1) Bf = Bf + get_Bcyl_polygones(r)
+  if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
+  if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
 
 
   end function get_Bf_Cyl
@@ -94,6 +99,7 @@ module bfield
   use equilibrium
   use polygones
   use m3dc1
+  use interpolateB
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 
@@ -111,9 +117,10 @@ module bfield
   ! collect all magnetic field components
   Bf      = 0.d0
   Bcyl    = 0.d0
-  if (iconfig(BF_EQ2D)   == 1) Bcyl = Bcyl + get_Bf_eq2D(r)
-  if (iconfig(BF_COILS)  == 1) Bf   = Bf   + get_Bcart_polygones(x)
-  if (iconfig(BF_M3DC1)  == 1) Bcyl = Bcyl + m3dc1_get_Bf(r)
+  if (iconfig(BF_EQ2D)          == 1) Bcyl = Bcyl + get_Bf_eq2D(r)
+  if (iconfig(BF_COILS)         == 1) Bf   = Bf   + get_Bcart_polygones(x)
+  if (iconfig(BF_M3DC1)         == 1) Bcyl = Bcyl +        m3dc1_get_Bf(r)
+  if (iconfig(BF_INTERPOLATEB)  == 1) Bcyl = Bcyl + interpolateB_get_Bf(r)
 
 
   ! combine Cartesian and cylindrical components

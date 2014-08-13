@@ -8,6 +8,7 @@ OBJECTS =  \
                equilibrium.o\
                polygones.o\
                m3dc1.o\
+               interpolateB.o\
                bfield.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(CORE_DIR)
