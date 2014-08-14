@@ -62,7 +62,9 @@ module equilibrium
 
   ! Position of magnetic axis, poloidal magnetic flux at separatrix and magnetic axis
   !real*8 :: R_axis, Z_axis, Psi_sepx, Psi_axis
-  real*8 :: Psi_sepx, Psi_axis
+  real*8 :: &
+     Psi_sepx = 1.d0, &
+     Psi_axis = 0.d0
 
 
 
