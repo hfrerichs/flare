@@ -220,8 +220,39 @@ module boundary
   end subroutine broadcast_axisym_surf
 !-----------------------------------------------------------------------
   subroutine broadcast_quad_ele
-  write (6, *) 'to be implemented ...'
-  stop
+
+  integer :: i, n, m
+
+
+  call broadcast_inte_s (n_quad)
+  if (n_quad == 0) return
+
+  if (mype > 0) allocate (S_quad(n_quad))
+  do i=1,n_quad
+     call broadcast_inte_s (S_quad(i)%n_phi)
+     call broadcast_inte_s (S_quad(i)%n_RZ)
+     call broadcast_inte_s (S_quad(i)%n_sym)
+
+     n = S_quad(i)%n_phi
+     m = S_quad(i)%n_RZ
+     if (mype > 0) then
+        allocate (S_quad(i)%phi(0:n))
+        allocate (S_quad(i)%R(0:n,0:m))
+        allocate (S_quad(i)%Z(0:n,0:m))
+        allocate (S_quad(i)%cA(n,m,2))
+        allocate (S_quad(i)%cB(n,m,2))
+        allocate (S_quad(i)%cC(n,m,2))
+        allocate (S_quad(i)%cD(n,m,2))
+     endif
+     call broadcast_real  (S_quad(i)%phi, n+1)
+     call broadcast_real  (S_quad(i)%R,  (n+1)*(m+1))
+     call broadcast_real  (S_quad(i)%Z,  (n+1)*(m+1))
+     call broadcast_real  (S_quad(i)%cA,  n   * m   * 2)
+     call broadcast_real  (S_quad(i)%cB,  n   * m   * 2)
+     call broadcast_real  (S_quad(i)%cC,  n   * m   * 2)
+     call broadcast_real  (S_quad(i)%cD,  n   * m   * 2)
+  enddo
+
   end subroutine broadcast_quad_ele
 !-----------------------------------------------------------------------
   end subroutine broadcast_boundary
