@@ -114,7 +114,7 @@ module boundary
            case (BNDRY_AXISYM_ELE)
               n_axi   = n_axi   + 1
               if (irun == 2) then
-                 call S_axi(n_axi)%read(boundary_file(j), report=.false., header=header)
+                 call S_axi(n_axi)%load(boundary_file(j), report=.false., header=header)
                  if (header .ne. '') then
                     write (6, 3000) trim(header)
                  else

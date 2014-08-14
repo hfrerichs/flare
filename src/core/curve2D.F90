@@ -30,7 +30,8 @@ module curve2D
 
      contains
 
-     procedure :: read
+     procedure :: load
+     procedure :: plot => curve2D_plot
   end type t_curve
 
   contains
@@ -39,7 +40,7 @@ module curve2D
 
 
 !=======================================================================
-  subroutine read(this, data_file, columns, report, header)
+  subroutine load(this, data_file, columns, report, header)
   class (t_curve), intent(inout) :: this
   character*120,   intent(in)    :: data_file
   integer,         intent(in), optional  :: columns
@@ -116,7 +117,7 @@ module curve2D
   return
  1000 format ('found ',i6,' data lines in file: ',a)
  4000 format (a120)
-  end subroutine read
+  end subroutine load
 !=======================================================================
 
 
@@ -262,5 +263,33 @@ module curve2D
   end function intersect_lines
 !=======================================================================
 
+
+
+!=======================================================================
+  subroutine curve2D_plot(this, iu, filename)
+  class(t_curve)                      :: this
+  integer, intent(in), optional       :: iu
+  character*120, intent(in), optional :: filename
+
+  integer :: i, iu0
+
+
+  iu0 = 99
+  if (present(iu)) iu0 = iu
+
+  if (present(filename)) then
+     open  (iu0, file=filename)
+  endif
+
+  do i=0,this%n_seg
+     write (iu0, *) this%x_data(i,:)
+  enddo
+
+  if (present(filename)) then
+     close (iu0)
+  endif
+
+  end subroutine curve2D_plot
+!=======================================================================
 
 end module curve2D
