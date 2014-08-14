@@ -52,4 +52,26 @@ module math
 !=======================================================================
 
 
+
+!=======================================================================
+! for angular coordinate phi return phi_sym with 0 <= phi_sym <= 2*pi/n_sym
+!=======================================================================
+  function phi_sym (phi, n_sym)
+  real*8, intent(in)  :: phi
+  integer, intent(in) :: n_sym
+  real*8              :: phi_sym
+
+  real*8  :: Dphi
+  integer :: k
+
+
+  phi_sym = phi
+  Dphi    = pi2 / n_sym
+  k       = phi_sym / Dphi
+  phi_sym = phi_sym - k*Dphi
+  if (phi_sym.lt.0) phi_sym = phi_sym + Dphi
+
+  end function phi_sym
+!=======================================================================
+
 end module math

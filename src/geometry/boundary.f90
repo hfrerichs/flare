@@ -10,6 +10,7 @@
 !===============================================================================
 module boundary
   use curve2D
+  use quad_ele
   implicit none
 
   integer, parameter :: N_BNDRY_MAX        = 256, &
@@ -25,6 +26,7 @@ module boundary
   namelist /Boundary_Input/ n_boundary, boundary_file, boundary_type
 
   type(t_curve), dimension(:), allocatable :: S_axi
+  type(t_quad_ele), dimension(:), allocatable :: S_quad
 
   integer :: n_axi, n_block, n_tri, n_quad
 
@@ -132,14 +134,23 @@ module boundary
            case (BNDRY_TRI_ELE)
               n_tri   = n_tri   + 1
               if (irun == 2) then
+                 if (header .ne. '') then
+                    write (6, 3000) trim(header)
+                 else
                     write (6, 3000) trim(boundary_file(j))
+                 endif
               endif
 
            ! mesh of quadrilateral elements
            case (BNDRY_QUAD_ELE)
               n_quad  = n_quad  + 1
               if (irun == 2) then
+                 call S_quad(n_quad)%load(boundary_file(j), title=header)
+                 if (header .ne. '') then
+                    write (6, 3000) trim(header)
+                 else
                     write (6, 3000) trim(boundary_file(j))
+                 endif
               endif
 
            case default
@@ -152,7 +163,8 @@ module boundary
 
      ! allocate memory after 1st run
      if (irun == 1) then
-        if (n_axi > 0) allocate (S_axi(n_axi))
+        if (n_axi > 0)  allocate (S_axi(n_axi))
+        if (n_quad > 0) allocate (S_quad(n_quad))
         !if (n_block > 0)
      endif
   enddo
@@ -177,6 +189,7 @@ module boundary
 
   call wait_pe()
   call broadcast_axisym_surf()
+  call broadcast_quad_ele()
 
   contains
 !-----------------------------------------------------------------------
@@ -205,6 +218,11 @@ module boundary
   enddo
 
   end subroutine broadcast_axisym_surf
+!-----------------------------------------------------------------------
+  subroutine broadcast_quad_ele
+  write (6, *) 'to be implemented ...'
+  stop
+  end subroutine broadcast_quad_ele
 !-----------------------------------------------------------------------
   end subroutine broadcast_boundary
 !=======================================================================
@@ -235,6 +253,16 @@ module boundary
         return
      endif
   enddo
+
+
+  ! check intersection with mesh of quadrilateral elements
+  do i=1,n_quad
+     if (S_quad(i)%intersect(r1, r2, X)) then
+        l = .true.
+        return
+     endif
+  enddo
+
 
   end function intersect_boundary
 !=======================================================================

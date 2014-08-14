@@ -3,8 +3,11 @@ include ../../include.mk
 
 OBJECTS =  \
                math.o\
+               search.o\
+               bilinear_system.o\
                ode_solver.o\
                curve2D.o\
+               quad_ele.o\
                usr_grid.o
 
 INC_DIR = -I ..
