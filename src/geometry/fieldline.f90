@@ -89,7 +89,7 @@ module fieldline
 
 
 !=======================================================================
-  function trace_1step(this) result(yc)
+  subroutine trace_1step(this)
   class(t_fieldline), intent(inout) :: this
   real*8                            :: yc(3)
 
@@ -97,7 +97,19 @@ module fieldline
   yc      = this%next_step()
   call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
 
-  end function trace_1step
+  end subroutine trace_1step
+!=======================================================================
+
+
+
+!=======================================================================
+  function trace_1step_reconstruct(this) result(yc)
+  class(t_fieldline), intent(inout) :: this
+  real*8                            :: yc(3)
+
+  yc = 1.234d0
+
+  end function trace_1step_reconstruct
 !=======================================================================
 
 

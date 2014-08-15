@@ -49,10 +49,10 @@ subroutine safety_factor
      Lc         = 0.d0
      write (6, 1000) i, r(1)
      call coord_trans (r, CYLINDRICAL, y, Trace_Coords)
-     call F%init(r, Trace_Step, Trace_Method, Trace_Coords)
+     call F%init(y, Trace_Step, Trace_Method, Trace_Coords)
 
      trace_loop: do
-        y  = F%trace_1step()
+        call F%trace_1step()
         Lc = Lc + Trace_Step
         if (F%intersect_boundary(X)) exit trace_loop
 
