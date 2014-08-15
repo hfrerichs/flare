@@ -13,7 +13,7 @@ module run_control
      Machine        = ' ', &        ! select input directory (1st part)
      Configuration  = ' ', &        ! select input directory (2nd part)
      Run_Type       = ' ', &        ! select sub-program to execute
-     Output_File    = '', &
+     Output_File    = 'output.txt', &
      Grid_File      = ''
 
   real*8 :: &
