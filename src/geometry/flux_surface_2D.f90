@@ -21,8 +21,8 @@ module flux_surface_2D
 
 
 !=======================================================================
-! Generate axisymmetric flux surface at r = (R,Z [cm], phi [rad]) using
-! a step size of Trace_Step and integration method Trace_Method.
+! Generate axisymmetric flux surface at r = (R,Z [cm]) using a step size
+! of Trace_Step and integration method Trace_Method.
 ! An alternate limiting surface can be given by the optional parameter AltSurf
 !=======================================================================
   subroutine generate_flux_surface_2D(this, r, Trace_Step, Trace_Method, AltSurf)
