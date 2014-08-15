@@ -7,11 +7,13 @@
 !                       = 2: R, Z [cm], phi [deg]
 !                       = 3: R, Z [cm] at Phi_output [deg]
 !    Phi_Output         Default position for input format 3
+!    Output_Format      = 1: 0 <= theta <= 360 deg
+!                         2: -180 <= theta <= 180 deg
 !
 !    Output_File
 !===============================================================================
 subroutine transform_to_flux_coordinates
-  use run_control, only: Grid_File, Input_Format, Phi_Output, Output_File
+  use run_control, only: Grid_File, Input_Format, Phi_Output, Output_File, Output_Format
   use parallel
   use equilibrium
   use curve2D
@@ -50,7 +52,8 @@ subroutine transform_to_flux_coordinates
      call get_next_grid_point (iflag, r)
      if (iflag.lt.0) exit grid_loop
 
-     theta   = get_poloidal_angle(r)
+     theta   = get_poloidal_angle(r) * 180.d0 / pi
+     if (Output_Format == 1  .and.  theta < 0.d0) theta = theta + 360.d0
      PsiN    = get_PsiN(r)
      X(ig,1) = theta
      X(ig,2) = PsiN
