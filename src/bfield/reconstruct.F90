@@ -33,8 +33,9 @@ module reconstruct
   ! use Prefix as argument -> benchmark routines may load the grid in addition to the original field
   !subroutine load_reconstruct_config (iu, Prefix, iload)
   subroutine load_reconstruct_config (iu, iload)
+  use run_control, only: Prefix, Trace_Coords
+  use math
 #if defined(EMC3)
-  use run_control
   use GEOMETRY_PL
   use SURFACE_PL
   use MAPPING
@@ -45,6 +46,9 @@ module reconstruct
   integer, parameter :: iu_Grid_Layout = 25, &
                         iu_Grid_Data   = 26, &
                         iu_Bfield      = 27
+
+
+  Trace_Coords = CYLINDRICAL
 
 #if defined(EMC3)
   rewind (iu)
