@@ -6,6 +6,7 @@ module fieldline
   use math
   use ode_solver
   use bfield
+  use equilibrium
   use boundary
   implicit none
 
@@ -18,8 +19,8 @@ module fieldline
   type, extends(t_ODE) :: t_fieldline
      ! integrated toroidal and poloidal angle
      real*8 :: phi_int, theta_int
-     ! last and current state in cylindrical coordinates
-     real*8 :: rl(3), rc(3)
+     ! last (l) and current (c) state in cylindrical coordinates
+     real*8 :: rl(3), rc(3), thetal, thetac
 
      ! toroidal distance to last intersection with symmetry plane
      real*8 :: phit
@@ -30,6 +31,10 @@ module fieldline
 
      contains
      procedure :: init, trace, trace_1step, init_toroidal_tracing, intersect_sym_plane
+     procedure :: &
+        update_poloidal_angle, &
+        update_toroidal_angle, &
+        get_PsiN => fieldline_get_PsiN
 
      procedure :: intersect_boundary => fieldline_intersects_boundary
   end type t_fieldline
@@ -45,7 +50,7 @@ module fieldline
   real*8, intent(in)  :: y0(3), ds
   integer, intent(in) :: isolver, icoord
 
-  real*8 :: y1(3)
+  real*8 :: y1(3), Maxis(3)
 
 
   y1 = y0
@@ -75,6 +80,9 @@ module fieldline
   this%phi_int   = 0.d0
   this%theta_int = 0.d0
 
+  Maxis       = magnetic_axis(this%rc(3))
+  this%thetac = atan2(this%rc(2) - Maxis(2), this%rc(1) - Maxis(1))
+
   end subroutine init
 !=======================================================================
 
@@ -90,6 +98,57 @@ module fieldline
   call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
 
   end function trace_1step
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine update_toroidal_angle(this)
+  class(t_fieldline), intent(inout) :: this
+
+  real*8 :: Dphi
+
+  Dphi = this%rc(3) - this%rl(3)
+  if (abs(Dphi) > pi) Dphi = Dphi - sign(pi2,Dphi)
+  this%phi_int = this%phi_int + Dphi
+
+  end subroutine update_toroidal_angle
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine update_poloidal_angle(this)
+  class(t_fieldline), intent(inout) :: this
+
+  real*8 :: Dtheta, Maxis(3)
+
+
+  ! store pol. angle from last step
+  this%thetal    = this%thetac
+
+  ! get new pol. angle
+  Maxis          = magnetic_axis(this%rc(3))
+  this%thetac    = atan2(this%rc(2) - Maxis(2), this%rc(1) - Maxis(1))
+
+  ! update integrated pol. distance
+  Dtheta         = this%thetac - this%thetal
+  if (abs(Dtheta) > pi) Dtheta = Dtheta - sign(pi2,Dtheta)
+  this%theta_int = this%theta_int + Dtheta
+
+  end subroutine update_poloidal_angle
+!=======================================================================
+
+
+
+!=======================================================================
+  function fieldline_get_PsiN(this) result(PsiN)
+  class(t_fieldline) :: this
+  real*8             :: PsiN
+
+  PsiN = get_PsiN(this%rc)
+
+  end function fieldline_get_PsiN
 !=======================================================================
 
 

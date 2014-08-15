@@ -329,6 +329,20 @@ module equilibrium
 
 
 !=======================================================================
+! Sample normalized poloidal magnetic flux at r=(R,Z [cm], phi [rad])
+!===============================================================================
+  function get_PsiN(r) result(PsiN)
+  real*8, intent(in)  :: r(3)
+  real*8              :: PsiN
+
+  PsiN = (get_Psi(r) - Psi_axis) / (Psi_sepx - Psi_axis)
+
+  end function get_PsiN
+!=======================================================================
+
+
+
+!=======================================================================
 ! Sample (nR,nZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm])
 !=======================================================================
   function default_get_DPsi (r, nR, nZ) result(DPsi)
