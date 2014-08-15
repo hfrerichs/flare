@@ -12,12 +12,14 @@ subroutine sample_bfield
   use run_control, only: Grid_File, Output_File, Output_Format
   use parallel
   use bfield
+  use equilibrium
   use grid
+  use math
   implicit none
 
   integer, parameter :: iu = 42
 
-  real*8  :: Bf(3), xvec(3)
+  real*8  :: Bf(3), xvec(3), r(3), PsiN
   integer :: iflag
 
 
@@ -44,15 +46,17 @@ subroutine sample_bfield
      case (2)
         Bf = get_Bf_Cyl (xvec)
      end select
-
      Bf = Bf/1.d4	! Gauss -> Tesla
-     write (iu,1001) Bf
+
+     call coord_trans (xvec, Output_Format, r, CYLINDRICAL)
+     PsiN = get_PsiN(r)
+     write (iu,1001) Bf, PsiN
   enddo grid_point_loop
   close (iu)
 
   return
  1000 format ('# Magnetic field components [Tesla], coordinate system: ', a12)
- 1001 format (3e22.14)
+ 1001 format (4e22.14)
  5010 write (6,5011) Output_File
  5011 format ('error opening file for output: ', a120)
   stop
