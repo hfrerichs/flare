@@ -121,15 +121,14 @@ module fieldline
   subroutine update_poloidal_angle(this)
   class(t_fieldline), intent(inout) :: this
 
-  real*8 :: Dtheta, Maxis(3)
+  real*8 :: Dtheta
 
 
   ! store pol. angle from last step
   this%thetal    = this%thetac
 
   ! get new pol. angle
-  Maxis          = magnetic_axis(this%rc(3))
-  this%thetac    = atan2(this%rc(2) - Maxis(2), this%rc(1) - Maxis(1))
+  this%thetac    = get_poloidal_angle(this%rc)
 
   ! update integrated pol. distance
   Dtheta         = this%thetac - this%thetal
