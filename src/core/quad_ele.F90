@@ -16,6 +16,8 @@ module quad_ele
      procedure :: plot      => quad_ele_plot
      procedure :: plot_at   => quad_ele_plot_at
      procedure :: intersect => quad_ele_intersect
+     procedure :: get_stellarator_symmetric_element
+     procedure, private :: setup_coefficients
   end type t_quad_ele
 
   contains
@@ -90,10 +92,25 @@ module quad_ele
   endif
   deallocate (Di)
 
+  call this%setup_coefficients()
 
-  ! setup coefficients
+  end subroutine quad_ele_load
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_coefficients(this)
+  class(t_quad_ele)         :: this
+
+  integer :: i, j, n, m
+
+
+  n = this%n_phi
+  m = this%n_RZ
   allocate (this%cA(n,m,2), this%cB(n,m,2), this%cC(n,m,2), this%cD(n,m,2))
 
+  ! setup coefficients
   do i=1,n
   do j=1,m
      this%cA(i,j,1) = 0.5d0 * (this%R(i-1,j-1) + this%R(i-1,j))
@@ -110,7 +127,7 @@ module quad_ele
   enddo
   enddo
 
-  end subroutine quad_ele_load
+  end subroutine setup_coefficients
 !=======================================================================
 
 
@@ -129,13 +146,24 @@ module quad_ele
 
 
   open  (iu, file=filename)
-  ! columns first
+  if (Output_Format == 1) then
+  ! plot slices at phi = const
   do i=0,this%n_phi
      do j=0,this%n_RZ
         write (iu, *) this%R(i, j), this%Z(i, j), this%phi(i)
      enddo
      write (iu, *)
   enddo
+
+  elseif (Output_Format == 2) then
+  ! plot toroidal profiles
+  do j=0,this%n_RZ
+     do i=0,this%n_phi
+        write (iu, *) this%R(i, j), this%Z(i, j), this%phi(i)
+     enddo
+     write (iu, *)
+  enddo
+  endif
   close (iu)
 
   end subroutine quad_ele_plot
@@ -217,7 +245,6 @@ module quad_ele
   ! jump beyond symmetry domain? ASSUMPTION: |phi2 - phi1| < pi/n_sym
   ljump = .false.
   Dphi  = r2s(3) - r1s(3)
-  write (99, *) r1s(3), r2s(3), Dphi
   if (abs(Dphi) > pi/n) then
      Dphi     = Dphi - sign(pi2/n, Dphi)
      Di       = int(sign(1.d0, Dphi))
@@ -265,9 +292,11 @@ module quad_ele
 
 
   ! 0. get search direction
-  phi1 = r1(3)
-  phi2 = r2(3)
-  Dphi = phi2 - phi1
+  phi1  = r1(3)
+  phi2  = r2(3)
+  Dphi  = phi2 - phi1
+  istat = 0
+  if (Dphi == 0.d0) return
   !if (abs(Dphi) > pi2/this%n_sym) Dphi = Dphi - sign(pi2/this%n_sym, Dphi)
   Di   = int(sign(1.d0,Dphi))
 #if defined(DEBUG)
@@ -333,6 +362,7 @@ module quad_ele
         stop
      endif
 #endif
+     istat = 0
      return
   endif
 
@@ -372,6 +402,42 @@ module quad_ele
   end subroutine check_intersection
   !---------------------------------------------------------------------
   end function quad_ele_intersect
+!=======================================================================
+
+
+
+!=======================================================================
+! Return stellarator symmetric element with coordinates:
+! phi -> 2*pi/n_sym - phi
+! Z   -> - Z
+!=======================================================================
+  function get_stellarator_symmetric_element(this) result(S)
+  use math
+  class(t_quad_ele)   :: this
+  type(t_quad_ele)    :: S
+
+  integer :: i, n, m
+
+  S%n_phi = this%n_phi
+  S%n_RZ  = this%n_RZ
+  S%n_sym = this%n_sym
+  S%dR    = this%dR
+  S%dZ    = this%dZ
+
+  n = S%n_phi
+  m = S%n_RZ
+  allocate (S%phi(0:n))
+  allocate (S%R(0:n, 0:m), S%Z(0:n, 0:m))
+
+  do i=0,n
+     S%phi(i) = pi2/S%n_sym - this%phi(n-i)
+     S%R(i,:) =   this%R(n-i,:)
+     S%Z(i,:) = - this%Z(n-i,:)
+  enddo
+
+  call S%setup_coefficients()
+
+  end function get_stellarator_symmetric_element
 !=======================================================================
 
 end module quad_ele

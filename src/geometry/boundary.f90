@@ -17,7 +17,8 @@ module boundary
                         BNDRY_AXISYM_ELE = 1, &
                         BNDRY_BLOCK_LIM  = 2, &
                         BNDRY_TRI_ELE    = 3, &
-                        BNDRY_QUAD_ELE   = 4
+                        BNDRY_QUAD_ELE   = 4, &
+                        BNDRY_QUAD_ELE_STELLARATOR_SYM   = 40
 
   character*120 :: boundary_file(N_BNDRY_MAX) = ''
   integer       :: boundary_type(N_BNDRY_MAX) = 0
@@ -142,7 +143,7 @@ module boundary
               endif
 
            ! mesh of quadrilateral elements
-           case (BNDRY_QUAD_ELE)
+           case (BNDRY_QUAD_ELE,BNDRY_QUAD_ELE_STELLARATOR_SYM)
               n_quad  = n_quad  + 1
               if (irun == 2) then
                  call S_quad(n_quad)%load(boundary_file(j), title=header)
@@ -157,6 +158,14 @@ module boundary
               write (6, *) 'boundary type ', boundary_type(j), ' not supported!'
               stop
            end select
+
+           ! add stellarator symmetric elements
+           if (boundary_type(j) == BNDRY_QUAD_ELE_STELLARATOR_SYM) then
+              n_quad  = n_quad  + 1
+              if (irun == 2) then
+                 S_quad(n_quad) = S_quad(n_quad-1)%get_stellarator_symmetric_element()
+              endif
+           endif
         enddo
      enddo
 
