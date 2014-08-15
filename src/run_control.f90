@@ -130,6 +130,8 @@ module run_control
      call generate_flux_surface_2D
   case ('plot_boundary')
      call plot_boundary
+  case ('safety_factor')
+     call safety_factor
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop

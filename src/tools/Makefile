@@ -8,7 +8,9 @@ OBJECTS =  \
                connection_length.o\
                get_equi_info_2D.o\
                generate_flux_surface_2D.o\
-               plot_boundary.o
+               plot_boundary.o\
+               safety_factor.o
+
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR)
 
