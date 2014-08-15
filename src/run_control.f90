@@ -32,6 +32,7 @@ module run_control
      N_mult         = 1, &          !
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
+     Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
      Panic_Level    = IMODERATE
 
@@ -44,7 +45,7 @@ module run_control
 
   namelist /RunControl/ &
      Machine, Configuration, &
-     Run_Type, Output_File, Grid_File, Output_Format, Panic_Level, &
+     Run_Type, Output_File, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
      R_start, R_end, Phi_output, N_points, N_sym, N_mult
 
@@ -132,6 +133,8 @@ module run_control
      call plot_boundary
   case ('safety_factor')
      call safety_factor
+  case ('transform_to_flux_coordinates')
+     call transform_to_flux_coordinates
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop
