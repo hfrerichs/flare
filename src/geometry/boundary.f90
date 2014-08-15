@@ -10,6 +10,7 @@
 !===============================================================================
 module boundary
   use curve2D
+  use block_limiter
   use quad_ele
   implicit none
 
@@ -66,8 +67,8 @@ module boundary
   boundary_dir(2) = trim(Prefix)//trim(Boundary_sub_dir)//'/'
   boundary_dir(3) = './'
 
-  ! 1: get number of components for each boundary type
-  ! 2: read data
+  ! irun = 1: get number of components for each boundary type
+  !        2: read data
   do irun=1,2
      n_axi   = 0
      n_block = 0
@@ -87,9 +88,9 @@ module boundary
      endif
 
 
-     ! 1. check base directory for input
-     ! 2. check Boundary_sub_dir for input
-     ! 3. check local directory for input (if not equivalent to base directory)
+     ! i = 1. check base directory for input
+     !     2. check Boundary_sub_dir for input
+     !     3. check local directory for input (if not equivalent to base directory)
      do i=1,3
         if (i == 3  .and.  boundary_dir(1) == './') exit
 
@@ -128,7 +129,9 @@ module boundary
            case (BNDRY_BLOCK_LIM)
               n_block = n_block + 1
               if (irun == 2) then
-                    write (6, 3000) trim(boundary_file(j))
+                 bl_filename = boundary_file(j)
+                 call setup_block_limiter (bl_filename, n_block)
+                    !write (6, 3000) trim(boundary_file(j))
               endif
 
            ! mesh of triangular elements
@@ -172,9 +175,9 @@ module boundary
 
      ! allocate memory after 1st run
      if (irun == 1) then
-        if (n_axi > 0)  allocate (S_axi(n_axi))
-        if (n_quad > 0) allocate (S_quad(n_quad))
-        !if (n_block > 0)
+        if (n_axi > 0)   allocate (S_axi(n_axi))
+        if (n_quad > 0)  allocate (S_quad(n_quad))
+        if (n_block > 0) call allocate_bl_arrays (n_block)
      endif
   enddo
 
@@ -198,6 +201,7 @@ module boundary
 
   call wait_pe()
   call broadcast_axisym_surf()
+  call broadcast_block_limiters()
   call broadcast_quad_ele()
 
   contains
@@ -228,6 +232,27 @@ module boundary
 
   end subroutine broadcast_axisym_surf
 !-----------------------------------------------------------------------
+! block limiters
+  subroutine broadcast_block_limiters
+
+  call broadcast_inte_s (n_block)
+  if (n_block == 0) return
+
+  if (mype > 0) call allocate_bl_arrays (n_block)
+  call wait_pe()
+  call broadcast_inte (num_p,          n_block            )
+  call broadcast_real (oripo_p,        n_block*max_num_p*3)
+  call broadcast_real (normv_p,        n_block*max_num_p*3)
+  call broadcast_real (dist_p_oripocs, n_block*max_num_p  )
+  call broadcast_real (center_bl,      n_block          *3)
+  call broadcast_real (radius_bl,      n_block            )
+  call broadcast_inte (num_s,          n_block            )
+  call broadcast_real (radius_s,       n_block*max_num_s  )
+  call broadcast_real (center_s,       n_block*max_num_s*3)
+
+  end subroutine broadcast_block_limiters
+!-----------------------------------------------------------------------
+! quadrilateral elements
   subroutine broadcast_quad_ele
 
   integer :: i, n, m
@@ -273,12 +298,13 @@ module boundary
 ! check intersection (X) of trajectory r1->r2 with boundaries
 !=======================================================================
   function intersect_boundary(r1, r2, X) result(l)
+  use math
   real*8, intent(in)  :: r1(3), r2(3)
   real*8, intent(out) :: X(3)
   logical :: l
 
-  real*8  :: phih, rz(2), t
-  integer :: i
+  real*8  :: phih, rz(2), t, x1(3), x2(3), lambda_min
+  integer :: i, i_ip
 
 
   l = .false.
@@ -290,6 +316,19 @@ module boundary
         l      = .true.
         X(1:2) = rz
         X(3)   = r1(3) + t*(r2(3)-r1(3))
+        return
+     endif
+  enddo
+
+
+  ! check intersections with block limiter(s)
+  call coord_trans (r1, CYLINDRICAL, x1, CARTESIAN)
+  call coord_trans (r2, CYLINDRICAL, x2, CARTESIAN)
+  do i=1,n_block
+     if (check_intersection(x1, x2, X, lambda_min, i_ip, i)) then
+        x1 = X
+        call coord_trans (x1, CARTESIAN, X, CYLINDRICAL)
+        l = .true.
         return
      endif
   enddo

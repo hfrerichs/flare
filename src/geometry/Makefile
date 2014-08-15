@@ -2,6 +2,7 @@ include ../../include.mk
 
 
 OBJECTS =  \
+               block_limiter.o\
                boundary.o\
                fieldline.o\
                flux_surface_2D.o
