@@ -416,7 +416,7 @@ c-----------------------------------------------
 
       return
  1000 format (3x,'- Using grid file: ',a)
- 1001 format ('sampling data points: ',i4,' %')
+ 1001 format ('progress:             ',i4,' %')
  2000 format (a120)
  2001 format (8x,a72)
  2008 format (i8)
@@ -455,10 +455,7 @@ c-----------------------------------------------
 
       x = grid_data(icount,:)
 
-      !r10 = 100.d0 * (icount-1)/(n_grid-1)
-      r10 = 100.d0 * (icount-1)/n_grid
-
-      r10 = r10 / 10.d0 - dmod(r10, 10.d0)
+      r10 = 10.d0 * icount/n_grid
       if (r10.ge.i10+1) then
          i10 = i10 + 1
          if (log_progress_) write (6,1000) i10*10
@@ -466,7 +463,7 @@ c-----------------------------------------------
 
       return
  1000 format ('                      ',i4,' %')
- 1001 format ('done')
+ 1001 format ('finished')
       end subroutine get_next_grid_point
 !-----------------------------------------------------------------------
 
