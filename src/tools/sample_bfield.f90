@@ -5,8 +5,8 @@
 !    Grid_File          Sample locations
 !
 !    Output_File
-!    Output_Format      = 1: Cartesian components (Bx,By,Bz), PsiN
-!                       = 2: Cylindrical components (BR,BZ,Bphi), PsiN
+!    Output_Format      = 1: |B|, Cartesian components (Bx,By,Bz), PsiN
+!                       = 2: |B|, Cylindrical components (BR,BZ,Bphi), PsiN
 !                       = 3: (Output_Format 2), Bpol/Btor
 !===============================================================================
 subroutine sample_bfield
@@ -20,7 +20,7 @@ subroutine sample_bfield
 
   integer, parameter :: iu = 42
 
-  real*8  :: Bf(3), xvec(3), r(3), PsiN, Bpol, rpol
+  real*8  :: Bmod, Bf(3), xvec(3), r(3), PsiN, Bpol, rpol
   integer :: iflag
 
 
@@ -47,7 +47,8 @@ subroutine sample_bfield
      case (2,3)
         Bf = get_Bf_Cyl (xvec)
      end select
-     Bf = Bf/1.d4	! Gauss -> Tesla
+     Bf   = Bf/1.d4	! Gauss -> Tesla
+     Bmod = sqrt(sum(Bf**2))
 
 
      ! get normalized poloidal flux
@@ -56,20 +57,20 @@ subroutine sample_bfield
 
 
      if (Output_Format .le. 2) then
-        write (iu,1001) Bf, PsiN
+        write (iu,1001) Bmod, Bf, PsiN
      else
         ! ratio of poloidal to toroidal field
         Bpol = sqrt(Bf(1)**2 + Bf(2)**2)
         rpol = Bpol / Bf(3)
-        write (iu,1002) Bf, PsiN, rpol
+        write (iu,1002) Bmod, Bf, PsiN, rpol
      endif
   enddo grid_point_loop
   close (iu)
 
   return
  1000 format ('# Magnetic field components [Tesla], coordinate system: ', a12)
- 1001 format (4e22.14)
- 1002 format (5e22.14)
+ 1001 format (5e22.14)
+ 1002 format (6e22.14)
  5010 write (6,5011) Output_File
  5011 format ('error opening file for output: ', a120)
   stop
