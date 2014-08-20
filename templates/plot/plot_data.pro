@@ -281,7 +281,7 @@ end; read_grid
 
 
 ;- data ----------------------------------------------------------------
-pro read_data, data_file, idata, log10=log10, zbound=zbound, scale=scale
+pro read_data, data_file, idata, log10=log10, zrange=zrange, scale=scale
 	common	data,	z_data, z_title, u_title
 	common	grid
 	;columns	= 4
@@ -359,9 +359,9 @@ pro read_data, data_file, idata, log10=log10, zbound=zbound, scale=scale
 		endelse
 
 		d	= data(i,idata)
-		if (keyword_set(zbound)) then begin
-			if (d lt zbound(0)) then data(i,idata) = zbound(0)
-			if (d gt zbound(1)) then data(i,idata) = zbound(1)
+		if (keyword_set(zrange)) then begin
+			if (d lt zrange(0)) then data(i,idata) = zrange(0)
+			if (d gt zrange(1)) then data(i,idata) = zrange(1)
 		endif
 	endfor
 	endif
@@ -684,7 +684,7 @@ end; write_info
 ; xfile, yfile:	optional output file name for 1D profiles
 ;
 ;- plot_data -----------------------------------------------------------
-pro plot_data, grid_file, data_file, idata, zbound=zbound, ps_plot=ps_plot, poincare=poincare_file, boundary=boundary_file, label=label, lpos=lpos, xrange=xrange, yrange=yrange, clevels=clevels, c_labels=c_labels, nlevels=nlevels, title=title, $
+pro plot_data, grid_file, data_file, idata, zrange=zrange, ps_plot=ps_plot, poincare=poincare_file, boundary=boundary_file, label=label, lpos=lpos, xrange=xrange, yrange=yrange, clevels=clevels, c_labels=c_labels, nlevels=nlevels, title=title, $
 		plot_add_data=plot_add_data, add_data_style=add_data_style, log10=log10, scale=scale, $
 		xtitle=xtitle, ytitle=ytitle, utitle=utitle, ct=ct, white0=white0, $
 		xselect=xselect, yselect=yselect, xfile=xfile, yfile=yfile, xsize=xsize, ysize=ysize
@@ -699,13 +699,13 @@ pro plot_data, grid_file, data_file, idata, zbound=zbound, ps_plot=ps_plot, poin
 
 	read_grid, grid_file
 
-	read_data, data_file, idata, log10=log10, zbound=zbound, scale=scale
+	read_data, data_file, idata, log10=log10, zrange=zrange, scale=scale
 
 	open_device, ps_plot=ps_plot, ct=ct, white0=white0, xsize=xsize, ysize=ysize
 
-	if (keyword_set(zbound)) then begin
-		z_min	= zbound(0)
-		z_max	= zbound(1)
+	if (keyword_set(zrange)) then begin
+		z_min	= zrange(0)
+		z_max	= zrange(1)
 	endif else begin
 		z_min	= min(z_data)
 		z_max	= max(z_data)
