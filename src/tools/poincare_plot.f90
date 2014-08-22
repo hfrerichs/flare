@@ -107,9 +107,14 @@ subroutine poincare_plot
 
 ! prepare grid/radial range for poincare plot ..........................
   ! use points from grid file if R_start is missing
-  if (R_start .eq. 0.d0) then
+  if (Grid_File .ne. '') then
      call read_grid (Grid_File, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
      if (firstP) write (6,*)
+
+  ! use x_start if N_steps is not specified
+  elseif (N_steps == 0) then
+     my_grid => new_grid(N_steps+1, log_progress=.false.)
+     my_grid(1,:) = x_start
 
   ! use radial range R_start -> R_end
   else
@@ -123,12 +128,8 @@ subroutine poincare_plot
            my_grid(ig+1,1) = R_start + ig*dr
         enddo
      else
-        if (R_start.gt.0.d0) then
-           if (firstP) write (6,1002) R_start
-           my_grid(1,1) = R_start
-        else
-           my_grid(1,:) = x_start
-        endif
+        if (firstP) write (6,1002) R_start
+        my_grid(1,1) = R_start
      endif
   endif
 !.......................................................................
