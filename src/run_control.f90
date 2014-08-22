@@ -135,6 +135,8 @@ module run_control
      call safety_factor
   case ('transform_to_flux_coordinates')
      call transform_to_flux_coordinates
+  case ('generate_mag_file')
+     call generate_mag_file
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop

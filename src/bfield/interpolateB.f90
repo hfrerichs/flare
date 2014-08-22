@@ -29,7 +29,10 @@ module interpolateB
   public :: &
      interpolateB_load, &
      interpolateB_broadcast, &
-     interpolateB_get_Bf
+     interpolateB_get_Bf, &
+     generate_field_from_coils, &
+     write_ascii_data, &
+     write_binary_data
 
   contains
 !=======================================================================
@@ -103,7 +106,7 @@ module interpolateB
   deallocate (rtmp)
   return
  1000 iconfig = 0
- 1001 format (3x,'- Precalculated field for interpolation:')
+ 1001 format (3x,'- Pre-calculated field for interpolation:')
  1002 format (8x,a)
  1003 format (8x,'Rbox: ',2f10.3)
  1004 format (8x,'Zbox: ',2f10.3)
@@ -172,7 +175,6 @@ module interpolateB
   OUTSIDE=R<RBOX(1) .OR. R>RBOX(3) .OR. Z<ZBOX(1) .OR. Z>ZBOX(3) 
   IF(OUTSIDE) RETURN                                
 
-  !K   = floor(PHI/FIPER)
   K   = PHI/FIPER
   F   = PHI -K*FIPER
   ALR=(R-RBOX(1))/DELTA_R; ALZ=(Z-ZBOX(1))/DELTA_Z; ALF=F/DELTA_PHI      
@@ -270,6 +272,98 @@ module interpolateB
   Bf(2)  =  sum( FRZ(1:20)*BO(1:20,3) )
 
   end function interpolateB_get_Bf
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_field_from_coils (N_sym, N_R, N_Z, N_phi, R_center, width, height)
+  use polygones
+  use math
+  integer, intent(in) :: N_sym, N_R, N_Z, N_phi
+  real*8, intent(in)  :: R_center, width, height
+
+  real*8  :: Bf(3), r(3), CosPhi, SinPhi
+  integer :: i, j, k, m, iba
+
+
+  DELTA_PHI = pi2    / (N_sym * N_phi)
+  DELTA_R   = width  / (N_R - 1)
+  DELTA_Z   = height / (N_Z - 1)
+
+  RBOX(1)   = R_center - 0.5d0*width
+  RBOX(2)   = R_center
+  RBOX(3)   = R_center + 0.5d0*width
+
+  ZBOX(1)   = -0.5d0*height
+  ZBOX(2)   = 0.d0
+  ZBOX(3)   =  0.5d0*height
+
+  NF        = N_phi
+  NR        = N_R
+  NS        = N_sym
+  NZ        = N_Z
+
+  m         = N_R * N_Z * N_phi
+  allocate (BA(8, 0:m-1))
+  BA = 0.d0
+  do k=1,N_phi
+     r(3)   = 1.d0 * (k-1) * DELTA_PHI
+     CosPhi = cos(r(3))
+     SinPhi = sin(r(3))
+     write (6, *) r(3) / pi * 180.d0
+
+     do j=1,N_Z
+        r(2) = ZBOX(1) + (j-1) * DELTA_Z
+        do i=1,N_R
+           r(1) = RBOX(1) + (i-1) * DELTA_R
+           Bf   = get_Bcyl_polygones(r)
+
+           iba       = (k-1)  +  ((i-1) + (j-1)*N_R)*N_phi
+           BA(1,iba) = Bf(3)
+           BA(2,iba) = Bf(1)
+           BA(3,iba) = Bf(2)
+        enddo
+     enddo
+  enddo
+
+  end subroutine generate_field_from_coils
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine write_ascii_data (title, Output_File)
+  character*72,  intent(in) :: title
+  character*120, intent(in) :: Output_File
+
+  integer, parameter :: iu = 42
+
+
+  open  (iu, file=Output_File)
+  write (iu, '(a72)') title
+  write (iu, *) DELTA_PHI, DELTA_R, DELTA_Z, RBOX(1), RBOX(3), RBOX(2), ZBOX(1), ZBOX(3), &
+                NF, NR, NS, NZ, 0, 0, 0, 0
+  write (iu, *) BA
+  close (iu)
+
+  end subroutine write_ascii_data
+!=======================================================================
+  subroutine write_binary_data (title, Output_File)
+  character*72,  intent(in) :: title
+  character*120, intent(in) :: Output_File
+
+  integer, parameter :: iu = 42
+
+
+  open  (iu, file=Output_File, form='unformatted')
+  write (iu) title
+  write (iu) DELTA_PHI, DELTA_R, DELTA_Z, RBOX(1), RBOX(3), RBOX(2), ZBOX(1), ZBOX(3), &
+             NF, NR, NS, NZ, 0, 0, 0, 0
+  write (iu) BA
+  close (iu)
+
+  end subroutine write_binary_data
 !=======================================================================
 
 end module interpolateB
