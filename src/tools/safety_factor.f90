@@ -30,7 +30,8 @@ subroutine safety_factor
   ! initialize
   if (firstP) then
      write (6, *) 'Calculate safety factor, output in: ', adjustl(trim(Output_File))
-     write (6, *) 'Using ', N_steps, ' for radial domain: ', R_start, ' -> ', R_end, ' cm'
+     write (6, 1001) N_steps, R_start, R_end
+     write (6, 1002) N_mult
      write (6, *)
   endif
   allocate (Qdata(0:N_steps,4))
@@ -47,7 +48,7 @@ subroutine safety_factor
      Psi_av     = 0.d0
      n_av       = 0
      Lc         = 0.d0
-     write (6, 1000) i, r(1)
+     write (6, 2000) i, r(1)
      call coord_trans (r, CYLINDRICAL, y, Trace_Coords)
      call F%init(y, Trace_Step, Trace_Method, Trace_Coords)
 
@@ -80,7 +81,7 @@ subroutine safety_factor
      open  (iu, file=Output_File)
      write (iu, '(a)') '# R [cm], q, Psi, Lc'
      do i=0,N_steps
-        write (iu, 1001) Qdata(i,:)
+        write (iu, 2001) Qdata(i,:)
      enddo
      close (iu)
   endif
@@ -88,6 +89,8 @@ subroutine safety_factor
   ! cleanup
   deallocate (Qdata)
 
- 1000 format (5x,i5,f10.3)
- 1001 format (4e18.10)
+ 1001 format (3x,'- Using ', i4, ' steps for radial domain: ', f8.3, ' -> ', f8.3, ' cm')
+ 1002 format (3x,'- Averaging over ', i4, ' toroidal turns')
+ 2000 format (5x,i5,f10.3)
+ 2001 format (4e18.10)
 end subroutine safety_factor
