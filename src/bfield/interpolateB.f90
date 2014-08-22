@@ -72,7 +72,7 @@ module interpolateB
      endif
 
      read  (iu1, '(a)') title
-     write (6, 1002) title
+     write (6, 1002) adjustl(title)
      read  (iu1, *) DELTA_PHI, DELTA_R, DELTA_Z, RBOX(1), RBOX(3), RBOX(2), ZBOX(1), ZBOX(3), &
                  NF, NR, NS, NZ, ntmp
      ZBOX(2) = 0.5d0 * (ZBOX(1) + ZBOX(3))
