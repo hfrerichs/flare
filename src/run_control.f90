@@ -26,7 +26,7 @@ module run_control
 
 
   integer :: &
-     N_steps        = 1000, &       ! Number of discrete steps
+     N_steps        = 0, &          ! Number of discrete steps
      N_points       = 0, &          ! Max. number of points for Poincare plots
      N_sym          = 1, &          ! Toroidal symmetry factor (for Poincare plots)
      N_mult         = 1, &          !
@@ -137,6 +137,8 @@ module run_control
      call transform_to_flux_coordinates
   case ('generate_mag_file')
      call generate_mag_file
+  case ('generate_magnetic_axis')
+     call generate_magnetic_axis
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop
