@@ -2,6 +2,7 @@
 ! Equilibrium related functions and subroutines
 !===============================================================================
 module equilibrium
+  use iso_fortran_env
   use curve2D
   use magnetic_axis
   implicit none
@@ -139,8 +140,10 @@ module equilibrium
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
+  real(real64)         :: r(3)
 
-! read user configuration
+
+! 1. read user configuration
   rewind (iu)
   read   (iu, Equilibrium_Input, end=1000)
   iconfig = 1
@@ -152,13 +155,40 @@ module equilibrium
   export_boundary => null()
 
 
+! 2. load equilibrium data (if provided) ...............................
   if (Data_File .ne. '') call load_equilibrium_data
 
+
+! 3. setup user defined magnetic axis (if provided) ....................
+  ! 3.1. axisymmetric configuration
+  if (R_axis > 0.d0) then
+     call setup_magnetic_axis_2D (R_axis, Z_axis)
+
+     ! set pol. magn. flux on axis
+     r(1) = R_axis
+     r(2) = Z_axis
+     r(3) = 0.d0
+     Psi_axis = get_Psi(r)
+  endif
+
+  ! 3.2. non-axisymmetric configuration
   if (Magnetic_Axis_File .ne. '') then
      Data_File = trim(Prefix)//Magnetic_Axis_File
      call load_magnetic_axis_3D (Data_File)
+
+     ! pol. magn. flux not supported for non-axisymmetric configurations
+     Psi_axis = 0.d0
   endif
-  
+
+
+! 4. set dependent variables ...........................................
+  ! pol. magn. flux at separatrix
+  if (R_sepx > 0.d0) then
+     r(1) = R_sepx
+     r(2) = Z_sepx
+     r(3) = 0.d0
+     Psi_sepx = get_Psi(r)
+  endif
 
   return
  1000 iconfig = 0
@@ -177,7 +207,6 @@ module equilibrium
   integer, parameter :: iu_scan = 17
 
   character*80 :: s
-  real*8       :: r(3)
 
 
   Data_File = trim(Prefix)//Data_File
@@ -229,27 +258,6 @@ module equilibrium
   end select
   call setup_equilibrium()
 
-
-! set dependent variables
-  ! pol. magn. flux on axis
-  if (R_axis > 0.d0) then
-     r(1) = R_axis
-     r(2) = Z_axis
-     r(3) = 0.d0
-     Psi_axis = get_Psi(r)
-     call setup_magnetic_axis_2D (R_axis, Z_axis)
-  endif
-
-
-
-! pol. magn. flux at separatrix
-  if (R_sepx > 0.d0) then
-     r(1) = R_sepx
-     r(2) = Z_sepx
-     r(3) = 0.d0
-     Psi_sepx = get_Psi(r)
-  endif
-
   end subroutine load_equilibrium_data
 !=======================================================================
 
@@ -295,12 +303,12 @@ module equilibrium
 
   if (nprs == 1) return
 
-  call broadcast_real_s (R_axis)
-  call broadcast_real_s (Z_axis)
   call broadcast_real_s (Psi_axis)
   call broadcast_real_s (Psi_sepx)
   call broadcast_inte_s (i_equi)
+  call broadcast_magnetic_axis
   call wait_pe()
+
 
 
   if (mype > 0) call setup_equilibrium()

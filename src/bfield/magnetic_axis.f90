@@ -16,7 +16,9 @@ module magnetic_axis
   ! for non-axisymmetric (3D) configuration
   integer, parameter :: nord = 5
   real(real64), dimension(:), allocatable :: Phinot, Rcoeff, Zcoeff
-  integer :: N_phi, N_sym
+  integer :: &
+     N_phi  = 0, &
+     N_sym  = 0
 
 
   procedure(magnetic_axis_default), pointer :: get_magnetic_axis => magnetic_axis_default
@@ -24,6 +26,7 @@ module magnetic_axis
   public :: &
      setup_magnetic_axis_2D, &
      load_magnetic_axis_3D, &
+     broadcast_magnetic_axis, &
      get_magnetic_axis
 
   contains
@@ -146,6 +149,40 @@ module magnetic_axis
   r(2) = dbsval (r(3), nord, Phinot, N_phi, Zcoeff)
 
   end function magnetic_axis_3D
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine broadcast_magnetic_axis
+  use parallel
+
+  if (nprs ==1 ) return
+
+  ! for axisymmetric configuration
+  call broadcast_real_s (R_axis)
+  call broadcast_real_s (Z_axis)
+  if (R_axis > 0.d0 .and. mype > 0) then
+     get_magnetic_axis => magnetic_axis_2D
+  endif
+
+
+  ! for non-axisymmetric configuration
+  call broadcast_inte_s (N_phi)
+  call broadcast_inte_s (N_sym)
+
+  if (N_phi > 0) then
+     if (mype > 0) then
+        allocate (Phinot(N_phi+nord))
+        allocate (Rcoeff(N_phi), Zcoeff(N_phi))
+        get_magnetic_axis => magnetic_axis_3D
+     endif
+     call broadcast_real (Phinot, N_phi+nord)
+     call broadcast_real (Rcoeff, N_phi)
+     call broadcast_real (Zcoeff, N_phi)
+  endif
+
+  end subroutine broadcast_magnetic_axis
 !=======================================================================
 
 end module magnetic_axis
