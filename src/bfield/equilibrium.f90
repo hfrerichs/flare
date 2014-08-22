@@ -3,6 +3,7 @@
 !===============================================================================
 module equilibrium
   use curve2D
+  use magnetic_axis
   implicit none
 
 
@@ -141,7 +142,7 @@ module equilibrium
   integer, parameter :: iu_scan = 17
 
   character*80 :: s
-  real*8       :: r(3), R_axis1, Z_axis1
+  real*8       :: r(3)
 
 
 ! read user configuration
@@ -195,7 +196,7 @@ module equilibrium
 ! load equilibrium data
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, R_axis1, Z_axis1, Psi_axis, Psi_sepx)
+     call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
   case (EQ_DIVAMHD)
      call divamhd_load (Data_File, Ip, Bt, R0)
   case default
@@ -212,9 +213,7 @@ module equilibrium
      r(2) = Z_axis
      r(3) = 0.d0
      Psi_axis = get_Psi(r)
-  else
-     R_axis = R_axis1
-     Z_axis = Z_axis1
+     call setup_magnetic_axis_2D (R_axis, Z_axis)
   endif
 
 
@@ -343,19 +342,6 @@ module equilibrium
 
 
 !=======================================================================
-  function get_poloidal_angle(r) result(theta)
-  real*8, intent(in) :: r(3)
-  real*8             :: theta, Maxis(3)
-
-  Maxis = magnetic_axis(r(3))
-  theta = atan2(r(2) - Maxis(2), r(1) - Maxis(1))
-
-  end function get_poloidal_angle
-!=======================================================================
-
-
-
-!=======================================================================
 ! Sample (nR,nZ)-th derivative of poloidal magnetic flux at r=(R,Z [cm])
 !=======================================================================
   function default_get_DPsi (r, nR, nZ) result(DPsi)
@@ -370,6 +356,21 @@ module equilibrium
   endif
 
   end function default_get_DPsi
+!=======================================================================
+
+
+
+!=======================================================================
+! Return poloidal angle [rad] at r=(R,Z [cm], phi [rad])
+!=======================================================================
+  function get_poloidal_angle(r) result(theta)
+  real*8, intent(in) :: r(3)
+  real*8             :: theta, Maxis(3)
+
+  Maxis = get_magnetic_axis(r(3))
+  theta = atan2(r(2) - Maxis(2), r(1) - Maxis(1))
+
+  end function get_poloidal_angle
 !=======================================================================
 
 
@@ -509,32 +510,6 @@ module equilibrium
   real*8             :: psi
 
   end function pol_flux
-!=======================================================================
-
-
-!=======================================================================
-! Provide position r=(R,Z,phi) [cm,cm,rad] of magnetic axis
-! Optional input: phi (for non-axisymmetric equilibria)
-! Default: phi = 0.0
-!=======================================================================
-  function magnetic_axis(phi) result(r)
-  real*8, intent(in), optional :: phi
-  real*8                       :: r(3)
-
-  real*8 :: phi1
-
-
-  ! scan optional arguments
-  phi1 = 0.d0
-  if (present(phi)) phi1 = phi
-  r(3) = phi1
-
-  ! set magnetic axis
-  r(1) = R_axis
-  r(2) = Z_axis
-
-
-  end function magnetic_axis
 !=======================================================================
 
 

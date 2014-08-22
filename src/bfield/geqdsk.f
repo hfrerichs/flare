@@ -4,6 +4,7 @@
 ! THIS MODULE NEED SOME CLEANUP !!!
 !===============================================================================
       module geqdsk
+      use magnetic_axis
       implicit none
 
       private 
@@ -63,12 +64,12 @@
 ! Load equilibrum data from file
 !===============================================================================
       subroutine geqdsk_load (Data_File, use_PFC_, CurrentFix_, DL_,
-     .                        R_axis, Z_axis, psi_axis, psi_sepx)
+     .                        psi_axis, psi_sepx)
       use bspline
       character*120, intent(in) :: Data_File
       logical, intent(in), optional  :: use_PFC_, CurrentFix_
       integer, intent(in), optional  :: DL_
-      real*8, intent(out), optional  :: R_axis, Z_axis,psi_axis,psi_sepx
+      real*8, intent(out), optional  :: psi_axis,psi_sepx
 
       integer, parameter :: iu = 17
 
@@ -92,8 +93,7 @@
       read  (iu, 2020) Rmaxis, Zmaxis, Simag, Sibry, Bcentr
       read  (iu, 2020) Current, Simag, xdum, Rmaxis, xdum
       read  (iu, 2020) Zmaxis, xdum, Sibry, xdum, xdum
-      if (present(R_axis)) R_axis = Rmaxis * 1.d2
-      if (present(Z_axis)) Z_axis = Zmaxis * 1.d2
+      call setup_magnetic_axis_2D (Rmaxis*1.d2, Zmaxis*1.d2)
 
 
       ! runtime feedback of characteristic values

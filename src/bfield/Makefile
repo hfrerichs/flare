@@ -2,6 +2,7 @@ include ../../include.mk
 
 
 OBJECTS =  \
+               magnetic_axis.o\
                reconstruct.o\
                geqdsk.o\
                divamhd.o\
