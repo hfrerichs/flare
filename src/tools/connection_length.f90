@@ -43,7 +43,7 @@ subroutine connection_length
   type(t_fieldline)  :: F
 
   character*12 :: fstr
-  real*8  :: y(3), yc(3), yl(3), rc(3), rl(3), X(3), thetac, thetal, dtheta, maxis(3)
+  real*8  :: y(3), yc(3), yl(3), rc(3), rl(3), X(3), thetac, thetal, dtheta
   real*8  :: Psi, Psi_min, Psi_av
   real*8  :: lc(-1:1), lpt(-1:1), dist_Psi0(-1:1)
   integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir
@@ -107,8 +107,7 @@ subroutine connection_length
         yl         = y
         call coord_trans (y, Trace_Coords, rl, CYLINDRICAL)
         call coord_trans (y, Trace_Coords, xl, CARTESIAN)
-        maxis      = magnetic_axis(rl(3))
-        thetal     = datan2(rl(2) - maxis(2), rl(1) - maxis(1))
+        thetal     = get_poloidal_angle(rl)
         call F%init(y, Trace_Step, Trace_Method, Trace_Coords)
 
         ! start field line tracing
@@ -116,13 +115,11 @@ subroutine connection_length
            yc = F%next_step()
            call coord_trans (yc, Trace_Coords, rc, CYLINDRICAL)
            call coord_trans (yc, Trace_Coords, xc, CARTESIAN)
-           !write (99, '(6e14.6)') yc, rc
-           maxis      = magnetic_axis(rc(3))
            lc(idir)   = lc(idir) + Trace_Step
            if (abs(lc(idir)) .ge. Limit) exit trace_loop
 
            ! integrate poloidal angle
-           thetac     = datan2(rc(2) - maxis(2), rc(1) - maxis(1))
+           thetac     = get_poloidal_angle(rc)
            dtheta     = thetac - thetal
            if (abs(dtheta).gt.pi) dtheta = dtheta - dsign(pi2,dtheta)
            lpt(idir)  = lpt(idir)  + dtheta

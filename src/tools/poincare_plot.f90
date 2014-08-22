@@ -69,7 +69,7 @@ subroutine poincare_plot
 
   character*120 :: tmp_filename, suffix, smult
   real*8  :: lc, y(3), yc(3), X(3)
-  real*8  :: dr, maxis(3), Psi, theta
+  real*8  :: dr, Psi, theta
   integer :: imult, j, ig, iflag, icut
 
 
@@ -172,8 +172,7 @@ subroutine poincare_plot
            Pdata%n_points(ig,imult) = j
 
            Pdata%X(ig,imult,j,1:2)  = X(1:2)
-           maxis           = magnetic_axis(X(3))
-           theta           = atan2(X(2)-maxis(2), X(1)-maxis(1))
+           theta           = get_poloidal_angle(X)
            if (theta.le.0.d0) theta = theta + pi2
            Pdata%X(ig,imult,j,3  ) = theta / pi2 * 360.d0
            Psi             = get_Psi(X)
