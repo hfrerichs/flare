@@ -100,7 +100,7 @@ module magnetic_axis
   open  (iu, file=Data_File)
   read  (iu, *) N_phi, N_sym
   write (6, 1001) N_sym
-  write (6, 1001) N_phi
+  write (6, 1002) N_phi
   N_phi = N_phi + 1
   allocate (Phitmp(N_phi), Rtmp(N_phi), Ztmp(N_phi))
   allocate (Phinot(N_phi+nord))
