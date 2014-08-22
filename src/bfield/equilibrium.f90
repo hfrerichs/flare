@@ -14,6 +14,7 @@ module equilibrium
      Data_File        = ''
   character*12  :: &
      Data_Format      = ''
+  character(len=256) :: Magnetic_Axis_File
 
   real*8 :: &
      R_axis       = 0.d0, &        ! user defined position of magnetic axis
@@ -33,7 +34,8 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, &
+     Magnetic_Axis_File
 !...............................................................................
 
 
@@ -134,15 +136,8 @@ module equilibrium
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
   use run_control, only: Prefix
-  use geqdsk
-  use divamhd
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
-
-  integer, parameter :: iu_scan = 17
-
-  character*80 :: s
-  real*8       :: r(3)
 
 
 ! read user configuration
@@ -151,12 +146,41 @@ module equilibrium
   iconfig = 1
   write (6, *)
   write (6, 1001)
-  Data_File = trim(Prefix)//Data_File
 
 
 ! set default values
   export_boundary => null()
 
+
+  if (Data_File .ne. '') call load_equilibrium_data
+
+  if (Magnetic_Axis_File .ne. '') then
+     Data_File = trim(Prefix)//Magnetic_Axis_File
+     call load_magnetic_axis_3D (Data_File)
+  endif
+  
+
+  return
+ 1000 iconfig = 0
+ 1001 format ('   - Equilibrium configuration:')
+  end subroutine load_equilibrium_config
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine load_equilibrium_data
+  use run_control, only: Prefix
+  use geqdsk
+  use divamhd
+
+  integer, parameter :: iu_scan = 17
+
+  character*80 :: s
+  real*8       :: r(3)
+
+
+  Data_File = trim(Prefix)//Data_File
 
 ! determine equilibrium type ...........................................
   ! check if Data_Format has been set
@@ -226,11 +250,7 @@ module equilibrium
      Psi_sepx = get_Psi(r)
   endif
 
-
-  return
- 1000 iconfig = 0
- 1001 format ('   - Axisymmetric (2D) MHD equilibrium:')
-  end subroutine load_equilibrium_config
+  end subroutine load_equilibrium_data
 !=======================================================================
 
 
