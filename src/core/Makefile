@@ -3,6 +3,7 @@ include ../../include.mk
 
 OBJECTS =  \
                math.o\
+               dataset.o\
                search.o\
                bilinear_system.o\
                ode_solver.o\
