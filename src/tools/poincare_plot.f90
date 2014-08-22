@@ -18,7 +18,6 @@
 !
 !
 !    Trace_Step         Size of trace steps (see Trace_Coords)
-!    Limit              Maximum distance for field line tracing (in one direction)
 !
 !    Trace_Method	> 0: Integration (see module ODE_solver)
 !                       = 0: Reconstruction from field aligned grid
@@ -40,7 +39,7 @@
 !===============================================================================
 subroutine poincare_plot
   use run_control, only: R_start, R_end, N_steps, Grid_File, Output_File, Output_Format, &
-                         Trace_Step, Trace_Method, Trace_Coords, Limit, &
+                         Trace_Step, Trace_Method, Trace_Coords, &
                          N_points, N_sym, N_mult, Phi_output, x_start
   use parallel
   use equilibrium
