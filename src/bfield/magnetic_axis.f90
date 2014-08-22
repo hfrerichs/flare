@@ -85,8 +85,10 @@ module magnetic_axis
 
 
 !=======================================================================
-  subroutine load_magnetic_axis_3D
+  subroutine load_magnetic_axis_3D (Data_File)
   use math
+
+  character(len=*), intent(in) :: Data_File
 
   integer, parameter :: iu = 54
 
@@ -94,8 +96,11 @@ module magnetic_axis
   integer :: i
 
 
-  open  (iu, file='axis.dat')
+  write (6, 1000)
+  open  (iu, file=Data_File)
   read  (iu, *) N_phi, N_sym
+  write (6, 1001) N_sym
+  write (6, 1001) N_phi
   N_phi = N_phi + 1
   allocate (Phitmp(N_phi), Rtmp(N_phi), Ztmp(N_phi))
   allocate (Phinot(N_phi+nord))
@@ -119,6 +124,9 @@ module magnetic_axis
 
   get_magnetic_axis => magnetic_axis_3D
 
+ 1000 format(8x,'Loading magnetic axis from file')
+ 1001 format(8x,'Toroidal symmetry number: ',i2)
+ 1002 format(8x,'Number of elements:       ',i6)
   end subroutine load_magnetic_axis_3D
 !=======================================================================
 
