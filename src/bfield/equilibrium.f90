@@ -15,7 +15,7 @@ module equilibrium
      Data_File        = ''
   character*12  :: &
      Data_Format      = ''
-  character(len=256) :: Magnetic_Axis_File
+  character(len=256) :: Magnetic_Axis_File = ''
 
   real*8 :: &
      R_axis       = 0.d0, &        ! user defined position of magnetic axis
