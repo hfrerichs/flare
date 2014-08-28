@@ -10,7 +10,9 @@
 !===============================================================================
 module boundary
   use curve2D
-  use block_limiter
+  use block_limiter, only: setup_block_limiter, center_bl, center_s, dist_p_oripocs, &
+                           oripo_p, radius_s, normv_p, num_p, num_s, radius_bl, bl_filename, &
+                           max_num_p, max_num_s, check_intersection, allocate_bl_arrays
   use quad_ele
   implicit none
 
