@@ -4,6 +4,7 @@ module run_control
   include '../config.h'
 
   integer, parameter :: &
+     ZERO_TOLERANCE = 0, &
      INERVOUS   =  1, &
      IMODERATE  = 10, &
      IDONTPANIC = 42
