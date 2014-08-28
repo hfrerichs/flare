@@ -2,10 +2,14 @@ module reconstruct
   implicit none
   private
 
-  type t_fl_coord
+  type t_fluxtube_coords
      real*8  :: tj, pj, rj
      integer :: ir, ip, it, iz
-  end type t_fl_coord
+
+     contains
+     procedure :: trace_1step
+     !procedure :: to_real_coordinates
+  end type t_fluxtube_coords
 
 
   character*120 :: &
@@ -17,13 +21,15 @@ module reconstruct
      Grid_File, Grid_Layout, Bfield_File
 
 
-  type (t_fl_coord) :: yc
+  type (t_fluxtube_coords) :: yc
   real*8            :: sc, ds
 
 
   public :: &
      load_reconstruct_config, &
-     broadcast_mod_reconstruct
+     broadcast_mod_reconstruct, &
+     t_fluxtube_coords
+
   contains
 !=======================================================================
 
@@ -109,6 +115,14 @@ module reconstruct
   function trace_fl()
   real*8 :: trace_fl(3)
   end function trace_fl
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine trace_1step(this)
+  class(t_fluxtube_coords) :: this
+  end subroutine trace_1step
 !=======================================================================
 
 

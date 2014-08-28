@@ -5,6 +5,7 @@
 module fieldline
   use math
   use ode_solver
+  use reconstruct
   use bfield
   use equilibrium
   use boundary
@@ -29,8 +30,12 @@ module fieldline
 
      integer :: Trace_Coords
 
+     type(t_fluxtube_coords) :: F
+
+     procedure(trace_1step_ODE), pointer :: trace_1step
+
      contains
-     procedure :: init, trace, trace_1step, init_toroidal_tracing, intersect_sym_plane
+     procedure :: init, trace, init_toroidal_tracing, intersect_sym_plane
      procedure :: &
         update_poloidal_angle, &
         update_toroidal_angle, &
@@ -56,10 +61,12 @@ module fieldline
   y1 = y0
   ! use field line reconstruction method
   if (isolver == FL_Reconstruction) then
+     this%trace_1step  => trace_1step_reconstruct
 
   ! use numerical integration method isolver > 0
   elseif (isolver > 0) then
      this%Trace_Coords = icoord
+     this%trace_1step  => trace_1step_ODE
 
      select case (icoord)
      case (FL_LINE)
@@ -79,9 +86,7 @@ module fieldline
   call coord_trans (y0, icoord, this%rc, CYLINDRICAL)
   this%phi_int   = 0.d0
   this%theta_int = 0.d0
-
-  Maxis       = magnetic_axis(this%rc(3))
-  this%thetac = atan2(this%rc(2) - Maxis(2), this%rc(1) - Maxis(1))
+  this%thetac    = get_poloidal_angle(this%rc)
 
   end subroutine init
 !=======================================================================
@@ -89,7 +94,9 @@ module fieldline
 
 
 !=======================================================================
-  subroutine trace_1step(this)
+! Trace field line one step size
+!=======================================================================
+  subroutine trace_1step_ODE(this)
   class(t_fieldline), intent(inout) :: this
   real*8                            :: yc(3)
 
@@ -97,19 +104,12 @@ module fieldline
   yc      = this%next_step()
   call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
 
-  end subroutine trace_1step
+  end subroutine trace_1step_ODE
 !=======================================================================
-
-
-
-!=======================================================================
-  function trace_1step_reconstruct(this) result(yc)
+  subroutine trace_1step_reconstruct(this)
   class(t_fieldline), intent(inout) :: this
-  real*8                            :: yc(3)
 
-  yc = 1.234d0
-
-  end function trace_1step_reconstruct
+  end subroutine trace_1step_reconstruct
 !=======================================================================
 
 
