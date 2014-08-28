@@ -19,6 +19,9 @@ GEOMETRY_OBJ   = $(GEOMETRY_DIR)/*.o
 TOOLS_INC      = -I $(TOOLS_DIR)
 TOOLS_OBJ      = $(TOOLS_DIR)/*.o
 
+DEVEL_INC      = -I $(DEVEL_DIR)
+DEVEL_OBJ      = $(DEVEL_DIR)/*.o
+
 OBJECTS = \
                parallel.o\
                run_control.o
@@ -31,8 +34,9 @@ all: $(OBJECTS)
 	cd $(BFIELD_DIR); $(MAKE) FC='$(FC)'
 	cd $(GEOMETRY_DIR); $(MAKE) FC='$(FC)'
 	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
+	cd $(DEVEL_DIR); $(MAKE) FC='$(FC)'
 	$(FC) -c $(GEOMETRY_INC) $(BFIELD_INC) main.f90
-	$(FC) -o  $(PROGRAM) $(OBJECTS) $(TOOLS_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
+	$(FC) -o  $(PROGRAM) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
 
 
 %.o: %.f*
@@ -53,5 +57,6 @@ clean:
 	cd $(GEOMETRY_DIR); $(MAKE) clean
 	cd $(BFIELD_DIR); $(MAKE) clean
 	cd $(TOOLS_DIR); $(MAKE) clean
+	cd $(DEVEL_DIR); $(MAKE) clean
 	rm -rf *.o
 	rm -rf *.mod

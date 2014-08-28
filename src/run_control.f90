@@ -140,8 +140,7 @@ module run_control
   case ('generate_magnetic_axis')
      call generate_magnetic_axis
   case default
-     write (6, *) 'run type "', trim(Run_Type), '" not defined!'
-     stop
+     call run_control_development(Run_Type)
   end select
 
  1000 format (/ '========================================================================')
