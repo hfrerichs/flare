@@ -12,7 +12,7 @@ subroutine hyperbolic_fixed_point
   integer, parameter :: np = 10
 
   real(real64), dimension(np,np,3) :: x
-  real(real64), dimension(np,np)   :: Delta
+  real(real64), dimension(np,np)   :: Delta, Alpha
 
   type(t_fieldline)  :: F
   real(real64) :: Dphi, Xout(3), Dout, u0(2), v0(2), dl
@@ -86,6 +86,7 @@ subroutine hyperbolic_fixed_point
      call F%init(x(i,j,:), Trace_Step, Trace_Method, FL_ANGLE)
      call F%trace(Dphi, .true.)
      D2         = F%rc(1:2) - x(i,j,1:2)
+     Alpha(i,j) = atan2(D2(2), D2(1))/pi*180.d0
      Delta(i,j) = sqrt(sum(D2**2))
 
      if (Delta(i,j) < D) then
@@ -119,6 +120,13 @@ subroutine hyperbolic_fixed_point
   enddo
   close (iu)
 
+  open  (iu, file='alpha.dat')
+  do j=1,np
+  do i=1,np
+     write (iu, *) Alpha(i,j)
+  enddo
+  enddo
+  close (iu)
 
 
 
@@ -218,7 +226,7 @@ subroutine hyperbolic_fixed_point
   v2(1) =  0.5d0 * v1(2)
   v2(2) = -0.5d0 * v1(1)
   xp = 0.75d0*xp+ 0.25d0*xp1
-  if (ilevel <= 4) call evaluateX (xp, v1, v2, xp, D, ilevel)
+  !if (ilevel <= 4) call evaluateX (xp, v1, v2, xp, D, ilevel)
 
   end subroutine evaluateX
 
