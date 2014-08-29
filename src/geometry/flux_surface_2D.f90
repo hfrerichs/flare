@@ -31,18 +31,34 @@ module flux_surface_2D
   use boundary
   class(t_flux_surface_2D) :: this
   real*8, intent(in)       :: r(2)
-  real*8, intent(in)       :: Trace_Step
-  integer, intent(in)      :: Trace_Method
+  real*8, intent(in), optional        :: Trace_Step
+  integer, intent(in), optional       :: Trace_Method
   type(t_curve), intent(in), optional :: AltSurf
 
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
-  real*8  :: yl(3), yc(3), X(3)
-  integer :: idir, i, nmax
+  real*8  :: yl(3), yc(3), X(3), ds
+  integer :: idir, i, nmax, imethod
+
+
+  ! determine trace step
+  if (present(Trace_Step)) then
+     ds = Trace_Step
+  else
+     ds = length_scale() / 200.d0
+  endif
+
+
+  ! set trace method
+  if (present(Trace_Method)) then
+     imethod = Trace_Method
+  else
+     imethod = NM_AdamsBashforth4
+  endif
 
 
   ! allocate temporary array for output
-  nmax = N_steps_guess(Trace_Step) / 2
+  nmax = N_steps_guess(ds) / 2
   allocate (tmp(-nmax:nmax,2))
 
 
@@ -55,7 +71,7 @@ module flux_surface_2D
   ! trace in forward and backward direction
   do idir=-1,1,2
      ! set initial position
-     call F%init_ODE(2, r, idir*Trace_Step, Bpol_sub, Trace_Method)
+     call F%init_ODE(2, r, idir*ds, Bpol_sub, imethod)
      yl(1:2)  = r
      tmp(0,:) = F%yc
 
