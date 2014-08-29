@@ -4,6 +4,7 @@
 ! description:	Operations on 2D curves (line segments)
 !===============================================================================
 module curve2D
+  use iso_fortran_env
 
 #if defined(FLARE)
   use math
@@ -32,6 +33,9 @@ module curve2D
 
      procedure :: load
      procedure :: plot => curve2D_plot
+     procedure :: sort_loop
+     procedure :: setup_angular_sampling
+     procedure :: sample_at
   end type t_curve
 
   contains
@@ -224,6 +228,7 @@ module curve2D
   e1   = e1 / d1
   e2   = M2 - M1
   d2   = dsqrt(sum(e2**2))
+  if (d2 == 0.d0) return
   e2   = e2 / d2
   edet = - e1(1)*e2(2) + e1(2)*e2(1)
   dx   = M1 - L1
@@ -290,6 +295,188 @@ module curve2D
   endif
 
   end subroutine curve2D_plot
+!=======================================================================
+
+
+
+!=======================================================================
+! sort points on a closed contour line 'L' with regard to center 'x_c'
+! and direction 'dx'
+!=======================================================================
+  subroutine sort_loop (L, x_c_, dx_)
+  implicit none
+
+  class(t_curve), intent(inout)          :: L
+  real(real64),     intent(in), optional :: x_c_(2), dx_(2)
+
+  real(real64), dimension(:,:), allocatable :: tmp_arr
+  real(real64) :: x_c(2), dx(2)
+  real(real64) :: theta_0, theta, dxl(2), x_0(2), tmp(3), t
+  integer      :: i, j, n
+
+
+  n = L%n_seg
+
+
+  ! check if reference point x_c is given
+  if (present(x_c_)) then
+     x_c = x_c_
+  ! set default values otherwise
+  else
+     x_c(1) = sum(L%x_data(:,1)) / (n+1)
+     x_c(2) = sum(L%x_data(:,2)) / (n+1)
+  endif
+
+
+  ! check if reference direction is given
+  if (present(dx_)) then
+     dx    = dx_
+  ! set default values otherwise
+  else
+     dx(1) = 1.d0
+     dx(2) = 0.d0
+  endif
+
+
+  ! allocate memory for temporary array
+  allocate (tmp_arr(0:n, 3))
+  tmp_arr(:,1:2) = L%x_data
+
+  ! calculate angles w.r.t. x_c
+  theta_0  = datan2(dx(2), dx(1))
+  do i=0,n
+     dxl   = L%x_data(i,:) - x_c
+     theta = datan2(dxl(2), dxl(1))
+     if (theta .lt. theta_0) theta = theta + pi2
+     tmp_arr(i,3) = theta
+  enddo
+
+  ! sort x,y data with respect to theta values
+  do 100 j=1,n
+  do 100 i=0,j
+     if (tmp_arr(i,3) .gt. tmp_arr(j,3)) then
+        tmp          = tmp_arr(i,:)
+        tmp_arr(i,:) = tmp_arr(j,:)
+        tmp_arr(j,:) = tmp
+     endif
+  100 continue
+
+  ! close loop
+  t    = (tmp_arr(0,3) - tmp_arr(n,3) + pi2)
+  if (t.eq.0.d0) then
+     ! loop already closed
+     L%x_data(0:n,:) = tmp_arr(0:n,1:2)
+  else
+     t    = (theta_0      - tmp_arr(n,3) + pi2) / t
+     x_0  = tmp_arr(n,1:2)
+     dxl  = tmp_arr(0,1:2) - x_0
+     x_0  = x_0 + t * dxl
+
+     ! copy data to output variable L
+     deallocate (L%x_data)
+     if (x_0(1).eq.tmp_arr(0,1) .and. x_0(2).eq.tmp_arr(0,2)) then
+        L%n_seg = n + 1
+        allocate (L%x_data(0:n+1, 2))
+        L%x_data(0:  n,:) = tmp_arr(0:n,1:2)
+        L%x_data(  n+1,:) = x_0
+     else
+        L%n_seg = n + 2
+        allocate (L%x_data(0:n+2, 2))
+        L%x_data(0    ,:) = x_0
+        L%x_data(1:n+1,:) = tmp_arr(0:n,1:2)
+        L%x_data(  n+2,:) = x_0
+     endif
+  endif
+
+  end subroutine sort_loop
+!=======================================================================
+
+
+
+!=======================================================================
+! prepare sampling from line using the angle with regard to a reference
+! point 'x_c' as weight factor
+!=======================================================================
+  subroutine setup_angular_sampling (L, x_c)
+  implicit none
+
+  class(t_curve), intent(inout) :: L
+  real(real64),   intent(in)    :: x_c(2)
+
+  real(real64) :: w_tot, x(2), phi1, phi2, dphi
+  integer      :: i, n
+
+
+  ! allocate memory for weight array
+  n = L%n_seg
+  if (associated(L%w_seg)) deallocate(L%w_seg)
+  allocate (L%w_seg(n))
+
+  ! setup weight array
+  w_tot = 0.d0
+  x     = L%x_data(0,:)
+  phi1  = datan2(x(2)-x_c(2), x(1)-x_c(1))
+  do i=1,n
+     x     = L%x_data(i,:)
+     phi2  = datan2(x(2)-x_c(2), x(1)-x_c(1))
+     dphi  = phi2 - phi1
+     if (dabs(dphi) .gt. pi) dphi = dphi - dsign(pi2,dphi)
+
+     L%w_seg(i) = dphi
+     w_tot      = w_tot + dphi
+     phi1  = phi2
+  enddo
+  L%w_seg  = L%w_seg / w_tot
+
+  end subroutine setup_angular_sampling
+!=======================================================================
+
+
+
+!=======================================================================
+! sample data point 'x' from curve 'L' at position 't'
+!=======================================================================
+  subroutine sample_at (L, t, x, x1)
+  implicit none
+
+  class(t_curve), intent(in) :: L
+  real(real64),  intent(in)  :: t
+  real(real64),  intent(out) :: x(L%n_dim)
+  real(real64),  intent(out), optional :: x1(L%n_dim)
+
+  real(real64) :: wt, wint
+  integer      :: i, n, ierr
+
+
+  ! find index i of line segment associated with t
+!  n = L%n_seg
+!  i = binary_interval_search(1, n, L%w_seg, t, ierr)
+!  if (ierr .ne. 0) then
+!     x = 0.d0
+!     return
+!  endif
+  n    = L%n_seg
+  wt   = t
+  wint = 0.d0
+  do i=1,n
+     wint = wint + L%w_seg(i)
+     if (wint .ge. wt) exit
+  enddo
+  if (i.eq.n+1) i=n
+
+
+  ! calculate relative position on line segment
+  wt   = (wint - wt) / L%w_seg(i)
+
+  ! return data point
+  x    = L%x_data(i-1,:) * wt + L%x_data(i,:) * (1.d0 - wt)
+
+  ! optional output: tangent vector
+  if (present(x1)) then
+     x1 = (L%x_data(i,:)-L%x_data(i-1,:))/L%w_seg(i)
+  endif
+
+  end subroutine sample_at
 !=======================================================================
 
 end module curve2D
