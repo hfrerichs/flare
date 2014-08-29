@@ -2,12 +2,14 @@
 ! Generete unperturbed flux surfaces
 !===============================================================================
 module flux_surface_2D
+  use iso_fortran_env
   use curve2D
   implicit none
 
   private
   type, extends(t_curve) :: t_flux_surface_2D
-     integer   :: n(-1:1)
+     integer      :: n(-1:1)
+     real(real64) :: PsiN
 
      contains
      procedure :: generate => generate_flux_surface_2D
@@ -37,7 +39,7 @@ module flux_surface_2D
 
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
-  real*8  :: yl(3), yc(3), X(3), ds
+  real*8  :: yl(3), yc(3), X(3), ds, r3(3)
   integer :: idir, i, nmax, imethod
 
 
@@ -63,9 +65,12 @@ module flux_surface_2D
 
 
   ! initialize variables
-  yl(3)  = 0.d0
-  yc(3)  = 0.d0
-  this%n = nmax
+  yl(3)     = 0.d0
+  yc(3)     = 0.d0
+  this%n    = nmax
+  r3(1:2)   = r
+  r3(3)     = 0.d0
+  this%PsiN = get_PsiN(r3)
 
 
   ! trace in forward and backward direction
@@ -96,8 +101,10 @@ module flux_surface_2D
 
 
 ! save data
-  allocate (this%x_data(-this%n(-1):this%n(1),2))
+  allocate (this%x_data(0:this%n(-1)+this%n(1),2))
   this%x_data = tmp(-this%n(-1):this%n(1),:)
+  this%n_seg  = this%n(-1)+this%n(1)
+  this%n_dim  = 2
   deallocate (tmp)
 
   end subroutine generate_flux_surface_2D
@@ -173,7 +180,7 @@ module flux_surface_2D
 
 
   ! write data
-  do i=-this%n(-1),this%n(1)
+  do i=0,this%n(-1)+this%n(1)
      write (iu0, *) this%x_data(i,:)
   enddo
 
