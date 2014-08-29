@@ -413,6 +413,70 @@ module equilibrium
 
 
 !=======================================================================
+! Get cylindrical coordinates (R[cm], Z[cm], Phi[rad]) for flux
+! coordinates (Theta[deg], PsiN, Phi[deg])
+!=======================================================================
+  function get_cylindrical_coordinates(y, ierr) result(r)
+  use iso_fortran_env
+  use math
+  implicit none
+
+  real(real64), intent(inout)  :: y(3)
+  integer,      intent(out)    :: ierr
+  real(real64)                 :: r(3)
+
+  integer, parameter :: imax = 160
+  real(real64), parameter :: tolerance = 1.d-10
+  real(real64), parameter :: damping   = 0.9d0
+
+  real(real64) :: dl, dpsi_dR, dpsi_dZ, dpsi_dl
+  real(real64) :: M(3), Theta, PsiN, dr(2), beta
+
+  integer :: i
+
+
+  ierr  = 0
+  r(3)  = y(3) / 180.d0*pi
+  M     = get_magnetic_axis(r(3))
+  dr(1) = cos(y(1)/180.d0*pi)
+  dr(2) = sin(y(1)/180.d0*pi)
+  dl    = 0.2d0 * length_scale()
+
+  ! start near magnetic axis
+  r(1:2)= M(1:2) + dl*dr
+  PsiN  = get_PsiN(r)
+
+  do i=1,imax
+     dpsi_dR = get_DPsiN(r, 1, 0)
+     dpsi_dZ = get_DPsiN(r, 0, 1)
+     dr(1) = cos(y(1)/180.d0*pi)
+     dr(2) = sin(y(1)/180.d0*pi)
+     dpsi_dl = dpsi_dR*dr(1) + dpsi_dZ*dr(2)
+
+     beta    = y(2) - PsiN
+     dr      = dr * beta / dpsi_dl * damping
+
+     r(1:2)  = r(1:2) + dr
+     PsiN    = get_PsiN(r)
+     Theta   = get_poloidal_angle(r) / pi*180.d0
+     if (Theta < 0) Theta = Theta + 360.d0
+
+     if (abs(beta) <= tolerance) exit
+  enddo
+  ! update input parameters to match output coordinates
+  y(1) = Theta
+  y(2) = PsiN
+
+  if (abs(beta) > tolerance) then
+     ierr = 1
+  endif
+
+  end function get_cylindrical_coordinates
+!=======================================================================
+
+
+
+!=======================================================================
 ! Return boundaries [cm] of equilibrium domain
 !=======================================================================
   subroutine default_get_domain (Rbox, Zbox)
