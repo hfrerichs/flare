@@ -385,6 +385,15 @@ module equilibrium
 
   end function default_get_DPsi
 !=======================================================================
+  function get_DPsiN(r, nR, nZ) result(DPsiN)
+  real*8, intent(in)  :: r(3)
+  integer, intent(in) :: nR, nZ
+  real*8              :: DPsiN
+
+  DPsiN = get_DPsi(r, nR, nZ) / (Psi_sepx - Psi_axis)
+
+  end function get_DPsiN
+!=======================================================================
 
 
 
