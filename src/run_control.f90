@@ -112,6 +112,9 @@ module run_control
 !=======================================================================
   subroutine run_control_main()
 
+  integer :: i
+
+
   if (firstP) then
      write (6, 1000)
   endif
@@ -141,7 +144,12 @@ module run_control
   case ('generate_magnetic_axis')
      call generate_magnetic_axis
   case default
-     call run_control_development(Run_Type)
+     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
+        read (Run_Type(40:42), *) i
+        call generate_field_aligend_grid (i)
+     else
+        call run_control_development(Run_Type)
+     endif
   end select
 
  1000 format (/ '========================================================================')
