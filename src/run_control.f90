@@ -15,7 +15,7 @@ module run_control
      Configuration  = ' ', &        ! select input directory (2nd part)
      Run_Type       = ' ', &        ! select sub-program to execute
      Output_File    = 'output.txt', &
-     Grid_File      = ''
+     Grid_File      = 'grid.dat'
 
   real*8 :: &
      x_start(3)     = 0.d0, &       ! initial position for field line tracing
@@ -23,7 +23,9 @@ module run_control
      Limit          = 2.d4, &       ! maximum distance for field line tracing (in one direction)
      R_start        = 0.d0, &       ! radial start- and
      R_end          = 0.d0, &       ! end position for Poincare plots
-     Phi_output     = 0.d0          ! Reference plane for Poincare plots
+     Phi_output     = 0.d0, &       ! Reference plane for Poincare plots
+     Theta(2)       = 0.d0, &
+     Psi(2)         = 0.d0
 
 
   integer :: &
@@ -31,6 +33,8 @@ module run_control
      N_points       = 0, &          ! Max. number of points for Poincare plots
      N_sym          = 1, &          ! Toroidal symmetry factor (for Poincare plots)
      N_mult         = 1, &          !
+     N_theta        = 1, &          ! Resolution in poloidal direction
+     N_psi          = 1, &          ! Resolution in radial direction
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
      Input_Format   = 1, &
@@ -48,7 +52,8 @@ module run_control
      Machine, Configuration, &
      Run_Type, Output_File, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
-     R_start, R_end, Phi_output, N_points, N_sym, N_mult
+     R_start, R_end, Phi_output, N_points, N_sym, N_mult, &
+     Theta, Psi, N_theta, N_psi
 
   contains
 !=======================================================================
@@ -143,6 +148,8 @@ module run_control
      call generate_mag_file
   case ('generate_magnetic_axis')
      call generate_magnetic_axis
+  case ('flux_surface_grid')
+     call flux_surface_grid
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i
