@@ -529,6 +529,19 @@ module equilibrium
 
 
 
+!=======================================================================
+  function length_scale () result(L)
+  real(real64) :: L
+
+  real(real64) :: M(3)
+
+
+  L = 1.d0
+  M = get_magnetic_axis(0.d0)
+  if (M(1) > 0.d0) L = M(1)
+
+  end function length_scale
+!=======================================================================
 
 
 
