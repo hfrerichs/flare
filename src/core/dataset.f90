@@ -7,9 +7,7 @@ module dataset
   private
 
   type, public :: t_dataset
-     integer :: nrow, ncol
-
-     ! TODO: upper and lower boundaries
+     integer :: nrow, ncol, nrow_offset
 
      real(real64), dimension(:,:), allocatable :: x
 
@@ -29,19 +27,20 @@ module dataset
 !	report		write number of rows found in data file
 !	header		return leading comment line "# ..." of data file
 !=======================================================================
-  subroutine load(this, data_file, columns, report, header)
+  subroutine load(this, data_file, columns, report, header, nrow_offset)
   class (t_dataset), intent(inout)         :: this
   character(len=*),  intent(in)            :: data_file
   integer,           intent(in), optional  :: columns
   logical,           intent(in), optional  :: report
   character(len=*),  intent(out), optional :: header
+  integer,           intent(in), optional  :: nrow_offset
 
 
   integer, parameter                       :: iu = 42
 
   real(real64), dimension(:), allocatable  :: tmp
   character(len=256) :: str
-  integer            :: i, j, ncount, ncol, icom
+  integer            :: i, j, n0, ncount, ncol, icom
   logical            :: lreport
 
 
@@ -84,13 +83,16 @@ module dataset
 
   ! allocate memory
   this%nrow = ncount
+  n0        = 0
+  if (present(nrow_offset)) n0 = nrow_offset
+  this%nrow_offset = n0
   if (allocated(this%x)) deallocate (this%x)
-  allocate (this%x(ncount,ncol))
+  allocate (this%x(1+n0:ncount+n0,ncol))
   allocate (tmp(ncol))
 
 
   ! read actual data
-  j = 1
+  j = 1+n0
   read_loop: do i=1,ncount+icom
      read (iu, 4000) str
      if (str(1:1) .ne. '#') then
@@ -121,7 +123,7 @@ module dataset
 
 
   character*11 :: f
-  integer      :: i
+  integer      :: i, n0
 
 
   write (6, *) 'writing data: ', this%nrow, this%ncol
@@ -129,8 +131,9 @@ module dataset
   write (f, 1000) this%ncol
  1000 format ('(',i3,'e18.10)')
 
+  n0 = this%nrow_offset
   open  (iu, file=data_file)
-  do i=1,this%nrow
+  do i=1+n0,this%nrow+n0
      write (iu, f) this%x(i,:)
   enddo
   close (iu)
@@ -140,15 +143,22 @@ module dataset
 
 
 !=======================================================================
-  subroutine new(this, nrow, ncol)
+  subroutine new(this, nrow, ncol, nrow_offset)
   class(t_dataset)    :: this
   integer, intent(in) :: nrow, ncol
+  integer, intent(in), optional :: nrow_offset
 
+  integer :: n0
+
+
+  n0 = 0
+  if (present(nrow_offset)) n0 = nrow_offset
 
   call this%destroy()
-  this%nrow = nrow
-  this%ncol = ncol
-  allocate (this%x(nrow, ncol))
+  this%nrow        = nrow
+  this%ncol        = ncol
+  this%nrow_offset = n0
+  allocate (this%x(1+n0:nrow+n0, ncol))
   this%x    = 0.d0
 
   end subroutine new
