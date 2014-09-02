@@ -11,7 +11,7 @@ module dataset
      real(real64), dimension(:,:), allocatable :: x
 
      contains
-     procedure :: load, store
+     procedure :: load, store, destroy
   end type t_dataset
 
   contains
@@ -132,6 +132,16 @@ module dataset
   enddo
   close (iu)
   end subroutine store
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine destroy(this)
+  class(t_dataset) :: this
+
+  if (allocated(this%x)) deallocate(this%x)
+  end subroutine destroy
 !=======================================================================
 
 end module dataset
