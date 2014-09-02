@@ -55,7 +55,7 @@ module fieldline
   real*8, intent(in)  :: y0(3), ds
   integer, intent(in) :: isolver, icoord
 
-  real*8 :: y1(3), Maxis(3)
+  real*8 :: y1(3)
 
 
   y1 = y0
@@ -191,10 +191,14 @@ module fieldline
 !=======================================================================
   function fieldline_intersects_boundary(this, rcut) result(l)
   class(t_fieldline), intent(inout) :: this
-  real*8, intent(out)               :: rcut(3)
+  real*8, intent(out), optional     :: rcut(3)
   logical                           :: l
 
-  l = intersect_boundary (this%rl, this%rc, rcut)
+  real*8 :: X(3)
+
+
+  l = intersect_boundary (this%rl, this%rc, X)
+  if (present(rcut)) rcut = X
 
   end function fieldline_intersects_boundary
 !=======================================================================
