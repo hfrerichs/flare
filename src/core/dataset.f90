@@ -8,10 +8,13 @@ module dataset
 
   type, public :: t_dataset
      integer :: nrow, ncol
+
+     ! TODO: upper and lower boundaries
+
      real(real64), dimension(:,:), allocatable :: x
 
      contains
-     procedure :: load, store, destroy
+     procedure :: load, store, new, destroy
   end type t_dataset
 
   contains
@@ -132,6 +135,23 @@ module dataset
   enddo
   close (iu)
   end subroutine store
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine new(this, nrow, ncol)
+  class(t_dataset)    :: this
+  integer, intent(in) :: nrow, ncol
+
+
+  call this%destroy()
+  this%nrow = nrow
+  this%ncol = ncol
+  allocate (this%x(nrow, ncol))
+  this%x    = 0.d0
+
+  end subroutine new
 !=======================================================================
 
 
