@@ -416,14 +416,15 @@ module equilibrium
 ! Get cylindrical coordinates (R[cm], Z[cm], Phi[rad]) for flux
 ! coordinates (Theta[deg], PsiN, Phi[deg])
 !=======================================================================
-  function get_cylindrical_coordinates(y, ierr) result(r)
+  function get_cylindrical_coordinates(y, ierr, r0) result(r)
   use iso_fortran_env
   use math
   implicit none
 
-  real(real64), intent(inout)  :: y(3)
-  integer,      intent(out)    :: ierr
-  real(real64)                 :: r(3)
+  real(real64), intent(inout)        :: y(3)
+  integer,      intent(out)          :: ierr
+  real(real64), intent(in), optional :: r0(3)
+  real(real64)                       :: r(3)
 
   integer, parameter :: imax = 160
   real(real64), parameter :: tolerance = 1.d-10
@@ -436,15 +437,22 @@ module equilibrium
 
 
   ierr  = 0
-  r(3)  = y(3) / 180.d0*pi
-  M     = get_magnetic_axis(r(3))
-  dr(1) = cos(y(1)/180.d0*pi)
-  dr(2) = sin(y(1)/180.d0*pi)
-  dl    = 0.2d0 * length_scale()
 
-  ! start near magnetic axis
-  r(1:2)= M(1:2) + dl*dr
-  PsiN  = get_PsiN(r)
+  ! set start point for approximation
+  if (present(r0)) then
+     r = r0
+  else
+     ! start near magnetic axis
+     r(3)  = y(3) / 180.d0*pi
+     M     = get_magnetic_axis(r(3))
+     dr(1) = cos(y(1)/180.d0*pi)
+     dr(2) = sin(y(1)/180.d0*pi)
+     dl    = 0.2d0 * length_scale()
+
+     r(1:2)= M(1:2) + dl*dr
+     PsiN  = get_PsiN(r)
+  endif
+
 
   do i=1,imax
      dpsi_dR = get_DPsiN(r, 1, 0)
