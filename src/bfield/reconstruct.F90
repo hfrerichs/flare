@@ -54,7 +54,6 @@ module reconstruct
                         iu_Bfield      = 27
 
 
-  Trace_Coords = CYLINDRICAL
 
 #if defined(EMC3)
   rewind (iu)
@@ -79,6 +78,8 @@ module reconstruct
   call ACTIVIZE_MAPP_TOR()
 
   close (iu_Grid_Layout)
+
+  Trace_Coords = CYLINDRICAL
   return
  1000 iload = 0
  1001 format ('   - Reconstruct from magnetic field aligned grid')
