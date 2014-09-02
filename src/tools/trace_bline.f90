@@ -59,7 +59,7 @@ subroutine trace_bline
 
 
   ! select initial position(s) for tracing
-  if (Grid_File == ' ') then
+  if (sum(x_start) .ne. 0.d0) then
      grid_ptr => new_grid(1, log_progress=.false.)
      grid_ptr(1,:) = x_start
   else

@@ -106,18 +106,8 @@ subroutine poincare_plot
 
 
 ! prepare grid/radial range for poincare plot ..........................
-  ! use points from grid file if R_start is missing
-  if (Grid_File .ne. '') then
-     call read_grid (Grid_File, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
-     if (firstP) write (6,*)
-
-  ! use x_start if N_steps is not specified
-  elseif (N_steps == 0) then
-     my_grid => new_grid(N_steps+1, log_progress=.false.)
-     my_grid(1,:) = x_start
-
   ! use radial range R_start -> R_end
-  else
+  if (R_start > 0.d0) then
      dr   = 0.d0
      my_grid => new_grid(N_steps+1, log_progress=.false.)
 
@@ -131,6 +121,20 @@ subroutine poincare_plot
         if (firstP) write (6,1002) R_start
         my_grid(1,1) = R_start
      endif
+
+  ! use x_start if N_steps is not specified
+  elseif (N_steps == 0  .and.  x_start(1).ne.0.d0) then
+     my_grid => new_grid(N_steps+1, log_progress=.false.)
+     my_grid(1,:) = x_start
+
+  ! use points from grid file if R_start is missing
+  elseif (Grid_File .ne. '') then
+     call read_grid (Grid_File, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
+     if (firstP) write (6,*)
+
+  else
+     if (firstP) write (6, *) 'error: starting points undefined!'
+     stop
   endif
 !.......................................................................
 
