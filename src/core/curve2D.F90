@@ -397,18 +397,29 @@ module curve2D
 ! prepare sampling from line using the angle with regard to a reference
 ! point 'x_c' as weight factor
 !=======================================================================
-  subroutine setup_angular_sampling (L, x_c)
+  subroutine setup_angular_sampling (L, x_c_)
   implicit none
 
   class(t_curve), intent(inout) :: L
-  real(real64),   intent(in)    :: x_c(2)
+  real(real64),   intent(in), optional    :: x_c_(2)
 
-  real(real64) :: w_tot, x(2), phi1, phi2, dphi
+  real(real64) :: w_tot, x(2), phi1, phi2, dphi, x_c(2)
   integer      :: i, n
 
 
-  ! allocate memory for weight array
   n = L%n_seg
+
+  ! check if reference point x_c is given
+  if (present(x_c_)) then
+     x_c = x_c_
+  ! set default values otherwise
+  else
+     x_c(1) = sum(L%x_data(:,1)) / (n+1)
+     x_c(2) = sum(L%x_data(:,2)) / (n+1)
+  endif
+
+
+  ! allocate memory for weight array
   if (associated(L%w_seg)) deallocate(L%w_seg)
   allocate (L%w_seg(n))
 
