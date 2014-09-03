@@ -35,6 +35,7 @@ module run_control
      N_mult         = 1, &          !
      N_theta        = 1, &          ! Resolution in poloidal direction
      N_psi          = 1, &          ! Resolution in radial direction
+     N_phi          = 1, &          ! Resolution in toroidal direction
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
      Input_Format   = 1, &
@@ -53,7 +54,7 @@ module run_control
      Run_Type, Output_File, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
      R_start, R_end, Phi_output, N_points, N_sym, N_mult, &
-     Theta, Psi, N_theta, N_psi
+     Theta, Psi, N_theta, N_psi, N_phi
 
   contains
 !=======================================================================
@@ -97,13 +98,20 @@ module run_control
   call broadcast_real_s (R_start         )
   call broadcast_real_s (R_end           )
   call broadcast_real_s (Phi_output      )
+  call broadcast_real   (Theta      ,   2)
+  call broadcast_real   (Psi        ,   2)
   call broadcast_inte_s (N_steps         )
   call broadcast_inte_s (N_points        )
   call broadcast_inte_s (N_sym           )
   call broadcast_inte_s (N_mult          )
+  call broadcast_inte_s (N_theta         )
+  call broadcast_inte_s (N_psi           )
+  call broadcast_inte_s (N_phi           )
   call broadcast_inte_s (Trace_Method    )
   call broadcast_inte_s (Trace_Coords    )
+  call broadcast_inte_s (Input_Format    )
   call broadcast_inte_s (Output_Format   )
+  call broadcast_inte_s (Panic_Level     )
 
   return
  5000 write  (6,5001)
@@ -150,6 +158,8 @@ module run_control
      call generate_magnetic_axis
   case ('flux_surface_grid')
      call flux_surface_grid
+  case ('field_line_loss')
+     call field_line_loss
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i

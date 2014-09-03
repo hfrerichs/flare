@@ -8,6 +8,7 @@ module flux_surface_3D
   implicit none
 
   private
+  ! t_slice
   type, extends(t_dataset), public :: t_poincare_set
      real(real64) :: phi
   end type t_poincare_set
@@ -49,6 +50,7 @@ module flux_surface_3D
      do i=0,n_phi-1
         call this%slice(i)%destroy()
      enddo
+     deallocate (this%slice)
   endif
 
 
