@@ -3,6 +3,7 @@
 ! reconstruction)
 !===============================================================================
 module fieldline
+  use iso_fortran_env
   use math
   use ode_solver
   use reconstruct
@@ -22,6 +23,7 @@ module fieldline
      real*8 :: phi_int, theta_int
      ! last (l) and current (c) state in cylindrical coordinates
      real*8 :: rl(3), rc(3), thetal, thetac
+     real(real64) :: PsiNl, PsiNc
 
      ! toroidal distance to last intersection with symmetry plane
      real*8 :: phit
@@ -39,7 +41,9 @@ module fieldline
      procedure :: &
         update_poloidal_angle, &
         update_toroidal_angle, &
-        get_PsiN => fieldline_get_PsiN
+        cross_PsiN, &
+        get_PsiN => fieldline_get_PsiN, &
+        get_flux_coordinates
 
      procedure :: intersect_boundary => fieldline_intersects_boundary
   end type t_fieldline
@@ -87,6 +91,7 @@ module fieldline
   this%phi_int   = 0.d0
   this%theta_int = 0.d0
   this%thetac    = get_poloidal_angle(this%rc)
+  this%PsiNc     = get_PsiN(this%rc)
 
   end subroutine init
 !=======================================================================
@@ -160,6 +165,44 @@ module fieldline
   PsiN = get_PsiN(this%rc)
 
   end function fieldline_get_PsiN
+!=======================================================================
+
+
+
+!=======================================================================
+! update local radial coordinate and check if position PsiN is crossed
+!=======================================================================
+  function cross_PsiN(this, PsiN) result(l)
+  class(t_fieldline) :: this
+  real(real64)       :: PsiN
+  logical            :: l
+
+
+  ! store radial coordinate from last step
+  this%PsiNl    = this%PsiNc
+
+  ! get new radial coordinate
+  this%PsiNc    = get_PsiN(this%rc)
+
+  l = .false.
+  if ((this%PsiNl-PsiN)*(this%PsiNc-PsiN) <= 0.d0) l = .true.
+
+  end function cross_PsiN
+!=======================================================================
+
+
+
+!=======================================================================
+  function get_flux_coordinates (this) result(y)
+  class(t_fieldline) :: this
+  real(real64)       :: y(3)
+
+
+  y(1) = get_poloidal_angle(this%rc)
+  y(2) = this%get_PsiN()
+  y(3) = this%rc(3)
+
+  end function get_flux_coordinates
 !=======================================================================
 
 
