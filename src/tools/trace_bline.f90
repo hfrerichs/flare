@@ -8,7 +8,8 @@
 !
 !    Trace_Step         Size of trace steps (see Trace_Coords)
 !
-!    N_steps            Number of trace steps
+!    N_steps            Number of trace steps, if N_steps < 0 then tracing is
+!                       stopped at the boundary while |N_steps| is the upper limit.
 !
 !    Trace_Method	> 0: Integration (see module ODE_solver)
 !                       = 0: Reconstruction from field aligned grid
@@ -26,10 +27,12 @@
 !                            Trace_step: arc segment [deg]
 !
 !    Output_File
-!    Output_Format      = 1: Cartesian coordinates
+!    Output_Format      = 0: Magnetic flux coordinates (Theta, PsiN, Phi)
+!                       = 1: Cartesian coordinates
 !                       = 2: Cylindrical coordinates
 !===============================================================================
 subroutine trace_bline
+  use iso_fortran_env
   use run_control, only: x_start, Trace_Step, N_steps, Trace_Method, Trace_Coords, &
                          Grid_File, Output_File, Output_Format
   use fieldline
@@ -41,9 +44,17 @@ subroutine trace_bline
   integer, parameter :: iu = 42
 
   type(t_fieldline) :: F
-  real*8, dimension(:,:), pointer :: grid_ptr
-  real*8  :: x(3), y(3)
-  integer :: i, iflag
+  real(real64), dimension(:,:), pointer :: grid_ptr
+  integer       :: i, iflag
+  logical       :: Stop_at_Boundary
+
+
+  ! Initialize
+  Stop_at_Boundary = .false.
+  if (N_steps < 0) then
+     Stop_at_Boundary = .true.
+     N_steps = abs(N_steps)
+  endif
 
 
   ! Field line tracing is performed on the 1st processor only!
@@ -55,7 +66,19 @@ subroutine trace_bline
   else
      return
   endif
+
+  ! Open output file and write information about coordinate system
   open  (iu, file=Output_File)
+  select case(Output_Format)
+  case(0)
+     write(iu, 2000)
+  case(1)
+     write(iu, 2001)
+  case(2)
+     write(iu, 2002)
+  case(3)
+     write(iu, 2002)
+  end select
 
 
   ! select initial position(s) for tracing
@@ -75,15 +98,20 @@ subroutine trace_bline
 
      ! trace one field line
      call F%init(x_start, Trace_Step, Trace_Method, Trace_Coords)
-     call coord_trans (x_start, Trace_Coords, y, Output_Format)
-     write (iu, 1003) y
-     write (6,  1004) y
+     write (iu, 1003) output_coordinates()
+     write (6,  1004) output_coordinates()
 
      do i=1,N_steps
-        x = F%next_step()
+        call F%trace_1step()
 
-        call coord_trans (x, Trace_Coords, y, Output_Format)
-        write (iu, 1003) y
+        ! intersect boundary?
+        if (Stop_at_Boundary  .and.  F%intersect_boundary()) then
+           write (iu, 1003) output_coordinates()
+           write (6, *) 'Field line tracing is stopped at the boundary'
+           exit
+        endif
+
+        write (iu, 1003) output_coordinates()
      enddo
      write (iu, *)
   enddo field_line_loop
@@ -93,4 +121,21 @@ subroutine trace_bline
  1002 format (8x,'Initial position:')
  1003 format (3(e25.18,1x))
  1004 format (8x,3(e18.10,1x))
+ 2000 format ('# Flux coordinates: Theta[rad], PsiN, Phi[rad]')
+ 2001 format ('# Cartesian coordinates: x[cm], y[cm], z[cm]')
+ 2002 format ('# Cylindrical coordinates: R[cm], Z[cm], Phi[rad]')
+  contains
+!.......................................................................
+  function output_coordinates () result (y)
+  real(real64) :: y(3)
+
+
+  if (Output_Format == 0) then
+     y    = F%get_flux_coordinates()
+  else
+     call coord_trans (F%yc, Trace_Coords, y, Output_Format)
+  endif
+
+  end function output_coordinates
+!.......................................................................
 end subroutine trace_bline
