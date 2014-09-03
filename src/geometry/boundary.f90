@@ -299,17 +299,19 @@ module boundary
 !=======================================================================
 ! check intersection (X) of trajectory r1->r2 with boundaries
 !=======================================================================
-  function intersect_boundary(r1, r2, X) result(l)
+  function intersect_boundary(r1, r2, X, id) result(l)
   use math
-  real*8, intent(in)  :: r1(3), r2(3)
-  real*8, intent(out) :: X(3)
+  real*8, intent(in)   :: r1(3), r2(3)
+  real*8, intent(out)  :: X(3)
+  integer, intent(out) :: id
   logical :: l
 
   real*8  :: phih, rz(2), t, x1(3), x2(3), lambda_min
   integer :: i, i_ip
 
 
-  l = .false.
+  l  = .false.
+  id = 0
 
   ! check intersection with axisymmetric surfaces
   do i=1,n_axi
@@ -318,6 +320,7 @@ module boundary
         l      = .true.
         X(1:2) = rz
         X(3)   = r1(3) + t*(r2(3)-r1(3))
+        id     = i
         return
      endif
   enddo
@@ -330,7 +333,8 @@ module boundary
      if (check_intersection(x1, x2, X, lambda_min, i_ip, i)) then
         x1 = X
         call coord_trans (x1, CARTESIAN, X, CYLINDRICAL)
-        l = .true.
+        l  = .true.
+        id = n_axi + i
         return
      endif
   enddo
@@ -339,7 +343,8 @@ module boundary
   ! check intersection with mesh of quadrilateral elements
   do i=1,n_quad
      if (S_quad(i)%intersect(r1, r2, X)) then
-        l = .true.
+        l  = .true.
+        id = n_axi + n_block + i
         return
      endif
   enddo

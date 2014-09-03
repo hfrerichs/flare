@@ -40,7 +40,7 @@ module flux_surface_2D
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
   real*8  :: yl(3), yc(3), X(3), ds, r3(3)
-  integer :: idir, i, nmax, imethod
+  integer :: idir, i, nmax, imethod, id
 
 
   ! determine trace step
@@ -88,7 +88,7 @@ module flux_surface_2D
         tmp(idir*i,:) = yc(1:2)
 
         ! check intersection with boundary
-        if (intersect_boundary(yl, yc, X)) then
+        if (intersect_boundary(yl, yc, X, id)) then
            tmp(idir*i,:) = X(1:2)
            this%n(idir)  = i
            exit
