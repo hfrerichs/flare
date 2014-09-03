@@ -20,7 +20,7 @@ module fieldline
 
   type, extends(t_ODE) :: t_fieldline
      ! integrated toroidal and poloidal angle
-     real*8 :: phi_int, theta_int
+     real*8 :: phi0, phi_int, theta0, theta_int
      ! last (l) and current (c) state in cylindrical coordinates
      real*8 :: rl(3), rc(3), thetal, thetac
      real(real64) :: PsiNl, PsiNc
@@ -89,8 +89,10 @@ module fieldline
   ! initialize internal variables
   call coord_trans (y0, icoord, this%rc, CYLINDRICAL)
   this%phi_int   = 0.d0
+  this%phi0      = this%rc(3)
   this%theta_int = 0.d0
   this%thetac    = get_poloidal_angle(this%rc)
+  this%theta0    = this%thetac
   this%PsiNc     = get_PsiN(this%rc)
 
   end subroutine init
@@ -105,9 +107,17 @@ module fieldline
   class(t_fieldline), intent(inout) :: this
   real*8                            :: yc(3)
 
-  this%rl = this%rc
+  ! save last step
+  this%rl     = this%rc
+  !this%thetal = this%thetac
+  this%PsiNl  = this%PsiNc
+
+
   yc      = this%next_step()
   call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
+  call this%update_toroidal_angle()
+  call this%update_poloidal_angle()
+  this%PsiNc    = get_PsiN(this%rc)
 
   end subroutine trace_1step_ODE
 !=======================================================================
@@ -179,10 +189,10 @@ module fieldline
 
 
   ! store radial coordinate from last step
-  this%PsiNl    = this%PsiNc
+  !this%PsiNl    = this%PsiNc
 
   ! get new radial coordinate
-  this%PsiNc    = get_PsiN(this%rc)
+  !this%PsiNc    = get_PsiN(this%rc)
 
   l = .false.
   if ((this%PsiNl-PsiN)*(this%PsiNc-PsiN) <= 0.d0) l = .true.
@@ -198,9 +208,9 @@ module fieldline
   real(real64)       :: y(3)
 
 
-  y(1) = get_poloidal_angle(this%rc)
-  y(2) = this%get_PsiN()
-  y(3) = this%rc(3)
+  y(1) = this%theta0 + this%theta_int
+  y(2) = this%PsiNc
+  y(3) = this%phi0   + this%phi_int
 
   end function get_flux_coordinates
 !=======================================================================
