@@ -38,6 +38,7 @@ program main
      write (6, *)
   endif
 
+  call finished_bfield()
   call finished_parallel()
  1000 format ('========================================================================')
 end program main
