@@ -247,27 +247,29 @@ subroutine connection_length
      case (2)
         text = 'Limiting surface id in pos. direction'
      case (3)
-        write (text, '(f8.4)') Psi(2)
+        write (text, '(f8.4)') Psi(1)
         text = 'Backward distance to Psi = '//trim(text)
      case (4)
-        write (text, '(f8.4)') Psi(2)
-        text = 'Forward distance to Psi = '//trim(text)
+        write (text, '(f8.4)') Psi(1)
+        text = 'Forward  distance to Psi = '//trim(text)
      case (5)
         write (text, '(f8.4)') Psi(2)
         text = 'Backward distance to Psi = '//trim(text)
      case (6)
         write (text, '(f8.4)') Psi(2)
-        text = 'Forward distance to Psi = '//trim(text)
+        text = 'Forward  distance to Psi = '//trim(text)
      case default
         write (6, *) 'error: ', 2**i2, ' is not a valid data id!'
         stop
      end select
      write (iu, 2000) i2, text
+     write (6, 2001) trim(text)
   enddo
   if (nout.gt.0) close (iu)
 
  1000 format (3x,' - Additional output:')
  2000 format (i4,3x,a)
+ 2001 format (8x,a)
   end subroutine additional_output_info
 !.......................................................................
 end subroutine connection_length
