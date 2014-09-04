@@ -12,7 +12,7 @@ module m3dc1
   private 
 
   ! time slice to read (0 = vacuum only, 1 = with response)
-  integer :: itime = 1
+  integer :: timeslice = 1
 
   ! factor by which to multiply perturbed (linear) part of solution
   real*8  :: factor = 1.d0
@@ -28,7 +28,7 @@ module m3dc1
   real*8       :: phase(n_sets_max)     = 0.d0	! offset in deg
 
   namelist /M3DC1_Input/ &
-           itime, factor, &
+           timeslice, factor, &
            n_sets, filename, amplitude, phase
 
   integer :: isrcA(n_sets_max), imagA(n_sets_max)
@@ -60,8 +60,9 @@ module m3dc1
   iconfig = 1
   write (6, *)
   write (6, 1001)
-  write (6, 1002) itime
+  write (6, 1002) timeslice
   write (6, 1003) factor
+  write (6, 1004) n_sets
 
 #ifdef M3DC1
   do i=1,n_sets
@@ -72,13 +73,15 @@ module m3dc1
 
      ! Set options
      call fio_get_options_f(isrcA(i), ierr)
-     call fio_set_int_option_f(FIO_TIMESLICE, itime, ierr)
+     call fio_set_int_option_f(FIO_TIMESLICE, timeslice, ierr)
      call fio_set_int_option_f(FIO_PART, FIO_PERTURBED_ONLY, ierr)
      f = factor * amplitude(i)
      call fio_set_real_option_f(FIO_LINEAR_SCALE, f, ierr)
 
      ! Read magnetic field
      call fio_get_field_f(isrcA(i),FIO_MAGNETIC_FIELD,imagA(i),ierr)
+
+     write (6, 1005) i, amplitude(i), phase(i)
   enddo
 #else
   write (6, *) 'error: FLARE compiled without M3D-C1 support!'
@@ -88,8 +91,10 @@ module m3dc1
   return
  1000 iconfig = 0
  1001 format ('   - Magnetic field from M3D-C1:')
- 1002 format ('        using time slice:             ',i4)
- 1003 format ('        scale factor:                 ',e11.4)
+ 1002 format (8x,'using time slice:             ',i4)
+ 1003 format (8x,'scale factor:                 ',e11.4)
+ 1004 format (8x,'number of sub-sets:           ',i4)
+ 1005 format (8x,i4,' amplitude factor = ',f7.3,', phase [deg] = ',f7.3)
 end subroutine m3dc1_load
 !===============================================================================
 
