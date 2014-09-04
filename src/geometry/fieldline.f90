@@ -39,8 +39,6 @@ module fieldline
      contains
      procedure :: init, trace, init_toroidal_tracing, intersect_sym_plane
      procedure :: &
-        update_poloidal_angle, &
-        update_toroidal_angle, &
         cross_PsiN, &
         get_PsiN => fieldline_get_PsiN, &
         get_flux_coordinates
@@ -105,19 +103,35 @@ module fieldline
 !=======================================================================
   subroutine trace_1step_ODE(this)
   class(t_fieldline), intent(inout) :: this
-  real*8                            :: yc(3)
+
+  real(real64) :: yc(3), Dphi, Dtheta
 
   ! save last step
-  this%rl     = this%rc
-  !this%thetal = this%thetac
-  this%PsiNl  = this%PsiNc
+  this%rl        = this%rc
+  this%thetal    = this%thetac
+  this%PsiNl     = this%PsiNc
 
 
-  yc      = this%next_step()
+  ! calculate next step
+  yc             = this%next_step()
   call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
-  call this%update_toroidal_angle()
-  call this%update_poloidal_angle()
-  this%PsiNc    = get_PsiN(this%rc)
+
+
+  ! update toroidal angle
+  Dphi           = this%rc(3) - this%rl(3)
+  if (abs(Dphi) > pi) Dphi = Dphi - sign(pi2,Dphi)
+  this%phi_int   = this%phi_int + Dphi
+
+
+  ! update poloidal angle
+  this%thetac    = get_poloidal_angle(this%rc)
+  Dtheta         = this%thetac - this%thetal
+  if (abs(Dtheta) > pi) Dtheta = Dtheta - sign(pi2,Dtheta)
+  this%theta_int = this%theta_int + Dtheta
+
+
+  ! update radial coordinate
+  this%PsiNc     = get_PsiN(this%rc)
 
   end subroutine trace_1step_ODE
 !=======================================================================
@@ -125,44 +139,6 @@ module fieldline
   class(t_fieldline), intent(inout) :: this
 
   end subroutine trace_1step_reconstruct
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine update_toroidal_angle(this)
-  class(t_fieldline), intent(inout) :: this
-
-  real*8 :: Dphi
-
-  Dphi = this%rc(3) - this%rl(3)
-  if (abs(Dphi) > pi) Dphi = Dphi - sign(pi2,Dphi)
-  this%phi_int = this%phi_int + Dphi
-
-  end subroutine update_toroidal_angle
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine update_poloidal_angle(this)
-  class(t_fieldline), intent(inout) :: this
-
-  real*8 :: Dtheta
-
-
-  ! store pol. angle from last step
-  this%thetal    = this%thetac
-
-  ! get new pol. angle
-  this%thetac    = get_poloidal_angle(this%rc)
-
-  ! update integrated pol. distance
-  Dtheta         = this%thetac - this%thetal
-  if (abs(Dtheta) > pi) Dtheta = Dtheta - sign(pi2,Dtheta)
-  this%theta_int = this%theta_int + Dtheta
-
-  end subroutine update_poloidal_angle
 !=======================================================================
 
 
@@ -180,19 +156,11 @@ module fieldline
 
 
 !=======================================================================
-! update local radial coordinate and check if position PsiN is crossed
-!=======================================================================
   function cross_PsiN(this, PsiN) result(l)
   class(t_fieldline) :: this
   real(real64)       :: PsiN
   logical            :: l
 
-
-  ! store radial coordinate from last step
-  !this%PsiNl    = this%PsiNc
-
-  ! get new radial coordinate
-  !this%PsiNc    = get_PsiN(this%rc)
 
   l = .false.
   if ((this%PsiNl-PsiN)*(this%PsiNc-PsiN) <= 0.d0) l = .true.

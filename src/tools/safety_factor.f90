@@ -57,9 +57,6 @@ subroutine safety_factor
         Lc = Lc + Trace_Step
         if (F%intersect_boundary(X)) exit trace_loop
 
-        call F%update_toroidal_angle()
-        call F%update_poloidal_angle()
-
         Psi_av = Psi_av + F%get_PsiN()
         n_av   = n_av   + 1
 
