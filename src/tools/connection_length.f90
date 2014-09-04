@@ -22,12 +22,29 @@
 !                            x_start: Cylindrical coordinates [cm,deg]
 !                            Trace_step: arc segment [deg]
 !
+!    Output_Format      = 0: default operation mode, i.e. backward and forward
+!                            connection length in cm and pol. turns and minimum
+!                            pol. flux along field line
+!                       > 0: provide additional information, the format value is
+!                            binary coded, i.e. 6 = 2 + 4 will provide both
+!                            additional data of type 2 and 4.
+!                       = 1: Field line averaged poloidal flux
+!
+!                            id = 0 if connection length > Limit
+!                       = 2: Limiting surface id in neg. direction
+!                       = 4: Limiting surface id in pos. direction
+!
+!                            8-32 are set automatically if Psi(1) or Psi(2) > 0
+!                       = 8: Backward distance along field line to Psi(1)
+!                      = 16: Forward  distance along field line to Psi(1)
+!                      = 32: Backward distance along field line to Psi(2)
+!                      = 64: Forward  distance along field line to Psi(2)
+!    Psi(1), Psi(2)    Reference radial coordinate for additional data type 8-32
 !    Output_File
-!    Output_Format
 !===============================================================================
 subroutine connection_length
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Trace_Coords, &
-                         Output_Format, Limit
+                         Output_Format, Limit, Psi
   use grid
   use parallel
   use math
@@ -39,15 +56,13 @@ subroutine connection_length
   integer, parameter :: nout_max = 10
   integer, parameter :: iu = 42
 
-  real*8, dimension(:,:), allocatable :: lc_data
+  real(real64), dimension(:,:), allocatable :: lc_data
   type(t_fieldline)  :: F
 
-  character*12 :: fstr
-  real*8  :: y(3), yc(3), yl(3), rc(3), rl(3), X(3), thetac, thetal, dtheta
-  real*8  :: Psi, Psi_min, Psi_av
-  real*8  :: lc(-1:1), lpt(-1:1), dist_Psi0(-1:1)
-  integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir
-  real*8  :: xc(3), xl(3)
+  character(len=12)  :: fstr
+  real(real64)       :: y(3), r(3), PsiN, Psi_min, Psi_av
+  real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2)
+  integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir, id, id_limit(-1:1)
 
 
   if (firstP) then
@@ -63,6 +78,17 @@ subroutine connection_length
 
 
 ! prepare output data arrays (begin) ..................................
+  ! 1. distance along field line to Psi(1) and Psi(2)
+  if (Psi(1) > 0.d0) then
+     Output_Format = Output_Format - iand( 8,Output_Format) +  8
+     Output_Format = Output_Format - iand(16,Output_Format) + 16
+  endif
+  if (Psi(2) > 0.d0) then
+     Output_Format = Output_Format - iand(32,Output_Format) + 32
+     Output_Format = Output_Format - iand(64,Output_Format) + 64
+  endif
+
+  ! 2. other additional output
   nout = 0
   iout = 0
   do i=0,nout_max-1
@@ -93,101 +119,79 @@ subroutine connection_length
      ! ... for connection length calculation
      lc        = 0.d0
      lpt       = 0.d0
-     dist_Psi0 = 0.d0
 
      ! ... for average and maximum penetration of field lines
-     call coord_trans (y, Trace_Coords, rc, CYLINDRICAL)
-     Psi       = get_Psi(rc)
-     Psi_min   = (Psi-Psi_axis)/(Psi_sepx-Psi_axis)
+     call coord_trans (y, Trace_Coords, r, CYLINDRICAL)
+     Psi_min   = get_PsiN(r)
      Psi_av    =  0.d0
+
+     ! ... for additional data (distance to flux surface, limiting surface id, ...)
+     dist2PsiN = 0.d0
+     id_limit  = 0
 
      ! trace each field line in positive and negative direction
      do idir=-1,1,2
-        Trace_Step = - Trace_Step
-        yl         = y
-        call coord_trans (y, Trace_Coords, rl, CYLINDRICAL)
-        call coord_trans (y, Trace_Coords, xl, CARTESIAN)
-        thetal     = get_poloidal_angle(rl)
-        call F%init(y, Trace_Step, Trace_Method, Trace_Coords)
+        call F%init(y, idir*Trace_Step, Trace_Method, Trace_Coords)
 
         ! start field line tracing
         trace_loop: do
-           yc = F%next_step()
-           call coord_trans (yc, Trace_Coords, rc, CYLINDRICAL)
-           call coord_trans (yc, Trace_Coords, xc, CARTESIAN)
+           call F%trace_1step()
+
+           ! update connection length
            lc(idir)   = lc(idir) + Trace_Step
            if (abs(lc(idir)) .ge. Limit) exit trace_loop
 
-           ! integrate poloidal angle
-           thetac     = get_poloidal_angle(rc)
-           dtheta     = thetac - thetal
-           if (abs(dtheta).gt.pi) dtheta = dtheta - dsign(pi2,dtheta)
-           lpt(idir)  = lpt(idir)  + dtheta
 
            ! update field line penetration
-           Psi        = get_Psi(rc)
-           Psi        = (Psi-Psi_axis)/(Psi_sepx-Psi_axis)
-           if (Psi.lt.Psi_min) then
-              Psi_min = Psi
-              !phi_min = phic
-              !theta_min = thetac
-           endif
+           PsiN       = F%get_PsiN()
+           if (PsiN.lt.Psi_min) Psi_min = PsiN
+
 
            ! update average pol. flux
-           Psi_av = Psi_av + Psi * abs(Trace_Step)
-!               if (lRD2LCFS) then
-!                  call calc_RD2LCFS(rc, xc(3), phic, d)
-!                  if (d.lt.d_min) d_min = d
-!               endif
+           Psi_av = Psi_av + PsiN * abs(Trace_Step)
 
-           ! distance to Psi =1
-           if (dist_Psi0(idir).le.0.d0 .and. Psi.le.1.d0) dist_Psi0(idir) = abs(lc(idir))
+
+           ! distance (along field line) to PsiN(1:2)
+           if (dist2PsiN(idir,1).le.0.d0 .and. F%cross_PsiN(Psi(1))) dist2PsiN(idir,1) = abs(lc(idir))
+           if (dist2PsiN(idir,2).le.0.d0 .and. F%cross_PsiN(Psi(2))) dist2PsiN(idir,2) = abs(lc(idir))
 
 
            ! check intersection with walls
-           if (intersect_boundary(rl, rc, X)) then
-                  !x_hit(idir,:) = xh
-                  !s_hit(idir)   = s
-                  !is_hit(idir)  = is
+           if (F%intersect_boundary(id=id)) then
+              id_limit(idir) = id
               exit trace_loop
            endif
-
-           ! prepare trace next step
-           yl     = yc
-           xl     = xc
-           rl     = rc
-           thetal = thetac
         enddo trace_loop
+        lpt(idir)  = F%theta_int
      enddo
+
 
      ! update connection length data for selected field line
      lc(0)  = abs(lc(-1)) + abs(lc(1))
      lpt    = lpt / pi2
-
      Psi_av = Psi_av / lc(0)
-     ! ...
-     dist_Psi0(0) = dist_Psi0(-1)
-     ! ....
-
      lc_data(ig,1) = lc(-1)
      lc_data(ig,2) = lc( 1)
      lc_data(ig,3) = lpt(-1)
      lc_data(ig,4) = lpt( 1)
      lc_data(ig,5) = Psi_min
      do i=1,nout
-        select case (iout(i))
-        case (1)
+        i2 = nint(log(1.d0*iout(i))/log(2.d0))
+        select case (i2)
+        case (0)
            lc_data(ig,5+i) = Psi_av
-!        case (2)
-!           lc_data(i_grid,5+i) = 1.d0 * is_hit(-1)
-!        case (4)
-!           lc_data(i_grid,5+i) = 1.d0 * is_hit(1)
-!        case (8)
-!           lc_data(ig,5+i) = phi_min
-!        case (16)
-!           lc_data(ig,5+i) = theta_min
-        case (32)
-           lc_data(ig,5+i) = dist_Psi0(0)
+        case (1)
+           lc_data(ig,5+i) = real(id_limit(-1))
+        case (2)
+           lc_data(ig,5+i) = real(id_limit( 1))
+        case (3)
+           lc_data(ig,5+i) = dist2PsiN(-1,1)
+        case (4)
+           lc_data(ig,5+i) = dist2PsiN( 1,1)
+        case (5)
+           lc_data(ig,5+i) = dist2PsiN(-1,2)
+        case (6)
+           lc_data(ig,5+i) = dist2PsiN( 1,2)
         end select
      enddo
 
@@ -234,20 +238,29 @@ subroutine connection_length
   endif
 
   do i=1,nout
-     i2 = iout(i)
-     select case (iout(i))
-     case (1)
+     i2 = nint(log(1.d0*iout(i))/log(2.d0))
+     select case (i2)
+     case (0)
         text = 'Field line averaged poloidal flux'
+     case (1)
+        text = 'Limiting surface id in neg. direction'
      case (2)
-        text = 'Limiting surface # (neg. direction)'
+        text = 'Limiting surface id in pos. direction'
+     case (3)
+        write (text, '(f8.4)') Psi(2)
+        text = 'Backward distance to Psi = '//trim(text)
      case (4)
-        text = 'Limiting surface # (pos. direction)'
-     case (8)
-        text = 'Toroidal location of deepest penetration'
-     case (16)
-        text = 'Poloidal location of deepest penetration'
-     case (32)
-        text = 'Distance to Psi=1'
+        write (text, '(f8.4)') Psi(2)
+        text = 'Forward distance to Psi = '//trim(text)
+     case (5)
+        write (text, '(f8.4)') Psi(2)
+        text = 'Backward distance to Psi = '//trim(text)
+     case (6)
+        write (text, '(f8.4)') Psi(2)
+        text = 'Forward distance to Psi = '//trim(text)
+     case default
+        write (6, *) 'error: ', 2**i2, ' is not a valid data id!'
+        stop
      end select
      write (iu, 2000) i2, text
   enddo
@@ -256,4 +269,5 @@ subroutine connection_length
  1000 format (3x,' - Additional output:')
  2000 format (i4,3x,a)
   end subroutine additional_output_info
+!.......................................................................
 end subroutine connection_length
