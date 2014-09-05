@@ -28,7 +28,7 @@ module fieldline
      ! toroidal distance to last intersection with symmetry plane
      real*8 :: phit
      real*8 :: phi_sym
-     integer :: iplane
+     integer :: iplane, sgn
 
      integer :: Trace_Coords
 
@@ -247,7 +247,7 @@ module fieldline
      fff       = (this%phi_sym - this%phit) / dphi
      this%phit = (1.d0 - fff) * dphi
      l         = .true.
-     icut      = icut + 1
+     icut      = icut + this%sgn
      rcut      = this%rl + fff * (this%rc-this%rl)
   else
      this%phit = this%phit + dphi
@@ -267,8 +267,6 @@ module fieldline
   real*8, intent(in)  :: y0(3), ds, phi_out
   integer, intent(in) :: isolver, icoord, nsym
 
-  real*8 :: sgn
-
 
   call this%init(y0, ds, isolver, icoord)
 
@@ -277,12 +275,12 @@ module fieldline
   this%iplane = 0
   this%phi_sym = pi2 / nsym
   if (icoord == 2) then
-     sgn  = 1.d0 * Bt_sign
+     this%sgn  = Bt_sign
   else
-     sgn  = sign(1.d0, ds) * Bt_sign
+     this%sgn  = nint(sign(1.d0, ds)) * Bt_sign
   endif
   this%phit    = mod(this%rc(3), this%phi_sym)
-  this%phit    = this%phit - sgn * phi_out * pi2/360.d0
+  this%phit    = this%phit - this%sgn * phi_out * pi2/360.d0
 
   end subroutine
 !=======================================================================

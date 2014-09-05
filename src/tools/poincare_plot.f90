@@ -74,6 +74,9 @@ subroutine poincare_plot
 
   if (firstP) then
      write (6, *) 'Generate Poincare plot, output in: ', adjustl(trim(Output_File))
+     write (6, 1001) N_sym
+     if (N_mult > 1) write (6, 1002) N_mult
+     write (6, 1003) Phi_output
      write (6, *)
   endif
 
@@ -113,12 +116,12 @@ subroutine poincare_plot
 
      if (N_steps .ne. 1) then
         dr = (R_end - R_start) / N_steps
-        if (firstP) write (6,1001) R_start, R_end, N_steps
+        if (firstP) write (6,2001) R_start, R_end, N_steps
         do ig=0,N_steps
            my_grid(ig+1,1) = R_start + ig*dr
         enddo
      else
-        if (firstP) write (6,1002) R_start
+        if (firstP) write (6,2002) R_start
         my_grid(1,1) = R_start
      endif
 
@@ -172,6 +175,7 @@ subroutine poincare_plot
         ! check intersection with Poincare plane
         if (F%intersect_sym_plane(icut, X)) then
            imult = int(mod(icut,N_mult))
+           if (imult < 0) imult = imult + N_mult
            j     = Pdata%n_points(ig,imult) + 1
            Pdata%n_points(ig,imult) = j
 
@@ -188,14 +192,14 @@ subroutine poincare_plot
 
         ! check intersection with boundaries
         if (F%intersect_boundary(X)) then
-           write (6,4000) ig, lc/1.d2, icut
+           write (6,4000) ig, abs(lc/1.d2), abs(icut)/N_mult
            exit trace_loop
         endif
 
 
         ! check upper limit for field line tracing
-        if (icut .ge. N_points*N_mult) then
-           write (6,4001) ig, lc/1.d2, icut
+        if (abs(icut) .ge. N_points*N_mult) then
+           write (6,4001) ig, abs(lc/1.d2), abs(icut)/N_mult
            exit trace_loop
         endif
      enddo trace_loop
@@ -230,9 +234,12 @@ subroutine poincare_plot
 ! ......................................................................
 
 
- 1001 format (8x,'radial domain:',5x,'R_start = ',f6.2,5x, &
+ 1001 format (8x,'Toroidal symmetry number:         ',i4)
+ 1002 format (8x,'Number of slices to be generated: ',i4)
+ 1003 format (8x,'Reference location     ',f7.3,' deg')
+ 2001 format (8x,'radial domain:',5x,'R_start = ',f6.2,5x, &
               'R_end = ',f6.2,5x,'with ',i4,' steps'/)
- 1002 format (8x,'position:',5x,'R = ',f6.2,5x/)
+ 2002 format (8x,'position:',5x,'R = ',f6.2,5x/)
 
  4000 format (5x,i5,',',8x,'L_c = ',f9.2,' m,',8x,'n_points = ',i5)
  4001 format (5x,i5,',',8x,'L_c > ',f9.2,' m,',8x,'n_points = ',i5)
