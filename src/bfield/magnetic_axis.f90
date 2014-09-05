@@ -20,6 +20,14 @@ module magnetic_axis
      N_phi  = 0, &
      N_sym  = 0
 
+  ! Direction of toroidal magnetic field (Bt) and plasma current (Ip)
+  ! +1: positive direction, i.e. counter-clockwise
+  ! -1: negative direction, i.e. clockwise
+  !  0: no equilibrium defined
+  integer, public :: &
+     Bt_sign  = 0, &
+     Ip_sign  = 0
+
 
   procedure(magnetic_axis_default), pointer :: get_magnetic_axis => magnetic_axis_default
 
@@ -181,6 +189,11 @@ module magnetic_axis
      call broadcast_real (Rcoeff, N_phi)
      call broadcast_real (Zcoeff, N_phi)
   endif
+
+
+  ! supplemental data
+  call broadcast_inte_s (Bt_sign)
+  call broadcast_inte_s (Ip_sign)
 
   end subroutine broadcast_magnetic_axis
 !=======================================================================

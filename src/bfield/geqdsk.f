@@ -196,6 +196,8 @@ c- Current fix: (+) -> flip to concave down, (-) -> keep concave up
          write (6, 3006)
       endif
 c-----------------------------------------------------------------------
+      Bt_sign = int(sign(1.d0, Bcentr))
+      Ip_sign = int(sign(1.d0, Current))
 
 
       ! setup 1D arrays of R, Z, Psin values

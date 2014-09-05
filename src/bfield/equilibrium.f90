@@ -55,9 +55,10 @@ module equilibrium
   ! +1: positive direction, i.e. counter-clockwise
   ! -1: negative direction, i.e. clockwise
   !  0: no equilibrium defined
-  integer :: &
-     Bt_sign  = 0, &
-     Ip_sign  = 0
+! temporarily moved to module magnetic axis
+!  integer :: &
+!     Bt_sign  = 0, &
+!     Ip_sign  = 0
 
 
   ! equilibrium type
@@ -189,6 +190,9 @@ module equilibrium
      r(3) = 0.d0
      Psi_sepx = get_Psi(r)
   endif
+
+  ! direction of toroidal magnetic field and plasma current
+  ! ...
 
   return
  1000 iconfig = 0
