@@ -15,7 +15,7 @@ subroutine generate_flux_surface_2D
   type(t_flux_surface_2D) :: S
 
 
-  call S%generate(x_start(1:2), Trace_Step, Trace_Method)
-  call S%write(Output_File=Output_File)
+  call S%generate(x_start(1:2), Trace_Step=Trace_Step, Trace_Method=Trace_Method)
+  call S%plot(filename=Output_File)
   
 end subroutine generate_flux_surface_2D

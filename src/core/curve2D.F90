@@ -279,17 +279,25 @@ module curve2D
   integer :: i, iu0
 
 
+  ! set default unit number for output
   iu0 = 99
+
+  ! Unit number given for output?
   if (present(iu)) iu0 = iu
 
+  ! Output_File given?
   if (present(filename)) then
      open  (iu0, file=filename)
   endif
 
+
+  ! write data
   do i=0,this%n_seg
      write (iu0, *) this%x_data(i,:)
   enddo
 
+
+  ! Output_File given?
   if (present(filename)) then
      close (iu0)
   endif
