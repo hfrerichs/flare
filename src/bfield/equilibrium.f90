@@ -534,26 +534,33 @@ module equilibrium
 ! This subroutine applies the Newton-method for the iterative approximation of
 ! a critical point
 !=======================================================================
-  subroutine find_X (X)
+  function find_X (X0) result(X)
   use bspline
   implicit none
 
-  real*8, dimension(2), intent(inout) :: X
+  real(real64), intent(in), optional  :: X0(2)
+  real(real64)                        :: X(2)
 
 
-  real*8, parameter :: &
+  real(real64), parameter :: &
       gamma_0 = 1.d0, &
       delta   = 1.d-8
   integer, parameter :: nmax = 2000
 
 
-  real*8  :: x0(2), xn(2), dx(2), dfdx, dfdy, H(2,2), Hdisc, dxmod, Rbox(2), Zbox(2)
+  real(real64) :: xn(2), dx(2), dfdx, dfdy, H(2,2), Hdisc, dxmod, Rbox(2), Zbox(2)
   integer :: n
 
 
   ! initialize
   call get_domain (Rbox, Zbox)
-  xn = X
+  if (present(X0)) then
+     xn = X0
+  else
+     ! try to find lower X at relative coordinate (1/3, 1/6) from lower left corner
+     xn(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
+     xn(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
+  endif
   n  = 0
 
   approximation_loop: do
@@ -588,8 +595,7 @@ module equilibrium
      dx(1)  =   H(2,2)*dfdx - H(1,2)*dfdy
      dx(2)  = - H(2,1)*dfdx + H(1,1)*dfdy
 
-     x0     = xn
-     xn     = x0 - gamma_0*dx/Hdisc
+     xn     = xn - gamma_0*dx/Hdisc
      dxmod  = sqrt(sum(dx**2))/dabs(Hdisc)
      n      = n + 1
 
@@ -600,7 +606,7 @@ module equilibrium
 
   X = xn
   return
-  end subroutine find_X
+  end function find_X
 !=======================================================================
 
 
