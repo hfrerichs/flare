@@ -29,12 +29,13 @@ subroutine generate_field_aligend_grid (run_level)
   endif
 
 
-  ! Level 1: generate innermost boundaries (for field line recontruction)
+  ! Level 1: generate innermost boundaries (for field line reconstruction)
   if (level(1)) then
      call generate_innermost_boundaries
   endif
 
 
+  ! Level 2: generate base layout (outer boundary + separatrix for block-structure)
   if (level(2)) then
   endif
 
