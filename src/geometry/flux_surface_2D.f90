@@ -126,7 +126,8 @@ module flux_surface_2D
            dtheta = thetac - thetal
            if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
            if ((thetal+dtheta-theta_cut)*(thetal-theta_cut) < 0.d0) then
-              n(idir)       = i-1
+              tmp(idir*i,:) = tmp(idir*(i-1),:) + abs((thetal-theta_cut)/dtheta)*(yc(1:2)-tmp(idir*(i-1),:))
+              n(idir)       = i
               exit
            endif
         endif
