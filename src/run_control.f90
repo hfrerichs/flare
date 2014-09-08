@@ -130,6 +130,9 @@ module run_control
 
   if (firstP) then
      write (6, 1000)
+     write (6, 1000)
+     write (6, *) 'Main program:'
+     write (6, *)
   endif
 
 
@@ -160,6 +163,8 @@ module run_control
      call flux_surface_grid
   case ('field_line_loss')
      call field_line_loss
+  case ('generate_separatrix')
+     call generate_separatrix
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i

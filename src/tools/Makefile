@@ -15,7 +15,8 @@ OBJECTS =  \
                generate_magnetic_axis.o\
                generate_field_aligned_grid.o\
                flux_surface_grid.o\
-               field_line_loss.o
+               field_line_loss.o\
+               generate_separatrix.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR)
