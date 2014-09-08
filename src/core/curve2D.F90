@@ -21,7 +21,7 @@ module curve2D
   !type, extends(t_nodes/t_curve) :: t_spline
   type t_curve
      ! number of line segments (n_seg), number of coordinates (n_dim)
-     integer  :: n_seg, n_dim
+     integer  :: n_seg = -1, n_dim = 0
 
      ! nodes along the curve, dimension(0:n_seg, 1:n_dim)
      real*8, dimension(:,:), pointer :: x_data => null()
