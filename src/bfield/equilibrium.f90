@@ -534,12 +534,13 @@ module equilibrium
 ! This subroutine applies the Newton-method for the iterative approximation of
 ! a critical point
 !=======================================================================
-  function find_X (X0) result(X)
+  function find_X (X0, verbose) result(X)
   use bspline
   implicit none
 
-  real(real64), intent(in), optional  :: X0(2)
-  real(real64)                        :: X(2)
+  real(real64), intent(in)      :: X0(2)
+  real(real64)                  :: X(2)
+  logical, intent(in), optional :: verbose
 
 
   real(real64), parameter :: &
@@ -549,18 +550,19 @@ module equilibrium
 
 
   real(real64) :: xn(2), dx(2), dfdx, dfdy, H(2,2), Hdisc, dxmod, Rbox(2), Zbox(2)
+  logical :: screen_output
   integer :: n
+
+
+  ! setup screen output
+  screen_output = .false.
+  if (present(verbose)) screen_output = .true.
 
 
   ! initialize
   call get_domain (Rbox, Zbox)
-  if (present(X0)) then
-     xn = X0
-  else
-     ! try to find lower X at relative coordinate (1/3, 1/6) from lower left corner
-     xn(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
-     xn(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
-  endif
+  xn = X0
+  if (screen_output) write (6, *) 'Initial guess for X-point: ', xn
   n  = 0
 
   approximation_loop: do
@@ -607,6 +609,34 @@ module equilibrium
   X = xn
   return
   end function find_X
+!=======================================================================
+  function find_lX() result(X)
+  real(real64) :: X(2)
+
+  real(real64) :: Rbox(2), Zbox(2), X0(2)
+
+
+  call get_domain (Rbox, Zbox)
+  ! try to find lower X at relative coordinate (1/3, 1/6) from lower left corner
+  X0(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
+  X0(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
+  X     = find_X(X0)
+
+  end function find_lX
+!=======================================================================
+  function find_uX() result(X)
+  real(real64) :: X(2)
+
+  real(real64) :: Rbox(2), Zbox(2), X0(2)
+
+
+  call get_domain (Rbox, Zbox)
+  ! try to find upper X at relative coordinate (1/3, 5/6) from lower left corner
+  X0(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
+  X0(2) = Zbox(1) + 5.d0/6.d0 * (Zbox(2)-Zbox(1))
+  X     = find_X(X0)
+
+  end function find_uX
 !=======================================================================
 
 

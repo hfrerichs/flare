@@ -26,7 +26,7 @@ subroutine get_equi_info_2D
 
   call get_domain (Rbox, Zbox)
   ! get X-point
-  Px = find_X()
+  Px = find_lX()
   write (6, 9000) Px
 
 
