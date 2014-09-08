@@ -23,11 +23,14 @@ module flux_surface_2D
 !=======================================================================
 ! Generate axisymmetric flux surface at r = (R,Z [cm]) using a step size
 ! of Trace_Step and integration method Trace_Method.
+!
 ! Default operation mode is tracing in both directions, but tracing in
 ! one direction only is set by the optional parameter direction.
-! An alternate limiting surface can be given by the optional parameter AltSurf
+!
+! An alternate limiting surface can be given by the optional parameter AltSurf.
+! An optional cut-off poloidal angle theta_cut can be given.
 !=======================================================================
-  subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, Trace_Method, AltSurf)
+  subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, Trace_Method, AltSurf, theta_cut)
   use equilibrium
   use ode_solver
   use boundary
@@ -35,12 +38,12 @@ module flux_surface_2D
   real(real64), intent(in) :: r(2)
   
   integer, intent(in), optional       :: direction, Trace_Method
-  real(real64), intent(in), optional  :: Trace_Step
+  real(real64), intent(in), optional  :: Trace_Step, theta_cut
   type(t_curve), intent(in), optional :: AltSurf
 
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
-  real*8  :: yl(3), yc(3), X(3), ds, r3(3)
+  real*8  :: yl(3), yc(3), thetal, thetac, dtheta, X(3), ds, r3(3)
   integer :: idir, i, nmax, imethod, id, n(-1:1)
 
 
@@ -85,27 +88,52 @@ module flux_surface_2D
 
   ! trace in forward and backward direction
   do idir=-1,1,2
+     if (n(idir) == 0) cycle
      ! set initial position
      call F%init_ODE(2, r, idir*ds, Bpol_sub, imethod)
      yl(1:2)  = r
+     thetal   = get_poloidal_angle(r3)
      tmp(0,:) = F%yc
 
      do i=1,nmax
         ! progress one step
         yc(1:2)       = F%next_step()
+        thetac        = get_poloidal_angle(yc)
 
         ! save current position
         tmp(idir*i,:) = yc(1:2)
 
+        ! check intersection user defined surface (AltSurf)
+        if (present(AltSurf)) then
+           if (intersect_curve(yl(1:2), yc(1:2), AltSurf, X(1:2))) then
+              tmp(idir*i,:) = X(1:2)
+              n(idir)       = i
+              exit
+           endif
+
         ! check intersection with boundary
-        if (intersect_boundary(yl, yc, X, id)) then
-           tmp(idir*i,:) = X(1:2)
-           n(idir)       = i
-           exit
+        else
+           if (intersect_boundary(yl, yc, X, id)) then
+              tmp(idir*i,:) = X(1:2)
+              n(idir)       = i
+              exit
+           endif
+        endif
+
+
+        ! cross cut-off poloidal angle?
+        if (present(theta_cut)) then
+           dtheta = thetac - thetal
+           if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
+           if ((thetal+dtheta-theta_cut)*(thetal-theta_cut) < 0.d0) then
+              n(idir)       = i-1
+              exit
+           endif
         endif
 
         ! prepare next step
-        yl = yc
+        yl     = yc
+        thetal = thetac
      enddo
   enddo
 
