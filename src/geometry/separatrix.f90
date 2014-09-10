@@ -144,8 +144,6 @@ module separatrix
 ! interface subroutine to normalized grad Psi vector for ODE solver
 !=======================================================================
   subroutine ePsi_sub (n, t, y, f)
-  use equilibrium
-
   integer, intent(in)       :: n
   real(real64), intent(in)  :: t, y(n)
   real(real64), intent(out) :: f(n)
@@ -169,42 +167,92 @@ module separatrix
 
 
 !=======================================================================
-  subroutine generate_gradPsiN_path(this, Px, L)
+! Generate path along grad-Psi from Px (X-point)
+! orientation = 1: ascent PsiN in left SOL
+!             = 2: ascent PsiN in right SOL
+!             = 3: descent PsiN to core
+!             = 4: descent PsiN to PFR
+!=======================================================================
+  subroutine generate_gradPsiN_path(this, Px, orientation, L, PsiN)
   use ode_solver
   use run_control, only: Trace_Method, N_steps
   class(t_gradPsiN_path)   :: this
-  real(real64), intent(in) :: Px(2), L
+  real(real64), intent(in) :: Px(2)
+  integer,      intent(in) :: orientation
+  real(real64), intent(in), optional :: L, PsiN
 
   type(t_ODE)  :: Path
-  real(real64) :: v1(2), v2(2), x0(2), ds, dl, t
+  real(real64) :: v1(2), v2(2), x0(2), y(3), ds, dl, t, Psi0
   integer      :: n_seg, is
 
 
+  ! 0. initialize
   call H_eigenvectors(Px, v1, v2)
   ! offset from X-point for tracing
   dl    = Px(1) / 1.d2
-  x0    = Px - dl*v1
-
   ! step size
   ds    = 0.1d0 * dl
 
-  ! expected number of segments
-  n_seg = nint((L-dl) / ds) + 2
+
+  ! 1. select orientation from saddle point (X-point)
+  select case(orientation)
+  case(1)
+     x0    = Px - dl*v1
+  case(2)
+     x0    = Px + dl*v1
+  case(3)
+     x0    = Px + dl*v2
+     ds    = -ds
+  case(4)
+     x0    = Px - dl*v2
+     ds    = -ds
+  case default
+     write (6, *) 'error in subroutine t_gradPsiN_path%generate:'
+     write (6, *) 'invalid parameter orientation = ', orientation
+     stop
+  end select
+
+
+  ! 2.1 determine length/number of segments by final PsiN value
+  if (present(PsiN)) then
+     n_seg  = 1
+     y(1:2) = x0
+     y(3)   = 0.d0
+     Psi0   = get_PsiN(y)
+     call Path%init_ODE(2, x0, ds, ePsi_sub, Trace_Method)
+     do
+        if (Psi0 < PsiN  .and.  get_PsiN(y) > PsiN) exit
+        if (Psi0 > PsiN  .and.  get_PsiN(y) < PsiN) exit
+        y(1:2) = Path%next_step()
+        n_seg  = n_seg + 1
+     enddo
+
+  ! 2.2 expected number of segments
+  elseif (present(L)) then
+     n_seg = nint((L-dl) / abs(ds)) + 2
+
+  ! either PsiN or L must be given!
+  else
+     write (6, *) 'error in subroutine t_gradPsiN_Path%generate:'
+     write (6, *) 'either parameter L or PsiN must be given!'
+     stop
+  endif
   call this%new(n_seg)
   this%x_data(0,:) = Px
   this%x_data(1,:) = x0
 
 
-  ! generate grad PsiN path
+  ! 3. generate grad PsiN path
   call Path%init_ODE(2, x0, ds, ePsi_sub, Trace_Method)
   do is=2,n_seg
      this%x_data(is,:) = Path%next_step()
-     dl                = dl + ds
+     dl                = dl + abs(ds)
   enddo
 
 
-  ! adjust last node to match L
-  t = (L-dl+ds)/ds
+  ! 4. adjust last node to match L
+  t = 1.d0
+  if (present(L)) t = (L-dl+abs(ds))/abs(ds)
   this%x_data(n_seg,:) = (1.d0-t)*this%x_data(n_seg-1,:) + t*this%x_data(n_seg,:)
 
   end subroutine generate_gradPsiN_path
