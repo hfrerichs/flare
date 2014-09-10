@@ -5,6 +5,7 @@ OBJECTS =  \
                math.o\
                dataset.o\
                search.o\
+               mesh_spacing.o\
                bilinear_system.o\
                ode_solver.o\
                curve2D.o\
