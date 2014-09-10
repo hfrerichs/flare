@@ -33,12 +33,14 @@ program main
   call cpu_time(t3)
   if (firstP) then
      write (6, *)
-     write (6, *) 'Time taken for initialization: ', t2-t1, ' seconds'
-     write (6, *) 'Time taken for computation:    ', t3-t2, ' seconds'
+     write (6, 1001) t2-t1
+     write (6, 1002) t3-t2
      write (6, *)
   endif
 
   call finished_bfield()
   call finished_parallel()
  1000 format ('========================================================================')
+ 1001 format (1x,'Time taken for initialization: ',f10.3,' seconds')
+ 1002 format (1x,'Time taken for computation:    ',f10.3,' seconds')
 end program main
