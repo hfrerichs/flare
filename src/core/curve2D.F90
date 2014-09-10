@@ -32,10 +32,12 @@ module curve2D
      contains
 
      procedure :: load
+     procedure :: new
      procedure :: plot => curve2D_plot
      procedure :: sort_loop
      procedure :: setup_angular_sampling
      procedure :: sample_at
+     procedure :: length
   end type t_curve
 
   contains
@@ -122,6 +124,21 @@ module curve2D
  1000 format ('found ',i6,' data lines in file: ',a)
  4000 format (a120)
   end subroutine load
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine new(this, n_seg)
+  class(t_curve)      ::  this
+  integer, intent(in) :: n_seg
+
+  this%n_seg = n_seg
+  this%n_dim = 2
+  if (associated(this%x_data)) deallocate (this%x_data)
+  allocate (this%x_data(0:n_seg,2))
+
+  end subroutine new
 !=======================================================================
 
 
@@ -496,6 +513,24 @@ module curve2D
   endif
 
   end subroutine sample_at
+!=======================================================================
+
+
+
+!=======================================================================
+  function length(this) result(L)
+  class(t_curve) :: this
+  real(real64)   :: L
+
+  integer :: i
+
+
+  L = 0.d0
+  do i=1,this%n_seg
+     L = L + sqrt(sum((this%x_data(i,:)-this%x_data(i-1,:))**2))
+  enddo
+
+  end function length
 !=======================================================================
 
 end module curve2D
