@@ -104,7 +104,7 @@ module flux_surface_2D
         tmp(idir*i,:) = yc(1:2)
 
         ! check intersection user defined surface (AltSurf)
-        if (present(AltSurf)) then
+        if (present(AltSurf) .and. AltSurf%n_seg > 0) then
            if (intersect_curve(yl(1:2), yc(1:2), AltSurf, X(1:2))) then
               tmp(idir*i,:) = X(1:2)
               n(idir)       = i
