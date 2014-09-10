@@ -64,7 +64,7 @@ module flux_surface_2D
 
 
   ! allocate temporary array for output
-  nmax = N_steps_guess(ds) / 2
+  nmax = N_steps_guess(ds)
   allocate (tmp(-nmax:nmax,2))
 
 
