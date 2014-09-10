@@ -36,6 +36,7 @@ module curve2D
      procedure :: plot => curve2D_plot
      procedure :: sort_loop
      procedure :: setup_angular_sampling
+     procedure :: setup_length_sampling
      procedure :: sample_at
      procedure :: length
   end type t_curve
@@ -291,7 +292,7 @@ module curve2D
   subroutine curve2D_plot(this, iu, filename)
   class(t_curve)                      :: this
   integer, intent(in), optional       :: iu
-  character*120, intent(in), optional :: filename
+  character(len=*), intent(in), optional :: filename
 
   integer :: i, iu0
 
@@ -419,7 +420,7 @@ module curve2D
 
 
 !=======================================================================
-! prepare sampling from line using the angle with regard to a reference
+! prepare sampling along L using the angle with regard to a reference
 ! point 'x_c' as weight factor
 !=======================================================================
   subroutine setup_angular_sampling (L, x_c_)
@@ -465,6 +466,37 @@ module curve2D
   L%w_seg  = L%w_seg / w_tot
 
   end subroutine setup_angular_sampling
+!=======================================================================
+
+
+
+!=======================================================================
+! prepare sampling along L using the segment lengths as weight factor
+!=======================================================================
+  subroutine setup_length_sampling(L)
+  class(t_curve) :: L
+
+  real(real64) :: w_tot, s, dx(L%n_dim)
+  integer      :: i, n
+
+
+  ! allocate memory for weight array
+  n = L%n_seg
+  if (associated(L%w_seg)) deallocate(L%w_seg)
+  allocate (L%w_seg(n))
+
+  ! setup weight array
+  w_tot = 0.d0
+  do i=1,n
+     dx    = L%x_data(i,:) - L%x_data(i-1,:)
+     s     = dsqrt(sum(dx**2))
+
+     L%w_seg(i) = s
+     w_tot      = w_tot + s
+  enddo
+  L%w_seg  = L%w_seg / w_tot
+
+  end subroutine setup_length_sampling
 !=======================================================================
 
 
