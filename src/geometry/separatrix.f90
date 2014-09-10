@@ -55,7 +55,7 @@ module separatrix
   ds0     = 0.1d0
   v1      = ds0*v1; v2 = ds0*v2
   this%Px = Px
-  ds      = ds0**2 * Ip_sign * orientation
+  ds      = ds0**2 * orientation
 
 
   ! right core segment

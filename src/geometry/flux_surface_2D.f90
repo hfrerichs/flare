@@ -140,11 +140,22 @@ module flux_surface_2D
 
 
 ! save data
-  allocate (this%x_data(0:n(-1)+n(1),2))
-  this%x_data = tmp(-n(-1):n(1),:)
-  this%n_seg  = n(-1)+n(1)
-  this%n_dim  = 2
-  deallocate (tmp)
+  ! either closed flux surface, or flux surface is limited on both side
+  if ((n(-1)  < nmax  .and.  n(1)  < nmax)  .or.  &
+      (n(-1) == nmax  .and.  n(1) == nmax)) then
+     allocate (this%x_data(0:n(-1)+n(1),2))
+     this%x_data = tmp(-n(-1):n(1),:)
+     this%n_seg  = n(-1)+n(1)
+     this%n_dim  = 2
+     deallocate (tmp)
+
+  ! flux surface is limited on one side only
+  else
+     if (n(-1) < nmax) r3(1:2) = tmp(-n(-1),:)
+     if (n( 1) < nmax) r3(1:2) = tmp( n( 1),:)
+     deallocate (tmp)
+     call this%generate (r3(1:2), direction, Trace_Step, Trace_Method, AltSurf, theta_cut)
+  endif
 
   end subroutine generate_flux_surface_2D
 !=======================================================================
@@ -166,7 +177,7 @@ module flux_surface_2D
 
   Bf = get_Bf_eq2D(y)
   Bpol = sqrt(Bf(1)**2 + Bf(2)**2)
-  f    = Bf(1:2)/Bpol
+  f    = Bf(1:2)/Bpol / Ip_sign
 
   end subroutine Bpol_sub
 !=======================================================================
