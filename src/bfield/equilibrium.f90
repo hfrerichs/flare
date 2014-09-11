@@ -191,8 +191,6 @@ module equilibrium
      Psi_sepx = get_Psi(r)
   endif
 
-  ! direction of toroidal magnetic field and plasma current
-  ! ...
 
   return
  1000 iconfig = 0

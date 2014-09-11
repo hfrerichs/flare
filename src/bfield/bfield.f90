@@ -5,6 +5,7 @@
 ! in cm (centi meter), the azimuth angle is given in rad (radians).
 !===============================================================================
 module bfield
+  use iso_fortran_env
   implicit none
 
   integer, parameter :: &
@@ -37,6 +38,9 @@ module bfield
 
   integer, parameter :: iu = 24
 
+  real(real64) :: r(3), Bf(3)
+
+
   ! load configuration on first processor
   if (firstP) then
      open  (iu, file=Bfield_input_file)
@@ -48,7 +52,21 @@ module bfield
      call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
      call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
      close (iu)
+
+
+     ! supplemental equilibrium information
+     ! direction of toroidal magnetic field and plasma current
+     ! if Bt_sign is not set by equilibrium
+     if (Bt_sign == 0) then
+        r(3) = 0.d0
+        r    = get_magnetic_axis(r(3))
+        Bf   = get_Bf_cyl(r)
+
+        Bt_sign = 1
+        if (Bf(3) < 0.d0) Bt_sign = -1
+     endif
   endif
+
 
   call wait_pe()
   call broadcast_inte (iconfig, BF_MAX_CONFIG)
