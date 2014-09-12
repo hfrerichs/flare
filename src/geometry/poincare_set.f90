@@ -8,10 +8,15 @@ module poincare_set
 
   private
 
-  type, public :: t_poincare_set
-     type(t_dataset), dimension(:), allocatable :: slice
+  type, extends(t_dataset) :: t_slice
+     integer :: npoints
+  end type t_slice
 
-     integer :: nslice, npoints, nsym
+
+  type, public :: t_poincare_set
+     type(t_slice), dimension(:), allocatable :: slice
+
+     integer :: nslice, npoints_max, nsym
      contains
      procedure generate, plot
   end type t_poincare_set
@@ -46,10 +51,11 @@ module poincare_set
   allocate (this%slice(0:nslice-1))
   do islice=0,nslice-1
      call this%slice(islice)%new(npoints, 4)
+     this%slice(islice)%npoints = 0
   enddo
-  this%nslice  = nslice
-  this%npoints = npoints
-  this%nsym    = nsym
+  this%nslice      = nslice
+  this%npoints_max = npoints
+  this%nsym        = nsym
 
 
   ds = pi2 / nsym / nslice / nsteps
@@ -63,6 +69,7 @@ module poincare_set
            if (F%intersect_boundary()) exit main_loop
         enddo steps
 
+        this%slice(islice)%npoints     = ipoint
         this%slice(islice)%x(ipoint,1) = F%rc(1)
         this%slice(islice)%x(ipoint,2) = F%rc(2)
         theta = F%thetac / pi * 180.d0
@@ -81,12 +88,12 @@ module poincare_set
   class(t_poincare_set)         :: this
   integer, intent(in), optional :: iu
 
-  integer :: i
+  integer :: i, iu0
 
-
+  iu0 = 97
   do i=0,this%nslice-1
-     call this%slice(i)%plot(iu=iu)
-     write (iu, *)
+     call this%slice(i)%plot(iu=iu0, nelem=this%slice(i)%npoints)
+     write (iu0, *)
   enddo
 
   end subroutine plot
