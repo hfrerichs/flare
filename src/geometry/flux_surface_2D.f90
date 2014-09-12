@@ -143,10 +143,8 @@ module flux_surface_2D
   ! either closed flux surface, or flux surface is limited on both side
   if ((n(-1)  < nmax  .and.  n(1)  < nmax)  .or.  &
       (n(-1) == nmax  .and.  n(1) == nmax)) then
-     allocate (this%x_data(0:n(-1)+n(1),2))
-     this%x_data = tmp(-n(-1):n(1),:)
-     this%n_seg  = n(-1)+n(1)
-     this%n_dim  = 2
+     call this%new(n(-1) + n(1))
+     this%x = tmp(-n(-1):n(1),:)
      deallocate (tmp)
 
   ! flux surface is limited on one side only

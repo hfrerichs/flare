@@ -76,7 +76,7 @@ subroutine get_equi_info_2D
 
      open  (iu, file=fout)
      do j=0,S_axi(i)%n_seg
-        write (iu, *) S_axi(i)%x_data(j,1:2)
+        write (iu, *) S_axi(i)%x(j,1:2)
      enddo
      close (iu)
   enddo

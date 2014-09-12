@@ -238,22 +238,22 @@ module separatrix
      stop
   endif
   call this%new(n_seg)
-  this%x_data(0,:) = Px
-  this%x_data(1,:) = x0
+  this%x(0,:) = Px
+  this%x(1,:) = x0
 
 
   ! 3. generate grad PsiN path
   call Path%init_ODE(2, x0, ds, ePsi_sub, Trace_Method)
   do is=2,n_seg
-     this%x_data(is,:) = Path%next_step()
-     dl                = dl + abs(ds)
+     this%x(is,:) = Path%next_step()
+     dl           = dl + abs(ds)
   enddo
 
 
   ! 4. adjust last node to match L
   t = 1.d0
   if (present(L)) t = (L-dl+abs(ds))/abs(ds)
-  this%x_data(n_seg,:) = (1.d0-t)*this%x_data(n_seg-1,:) + t*this%x_data(n_seg,:)
+  this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
 
   end subroutine generate_gradPsiN_path
 !=======================================================================

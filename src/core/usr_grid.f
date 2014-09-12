@@ -506,7 +506,7 @@ c-----------------------------------------------
 ! oformat = CARTESIAN, CYLINDRICAL
 !-----------------------------------------------------------------------
       subroutine read_grid_usr (filename, iformat, oformat, phi_default)
-      use curve2D
+      use dataset
       use math
       character*120, intent(in)    :: filename
       integer, intent(in)          :: iformat, oformat
@@ -514,7 +514,7 @@ c-----------------------------------------------
 
       integer, parameter :: iu = 10
       real*8, dimension(:,:), pointer :: G
-      type(t_curve)      :: D
+      type(t_dataset)      :: D
       real*8  :: phi, yi(3), yo(3)
       integer :: icol, i, n
 
@@ -528,14 +528,14 @@ c-----------------------------------------------
       call D%load(filename, icol)
 
       ! setup grid
-      n = D%n_seg + 1
+      n = D%nrow
       G => new_grid(n)
       do i=1,n
-         yi(1) = D%x_data(i-1,1)
-         yi(2) = D%x_data(i-1,2)
+         yi(1) = D%x(i,1)
+         yi(2) = D%x(i,2)
          select case (iformat)
          case(1,2)
-            yi(3) = D%x_data(i-1,3) / 180.d0 * pi
+            yi(3) = D%x(i-1,3) / 180.d0 * pi
          case(3)
             yi(3) = phi / 180.d0 * pi
          end select

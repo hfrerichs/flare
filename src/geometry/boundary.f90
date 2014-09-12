@@ -219,17 +219,18 @@ module boundary
 
   if (mype > 0) allocate (S_axi(n_axi))
   do i=1,n_axi
-     call broadcast_inte_s (S_axi(i)%n_seg)
-     call broadcast_inte_s (S_axi(i)%n_dim)
-
-     n = S_axi(i)%n_seg
-     m = S_axi(i)%n_dim
-     if (mype > 0) then
-        allocate (S_axi(i)%x_data(0:n,m))
-        !allocate (S_axi(i)%w_seg (1:n))
-     endif
-     call broadcast_real  (S_axi(i)%x_data, (n+1)*m)
-     !call broadcast_real  (S_axi(i)%w_seg,   n)
+!     call broadcast_inte_s (S_axi(i)%n_seg)
+!     call broadcast_inte_s (S_axi(i)%n_dim)
+!
+!     n = S_axi(i)%n_seg
+!     m = S_axi(i)%n_dim
+!     if (mype > 0) then
+!        allocate (S_axi(i)%x(0:n,m))
+!        !allocate (S_axi(i)%w_seg (1:n))
+!     endif
+!     call broadcast_real  (S_axi(i)%x_data, (n+1)*m)
+!     !call broadcast_real  (S_axi(i)%w_seg,   n)
+     call S_axi(i)%broadcast()
   enddo
 
   end subroutine broadcast_axisym_surf

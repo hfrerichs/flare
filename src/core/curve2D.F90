@@ -5,34 +5,37 @@
 !===============================================================================
 module curve2D
   use iso_fortran_env
+  use dataset
 
 #if defined(FLARE)
   use math
+  use parallel
   implicit none
 #else
   implicit none
 
-  real*8, parameter :: &
+  real(real64), parameter :: &
      pi   = 3.14159265358979323846264338328d0, &
      pi2  = 2.d0 * pi
 #endif
 
 
-  !type, extends(t_nodes/t_curve) :: t_spline
   type t_curve
      ! number of line segments (n_seg), number of coordinates (n_dim)
      integer  :: n_seg = -1, n_dim = 0
 
      ! nodes along the curve, dimension(0:n_seg, 1:n_dim)
-     real*8, dimension(:,:), pointer :: x_data => null()
+     type (t_dataset) :: nodes
+     real(real64), dimension(:,:), pointer :: x => null()
 
      ! relative weight for each line segment, dimension(1:n_seg)
-     real*8, dimension(:),   pointer :: w_seg => null()
+     real(real64), dimension(:),   pointer :: w_seg => null()
 
      contains
 
      procedure :: load
      procedure :: new
+     procedure :: broadcast
      procedure :: plot => curve2D_plot
      procedure :: sort_loop
      procedure :: setup_angular_sampling
@@ -47,83 +50,18 @@ module curve2D
 
 
 !=======================================================================
-  subroutine load(this, data_file, columns, report, header)
-  class (t_curve), intent(inout) :: this
-  character*120,   intent(in)    :: data_file
-  integer,         intent(in), optional  :: columns
-  logical,         intent(in), optional  :: report
-  character*80,    intent(out), optional :: header
-
-  integer, parameter :: iu = 42
-
-  real*8, dimension(:), allocatable :: tmp
-  character*120 :: str
-  integer       :: i, j, ncount, ncol, icom
-  logical       :: lreport
+  subroutine load(this, data_file, report, header)
+  class (t_curve),  intent(inout)         :: this
+  character(len=*), intent(in)            :: data_file
+  logical,          intent(in),  optional :: report
+  character(len=*), intent(out), optional :: header
 
 
-  ! display messages
-  lreport = .true.
-  if (present(report)) then
-     if (report .eqv. .false.) lreport = .false.
-  endif
+  this%n_seg =  this%nodes%nrow-1
+  this%n_dim =  2
+  call this%nodes%load(data_file, 2, report, header, -1)
+  this%x     => this%nodes%x
 
-
-  ! number of data columns
-  ncol = 2
-  if (present(columns)) then
-     ncol = columns
-  endif
-
-
-  ! header
-  if (present(header)) then
-     header = ''
-  endif
-
-
-  ! parse date file to get number of data lines
-  open  (iu, file=data_file)
-  ncount = 0
-  icom   = 0
-  parse_loop: do
-     read (iu, 4000, end=2000) str
-     do while (str(1:1) .eq. '#')
-        if (icom == 0  .and. present(header)) header = str(3:82)
-        read (iu, *, end=2000) str
-        icom = icom + 1
-     enddo
-     ncount = ncount + 1
-  enddo parse_loop
- 2000 rewind(iu)
-  if (lreport) write (6,1000) ncount, data_file(1:len_trim(data_file))
-
-
-  ! allocate memory
-  this%n_seg = ncount-1
-  if (associated(this%x_data)) deallocate (this%x_data)
-  allocate (this%x_data(0:ncount-1,ncol))
-  allocate (tmp(ncol))
-
-
-  ! read actual data
-  j = 0
-  read_loop: do i=1,ncount+icom
-     read (iu, 4000) str
-     if (str(1:1) .ne. '#') then
-        read (str, *) tmp
-        this%x_data(j,:) = tmp
-        j = j + 1
-     endif
-  enddo read_loop
-  close (iu)
-  this%n_dim = ncol
-  deallocate (tmp)
-
-
-  return
- 1000 format ('found ',i6,' data lines in file: ',a)
- 4000 format (a120)
   end subroutine load
 !=======================================================================
 
@@ -134,12 +72,40 @@ module curve2D
   class(t_curve)      ::  this
   integer, intent(in) :: n_seg
 
+
   this%n_seg = n_seg
   this%n_dim = 2
-  if (associated(this%x_data)) deallocate (this%x_data)
-  allocate (this%x_data(0:n_seg,2))
+  call this%nodes%new(n_seg+1, 2, -1)
+  this%x     => this%nodes%x
 
   end subroutine new
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine broadcast(this)
+  class(t_curve) :: this
+
+  integer :: n, m
+
+
+#if defined(FLARE)
+  n = this%n_seg
+  m = this%n_dim
+
+  call broadcast_inte_s (this%n_seg)
+  call broadcast_inte_s (this%n_dim)
+
+  if (mype > 0) then
+     allocate (this%nodes%x(0:n,m))
+     this%x => this%nodes%x
+  endif
+  call broadcast_real  (this%nodes%x, (n+1)*m)
+
+#endif
+
+  end subroutine broadcast
 !=======================================================================
 
 
@@ -148,15 +114,14 @@ module curve2D
 ! Generate 2D curve from two 1D arrays (xarr, yarr) of size n
 !=======================================================================
   subroutine make_2D_curve (n, xarr, yarr, C)
-  integer, intent(in)        :: n
-  real*8,  intent(in)        :: xarr(n), yarr(n)
+  integer,       intent(in)  :: n
+  real(real64),  intent(in)  :: xarr(n), yarr(n)
   type(t_curve), intent(out) :: C
 
-  C%n_seg = n-1
-  C%n_dim = 2
-  allocate (C%x_data(0:n-1,2))
-  C%x_data(:,1) = xarr
-  C%x_data(:,2) = yarr
+
+  call C%new(n-1)
+  C%x(:,1) = xarr
+  C%x(:,2) = yarr
 
   end subroutine make_2D_curve
 !=======================================================================
@@ -175,14 +140,14 @@ module curve2D
 ! ish:  segment number of C where intersection point is located
 !===============================================================================
   function intersect_curve (x1, x2, C, xh, th, sh, ish)
-  real*8,        intent(in)            :: x1(2), x2(2)
+  real(real64),  intent(in)            :: x1(2), x2(2)
   type(t_curve), intent(in)            :: C
-  real*8,        intent(out), optional :: xh(2), th, sh
+  real(real64),  intent(out), optional :: xh(2), th, sh
   integer,       intent(out), optional :: ish
   logical                              :: intersect_curve
 
-  real*8  :: t, s, xl1(2), xl2(2), xh0(2)
-  integer :: is
+  real(real64) :: t, s, xl1(2), xl2(2), xh0(2)
+  integer      :: is
 
 
   intersect_curve = .false.
@@ -190,8 +155,8 @@ module curve2D
   s = 0.d0
 
   do is=1,C%n_seg
-     xl1 = C%x_data(is-1,:)
-     xl2 = C%x_data(is  ,:)
+     xl1 = C%x(is-1,:)
+     xl2 = C%x(is  ,:)
      if (intersect_lines(x1,x2,xl1,xl2,t,s,xh0)) then
         if (t.ge.0.d0 .and. t.le.1.d0 .and. s.ge.0.d0 .and. s.le.1.d0) then
            intersect_curve = .true.
@@ -229,12 +194,12 @@ module curve2D
 ! X:    intersection point (optional)
 !=======================================================================
   function intersect_lines (L1, L2, M1, M2, l, m, X)
-  real*8, intent(in)  :: L1(2), L2(2), M1(2), M2(2)
-  real*8, intent(out) :: l, m
-  real*8, optional    :: X(2)
-  logical             :: intersect_lines
+  real(real64), intent(in)  :: L1(2), L2(2), M1(2), M2(2)
+  real(real64), intent(out) :: l, m
+  real(real64), optional    :: X(2)
+  logical                   :: intersect_lines
 
-  real*8 :: e1(2), e2(2), d1, d2, edet, dx(2), n0(2), b
+  real(real64) :: e1(2), e2(2), d1, d2, edet, dx(2), n0(2), b
 
 
   intersect_lines = .false.
@@ -311,7 +276,7 @@ module curve2D
 
   ! write data
   do i=0,this%n_seg
-     write (iu0, *) this%x_data(i,:)
+     write (iu0, *) this%x(i,:)
   enddo
 
 
@@ -349,8 +314,8 @@ module curve2D
      x_c = x_c_
   ! set default values otherwise
   else
-     x_c(1) = sum(L%x_data(:,1)) / (n+1)
-     x_c(2) = sum(L%x_data(:,2)) / (n+1)
+     x_c(1) = sum(L%x(:,1)) / (n+1)
+     x_c(2) = sum(L%x(:,2)) / (n+1)
   endif
 
 
@@ -366,12 +331,12 @@ module curve2D
 
   ! allocate memory for temporary array
   allocate (tmp_arr(0:n, 3))
-  tmp_arr(:,1:2) = L%x_data
+  tmp_arr(:,1:2) = L%x
 
   ! calculate angles w.r.t. x_c
   theta_0  = datan2(dx(2), dx(1))
   do i=0,n
-     dxl   = L%x_data(i,:) - x_c
+     dxl   = L%x(i,:) - x_c
      theta = datan2(dxl(2), dxl(1))
      if (theta .lt. theta_0) theta = theta + pi2
      tmp_arr(i,3) = theta
@@ -391,7 +356,7 @@ module curve2D
   t    = (tmp_arr(0,3) - tmp_arr(n,3) + pi2)
   if (t.eq.0.d0) then
      ! loop already closed
-     L%x_data(0:n,:) = tmp_arr(0:n,1:2)
+     L%x(0:n,:) = tmp_arr(0:n,1:2)
   else
      t    = (theta_0      - tmp_arr(n,3) + pi2) / t
      x_0  = tmp_arr(n,1:2)
@@ -399,18 +364,15 @@ module curve2D
      x_0  = x_0 + t * dxl
 
      ! copy data to output variable L
-     deallocate (L%x_data)
      if (x_0(1).eq.tmp_arr(0,1) .and. x_0(2).eq.tmp_arr(0,2)) then
-        L%n_seg = n + 1
-        allocate (L%x_data(0:n+1, 2))
-        L%x_data(0:  n,:) = tmp_arr(0:n,1:2)
-        L%x_data(  n+1,:) = x_0
+        call L%new(n+1)
+        L%x(0:  n,:) = tmp_arr(0:n,1:2)
+        L%x(  n+1,:) = x_0
      else
-        L%n_seg = n + 2
-        allocate (L%x_data(0:n+2, 2))
-        L%x_data(0    ,:) = x_0
-        L%x_data(1:n+1,:) = tmp_arr(0:n,1:2)
-        L%x_data(  n+2,:) = x_0
+        call L%new(n+2)
+        L%x(0    ,:) = x_0
+        L%x(1:n+1,:) = tmp_arr(0:n,1:2)
+        L%x(  n+2,:) = x_0
      endif
   endif
 
@@ -440,8 +402,8 @@ module curve2D
      x_c = x_c_
   ! set default values otherwise
   else
-     x_c(1) = sum(L%x_data(:,1)) / (n+1)
-     x_c(2) = sum(L%x_data(:,2)) / (n+1)
+     x_c(1) = sum(L%x(:,1)) / (n+1)
+     x_c(2) = sum(L%x(:,2)) / (n+1)
   endif
 
 
@@ -451,10 +413,10 @@ module curve2D
 
   ! setup weight array
   w_tot = 0.d0
-  x     = L%x_data(0,:)
+  x     = L%x(0,:)
   phi1  = datan2(x(2)-x_c(2), x(1)-x_c(1))
   do i=1,n
-     x     = L%x_data(i,:)
+     x     = L%x(i,:)
      phi2  = datan2(x(2)-x_c(2), x(1)-x_c(1))
      dphi  = phi2 - phi1
      if (dabs(dphi) .gt. pi) dphi = dphi - dsign(pi2,dphi)
@@ -488,7 +450,7 @@ module curve2D
   ! setup weight array
   w_tot = 0.d0
   do i=1,n
-     dx    = L%x_data(i,:) - L%x_data(i-1,:)
+     dx    = L%x(i,:) - L%x(i-1,:)
      s     = dsqrt(sum(dx**2))
 
      L%w_seg(i) = s
@@ -537,11 +499,11 @@ module curve2D
   wt   = (wint - wt) / L%w_seg(i)
 
   ! return data point
-  x    = L%x_data(i-1,:) * wt + L%x_data(i,:) * (1.d0 - wt)
+  x    = L%x(i-1,:) * wt + L%x(i,:) * (1.d0 - wt)
 
   ! optional output: tangent vector
   if (present(x1)) then
-     x1 = (L%x_data(i,:)-L%x_data(i-1,:))/L%w_seg(i)
+     x1 = (L%x(i,:)-L%x(i-1,:))/L%w_seg(i)
   endif
 
   end subroutine sample_at
@@ -559,7 +521,7 @@ module curve2D
 
   L = 0.d0
   do i=1,this%n_seg
-     L = L + sqrt(sum((this%x_data(i,:)-this%x_data(i-1,:))**2))
+     L = L + sqrt(sum((this%x(i,:)-this%x(i-1,:))**2))
   enddo
 
   end function length
