@@ -6,6 +6,12 @@ module dataset
   implicit none
   private
 
+
+  integer, parameter, public :: &
+     SILENT  = 0, &
+     VERBOSE = 1
+
+
   type, public :: t_dataset
      integer :: nrow, ncol, nrow_offset
 
@@ -24,14 +30,16 @@ module dataset
 ! load data from file "data_file"
 ! optional input/output:
 !	columns		expected number of columns in data file
-!	report		write number of rows found in data file
+!	output=VERBOSE  write number of rows found in data file
 !	header		return leading comment line "# ..." of data file
+!       nrow_offset     the first element of x is designated 1+nrow_offset
 !=======================================================================
-  subroutine load(this, data_file, columns, report, header, nrow_offset)
+! output=SILENT,VERBOSE
+  subroutine load(this, data_file, columns, output, header, nrow_offset)
   class (t_dataset), intent(inout)         :: this
   character(len=*),  intent(in)            :: data_file
   integer,           intent(in), optional  :: columns
-  logical,           intent(in), optional  :: report
+  integer,           intent(in), optional  :: output
   character(len=*),  intent(out), optional :: header
   integer,           intent(in), optional  :: nrow_offset
 
@@ -41,13 +49,13 @@ module dataset
   real(real64), dimension(:), allocatable  :: tmp
   character(len=256) :: str
   integer            :: i, j, n0, ncount, ncol, icom
-  logical            :: lreport
+  logical            :: report
 
 
   ! display messages
-  lreport = .true.
-  if (present(report)) then
-     if (report .eqv. .false.) lreport = .false.
+  report = .true.
+  if (present(output)) then
+     if (output == SILENT) report = .false.
   endif
 
 
@@ -78,7 +86,7 @@ module dataset
      ncount = ncount + 1
   enddo parse_loop
  2000 rewind(iu)
-  if (lreport) write (6,1000) ncount, data_file(1:len_trim(data_file))
+  if (report) write (6,1000) ncount, data_file(1:len_trim(data_file))
 
 
   ! allocate memory

@@ -50,16 +50,16 @@ module curve2D
 
 
 !=======================================================================
-  subroutine load(this, data_file, report, header)
+  subroutine load(this, data_file, output, header)
   class (t_curve),  intent(inout)         :: this
   character(len=*), intent(in)            :: data_file
-  logical,          intent(in),  optional :: report
+  integer,          intent(in),  optional :: output
   character(len=*), intent(out), optional :: header
 
 
   this%n_seg =  this%nodes%nrow-1
   this%n_dim =  2
-  call this%nodes%load(data_file, 2, report, header, -1)
+  call this%nodes%load(data_file, 2, output, header, -1)
   this%x     => this%nodes%x
 
   end subroutine load

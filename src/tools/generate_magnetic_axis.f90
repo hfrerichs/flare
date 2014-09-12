@@ -60,7 +60,7 @@ subroutine generate_magnetic_axis
   do i=0,N_mult-1
      write (filename, '(i8)') i
      filename = 'magnetic_axis_'//trim(adjustl(filename))//'.dat'
-     call D%load(filename, 2, report=.false.)
+     call D%load(filename, 2, output=SILENT)
      R   = sum(D%x(:,1)) / D%nrow
      Z   = sum(D%x(:,2)) / D%nrow
      Phi = 360.d0 / N_sym / N_mult * i
