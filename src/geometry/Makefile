@@ -8,6 +8,7 @@ OBJECTS =  \
                flux_surface_2D.o\
                flux_surface_3D.o\
                separatrix.o\
+               poincare_set.o\
                field_aligned_grid.o
 
 INC_DIR = -I .. -I ../$(CORE_DIR) -I ../$(BFIELD_DIR)
