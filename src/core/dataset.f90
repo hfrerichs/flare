@@ -15,10 +15,10 @@ module dataset
   type, public :: t_dataset
      integer :: nrow, ncol, nrow_offset
 
-     real(real64), dimension(:,:), pointer :: x
+     real(real64), dimension(:,:), pointer :: x => null()
 
      contains
-     procedure :: load, store, new, destroy
+     procedure :: load, plot, new, destroy
   end type t_dataset
 
   contains
@@ -34,7 +34,6 @@ module dataset
 !	header		return leading comment line "# ..." of data file
 !       nrow_offset     the first element of x is designated 1+nrow_offset
 !=======================================================================
-! output=SILENT,VERBOSE
   subroutine load(this, data_file, columns, output, header, nrow_offset)
   class (t_dataset), intent(inout)         :: this
   character(len=*),  intent(in)            :: data_file
@@ -123,29 +122,45 @@ module dataset
 
 
 !=======================================================================
-  subroutine store(this, data_file)
-  class (t_dataset), intent(in) :: this
-  character(len=*),  intent(in) :: data_file
-
-  integer, parameter            :: iu = 42
-
-
-  character*11 :: f
-  integer      :: i, n0
+  subroutine plot(this, iu, filename)
+  class (t_dataset), intent(in)           :: this
+  integer,           intent(in), optional :: iu
+  character(len=*),  intent(in), optional :: filename
 
 
-  write (6, *) 'writing data: ', this%nrow, this%ncol
+  character(len=11) :: f
+  integer           :: i, iu0, n0
 
+
+  ! set default unit number for output
+  iu0 = 99
+
+  ! Unit number given for output?
+  if (present(iu)) iu0 = iu
+
+  ! Output_File given?
+  if (present(filename)) then
+     open  (iu0, file=filename)
+  endif
+
+
+  ! output format
   write (f, 1000) this%ncol
  1000 format ('(',i3,'e18.10)')
 
+  ! write data
   n0 = this%nrow_offset
-  open  (iu, file=data_file)
   do i=1+n0,this%nrow+n0
      write (iu, f) this%x(i,:)
   enddo
-  close (iu)
-  end subroutine store
+
+
+  ! Output_File given?
+  if (present(filename)) then
+     close (iu0)
+  endif
+
+  end subroutine plot
 !=======================================================================
 
 
