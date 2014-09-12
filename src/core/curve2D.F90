@@ -18,9 +18,10 @@ module curve2D
      pi   = 3.14159265358979323846264338328d0, &
      pi2  = 2.d0 * pi
 #endif
+  private
 
 
-  type t_curve
+  type, public :: t_curve
      ! number of line segments (n_seg), number of coordinates (n_dim)
      integer  :: n_seg = -1, n_dim = 0
 
@@ -43,6 +44,9 @@ module curve2D
      procedure :: sample_at
      procedure :: length
   end type t_curve
+
+
+  public :: intersect_curve, make_2D_curve
 
   contains
 !=======================================================================

@@ -77,7 +77,7 @@ subroutine field_line_loss
   n     = 0
   !PsiNext = 0.99158916136325959
   do i=0,S%n_phi-1
-  do j=1,S%slice(i)%nrow
+  do j=1,S%slice(i)%n_seg
      r0(1:2) = S%slice(i)%x(j,:)
      r0(3)   = S%slice(i)%phi
      n       = n + 1

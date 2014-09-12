@@ -34,6 +34,7 @@ module flux_surface_2D
   use equilibrium
   use ode_solver
   use boundary
+  use math
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: r(2)
   

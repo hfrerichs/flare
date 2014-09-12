@@ -18,6 +18,7 @@ subroutine transform_to_flux_coordinates
   use equilibrium
   use curve2D
   use grid
+  use math
   implicit none
 
   integer, parameter :: iu = 42
