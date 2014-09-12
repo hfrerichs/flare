@@ -9,7 +9,7 @@ module dataset
   type, public :: t_dataset
      integer :: nrow, ncol, nrow_offset
 
-     real(real64), dimension(:,:), allocatable :: x
+     real(real64), dimension(:,:), pointer :: x
 
      contains
      procedure :: load, store, new, destroy
@@ -86,7 +86,7 @@ module dataset
   n0        = 0
   if (present(nrow_offset)) n0 = nrow_offset
   this%nrow_offset = n0
-  if (allocated(this%x)) deallocate (this%x)
+  if (associated(this%x)) deallocate (this%x)
   allocate (this%x(1+n0:ncount+n0,ncol))
   allocate (tmp(ncol))
 
@@ -170,7 +170,7 @@ module dataset
   subroutine destroy(this)
   class(t_dataset) :: this
 
-  if (allocated(this%x)) deallocate(this%x)
+  if (associated(this%x)) deallocate(this%x)
   end subroutine destroy
 !=======================================================================
 
