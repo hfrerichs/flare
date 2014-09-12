@@ -9,7 +9,8 @@ module poincare_set
   private
 
   type, extends(t_dataset) :: t_slice
-     integer :: npoints
+     real(real64) :: phi
+     integer      :: npoints
   end type t_slice
 
 
@@ -17,6 +18,7 @@ module poincare_set
      type(t_slice), dimension(:), allocatable :: slice
 
      integer :: nslice, npoints_max, nsym
+
      contains
      procedure generate, plot
   end type t_poincare_set
@@ -52,6 +54,7 @@ module poincare_set
   do islice=0,nslice-1
      call this%slice(islice)%new(npoints, 4)
      this%slice(islice)%npoints = 0
+     this%slice(islice)%phi     = y0(3) + islice * pi2 / nsym / nslice
   enddo
   this%nslice      = nslice
   this%npoints_max = npoints
