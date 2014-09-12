@@ -122,14 +122,18 @@ module dataset
 
 
 !=======================================================================
-  subroutine plot(this, iu, filename)
+! iu             output unit number
+! filename       output filename
+! nelem          number of elements to output
+!=======================================================================
+  subroutine plot(this, iu, filename, nelem)
   class (t_dataset), intent(in)           :: this
-  integer,           intent(in), optional :: iu
+  integer,           intent(in), optional :: iu, nelem
   character(len=*),  intent(in), optional :: filename
 
 
   character(len=11) :: f
-  integer           :: i, iu0, n0
+  integer           :: i, iu0, n0, n
 
 
   ! set default unit number for output
@@ -148,10 +152,21 @@ module dataset
   write (f, 1000) this%ncol
  1000 format ('(',i3,'e18.10)')
 
-  ! write data
+  ! offset and number of elements
   n0 = this%nrow_offset
-  do i=1+n0,this%nrow+n0
-     write (iu, f) this%x(i,:)
+  n  = this%nrow
+  if (present(nelem)) then
+     if (nelem > this%nrow) then
+        write (6, *) 'error in subroutine t_dataset%plot, nelem > nrow!'
+        stop
+     else
+        n = nelem
+     endif
+  endif
+
+  ! write data
+  do i=1+n0,n+n0
+     write (iu0, f) this%x(i,:)
   enddo
 
 
