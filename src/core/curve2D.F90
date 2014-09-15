@@ -63,9 +63,9 @@ module curve2D
   character(len=*), intent(out), optional :: header
 
 
+  call this%nodes%load(data_file, 2, output, header, -1)
   this%n_seg =  this%nodes%nrow-1
   this%n_dim =  2
-  call this%nodes%load(data_file, 2, output, header, -1)
   this%x     => this%nodes%x
 
   end subroutine load
