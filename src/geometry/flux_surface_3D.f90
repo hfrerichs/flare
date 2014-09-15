@@ -46,13 +46,13 @@ module flux_surface_3D
      type(t_surface_cut), dimension(:), allocatable :: slice
 
      real(real64) :: PsiN
-     integer      :: n_sym, n_phi
+     integer      :: n_sym, n_phi, n_theta
 
      ! pre-sampled distance to flux surface
      type (t_distance) :: distance
 
      contains
-     procedure :: new, generate, plot
+     procedure :: new, load, generate, plot
      procedure :: generate_from_axisymmetric_surface
      procedure :: get_distance_to
      procedure :: load_distance_to
@@ -88,6 +88,45 @@ module flux_surface_3D
 
 
 !=======================================================================
+  subroutine load(this, filename)
+  class(t_flux_surface_3D)     :: this
+  character(len=*), intent(in) :: filename
+
+  integer, parameter :: iu = 32
+
+  character(len=80)  :: s
+  integer :: i, j, n_phi, n_sym, n_theta
+
+
+  open  (iu, file=filename)
+  ! read flux surface resolution
+  read  (iu, 1000) s
+  read  (s(3:80), *) n_phi, n_theta, n_sym
+  this%n_theta = n_theta
+  call this%new(n_sym, n_phi)
+
+  ! read flux surface label (i.e. normlized poloidal flux)
+  read  (iu, 1000) s
+  read  (s(3:80), *) this%PsiN
+
+  ! read slices
+  do i=0,n_phi-1
+     read (iu, 1000) s
+     call this%slice(i)%new(n_theta-1)
+     do j=0,n_theta-1
+        read (iu, *) this%slice(i)%x(j,:)
+     enddo
+     read (iu, 1000) s
+  enddo
+  close (iu)
+
+ 1000 format(a80)
+  end subroutine load
+!=======================================================================
+
+
+
+!=======================================================================
 ! y0          initial/reference point
 ! npoints     number of points per slice
 ! nsym        toroidal symmetry number
@@ -97,13 +136,15 @@ module flux_surface_3D
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver)
   use equilibrium
+  use mesh_spacing
   class(t_flux_surface_3D) :: this
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
 
   type(t_poincare_set)     :: P
-  real(real64) :: Maxis(3)
-  integer      :: i, n
+  type(t_curve)            :: C
+  real(real64) :: Maxis(3), phi, t, x(2)
+  integer      :: i, j, n
 
 
   call this%new(nsym, nslice)
@@ -117,18 +158,28 @@ module flux_surface_3D
 
 
   ! check if each slice is complete
+  this%n_theta = npoints
   do i=0,nslice-1
      if (P%slice(i)%npoints .ne. npoints) then
         write (6, *) 'error: incomplete flux surface!'
         write (6, *) 'number of elements: ', P%slice(i)%npoints, '/', npoints
         stop
      endif
-     call this%slice(i)%new (npoints-1)
-     this%slice(i)%phi = P%slice(i)%phi
-     this%slice(i)%x   = P%slice(i)%x(:,1:2)
-     Maxis             = get_magnetic_axis(this%slice(i)%phi)
-     call this%slice(i)%sort_loop(Maxis(1:2))
-     !call this%slice(i)%expand(Maxis(1:2), 2.d0)
+     phi   = P%slice(i)%phi
+     Maxis = get_magnetic_axis(phi)
+     call C%new(npoints-1)
+     C%x   = P%slice(i)%x(:,1:2)
+     call C%sort_loop(Maxis(1:2))
+     call C%setup_angular_sampling()
+
+
+     call this%slice(i)%new(npoints-1)
+     this%slice(i)%phi = phi
+     do j=0,npoints-1
+        t = Equidistant%node(j, npoints-1)
+        call C%sample_at(t, x)
+        this%slice(i)%x(j,:) = x
+     enddo
   enddo
 
   end subroutine generate
@@ -138,6 +189,7 @@ module flux_surface_3D
 
 !=======================================================================
   subroutine plot(this, iu, filename)
+  use math
   class(t_flux_surface_3D)               :: this
   integer,          intent(in), optional :: iu
   character(len=*), intent(in), optional :: filename
@@ -156,8 +208,15 @@ module flux_surface_3D
      open  (iu0, file=filename)
   endif
 
+
+  ! write flux surface resolution and label
+  write (iu0, 1000) this%n_phi, this%n_theta, this%n_sym
+  write (iu0, 1001) this%PsiN
+
+
   ! write data
   do i=0,this%n_phi-1
+     write (iu0, 1002) this%slice(i)%phi / pi * 180.d0
      call this%slice(i)%plot(iu=iu0)
      write (iu0, *)
   enddo
@@ -165,6 +224,9 @@ module flux_surface_3D
   ! Output_File given?
   if (present(filename)) close (iu0)
 
+ 1000 format('# ',3i8)
+ 1001 format('# ',f10.5)
+ 1002 format('# phi = ',f10.5)
   end subroutine plot
 !=======================================================================
 
@@ -181,7 +243,8 @@ module flux_surface_3D
 
 
   call this%new(n_sym, n_phi)
-  this%PsiN = fs2D%PsiN
+  this%PsiN    = fs2D%PsiN
+  this%n_theta = n_theta
   call fs2D%sort_loop()
   call fs2D%setup_angular_sampling()
 
@@ -264,6 +327,8 @@ module flux_surface_3D
         enddo
      enddo
   enddo
+  this%distance%d(:,:,this%n_phi+1) = this%distance%d(:,:,1)
+  call this%distance%setup()
 
 
 
@@ -321,12 +386,12 @@ module flux_surface_3D
             this%Phinot(this%nphi+this%nord))
 
   do i=1,this%nr
-     Rtmp(i)   = this%Rc + this%w * (-0.5d0 + (i-1) / (this%nr-1))
+     Rtmp(i)   = this%Rc + this%w * (-0.5d0 + 1.d0 * (i-1) / (this%nr-1))
   enddo
   call dbsnak (this%nr, Rtmp, this%nord, this%Rnot)
 
   do j=1,this%nz
-     Ztmp(j)   =           this%h * (-0.5d0 + (j-1) / (this%nz-1))
+     Ztmp(j)   =           this%h * (-0.5d0 + 1.d0 * (j-1) / (this%nz-1))
   enddo
   call dbsnak (this%nz, Ztmp, this%nord, this%Znot)
 
@@ -358,7 +423,7 @@ module flux_surface_3D
   real(real64) :: phi0
 
 
-  phi0 = mod(x(3),pi2/this%nsym)
+  phi0 = phi_sym(x(3), this%nsym)
   d    = dbs3dr(0,0,0,x(1),x(2),phi0,this%nord,this%nord,this%nord, &
                 this%Rnot,this%Znot,this%Phinot,this%nr,this%nz,this%nphi,this%dcoeff)
 
