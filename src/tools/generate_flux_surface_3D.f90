@@ -3,8 +3,9 @@
 !
 ! Input (taken from run control file):
 ! x_start               Reference point (R[cm], Z[cm], phi[deg]) on flux surface
-! N_points
-! ...
+! N_points              Number of points for each slice
+! N_sym                 Toroidal symmetry number (i.e. 5: 0->72 deg)
+! N_mult                Number of slices
 !
 ! Trace_Method -> see e.g. connection length
 ! Output_File
@@ -14,10 +15,21 @@ subroutine generate_flux_surface_3D
   use run_control, only: x_start, N_points, N_sym, N_mult, N_steps, Trace_Method, Output_File
   use flux_surface_3D
   use math
+  use parallel
   implicit none
 
   type(t_flux_surface_3D) :: S
   real(real64)            :: y0(3)
+
+
+  if (firstP) then
+     write (6, *) 'Generate flux surface (from field line tracint), output in: ', adjustl(trim(Output_File))
+     write (6, 1001) N_sym
+     write (6, 1002) N_mult
+     write (6, *)
+  else
+     return
+  endif
 
 
   y0    = x_start
@@ -26,4 +38,6 @@ subroutine generate_flux_surface_3D
   call S%generate(y0, N_points, N_sym, N_mult, N_steps, Trace_Method)
   call S%plot(filename=Output_File)
   
+ 1001 format (8x,'Toroidal symmetry number:         ',i4)
+ 1002 format (8x,'Number of slices to be generated: ',i4)
 end subroutine generate_flux_surface_3D
