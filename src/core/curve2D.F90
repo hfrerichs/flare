@@ -39,6 +39,8 @@ module curve2D
      procedure :: broadcast
      procedure :: plot => curve2D_plot
      procedure :: sort_loop
+     procedure :: expand
+     procedure :: get_distance_to
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
      procedure :: sample_at
@@ -381,6 +383,96 @@ module curve2D
   endif
 
   end subroutine sort_loop
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine expand(this, x0, dl)
+  class(t_curve)           :: this
+  real(real64), intent(in) :: x0(2), dl
+
+  real(real64) :: d(2), d0
+  integer :: i
+
+
+  do i=0,this%n_seg
+     d           = this%x(i,:)-x0
+     d0          = sqrt(sum(d**2))
+     this%x(i,:) = x0 + (d0+dl)/d0 * d
+  enddo
+
+  end subroutine expand
+!=======================================================================
+
+
+
+!=======================================================================
+  function get_distance_to(this, p) result(d)
+  class(t_curve)           :: this
+  real(real64), intent(in) :: p(2)
+  real(real64)             :: d
+
+  real(real64) :: x1(2), x2(2), d1, dist, en(2), en0(2), en1(2), ex(2), dx, t
+  integer      :: i, n
+
+
+  ! 0. initialize
+  d  = 1.d99
+  d1 = 1.d99
+  n  = this%n_seg
+
+
+  ! 1. minimum distance to nodes of L (required for convex segments)
+  do i=1,n-1
+     x1    = this%x(i,:)
+     dist  = dsqrt(sum((x1-p)**2))
+
+     ex    = this%x(i+1,:) - this%x(i-1,:)
+     ex    = ex / dsqrt(sum(ex**2))
+     en(1) = ex(2)
+     en(2) = -ex(1)
+     if (sum(en * (p - x1)).lt.0.d0) dist = -dist
+
+     if (dabs(dist).lt.dabs(d1)) then
+        d1 = dist
+        en1 = en
+     endif
+  enddo
+
+
+  ! 2. minimum distance to segments
+  do i=1,n
+     x1    = this%x(i-1,:)
+     x2    = this%x(i  ,:)
+     ex    = x2 - x1
+     dx    = dsqrt(sum(ex**2))
+     ex    = ex / dx
+     t     = sum(ex * (x2-p)) / dx
+
+     ! no perpendicular line through p intersecting segment i
+     if (t.lt.0.d0 .or. t.gt.1.d0) cycle
+
+
+     en(1) = ex(2)
+     en(2) = -ex(1)
+     dist  = sum(en * (p - x1))
+
+     if (dabs(dist).lt.dabs(d)) then
+        d   = dist
+        en0 = en
+     endif
+  enddo
+
+
+  ! 3. result
+  if (dabs(d1).lt.dabs(d)) then
+     d=d1
+     en0 = en1
+  endif
+
+
+  end function get_distance_to
 !=======================================================================
 
 
