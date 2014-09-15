@@ -11,7 +11,7 @@ OBJECTS =  \
                separatrix.o\
                field_aligned_grid.o
 
-INC_DIR = -I .. -I ../$(CORE_DIR) -I ../$(BFIELD_DIR)
+INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR) -I ../$(BFIELD_DIR)
 
 
 .PHONY: all
