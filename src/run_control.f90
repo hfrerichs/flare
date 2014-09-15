@@ -149,6 +149,8 @@ module run_control
      call get_equi_info_2D
   case ('generate_flux_surface_2D')
      call generate_flux_surface_2D
+  case ('generate_flux_surface_3D')
+     call generate_flux_surface_3D
   case ('plot_boundary')
      call plot_boundary
   case ('safety_factor')

@@ -8,6 +8,7 @@ OBJECTS =  \
                connection_length.o\
                get_equi_info_2D.o\
                generate_flux_surface_2D.o\
+               generate_flux_surface_3D.o\
                plot_boundary.o\
                safety_factor.o\
                transform_to_flux_coordinates.o\
