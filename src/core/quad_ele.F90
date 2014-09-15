@@ -1,7 +1,9 @@
 module quad_ele
+  use iso_fortran_env
   implicit none
+  private
 
-  type t_quad_ele
+  type, public :: t_quad_ele
      ! n_sym = toroidal symmetry, coordinates should be in the range 0 <= phi <= 2*pi / n_sym
      integer :: n_phi, n_RZ, n_sym
      real*8  :: dR, dZ
@@ -16,6 +18,7 @@ module quad_ele
      procedure :: plot      => quad_ele_plot
      procedure :: plot_at   => quad_ele_plot_at
      procedure :: intersect => quad_ele_intersect
+     procedure :: sample
      procedure :: get_stellarator_symmetric_element
      procedure, private :: setup_coefficients
   end type t_quad_ele
@@ -438,6 +441,45 @@ module quad_ele
   call S%setup_coefficients()
 
   end function get_stellarator_symmetric_element
+!=======================================================================
+
+
+
+!=======================================================================
+! sample surface position at relative coordinates (xi, tau)
+!=======================================================================
+  function sample(this, tau, xi) result(r)
+  use search
+  class(t_quad_ele)        :: this
+  real(real64), intent(in) :: tau, xi
+  real(real64)             :: r(3)
+
+  real(real64) :: tau1, xi1
+  integer      :: istat, i, j
+
+
+  r(3) = this%phi(0) + tau*(this%phi(this%n_phi) - this%phi(0))
+  i    = binary_interval_search (0, this%n_phi, this%phi, r(3), istat)
+
+  tau1 = (r(3) - this%phi(i)) / (this%phi(i+1) - this%phi(i))
+  xi1  = xi * this%n_RZ
+  j    = int(xi1)
+  xi1  = xi1 - j
+  if (j == this%n_RZ) then
+     j   = this%n_RZ - 1
+     xi1 = 1.d0
+  endif
+
+  ! map [0,1] to [-1,1]
+  xi1 = 2.d0 * xi1 - 1.d0
+  j   = j + 1
+  i   = i + 1
+
+
+  r(1:2) = this%cA(i,j,:) + xi1*this%cB(i,j,:) + tau1*this%cC(i,j,:) + xi1*tau1*this%cD(i,j,:)
+
+
+  end function sample
 !=======================================================================
 
 end module quad_ele
