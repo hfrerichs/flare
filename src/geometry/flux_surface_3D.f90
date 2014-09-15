@@ -24,7 +24,7 @@ module flux_surface_3D
      integer      :: n_sym, n_phi
 
      contains
-     procedure :: new, generate
+     procedure :: new, generate, plot
      procedure :: generate_from_axisymmetric_surface
      !procedure :: expand
   end type t_flux_surface_3D
@@ -65,21 +65,40 @@ module flux_surface_3D
 ! solver      id of ODE solver
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver)
+  use equilibrium
   class(t_flux_surface_3D) :: this
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
 
   type(t_poincare_set)     :: P
-  integer :: i, n
+  real(real64) :: Maxis(3)
+  integer      :: i, n
 
 
   call this%new(nsym, nslice)
   n     = nsteps
   if (n == 0) n = 16
-  call P%generate(y0, npoints, nsym, nslice, n, solver)
+  call P%generate(y0, npoints, nsym, nslice, n, solver, .true.)
 
 
-  ! this...
+  ! set flux surface label (given by normalized poloidal flux)
+  this%PsiN = get_PsiN(y0)
+
+
+  ! check if each slice is complete
+  do i=0,nslice-1
+     if (P%slice(i)%npoints .ne. npoints) then
+        write (6, *) 'error: incomplete flux surface!'
+        write (6, *) 'number of elements: ', P%slice(i)%npoints, '/', npoints
+        stop
+     endif
+     call this%slice(i)%new (npoints-1)
+     this%slice(i)%phi = P%slice(i)%phi
+     this%slice(i)%x   = P%slice(i)%x(:,1:2)
+     Maxis             = get_magnetic_axis(this%slice(i)%phi)
+     call this%slice(i)%sort_loop(Maxis(1:2))
+     call this%slice(i)%expand(Maxis(1:2), 2.d0)
+  enddo
 
   end subroutine generate
 !=======================================================================
@@ -87,37 +106,35 @@ module flux_surface_3D
 
 
 !=======================================================================
-!  subroutine write(this, iu, Output_File)
-!  class(t_flux_surface_3D) :: this
-!  integer, intent(in), optional        :: iu
-!  character*120, intent(in), optional  :: Output_File
-!
-!  integer :: i, j, iu0
-!
-!
-!  ! set default unit number for output
-!  iu0 = 90
-!
-!  ! Unit number given for output?
-!  if (present(iu)) iu0 = iu
-!
-!  ! Output_File given?
-!  if (present(Output_File)) then
-!     open  (iu0, file=Output_File)
-!  endif
-!
-!  ! write data
-!  do i=0,this%n_phi-1
-!     do j=1,this%slice(i)%nrow
-!        write (iu0, *) this%slice(i)%x(j,:), this%slice(i)%phi
-!     enddo
-!     write (iu0, *)
-!  enddo
-!
-!  ! Output_File given?
-!  if (present(Output_File)) close (iu0)
-!
-!  end subroutine write
+  subroutine plot(this, iu, filename)
+  class(t_flux_surface_3D)               :: this
+  integer,          intent(in), optional :: iu
+  character(len=*), intent(in), optional :: filename
+
+  integer :: i, iu0
+
+
+  ! set default unit number for output
+  iu0 = 90
+
+  ! Unit number given for output?
+  if (present(iu)) iu0 = iu
+
+  ! Output_File given?
+  if (present(filename)) then
+     open  (iu0, file=filename)
+  endif
+
+  ! write data
+  do i=0,this%n_phi-1
+     call this%slice(i)%plot(iu=iu0)
+     write (iu0, *)
+  enddo
+
+  ! Output_File given?
+  if (present(filename)) close (iu0)
+
+  end subroutine plot
 !=======================================================================
 
 
