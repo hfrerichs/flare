@@ -39,6 +39,7 @@
 !                      = 16: Forward  distance along field line to Psi(1)
 !                      = 32: Backward distance along field line to Psi(2)
 !                      = 64: Forward  distance along field line to Psi(2)
+!                     = 128: Radial distance to last closed flux surface (lcfs.dat)
 !    Psi(1), Psi(2)    Reference radial coordinate for additional data type 8-32
 !    Output_File
 !===============================================================================
@@ -51,17 +52,20 @@ subroutine connection_length
   use equilibrium
   use boundary
   use fieldline
+  use flux_surface_3D
   implicit none
 
   integer, parameter :: nout_max = 10
   integer, parameter :: iu = 42
 
   real(real64), dimension(:,:), allocatable :: lc_data
+  type(t_flux_surface_3D)                   :: LCFS
   type(t_fieldline)  :: F
 
   character(len=12)  :: fstr
   real(real64)       :: y(3), r(3), PsiN, Psi_min, Psi_av
-  real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2)
+  real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2), d, d_min
+  logical :: distance_to_lcfs
   integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir, id, id_limit(-1:1)
 
 
@@ -91,11 +95,15 @@ subroutine connection_length
   ! 2. other additional output
   nout = 0
   iout = 0
+  distance_to_lcfs = .false.
   do i=0,nout_max-1
      i2 = 2**i
      if (i2.eq.iand(i2, Output_Format)) then
         nout = nout + 1
         iout(nout) = i2
+
+        ! distance to last closed flux surface
+        if (i == 7) distance_to_lcfs = .true.
      endif
   enddo
   if (firstP) call additional_output_info()
@@ -106,6 +114,14 @@ subroutine connection_length
 
   allocate (lc_data(0:n_grid-1,5+nout))
   lc_data = 0.d0
+
+
+  ! 2.7. distance to last closed flux surface
+  if (distance_to_lcfs) then
+     call LCFS%load('lcfs.dat')
+     call LCFS%sample_distance_to(grid='distance.grid')
+     d_min = huge(d_min)
+  endif
 ! ... prepare output data arrays (end) .................................
 
 
@@ -161,6 +177,13 @@ subroutine connection_length
               id_limit(idir) = id
               exit trace_loop
            endif
+
+
+           ! shortest distance (in RZ-plane) to last closed flux surface
+           if (distance_to_lcfs) then
+              d = abs(LCFS%get_distance_to(F%rc))
+              if (d < d_min) d_min = d
+           endif
         enddo trace_loop
         lpt(idir)  = F%theta_int
      enddo
@@ -192,6 +215,8 @@ subroutine connection_length
            lc_data(ig,5+i) = dist2PsiN(-1,2)
         case (6)
            lc_data(ig,5+i) = dist2PsiN( 1,2)
+        case (7)
+           lc_data(ig,5+i) = d_min
         end select
      enddo
 
@@ -258,6 +283,8 @@ subroutine connection_length
      case (6)
         write (text, '(f8.4)') Psi(2)
         text = 'Forward  distance to Psi = '//trim(text)
+     case (7)
+        text = 'Distance to last closed flux surface'
      case default
         write (6, *) 'error: ', 2**i2, ' is not a valid data id!'
         stop
