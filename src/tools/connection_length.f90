@@ -120,7 +120,6 @@ subroutine connection_length
   if (distance_to_lcfs) then
      call LCFS%load('lcfs.dat')
      call LCFS%sample_distance_to(grid='distance.grid')
-     d_min = huge(d_min)
   endif
 ! ... prepare output data arrays (end) .................................
 
@@ -144,6 +143,9 @@ subroutine connection_length
      ! ... for additional data (distance to flux surface, limiting surface id, ...)
      dist2PsiN = 0.d0
      id_limit  = 0
+
+     ! ... for distance to last closed flux surface
+     d_min = huge(d_min)
 
      ! trace each field line in positive and negative direction
      do idir=-1,1,2
