@@ -38,7 +38,7 @@ subroutine trace_bline
   use fieldline
   use parallel
   use math
-  use grid
+  use usr_grid
   implicit none
 
   integer, parameter :: iu = 42

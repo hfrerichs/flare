@@ -46,7 +46,7 @@
 subroutine connection_length
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Trace_Coords, &
                          Output_Format, Limit, Psi
-  use grid
+  use usr_grid
   use parallel
   use math
   use equilibrium

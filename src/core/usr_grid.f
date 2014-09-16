@@ -11,7 +11,7 @@
 !>		or regular/structured (2D array).
 !> \author 	Heinke Frerichs (h.frerichs at fz-juelich.de)
 !-------------------------------------------------------------------------------
-      module grid
+      module usr_grid
       implicit none
 
       character*12, dimension(2), parameter ::
@@ -26,7 +26,7 @@
 
       private
 ! grid id and resolutions
-      integer :: grid_id, n_xyz, n_RZ, n_rt, n_R, n_Z, n_t, n_p
+      integer :: grid_id, n_xyz, n_RZ, n_rt, n_R, n_Z, n_t, n_p, n_RZphi
 
 ! unit number for grid file
       integer, parameter :: giun = 10
@@ -390,6 +390,27 @@ c 6: regular (2D) toroidal RZ-grid
           end select
 
           deallocate (R_tmp, Z_tmp, p_tmp)
+c-----------------------------------------------
+c 9: irregular (1D) RZphi-grid
+      case(9)
+          call iscrape(iun, n_RZphi)
+          n_grid = n_RZphi
+          allocate (grid_data(n_grid, 3))
+
+          do icount=1,n_RZphi
+             read (iun, *) grid_data(icount,:)
+          enddo
+
+          if (my_coordinates.eq.i_cartesian) then
+             do icount=1,n_RZphi
+                R   = grid_data(icount,1)
+                Z   = grid_data(icount,2)
+                phi = grid_data(icount,3)
+                grid_data(icount,1) = R * cos(phi)
+                grid_data(icount,2) = R * sin(phi)
+                grid_data(icount,3) = Z
+             enddo
+          endif
       end select
 c-----------------------------------------------
     
@@ -546,4 +567,4 @@ c-----------------------------------------------
       end subroutine read_grid_usr
 !-----------------------------------------------------------------------
 
-      end module grid
+      end module usr_grid

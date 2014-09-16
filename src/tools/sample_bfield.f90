@@ -14,7 +14,7 @@ subroutine sample_bfield
   use parallel
   use bfield
   use equilibrium
-  use grid
+  use usr_grid
   use math
   implicit none
 

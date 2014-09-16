@@ -2,7 +2,7 @@
 subroutine hyperbolic_fixed_point
   use iso_fortran_env
   use run_control, only: x_start, Trace_Step, Trace_Method
-  use grid
+  use usr_grid
   use fieldline
   use equilibrium
   use math
@@ -240,7 +240,7 @@ end subroutine hyperbolic_fixed_point
 subroutine hyperbolic_fixed_point_v4
   use iso_fortran_env
   use run_control, only: x_start, Trace_Step, Trace_Method
-  use grid
+  use usr_grid
   use fieldline
   use equilibrium
   use math
@@ -569,7 +569,7 @@ end subroutine hyperbolic_fixed_point_v4
 subroutine hyperbolic_fixed_point_v3
   use iso_fortran_env
   use run_control, only: x_start, Trace_Step, Trace_Method
-  use grid
+  use usr_grid
   use fieldline
   use equilibrium
   use math
@@ -661,7 +661,7 @@ end subroutine hyperbolic_fixed_point_v3
 subroutine hyperbolic_fixed_point_v2
   use iso_fortran_env
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method
-  use grid
+  use usr_grid
   use fieldline
   use equilibrium
   implicit none
@@ -712,7 +712,7 @@ end subroutine hyperbolic_fixed_point_v2
 subroutine hyperbolic_fixed_point_v1
   use iso_fortran_env
   use run_control, only: x_start, Trace_Step, Trace_Method
-  use grid
+  use usr_grid
   use fieldline
   use equilibrium
   implicit none

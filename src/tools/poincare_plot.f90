@@ -45,7 +45,7 @@ subroutine poincare_plot
   use equilibrium
   use boundary
   use fieldline
-  use grid
+  use usr_grid
   implicit none
 
   integer, parameter :: iu = 40

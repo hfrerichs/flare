@@ -286,7 +286,7 @@ module flux_surface_3D
 
 !=======================================================================
   subroutine sample_distance_to(this, grid)
-  use grid
+  use usr_grid
   use math
   class(t_flux_surface_3D) :: this
   character(len=*), intent(in) :: grid

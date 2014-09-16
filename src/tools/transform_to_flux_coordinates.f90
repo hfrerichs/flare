@@ -17,7 +17,7 @@ subroutine transform_to_flux_coordinates
   use parallel
   use equilibrium
   use curve2D
-  use grid
+  use usr_grid
   use math
   implicit none
 
