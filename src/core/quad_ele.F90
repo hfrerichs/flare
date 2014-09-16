@@ -14,16 +14,36 @@ module quad_ele
      real*8, dimension(:,:,:), allocatable :: cA, cB, cC, cD    ! dimension(nphi,nRZ,2)
 
      contains
+     procedure :: new
      procedure :: load      => quad_ele_load
      procedure :: plot      => quad_ele_plot
      procedure :: plot_at   => quad_ele_plot_at
      procedure :: intersect => quad_ele_intersect
      procedure :: sample
+     procedure :: destroy
      procedure :: get_stellarator_symmetric_element
-     procedure, private :: setup_coefficients
+     procedure :: setup_coefficients
   end type t_quad_ele
 
   contains
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine new(this, n_phi, n_RZ, n_sym)
+  class(t_quad_ele)   :: this
+  integer, intent(in) :: n_phi, n_RZ,  n_sym
+
+
+  call this%destroy()
+  this%n_phi = n_phi
+  this%n_RZ  = n_RZ
+  this%n_sym = n_sym
+  allocate (this%phi(0:n_phi))
+  allocate (this%R(0:n_phi, 0:n_RZ), this%Z(0:n_phi, 0:n_RZ))
+
+  end subroutine new
 !=======================================================================
 
 
@@ -480,6 +500,19 @@ module quad_ele
 
 
   end function sample
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine destroy(this)
+  class(t_quad_ele)         :: this
+
+
+  if (allocated(this%cA)) deallocate (this%cA, this%cB, this%cC, this%cD)
+  if (allocated(this%phi)) deallocate (this%phi, this%R, this%Z)
+
+  end subroutine destroy
 !=======================================================================
 
 end module quad_ele
