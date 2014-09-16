@@ -167,6 +167,8 @@ module run_control
      call field_line_loss
   case ('generate_separatrix')
      call generate_separatrix
+  case ('footprint_grid')
+     call footprint_grid
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i
