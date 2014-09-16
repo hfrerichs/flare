@@ -19,8 +19,9 @@ pro rscape, lun, rout
 	rout	= double(strmid(str,32,10))
 end; rscape
 
-pro read_grid, grid_file
-	common	grid,	grid_id, x_data, y_data, n_x, n_y, n_xy, irr, isort, x_title, y_title, psi_axis, psi_sepx
+pro read_grid, grid_file, xoffset=xoffset, yoffset=yoffset
+	common	grid,	grid_id, x_data, y_data, n_x, n_y, n_xy, irr, isort, x_title, y_title, $
+			x_min, x_max, y_min, y_max
 
 	str	= ''
 	openr, lun, grid_file, /get_lun
@@ -483,13 +484,12 @@ pro plot_poincare, poincare_file
 		7:
 		8: begin
 			p_data(i,0)	= tmp(2)
-			p_data(i,1)	= (tmp(4)-psi_axis)/(psi_sepx-psi_axis)
+			p_data(i,1)	= tmp(4)
 			break
 		end
 		else:	p_data(i,*)	= tmp(0:1)
 		endswitch
 	endfor
-	if (grid_id eq 7  or  grid_id eq 8) then print, 'psi_axis = ', psi_axis, ', psi_sepx = ', psi_sepx
 
 	oplot, p_data(*,0), p_data(*,1), psym=3, color=0
 	free_lun, lun

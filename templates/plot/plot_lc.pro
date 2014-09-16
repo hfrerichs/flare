@@ -1,4 +1,11 @@
 ;- grid ----------------------------------------------------------------
+pro siscape, lun, sout, iout
+	str	= ''
+	readf, lun, str
+	print, strmid(str,2,80)
+	sout	= strmid(str,2,20)
+	iout	= long(strmid(str,32,10))
+end; siscape
 pro iscape, lun, iout
 	str	= ''
 	readf, lun, str
@@ -34,7 +41,7 @@ pro read_grid, grid_file, xoffset=xoffset, yoffset=yoffset
 		y_data	= make_array(n_xyz, /fl)
 		x_title	= ''
 		y_title	= ''
-		tmp	= make_array(3, /fl)
+		tmp	= make_array(2, /fl)
 		for i=0L,n_xyz-1 do begin
 			readf, lun, tmp
 			x_data(i)	= tmp(0)
@@ -220,6 +227,35 @@ pro read_grid, grid_file, xoffset=xoffset, yoffset=yoffset
 		n_xy	= n_x * n_y
 		isort	= -1
 	end
+	; regular grid, user defined labels
+	10: begin
+		siscape, lun, x_title, n_x
+		siscape, lun, y_title, n_y
+
+		x_data	= make_array(n_x, /fl)
+		y_data	= make_array(n_y, /fl)
+
+		readf, lun, x_data
+		readf, lun, y_data
+		n_xy	= n_x * n_y
+		isort	= -1
+	end
+	; irregular grid, user defined labels
+	20: begin
+		siscape, lun, x_title, n_xy
+		siscape, lun, y_title, n_xy
+
+		x_data	= make_array(n_xy, /fl)
+		y_data	= make_array(n_xy, /fl)
+
+		tmp	= make_array(2, /fl)
+		for i=0L,n_xy-1 do begin
+			readf, lun, tmp
+			x_data(i)	= tmp(0)
+			y_data(i)	= tmp(1)
+		endfor
+		isort	= 0
+	end
 	endcase
 
         if (keyword_set(xoffset) and (isort ne 0)) then begin
@@ -397,6 +433,9 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 		end
 		16: begin
 			data(i,15)= tmp(5+j)			; Poloidal location of deepest penetration
+		end
+		7: begin
+			data(i,16)= tmp(5+j)			; radial distance to LCFS
 		end
 		512: begin
 			data(i,16)= tmp(5+j)			; radial distance to LCFS
