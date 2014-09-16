@@ -7,32 +7,9 @@ module flux_surface_3D
   use dataset
   use curve2D
   use poincare_set
+  use interpolate3D
   implicit none
-
   private
-
-
-  ! pre-sampled distance to flux surface
-  type t_distance
-     ! raw distance on nodes
-     real(real64), dimension(:,:,:), allocatable :: d
-
-     ! coefficients for spline interpolation
-     real(real64), dimension(:,:,:), allocatable :: dcoeff
-     real(real64), dimension(:),     allocatable :: Rnot, Znot, Phinot
-
-     ! Rc: center major radius, w: width, h: height
-     real(real64) :: Rc, w, h
-     integer      :: nr, nz, nphi, nsym
-
-     ! interpolation order
-     integer      :: nord
-
-     contains
-     procedure    :: new      => new_distance
-     procedure    :: setup    => setup_distance
-     procedure    :: evaluate => evaluate_distance
-  end type t_distance
 
 
   ! flux surface contour at toroidal position phi
@@ -49,14 +26,13 @@ module flux_surface_3D
      integer      :: n_sym, n_phi, n_theta
 
      ! pre-sampled distance to flux surface
-     type (t_distance) :: distance
+     type (t_interpolate3D) :: distance
 
      contains
      procedure :: new, load, generate, plot
      procedure :: generate_from_axisymmetric_surface
      procedure :: get_distance_to
      procedure :: load_distance_to
-     procedure :: sample_distance_to
      !procedure :: expand
   end type t_flux_surface_3D
   !end type t_poincare_set
@@ -269,7 +245,7 @@ module flux_surface_3D
   real(real64)             :: d
 
 
-  d = this%distance%evaluate(p)
+  d = this%distance%eval(p)
 
   end function get_distance_to
 !=======================================================================
@@ -279,155 +255,11 @@ module flux_surface_3D
 !=======================================================================
   subroutine load_distance_to(this)
   class(t_flux_surface_3D) :: this
+
+
+  call this%distance%load(filename='distance.dat')
+
   end subroutine load_distance_to
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine sample_distance_to(this, grid)
-  use usr_grid
-  use math
-  class(t_flux_surface_3D) :: this
-  character(len=*), intent(in) :: grid
-
-  integer, parameter :: iu = 32
-
-  real(real64) :: &
-     R_center = 1.d0, &        ! center of computational box [cm]
-     width    = 1.d0, &        ! width and height of computational box [cm]
-     height   = 1.d0
-  integer      :: N_R, N_Z
-
-  namelist /Grid_Layout/ &
-     N_R, N_Z, R_center, width, height
-
-  real(real64) :: x(2), R0, Z0
-  integer      :: iflag, i, j, k
-
-
-  write (6, *) 'Sample distance to flux surface'
-
-  open  (iu, file=grid)
-  read  (iu, Grid_Layout)
-  close (iu)
-  call this%distance%new(N_R, N_Z, R_center, width, height, this%n_phi, this%n_sym)
-
-
-  ! calculate distances
-  R0 = R_center - 0.5d0 * width
-  Z0 =          - 0.5d0 * height
-  do k=0,this%n_phi-1
-     do i=1,N_R
-        do j=1,N_Z
-           x(1) = R0 + 1.d0*(i-1)/(N_R-1) * width
-           x(2) = Z0 + 1.d0*(j-1)/(N_Z-1) * height
-
-           this%distance%d(i,j,k+1) = this%slice(k)%get_distance_to(x)
-        enddo
-     enddo
-  enddo
-  this%distance%d(:,:,this%n_phi+1) = this%distance%d(:,:,1)
-  call this%distance%setup()
-
-
-
-!  call read_grid (grid, log_progress=.false., use_coordinates=COORDINATES(CYLINDRICAL))
-!  grid_loop: do
-!     call get_next_grid_point (iflag, x)
-!     if (iflag .ne. 0) exit grid_loop
-!
-!     write (99, *) this%slice(0)%get_distance_to(x(1:2))
-!  enddo grid_loop
-  end subroutine sample_distance_to
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine new_distance(this, nr, nz, Rc, w, h, nphi, nsym)
-  class(t_distance)        :: this
-  integer, intent(in)      :: nr, nz, nphi, nsym
-  real(real64), intent(in) :: Rc, w, h
-
-
-  this%nr   = nr
-  this%nz   = nz
-  this%nphi = nphi+1
-  this%nsym = nsym
-
-  this%Rc   = Rc
-  this%w    = w
-  this%h    = h
-
-  this%nord = 5
-  if (allocated(this%d)) deallocate (this%d)
-  allocate (this%d(nr, nz, nphi+1))
-
-  end subroutine new_distance
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine setup_distance(this)
-  use bspline
-  use math
-  class(t_distance) :: this
-
-  real(real64), dimension(:), allocatable :: Rtmp, Ztmp, Phitmp
-
-  integer :: i, j, k
-
-
-  allocate (Rtmp(this%nr), Ztmp(this%nz), Phitmp(this%nphi))
-  allocate (this%Rnot  (this%nr  +this%nord), &
-            this%Znot  (this%nz  +this%nord), &
-            this%Phinot(this%nphi+this%nord))
-
-  do i=1,this%nr
-     Rtmp(i)   = this%Rc + this%w * (-0.5d0 + 1.d0 * (i-1) / (this%nr-1))
-  enddo
-  call dbsnak (this%nr, Rtmp, this%nord, this%Rnot)
-
-  do j=1,this%nz
-     Ztmp(j)   =           this%h * (-0.5d0 + 1.d0 * (j-1) / (this%nz-1))
-  enddo
-  call dbsnak (this%nz, Ztmp, this%nord, this%Znot)
-
-  do k=1,this%nphi
-     Phitmp(k) = 2.d0*pi / this%nsym * (k-1) / (this%nphi-1)
-  enddo
-  call dbsnak (this%nphi, Phitmp, this%nord, this%Phinot)
-
-
-  allocate (this%dcoeff(this%nr, this%nz, this%nphi))
-  call dbs3in (this%nr, Rtmp, this%nz, Ztmp, this%nphi, Phitmp, &
-               this%d, this%nr, this%nz, this%nord, this%nord, this%nord, &
-               this%Rnot, this%Znot, this%Phinot, this%dcoeff)
-  deallocate (Rtmp, Ztmp, Phitmp)
-
-  end subroutine setup_distance
-!=======================================================================
-
-
-
-!=======================================================================
-  function evaluate_distance(this, x) result(d)
-  use bspline
-  use math
-  class(t_distance)        :: this
-  real(real64), intent(in) :: x(3)
-  real(real64)             :: d
-
-  real(real64) :: phi0
-
-
-  phi0 = phi_sym(x(3), this%nsym)
-  d    = dbs3dr(0,0,0,x(1),x(2),phi0,this%nord,this%nord,this%nord, &
-                this%Rnot,this%Znot,this%Phinot,this%nr,this%nz,this%nphi,this%dcoeff)
-
-  end function evaluate_distance
 !=======================================================================
 
 end module flux_surface_3D
