@@ -10,7 +10,8 @@ OBJECTS =  \
                ode_solver.o\
                curve2D.o\
                quad_ele.o\
-               usr_grid.o
+               usr_grid.o\
+               grid.o
 
 INC_DIR = -I ..
 
