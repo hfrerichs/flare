@@ -22,7 +22,9 @@ module run_control
      Trace_Step     = 1.d0, &       ! step size for field line tracing
      Limit          = 2.d4, &       ! maximum distance for field line tracing (in one direction)
      R_start        = 0.d0, &       ! radial start- and
-     R_end          = 0.d0, &       ! end position for Poincare plots
+     R_end          = 0.d0, &       ! end position (e.g. for Poincare plots)
+     Z_start        = 0.d0, &       ! vertical start- and
+     Z_end          = 0.d0, &       ! end position (e.g. for Poincare plots)
      Phi_output     = 0.d0, &       ! Reference plane for Poincare plots
      Theta(2)       = 0.d0, &
      Psi(2)         = 0.d0
@@ -36,6 +38,8 @@ module run_control
      N_theta        = 1, &          ! Resolution in poloidal direction
      N_psi          = 1, &          ! Resolution in radial direction
      N_phi          = 1, &          ! Resolution in toroidal direction
+     N_R            = 1, &          ! Resolution in R direction
+     N_Z            = 1, &          ! Resolution in Z direction
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
      Input_Format   = 1, &
@@ -53,8 +57,8 @@ module run_control
      Machine, Configuration, &
      Run_Type, Output_File, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
-     R_start, R_end, Phi_output, N_points, N_sym, N_mult, &
-     Theta, Psi, N_theta, N_psi, N_phi
+     R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
+     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z
 
   contains
 !=======================================================================
@@ -97,6 +101,8 @@ module run_control
   call broadcast_real_s (Limit           )
   call broadcast_real_s (R_start         )
   call broadcast_real_s (R_end           )
+  call broadcast_real_s (Z_start         )
+  call broadcast_real_s (Z_end           )
   call broadcast_real_s (Phi_output      )
   call broadcast_real   (Theta      ,   2)
   call broadcast_real   (Psi        ,   2)
@@ -107,6 +113,8 @@ module run_control
   call broadcast_inte_s (N_theta         )
   call broadcast_inte_s (N_psi           )
   call broadcast_inte_s (N_phi           )
+  call broadcast_inte_s (N_R             )
+  call broadcast_inte_s (N_Z             )
   call broadcast_inte_s (Trace_Method    )
   call broadcast_inte_s (Trace_Coords    )
   call broadcast_inte_s (Input_Format    )
@@ -169,6 +177,10 @@ module run_control
      call generate_separatrix
   case ('footprint_grid')
      call footprint_grid
+  case ('setup_distance_to_surface')
+     call setup_distance_to_surface
+  case ('evaluate_distance_to_surface')
+     call evaluate_distance_to_surface
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i
