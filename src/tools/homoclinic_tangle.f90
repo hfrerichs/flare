@@ -28,14 +28,16 @@ subroutine homoclinic_tangle
   ! initialize
   if (firstP) then
      write (6, *) 'Generate homoclinic tangle for hyperbolic fixed point'
+     write (6, *)
   endif
   call G%load(Grid_File)
+  write (6, *)
   
 
   open  (iu, file=Output_File)
   grid_loop: do i=1,G%nodes()
      y = G%node(i)
-     write (6, *) y(1), y(2), y(3) / pi * 180.d0
+     write (6, *) y(3) / pi * 180.d0
 
      ! set initial location
      call F%init(y, Trace_Step, Trace_Method, CYLINDRICAL)
