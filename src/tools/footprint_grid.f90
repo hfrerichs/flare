@@ -66,14 +66,14 @@ subroutine footprint_grid
   !open  (iu, file=Grid_File)
   !write (iu, 1000)
   !write (iu, 1001) (n_phi+1) * (n_theta+1)
-  call G_sample%new(CYLINDRICAL, UNSTRUCTURED_3D, n)
+  call G_sample%new(CYLINDRICAL, UNSTRUCTURED, 0, n)
 
   ! output file for local coordinates
   !open  (iu2, file=Output_File)
   !write (iu2, 2000)
   !write (iu2, 2001) n_phi+1
   !write (iu2, 2002) n_theta+1
-  call G_plot%new(LOCAL, UNSTRUCTURED_2D, n)
+  call G_plot%new(LOCAL, UNSTRUCTURED, 3, n)
 
   call S%setup_coefficients()
   ig = 0
