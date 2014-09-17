@@ -41,7 +41,8 @@ module fieldline
      procedure :: &
         cross_PsiN, &
         get_PsiN => fieldline_get_PsiN, &
-        get_flux_coordinates
+        get_flux_coordinates, &
+        trace_Dphi
 
      procedure :: intersect_boundary => fieldline_intersects_boundary
   end type t_fieldline
@@ -181,6 +182,48 @@ module fieldline
   y(3) = this%phi0   + this%phi_int
 
   end function get_flux_coordinates
+!=======================================================================
+
+
+
+!=======================================================================
+! trace field line for a toroidal distance of Dphi > 0 (direction is not
+! checked)
+!=======================================================================
+  subroutine trace_Dphi(this, Dphi, stop_at_boundary, yout, ierr)
+  class (t_fieldline)       :: this
+  real(real64), intent(in)  :: Dphi
+  logical,      intent(in)  :: stop_at_boundary
+  real(real64), intent(out) :: yout(3)
+  integer,      intent(out) :: ierr
+
+  real(real64) :: phi_int, f, dphi_step
+
+
+  ierr = 0
+  yout = 0.d0
+  phi_int = this%phi_int ! + offset from last call?
+  trace_loop: do
+     call this%trace_1step()
+
+     ! check intersection with boundary
+     if (stop_at_boundary  .and.  this%intersect_boundary()) then
+        ierr = 1
+        yout = this%rc
+        return
+     endif
+
+     ! stop tracing after toroidal distance Dphi
+     f = abs(this%phi_int - phi_int) - Dphi
+     if (f > 0.d0) then
+        dphi_step = abs(this%rc(3) - this%rl(3))
+        f         = f / dphi_step
+        yout      = f*this%rl + (1.d0-f)*this%rc
+        return
+     endif
+  enddo trace_loop
+
+  end subroutine trace_Dphi
 !=======================================================================
 
 
