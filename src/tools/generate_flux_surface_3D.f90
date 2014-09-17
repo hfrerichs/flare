@@ -23,7 +23,7 @@ subroutine generate_flux_surface_3D
 
 
   if (firstP) then
-     write (6, *) 'Generate flux surface (from field line tracint), output in: ', adjustl(trim(Output_File))
+     write (6, *) 'Generate flux surface (from field line tracing), output in: ', adjustl(trim(Output_File))
      write (6, 1001) N_sym
      write (6, 1002) N_mult
      write (6, *)
