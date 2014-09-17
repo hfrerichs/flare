@@ -82,11 +82,20 @@ end subroutine setup_distance_to_surface
 
 
 !===============================================================================
+! Evaluate distance to flux surface on given grid nodes
+!
+! Input (taken from local directory)
+!    distance.dat       Data file with precalculated distance
+!
+! Input (taken from run control file):
+!    Grid_File          Definition of grid nodes where distance is evaluated
+!
+!    Output_File
 !===============================================================================
 subroutine evaluate_distance_to_surface
   use iso_fortran_env
   use run_control, only: Grid_File, Output_File
-  use usr_grid
+  use grid
   use parallel
   use interpolate3D
   use math
@@ -95,8 +104,9 @@ subroutine evaluate_distance_to_surface
   integer, parameter    :: iu = 32
 
   type(t_interpolate3D) :: distance
+  type(t_grid) :: G
   real(real64) :: y(3)
-  integer      :: iflag
+  integer      :: i
 
 
   ! initialize
@@ -106,7 +116,7 @@ subroutine evaluate_distance_to_surface
 
 
   ! load grid
-  call read_grid (Grid_File, use_coordinates=COORDINATES(CYLINDRICAL))
+  call G%load(Grid_File)
 
 
   ! load precalculated distances
@@ -115,9 +125,8 @@ subroutine evaluate_distance_to_surface
 
   ! evaluate on grid nodes
   open  (iu, file=Output_File)
-  grid_loop: do
-     call get_next_grid_point (iflag, y)
-     if (iflag .ne. 0) exit grid_loop
+  grid_loop: do i=1,G%nodes()
+     y = G%node(i)
 
      write (iu, *) distance%eval(y)
   enddo grid_loop
