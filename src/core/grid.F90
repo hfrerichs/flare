@@ -19,16 +19,14 @@ module grid
 
   ! local coordinates
   integer, public, parameter :: &
-     LOCAL      = 0            ! local coordinates, for plotting only
+     LOCAL      = 0, &         ! local coordinates, for plotting only
+     TORUS      = 4            ! torus coordinates: minor radius, poloidal angle, toroidal angle
 
   ! grid layout
   integer, public, parameter :: &
-     STRUCTURED_2D   = 2, &
-     STRUCTURED_3D   = 3, &
-     UNSTRUCTURED_3D = 6, &
-     UNSTRUCTURED_2D = 5
-     !IRREGULAR  = 1, &         ! (x1_i, x2_i, x3_i), i=1..n
-           ! (x1_i, x2_j, x3_k), i=1..n1, j=1..n2, k=1..n3
+     UNSTRUCTURED    = 1, &
+     SEMI_STRUCTURED = 2, &
+     STRUCTURED      = 3
 
 
   type, public :: t_grid
@@ -42,11 +40,10 @@ module grid
      integer :: n, n1, n2, n3
 
      ! define internal layout and coordinate system
-     integer :: layout, coordinates
+     integer :: layout, coordinates, fixed_coord
 
      contains
      procedure :: new
-     procedure :: new_unstructured
      procedure :: load
      procedure :: store
      procedure :: node                   ! return node coordinates
@@ -59,9 +56,9 @@ module grid
 
 
 !=======================================================================
-  subroutine new(this, coordinates, layout, n1, n2, n3)
+  subroutine new(this, coordinates, layout, fixed_coord, n1, n2, n3)
   class(t_grid)                 :: this
-  integer, intent(in)           :: coordinates, layout, n1
+  integer, intent(in)           :: coordinates, layout, fixed_coord, n1
   integer, intent(in), optional :: n2, n3
 
 
@@ -70,6 +67,7 @@ module grid
   this%n           = n1
   !this%layout      = UNSTRUCTURED_3D
   this%layout      = layout
+  this%fixed_coord = fixed_coord
   if (present(n2)) then
      this%n2     = n2
      this%n      = this%n * n2
@@ -99,10 +97,14 @@ module grid
 !     allocate (this%x3(1))
 !     this%n3 = 1
 !  case(STRUCTURED_2D)
-!     if (allocated(this%x1)) deallocate(this%x1)
-!     if (allocated(this%x2)) deallocate(this%x2)
-!     if (allocated(this%x3)) deallocate(this%x3)
-!     allocate (this%x1(this%n1))
+  if (layout == STRUCTURED) then
+     if (allocated(this%x1)) deallocate(this%x1)
+     if (allocated(this%x2)) deallocate(this%x2)
+     if (allocated(this%x3)) deallocate(this%x3)
+     allocate (this%x1(this%n1))
+     allocate (this%x2(this%n2))
+     allocate (this%x3(this%n3))
+  endif
 !
 !     if (.not.present(n2)) then
 !        write (6, *) 'error: resolution parameter n2 missing for regular 2D grid!'
@@ -114,23 +116,6 @@ module grid
 
 
   end subroutine new
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine new_unstructured(this, coordinates, n)
-  class(t_grid)                 :: this
-  integer, intent(in)           :: coordinates, n
-
-
-  this%coordinates = coordinates
-  !this%layout      = UNSTRUCTURED_3D
-  this%layout      = 100 * coordinates
-  if (allocated(this%x)) deallocate(this%x)
-  allocate (this%x(n,3))
-
-  end subroutine new_unstructured
 !=======================================================================
 
 
@@ -153,8 +138,9 @@ module grid
   subroutine read_grid
 
   character(len=120) :: str
-  real(real64)       :: y3(3), y2(2), y1(1), x0
-  integer :: grid_id, coordinates, layout, fixed_coord, coord1, coord2, i, j, n, n1, n2
+  real(real64)       :: y3(3), y2(2), y1(1), x0, R0
+  integer :: grid_id, coordinates, layout, fixed_coord, coord1, coord2, &
+             i, j, k, ig, n, n1, n2, n3
 
 
   ! 1. open grid file
@@ -169,34 +155,39 @@ module grid
      write (6,*) 'error: grid type not defined!'
      stop
   endif
-  ! 2.1 collect information from grid id
+
+  ! 2.1 collect information from grid id = IJK
   read  (str(13:16), '(i4)') grid_id
-  coordinates = grid_id / 100
+  coordinates = grid_id / 100                  ! I: select internal coordinate system
   grid_id     = grid_id - 100*coordinates
-  layout      = grid_id / 10
-  fixed_coord = grid_id - 10*layout
+  layout      = grid_id / 10                   ! J: unstructured, semi-structured, structured
+  fixed_coord = grid_id - 10*layout            ! K: select fixed or dominant coordinate
+
   ! 2.2 setup coordinate indices
   select case(fixed_coord)
-  case(0)
   case(1)
      coord1 = 2; coord2 = 3
   case(2)
      coord1 = 1; coord2 = 3
-  case(3)
+  case(0,3)
      coord1 = 1; coord2 = 2
   case default
      write (6, *) 'error: invalid id = ', fixed_coord, ' for fixed coordinate!'
      stop
   end select
+  ! 2.3 read reference parameters
+  select case(coordinates)
+  case(TORUS)
+     call rscrape (iu, R0)
+  end select
 
 
   ! 3. read grid resolution and grid nodes
-  select case(layout)
   !.....................................................................
-  case (UNSTRUCTURED_3D)
-     ! unstructured 3D grid, n: total number of grid nodes
+  ! 3.1. unstructured 3D grid, n: total number of grid nodes
+  if (layout == UNSTRUCTURED  .and.  fixed_coord == 0) then
      call iscrape (iu, n)
-     call this%new(coordinates, layout, n)
+     call this%new(coordinates, layout, fixed_coord, n)
 
      ! read all grid nodes and convert to cylindrical coordinates
      do i=1,n
@@ -207,10 +198,10 @@ module grid
      enddo
 
   !.....................................................................
-  case (UNSTRUCTURED_2D)
-     ! unstructured 2D grid, one coordinate is fixed, n: total number of grid nodes
+  ! 3.2. unstructured 2D grid, one coordinate is fixed, n: total number of grid nodes
+  elseif (layout == UNSTRUCTURED  .and.  fixed_coord > 0) then
      call iscrape (iu, n)
-     call this%new(coordinates, layout, n)
+     call this%new(coordinates, layout, fixed_coord, n)
 
      ! read fixed coordinate
      call rscrape (iu, x0)
@@ -224,11 +215,15 @@ module grid
      enddo
 
   !.....................................................................
-  case (STRUCTURED_2D)
-     ! structured 2D grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
+  ! 3.3. semi-structured grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
+  elseif (layout == SEMI_STRUCTURED) then
+     if (fixed_coord == 0) then
+        write (6, *) 'error: fixed_coord > 0 required for semi-structured grids!'
+        stop
+     endif
      call iscrape (iu, n1)
      call iscrape (iu, n2)
-     call this%new(coordinates, layout, n1, n2)
+     call this%new(coordinates, layout, fixed_coord, n1, n2)
 
      ! read list of (x(coord1), x(coord2))
      do i=1,n1
@@ -250,11 +245,61 @@ module grid
            this%x((j-1)*n1 + i, fixed_coord) = y1(1)
         enddo
      enddo
+
   !.....................................................................
-  case default
+  ! 3.4. structured grid, separate list of coordinates
+  elseif (layout == STRUCTURED) then
+     call iscrape (iu, n1)
+     call iscrape (iu, n2)
+     ! all coordinates are structured
+     if (fixed_coord == 0) then
+        call iscrape (iu, n3)
+     ! one coordinate is fixed
+     else
+        n3 = 1
+        call rscrape (iu, x0)
+     endif
+
+     call this%new(coordinates, layout, fixed_coord, n1, n2, n3)
+
+     ! read 1st coordinates
+     do i=1,n1
+        read  (iu, *) this%x1(i)
+     enddo
+
+     ! read 2nd coordinates
+     do j=1,n2
+        read  (iu, *) this%x2(j)
+     enddo
+
+     if (fixed_coord == 0) then
+        ! read 3rd coordinates
+        do k=1,n3
+           read  (iu, *) this%x3(k)
+        enddo
+     endif
+
+     ! distribute to main grid
+     do i=1,n1
+     do j=1,n2
+     do k=1,n3
+        ig = (k-1)*n1*n2  +  (j-1)*n1  +  i
+        this%x(ig, coord1)         = this%x1(i)
+        this%x(ig, coord2)         = this%x2(j)
+        if (fixed_coord == 0) then
+           this%x(ig, 3)           = this%x3(k)
+        else
+           this%x(ig, fixed_coord) = x0
+        endif
+     enddo
+     enddo
+     enddo
+
+  !.....................................................................
+  else
      write (6, *) 'error: invalid grid layout ', this%layout, '!'
      stop
-  end select
+  endif
 
 
   ! 4. close grid file
@@ -262,19 +307,29 @@ module grid
 
 
   ! 5. convert to cylindrical coordinates
-  if (coordinates == CYLINDRICAL) then
-     ! deg -> rad
-     this%x(:,3) = this%x(:,3) / 180.d0 * pi
-  elseif (coordinates == CARTESIAN) then
+  select case(coordinates)
+  case(CARTESIAN)
      do i=1,this%n
         y3          = this%x(i,:)
         call coord_trans(y3, CARTESIAN, y3, CYLINDRICAL)
         this%x(i,:) = y3
      enddo
-  endif
 
+  case(CYLINDRICAL)
+     ! deg -> rad
+     this%x(:,3) = this%x(:,3) / 180.d0 * pi
 
+  case(TORUS)
+     ! poloidal, toroidal angle: deg -> rad
+     this%x(:,2:3) = this%x(:,2:3) / 180.d0 * pi
 
+     do i=1,this%n
+        y3          = this%x(i,:)
+        call coord_trans_torus (y3, R0, y3)
+        this%x(i,:) = y3
+     enddo
+  case default
+  end select
 
   return
  1000 format (3x,'- Using grid file: ',a)
@@ -287,6 +342,17 @@ module grid
   end subroutine read_grid
 !-----------------------------------------------------------------------
   subroutine broadcast_grid
+
+  call wait_pe()
+  call broadcast_inte_s(this%n)
+  call broadcast_inte_s(this%coordinates)
+  call broadcast_inte_s(this%layout)
+  call broadcast_inte_s(this%fixed_coord)
+  if (mype > 0) then
+     allocate (this%x(this%n, 3))
+  endif
+  call broadcast_real  (this%x, this%n*3)
+
   end subroutine broadcast_grid
 !-----------------------------------------------------------------------
   end subroutine load
@@ -329,7 +395,7 @@ module grid
 
   integer, parameter :: iu = 32
 
-  integer :: grid_id, i
+  integer :: grid_id, i, layout
 
 
 ! open output file .............................................
@@ -376,22 +442,25 @@ module grid
 
 
 ! write grid nodes .............................................
-  select case(this%layout)
+  layout = this%layout
   ! unstructured 3D grids
-  case(UNSTRUCTURED_3D)
+  if (layout == UNSTRUCTURED  .and.  this%fixed_coord == 0) then
      write (iu, 2001) this%n
      do i=1,this%n
         write (iu, 3003) this%x(i,:)
      enddo
-  case(UNSTRUCTURED_2D)
+
+  ! unstructured 2D grids
+  elseif (layout == UNSTRUCTURED  .and.  this%fixed_coord > 0) then
      write (iu, 2001) this%n
      do i=1,this%n
         write (iu, 3002) this%x(i,:)
      enddo
-  case default
+
+  else
      write (6, *) 'to be implemented ...'
      stop
-  end select
+  endif
 
 
 ! close output file ............................................
