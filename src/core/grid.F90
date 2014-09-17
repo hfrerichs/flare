@@ -154,7 +154,7 @@ module grid
 
   character(len=120) :: str
   real(real64)       :: y3(3), y2(2), y1(1), x0
-  integer :: grid_id, coordinates, layout, fixed_coord, coord1, coord2, i, n
+  integer :: grid_id, coordinates, layout, fixed_coord, coord1, coord2, i, j, n, n1, n2
 
 
   ! 1. open grid file
@@ -218,9 +218,37 @@ module grid
      ! read all grid nodes
      do i=1,n
         read  (iu, *) y2
-        this%x(i,coord1)      = y2(1)
-        this%x(i,coord2)      = y2(2)
-        this%x(i,fixed_coord) = x0
+        this%x(i, coord1)      = y2(1)
+        this%x(i, coord2)      = y2(2)
+        this%x(i, fixed_coord) = x0
+     enddo
+
+  !.....................................................................
+  case (STRUCTURED_2D)
+     ! structured 2D grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
+     call iscrape (iu, n1)
+     call iscrape (iu, n2)
+     call this%new(coordinates, layout, n1, n2)
+
+     ! read list of (x(coord1), x(coord2))
+     do i=1,n1
+        read  (iu, *) y2
+
+        ! set y2 for all n2 values of x(fixed_coord)
+        do j=1,n2
+           this%x((j-1)*n1 + i, coord1) = y2(1)
+           this%x((j-1)*n1 + i, coord2) = y2(2)
+        enddo
+     enddo
+
+     ! read list of x(fixed_coord)
+     do j=1,n2
+        read  (iu, *) y1
+
+        ! set y1 for all n1 values of x(coord1), x(coord2)
+        do i=1,n1
+           this%x((j-1)*n1 + i, fixed_coord) = y1(1)
+        enddo
      enddo
   !.....................................................................
   case default
@@ -234,6 +262,16 @@ module grid
 
 
   ! 5. convert to cylindrical coordinates
+  if (coordinates == CYLINDRICAL) then
+     ! deg -> rad
+     this%x(:,3) = this%x(:,3) / 180.d0 * pi
+  elseif (coordinates == CARTESIAN) then
+     do i=1,this%n
+        y3          = this%x(i,:)
+        call coord_trans(y3, CARTESIAN, y3, CYLINDRICAL)
+        this%x(i,:) = y3
+     enddo
+  endif
 
 
 
