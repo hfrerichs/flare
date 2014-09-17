@@ -81,6 +81,7 @@ module grid
   ! allocate memory for grid nodes
   if (allocated(this%x)) deallocate(this%x)
   allocate (this%x(this%n,3))
+  this%x = 0.d0
 
 !  select case (layout)
 !  case(UNSTRUCTURED_3D)
@@ -395,7 +396,7 @@ module grid
 
   integer, parameter :: iu = 32
 
-  integer :: grid_id, i, layout
+  integer :: grid_id, i, layout, coord1, coord2
 
 
 ! open output file .............................................
@@ -415,30 +416,22 @@ module grid
      else
         write (iu, 1000) grid_id, ''
      endif
-     !write (iu, *)
-     !write (iu, *)
   end select
  1000 format ('# grid_id = ', i4, 4x, '(', a, ')')
 
 
-!  select case(this%layout)
-!  ! unstructured 3D grids
-!  case(UNSTRUCTURED_3D)
-!     select case(this%coordinates)
-!     case(CARTESIAN)
-!        write (iu, 1001)
-!     case(CYLINDRICAL)
-!     end select
-!  end select
-
-!  select case(this%layout)
-!  ! 1. RZ-slice (irregular) at constant phi
-!  case(1)
-!  ! 1000. Cylindrical coordinates (irregular)
-!  case(100)
-!     write (iu, 1100)
-!     write (iu, 0001) this%n
-!  end select
+  ! fixed or dominant coordinate
+  select case(this%fixed_coord)
+  case(1)
+     coord1 = 2; coord2 = 3
+  case(2)
+     coord1 = 1; coord2 = 3
+  case(0,3)
+     coord1 = 1; coord2 = 2
+  case default
+     write (6, *) 'error: invalid id = ', this%fixed_coord, ' for fixed coordinate!'
+     stop
+  end select
 
 
 ! write grid nodes .............................................
@@ -450,11 +443,12 @@ module grid
         write (iu, 3003) this%x(i,:)
      enddo
 
-  ! unstructured 2D grids
+  ! unstructured 2D grids, one coordinate fixed
   elseif (layout == UNSTRUCTURED  .and.  this%fixed_coord > 0) then
      write (iu, 2001) this%n
+     write (iu, 2002) this%x(1, this%fixed_coord)
      do i=1,this%n
-        write (iu, 3002) this%x(i,:)
+        write (iu, 3002) this%x(i, coord1), this%x(i, coord2)
      enddo
 
   else
@@ -468,6 +462,7 @@ module grid
 
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
+ 2002 format ('# fixed coordinate:             ',f7.2)
  3001 format (1e18.10)
  3002 format (2e18.10)
  3003 format (3e18.10)
