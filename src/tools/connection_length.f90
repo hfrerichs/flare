@@ -118,7 +118,6 @@ subroutine connection_length
 
   ! 2.7. distance to last closed flux surface
   if (distance_to_lcfs) then
-     call LCFS%load('lcfs.dat')
      call LCFS%load_distance_to()
   endif
 ! ... prepare output data arrays (end) .................................
