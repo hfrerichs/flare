@@ -1,7 +1,8 @@
 module math
+  use iso_fortran_env
   implicit none
 
-  real*8, parameter :: pi    = 3.14159265358979323846264338328d0, pi2 = 2.d0 * pi
+  real(real64), parameter :: pi    = 3.14159265358979323846264338328d0, pi2 = 2.d0 * pi
 
   integer, parameter :: &
      CARTESIAN   = 1, &
@@ -18,10 +19,10 @@ module math
 ! c > 1: Cylindrical coordinates [cm,rad]
 !=======================================================================
   subroutine coord_trans (y_in, c_in, y_out, c_out)
-  real*8,  intent(in)  :: y_in(3)
-  integer, intent(in)  :: c_in
-  real*8,  intent(out) :: y_out(3)
-  integer, intent(in)  :: c_out
+  real(real64), intent(in)  :: y_in(3)
+  integer,      intent(in)  :: c_in
+  real(real64), intent(out) :: y_out(3)
+  integer,      intent(in)  :: c_out
 
 
   if (c_in == 1 .and. c_out == 1) then
@@ -54,15 +55,41 @@ module math
 
 
 !=======================================================================
+! Transformation from torus coordinates to cylindrical coordinates
+! Input:
+!    y(1):     Minor radius [cm]
+!    y(2):     Poloidal angle [rad]
+!    y(3):     Toroidal angle [rad]
+!    R0:       Reference Major radius [cm]
+!
+! Output:
+!    r(1:2):   R [cm], Z [cm] coordinate
+!    r(3) = y(3)
+!=======================================================================
+  subroutine coord_trans_torus (y, R0, r)
+  real(real64), intent(in)  :: y(3), R0
+  real(real64), intent(out) :: r(3)
+
+
+  r(1) = R0 + y(1) * cos(y(2))
+  r(2) =      y(1) * sin(y(2))
+  r(3) = y(3)
+
+  end subroutine coord_trans_torus
+!=======================================================================
+
+
+
+!=======================================================================
 ! for angular coordinate phi return phi_sym with 0 <= phi_sym <= 2*pi/n_sym
 !=======================================================================
   function phi_sym (phi, n_sym)
-  real*8, intent(in)  :: phi
-  integer, intent(in) :: n_sym
-  real*8              :: phi_sym
+  real(real64), intent(in) :: phi
+  integer,      intent(in) :: n_sym
+  real(real64)             :: phi_sym
 
-  real*8  :: Dphi
-  integer :: k
+  real(real64) :: Dphi
+  integer      :: k
 
 
   phi_sym = phi
