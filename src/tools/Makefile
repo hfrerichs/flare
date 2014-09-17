@@ -19,7 +19,8 @@ OBJECTS =  \
                field_line_loss.o\
                generate_separatrix.o\
                footprint_grid.o\
-               distance_to_surface.o
+               distance_to_surface.o\
+               homoclinic_tangle.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR)

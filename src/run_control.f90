@@ -181,6 +181,8 @@ module run_control
      call setup_distance_to_surface
   case ('evaluate_distance_to_surface')
      call evaluate_distance_to_surface
+  case ('homoclinic_tangle')
+     call homoclinic_tangle
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i
