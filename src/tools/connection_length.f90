@@ -46,7 +46,7 @@
 subroutine connection_length
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Trace_Coords, &
                          Output_Format, Limit, Psi
-  use usr_grid
+  use grid
   use parallel
   use math
   use equilibrium
@@ -61,6 +61,7 @@ subroutine connection_length
   real(real64), dimension(:,:), allocatable :: lc_data
   type(t_flux_surface_3D)                   :: LCFS
   type(t_fieldline)  :: F
+  type(t_grid)       :: G
 
   character(len=12)  :: fstr
   real(real64)       :: y(3), r(3), PsiN, Psi_min, Psi_av
@@ -78,7 +79,7 @@ subroutine connection_length
 ! load grid for connection length calculation
   itrace = 1
   if (Trace_Coords > 1) itrace = 2
-  call read_grid (Grid_File, log_progress=.false., use_coordinates=COORDINATES(itrace))
+  call G%load(Grid_File)
 
 
 ! prepare output data arrays (begin) ..................................
@@ -112,7 +113,7 @@ subroutine connection_length
   write (fstr, '(i4)') 5+nout
   fstr = '('//trim(adjustl(fstr))//'e18.10)'
 
-  allocate (lc_data(0:n_grid-1,5+nout))
+  allocate (lc_data(0:G%nodes()-1,5+nout))
   lc_data = 0.d0
 
 
@@ -124,10 +125,8 @@ subroutine connection_length
 
 
 ! main loop (begin) ....................................................
-  ig = mype
-  grid_loop: do
-     call get_next_grid_point (iflag, y)
-     if (iflag.eq.-1) exit grid_loop
+  grid_loop: do ig=mype,G%nodes()-1,nprs
+     y = G%node(ig+1, coordinates=itrace)
 
      ! initial values
      ! ... for connection length calculation
@@ -222,18 +221,17 @@ subroutine connection_length
      enddo
 
      write (6, 4000) ig, lc(0)/1.d2
-     ig = ig + nprs
   enddo grid_loop
 ! ... main loop (end) ..................................................
 
 
 ! finalize .............................................................
   call wait_pe()
-  call sum_real_data (lc_data, (5+nout)*n_grid)
+  call sum_real_data (lc_data, (5+nout)*G%nodes())
 
   if (firstP) then
      open  (iu, file=Output_File, err=5010)
-     do ig=0,n_grid-1
+     do ig=0,G%nodes()-1
         write (iu, fstr) lc_data(ig,:)
      enddo
      close (iu)
