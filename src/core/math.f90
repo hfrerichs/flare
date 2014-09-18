@@ -6,7 +6,8 @@ module math
 
   integer, parameter :: &
      CARTESIAN   = 1, &
-     CYLINDRICAL = 2
+     CYLINDRICAL = 2, &
+     TORUS       = 4      ! torus coordinates: minor radius, poloidal angle, toroidal angle
   
   contains
 !=======================================================================

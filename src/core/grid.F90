@@ -19,8 +19,7 @@ module grid
 
   ! local coordinates
   integer, public, parameter :: &
-     LOCAL      = 0, &         ! local coordinates, for plotting only
-     TORUS      = 4            ! torus coordinates: minor radius, poloidal angle, toroidal angle
+     LOCAL      = 0
 
   ! grid layout
   integer, public, parameter :: &
@@ -139,7 +138,7 @@ module grid
   subroutine read_grid
 
   character(len=120) :: str
-  real(real64)       :: y3(3), y2(2), y1(1), x0, R0
+  real(real64)       :: y3(3), r(3), y2(2), y1(1), x0, R0
   integer :: grid_id, coordinates, layout, fixed_coord, coord1, coord2, &
              i, j, k, ig, n, n1, n2, n3
 
@@ -193,8 +192,6 @@ module grid
      ! read all grid nodes and convert to cylindrical coordinates
      do i=1,n
         read  (iu, *) y3
-
-        call coord_trans (y3, coordinates, y3, CYLINDRICAL)
         this%x(i,:) = y3
      enddo
 
@@ -312,8 +309,8 @@ module grid
   case(CARTESIAN)
      do i=1,this%n
         y3          = this%x(i,:)
-        call coord_trans(y3, CARTESIAN, y3, CYLINDRICAL)
-        this%x(i,:) = y3
+        call coord_trans(y3, CARTESIAN, r, CYLINDRICAL)
+        this%x(i,:) = r
      enddo
 
   case(CYLINDRICAL)
@@ -326,8 +323,8 @@ module grid
 
      do i=1,this%n
         y3          = this%x(i,:)
-        call coord_trans_torus (y3, R0, y3)
-        this%x(i,:) = y3
+        call coord_trans_torus (y3, R0, r)
+        this%x(i,:) = r
      enddo
   case default
   end select
@@ -404,7 +401,7 @@ module grid
 
 
 ! write header .................................................
-  grid_id = this%coordinates * 100  +  this%layout
+  grid_id = this%coordinates * 100  +  this%layout * 10  +  this%fixed_coord
   select case(this%coordinates)
   case(CARTESIAN)
      write (iu, 1000) grid_id, 'Cartesian coordinates: x[cm], y[cm], z[cm]'
@@ -485,7 +482,7 @@ module grid
   x = this%x(i,:)
 
   if (present(coordinates)) then
-     call coord_trans (x, CYLINDRICAl, x, coordinates)
+     call coord_trans (this%x(i,:), CYLINDRICAl, x, coordinates)
   endif
 
   end function node
