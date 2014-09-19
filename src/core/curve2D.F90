@@ -36,10 +36,13 @@ module curve2D
 
      procedure :: load
      procedure :: new
+     procedure :: destroy
+     procedure :: copy
      procedure :: broadcast
-     procedure :: plot => curve2D_plot
+     procedure :: plot
      procedure :: sort_loop
      procedure :: expand
+     procedure :: left_hand_shift
      procedure :: get_distance_to
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
@@ -85,6 +88,36 @@ module curve2D
   this%x     => this%nodes%x
 
   end subroutine new
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine destroy(this)
+  class(t_curve)      ::  this
+
+  call this%nodes%destroy()
+  nullify(this%x)
+  if (associated(this%w_seg)) deallocate(this%w_seg)
+
+  end subroutine destroy
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine copy(this, C)
+  class(t_curve) ::  this
+  type(t_curve)  :: C
+
+  integer :: n_seg
+
+
+  n_seg = C%n_seg
+  call this%new(n_seg)
+  this%x = C%x
+
+  end subroutine copy
 !=======================================================================
 
 
@@ -260,7 +293,7 @@ module curve2D
 
 
 !=======================================================================
-  subroutine curve2D_plot(this, iu, filename)
+  subroutine plot(this, iu, filename)
   class(t_curve)                      :: this
   integer, intent(in), optional       :: iu
   character(len=*), intent(in), optional :: filename
@@ -291,7 +324,7 @@ module curve2D
      close (iu0)
   endif
 
-  end subroutine curve2D_plot
+  end subroutine plot
 !=======================================================================
 
 
@@ -388,6 +421,8 @@ module curve2D
 
 
 !=======================================================================
+! Expand curve/loop by scaling the distance to reference point x0
+!=======================================================================
   subroutine expand(this, x0, dl)
   class(t_curve)           :: this
   real(real64), intent(in) :: x0(2), dl
@@ -403,6 +438,156 @@ module curve2D
   enddo
 
   end subroutine expand
+!=======================================================================
+
+
+
+!=======================================================================
+! Shift each line segment in direction of its left-hand side normal vector and
+! re-connect nodes.
+!
+!                     ^ normal vector
+!                     |
+! segment: ====================>
+!
+!=======================================================================
+  subroutine left_hand_shift(this, dl)
+  class(t_curve)           :: this
+  real(real64), intent(in) :: dl
+
+  real(real64), parameter  :: emin = 1.d-8
+
+  real(real64), dimension(:,:,:), allocatable :: x_new
+  real(real64), dimension(:,:),   allocatable :: ts_new, x_tmp
+  type(t_curve) :: Ctmp
+  real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s
+  integer       :: k, n, k2, n2, i_remove
+
+
+! 1. initialize local variables
+  n = this%n_seg
+  if (this%n_dim .ne. 2) then
+     write (6, *) 'error in subroutine t_curve%left_hand_shift: n_dim = 2 expected!'
+     stop
+  endif
+  call Ctmp%copy(this)
+
+      !Lout%n_seg = n
+      !Lout%n_dim = 2
+      !if (associated(Lout%x_data)) deallocate(Lout%x_data)
+      !allocate (Lout%x_data(0:n,2))
+
+! 2. working array x_new(i,j,k): raw nodes positions
+  ! i:	coordinate
+  ! j:	lower (1) and upper (2) node
+  ! k:	segment number
+  allocate (x_new(2,2,0:n-1))
+  do k=0,n-1
+     ! direction of line segment
+     el = Ctmp%x(k+1,:) - Ctmp%x(k,:)
+     el = el / dsqrt(sum(el**2))
+
+     ! left-hand normal vector
+     en(1) = - el(2)
+     en(2) =   el(1)
+
+     ! shift each segment by dl in left-hand normal direction
+     x_new(:,1,k) = Ctmp%x(k  ,:) + en*dl
+     x_new(:,2,k) = Ctmp%x(k+1,:) + en*dl
+  enddo
+  ! set 1st and last node
+  Ctmp%x(0,:) = x_new(:,1,0)
+  Ctmp%x(n,:) = x_new(:,2,n-1)
+
+
+! 3. working array ts_new: connect shifted line segments
+  allocate (ts_new(2,0:n-1))
+  ts_new(1,0)   = 0.d0
+  ts_new(2,n-1) = 1.d0
+  ! calculate new nodes (at the intersection of the 2 lines defined by the shiftet adjacent segments)
+  do k=1,n-1
+     x11 = x_new(:,1,k-1)
+     x12 = x_new(:,2,k-1)
+     x21 = x_new(:,1,  k)
+     x22 = x_new(:,2,  k)
+
+     s   = (x12(2)-x11(2))*(x22(1)-x21(1)) - (x12(1)-x11(1))*(x22(2)-x21(2))
+     s   = s / (abs(x12(2)-x11(2))+abs(x22(1)-x21(1))) &
+             / (abs(x12(1)-x11(1))+abs(x22(2)-x21(2)))
+
+     ! check if segments are parallel (then use x12 as new node)
+     if (abs(s).lt.emin) then
+        Ctmp%x(k,:)   = x12
+        ts_new(2,k-1) = 1.d0
+        ts_new(1,k)   = 0.d0
+
+     ! calculate intersection point
+     elseif (intersect_lines (x11, x12, x21, x22, t, s, xh)) then
+        Ctmp%x(k,:)   = xh
+        ts_new(2,k-1) = t
+        ts_new(1,k)   = s
+
+     else
+        write (6, *) 'error in t_curve%left_hand_shift: no intersection!'
+        write (6, *) 'L_1: ', x11, x12
+        write (6, *) 'L_2: ', x21, x22
+        stop
+     endif
+  enddo
+
+
+! 4. check misaligned nodes
+  k2       = 0
+  i_remove = 0
+  allocate (x_tmp(0:n,2))
+  x_tmp(k2,:) = this%x(0,:)
+  do k=0,n-1
+     if (ts_new(1,k) .gt. ts_new(2,k)) then
+        ! remove original segment
+        i_remove = i_remove + 1
+
+        ! first segment (-> skip first node)
+        if (k.eq.0) then
+           x_tmp(k2,:) = this%x(k+1,:)
+
+        ! last segment (-> skip last node)
+        elseif (k.eq.n-1) then
+           x_tmp(k2,:) = this%x(k,:)
+
+        ! internal segment (remove segment by extending the left and right neighbour segments)
+        else
+           x11 = this%x(k-1,:)
+           x12 = this%x(k  ,:)
+           x21 = this%x(k+1,:)
+           x22 = this%x(k+2,:)
+           if (intersect_lines (x11, x12, x21, x22, t, s, xh))then
+              x_tmp(k2,:) = xh
+           else
+              x_tmp(k2,:) = 0.5d0 * (x12 + x21)
+           endif
+        endif
+     ! just copy node data if this segment's alignment is ok
+     else
+        k2 = k2 + 1
+        x_tmp(k2,:) = this%x(k+1,:)
+     endif
+  enddo
+
+! 4.2 recursively call left_hand_shift without misaligned nodes
+  n2 = n - i_remove
+  if (i_remove .ne. 0) then
+     call Ctmp%new(n2)
+     Ctmp%x = x_tmp(0:n2,:)
+     call Ctmp%left_hand_shift(dl)
+  endif
+
+
+! 5. cleanup
+  call this%copy(Ctmp)
+  deallocate (x_new, ts_new, x_tmp)
+  call Ctmp%destroy()
+
+  end subroutine left_hand_shift
 !=======================================================================
 
 
