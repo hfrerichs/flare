@@ -168,7 +168,7 @@ module grid
   case(1)
      coord1 = 2; coord2 = 3
   case(2)
-     coord1 = 1; coord2 = 3
+     coord1 = 3; coord2 = 1
   case(0,3)
      coord1 = 1; coord2 = 2
   case default
@@ -393,6 +393,7 @@ module grid
 
   integer, parameter :: iu = 32
 
+  real(real64) :: phi
   integer :: grid_id, i, layout, coord1, coord2
 
 
@@ -407,6 +408,9 @@ module grid
      write (iu, 1000) grid_id, 'Cartesian coordinates: x[cm], y[cm], z[cm]'
   case(CYLINDRICAL)
      write (iu, 1000) grid_id, 'cylindrical coordinates: R[cm], Z[cm], Phi[deg]'
+
+     ! rad -> deg
+     this%x(:,3) = this%x(:,3) * 180.d0 / pi
   case(LOCAL)
      if (present(header)) then
         write (iu, 1000) grid_id, trim(header)
