@@ -451,7 +451,7 @@ module curve2D
 ! segment: ====================>
 !
 !=======================================================================
-  subroutine left_hand_shift(this, dl)
+  recursive subroutine left_hand_shift(this, dl)
   class(t_curve)           :: this
   real(real64), intent(in) :: dl
 
@@ -472,10 +472,6 @@ module curve2D
   endif
   call Ctmp%copy(this)
 
-      !Lout%n_seg = n
-      !Lout%n_dim = 2
-      !if (associated(Lout%x_data)) deallocate(Lout%x_data)
-      !allocate (Lout%x_data(0:n,2))
 
 ! 2. working array x_new(i,j,k): raw nodes positions
   ! i:	coordinate
