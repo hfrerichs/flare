@@ -396,6 +396,21 @@ module equilibrium
 
   end function get_DPsiN
 !=======================================================================
+  function get_ePsi(r) result(ePsi)
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: ePsi(2)
+
+  real(real64) :: D
+
+
+  ePsi(1) = get_DPsiN(r, 1, 0)
+  ePsi(2) = get_DPsiN(r, 0, 1)
+  D       = sqrt(sum(ePsi**2))
+
+  if (D > 0.d0) ePsi    = ePsi / D
+
+  end function get_ePsi
+!=======================================================================
 
 
 
