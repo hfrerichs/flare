@@ -20,6 +20,8 @@ module quad_ele
      procedure :: plot_at   => quad_ele_plot_at
      procedure :: intersect => quad_ele_intersect
      procedure :: sample
+     procedure :: sample_phi
+     procedure :: slice
      procedure :: left_hand_shift
      procedure :: destroy
      procedure :: get_stellarator_symmetric_element
@@ -196,46 +198,75 @@ module quad_ele
 
 
 !=======================================================================
-! Plot profile at toroidal location phi [deg]
-!=======================================================================
-  subroutine quad_ele_plot_at(this, phi, filename)
+  function slice(this, phi) result(C)
   use math
   use search
+  use curve2D
   class(t_quad_ele)         :: this
-  real*8, intent(in)        :: phi
-  character*120, intent(in) :: filename
+  real(real64), intent(in)  :: phi
+  type(t_curve)             :: C
 
-  integer, parameter :: iu = 99
-
-  real*8  :: t, R, Z, phi0
+  real*8  :: t, R, Z
   integer :: i, ind, ierr
 
 
-  ! deg -> rad
-  phi0 = phi / 180.d0 * pi
-
   ! check boundaries
-  if (phi0.lt.this%phi(0) .or. phi0.gt.this%phi(this%n_phi)) return
+  if (phi.lt.this%phi(0) .or. phi.gt.this%phi(this%n_phi)) return
 
 
   ! find index "ind" with phi(ind) <= phi0 <= phi(ind+1)
-  ind = binary_interval_search (0, this%n_phi, this%phi, phi0, ierr)
+  ind = binary_interval_search (0, this%n_phi, this%phi, phi, ierr)
   if (ierr .ne. 0) then
      write (6, *) 'error: boundary check passed but could not find position!'
      write (6, *) ind, ierr
      stop
   endif
-  t = (phi0 - this%phi(ind)) / (this%phi(ind+1) - this%phi(ind))
+  t = (phi - this%phi(ind)) / (this%phi(ind+1) - this%phi(ind))
 
+
+  ! sample slice at phi0 (ind, t)
+  call C%new(this%n_RZ)
+
+
+  do i=0,this%n_RZ
+     R = this%R(ind,i) + t * (this%R(ind+1,i)-this%R(ind,i))
+     Z = this%Z(ind,i) + t * (this%Z(ind+1,i)-this%Z(ind,i))
+     C%x(i,1) = R
+     C%x(i,2) = Z
+  enddo
+
+  end function slice
+!=======================================================================
+
+
+
+!=======================================================================
+! Plot profile at toroidal location phi [deg]
+!=======================================================================
+  subroutine quad_ele_plot_at(this, phi, filename)
+  use math
+  use search
+  use curve2D
+  class(t_quad_ele)            :: this
+  real(real64), intent(in)     :: phi
+  character(len=*), intent(in) :: filename
+
+  integer, parameter :: iu = 99
+
+  type(t_curve) :: C
+  real(real64)  :: phi0
+
+
+  ! deg -> rad
+  phi0 = phi / 180.d0 * pi
+
+  ! get slice at phi0
+  C = this%slice(phi0)
 
   ! write profile at phi0 (ind, t)
   open  (iu, file=filename)
   write (iu, 1000) phi0 / pi * 180.d0
-  do i=0,this%n_RZ
-     R = this%R(ind,i) + t * (this%R(ind+1,i)-this%R(ind,i))
-     Z = this%Z(ind,i) + t * (this%Z(ind+1,i)-this%Z(ind,i))
-     write (iu, *) R, Z
-  enddo
+  call C%plot(iu=iu)
   close (iu)
 
  1000 format ("# phi [deg] = ",e18.10)
@@ -492,6 +523,16 @@ module quad_ele
 
 
 
+!=======================================================================
+  function sample_phi(this, tau) result(phi)
+  class(t_quad_ele)        :: this
+  real(real64), intent(in) :: tau
+  real(real64)             :: phi
+
+
+  phi  = this%phi(0) + tau*(this%phi(this%n_phi) - this%phi(0))
+
+  end function sample_phi
 !=======================================================================
 ! sample surface position at relative coordinates (xi, tau)
 !=======================================================================
