@@ -20,6 +20,7 @@ module quad_ele
      procedure :: plot_at   => quad_ele_plot_at
      procedure :: intersect => quad_ele_intersect
      procedure :: sample
+     procedure :: left_hand_shift
      procedure :: destroy
      procedure :: get_stellarator_symmetric_element
      procedure :: setup_coefficients
@@ -461,6 +462,32 @@ module quad_ele
   call S%setup_coefficients()
 
   end function get_stellarator_symmetric_element
+!=======================================================================
+
+
+
+!=======================================================================
+! Based on module curve2D
+!=======================================================================
+  subroutine left_hand_shift(this, dl)
+  use curve2D
+  class(t_quad_ele)        :: this
+  real(real64), intent(in) :: dl
+
+  type(t_curve) :: C
+  integer :: i, n
+
+
+  n = this%n_RZ + 1
+  do i=0,this%n_phi
+     call make_2D_curve (n, this%R(i,:), this%Z(i,:), C)
+     call C%left_hand_shift(dl)
+
+     this%R(i,:) = C%x(:,1)
+     this%Z(i,:) = C%x(:,2)
+  enddo
+
+  end subroutine left_hand_shift
 !=======================================================================
 
 
