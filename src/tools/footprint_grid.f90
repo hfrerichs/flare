@@ -26,10 +26,12 @@ subroutine footprint_grid
   use equilibrium
   use quad_ele
   use grid
+  use curve2D
   integer, intent(in) :: iele
 
   type(t_grid)     :: G_sample, G_plot
   type(t_quad_ele) :: S
+  type(t_curve)    :: C
   real(real64) :: tau, xi, phi, theta, r(3), d(2)
   integer      :: i, j, n, ig
 
@@ -48,17 +50,18 @@ subroutine footprint_grid
 
 
   ! shrink surface (because starting points for field line tracing must not lay on the boundary surface)
-  do i=0,S%n_phi
-     r(3) = S%phi(i)
-     r    = get_magnetic_axis(r(3))
-     do j=0,S%n_RZ
-        d(1)     = S%R(i,j) - r(1)
-        d(2)     = S%Z(i,j) - r(2)
-
-        S%R(i,j) = r(1) + (1.d0 - 1.d-6) * d(1)
-        S%Z(i,j) = r(2) + (1.d0 - 1.d-6) * d(2)
-     enddo
-  enddo
+!  do i=0,S%n_phi
+!     r(3) = S%phi(i)
+!     r    = get_magnetic_axis(r(3))
+!     do j=0,S%n_RZ
+!        d(1)     = S%R(i,j) - r(1)
+!        d(2)     = S%Z(i,j) - r(2)
+!
+!        S%R(i,j) = r(1) + (1.d0 - 1.d-3) * d(1)
+!        S%Z(i,j) = r(2) + (1.d0 - 1.d-3) * d(2)
+!     enddo
+!  enddo
+  !call S%left_hand_shift(1.d-3)
 
 
   n = (n_phi+1) * (n_theta+1)
@@ -79,21 +82,32 @@ subroutine footprint_grid
   ig = 0
   do i=0,n_phi
      tau = Equidistant%node(i, n_phi)
+     phi = S_quad(iele)%sample_phi(tau)
+     C   = S_quad(iele)%slice(phi)
+
+     !call C%plot(60+i)
+     call C%left_hand_shift(1.d-3)
+     call C%setup_length_sampling()
+
      do j=0,n_theta
         ig = ig + 1
         xi = Equidistant%node(j, n_theta)
 
-        r  = S%sample(tau, xi)
+        r(3) = phi
+        call C%sample_at(xi, r(1:2))
+!        r  = S%sample(tau, xi)
         G_sample%x(ig,:) = r
         !write (iu, *) r
 
-        phi   = r(3) / pi * 180.d0
+!        phi   = r(3) / pi * 180.d0
         theta = get_poloidal_angle(r) / pi * 180.d0
         if (theta < 0) theta = theta + 360.d0
         !write (iu2, *) phi, theta
-        G_plot%x(ig,1) = phi
+        G_plot%x(ig,1) = phi / pi * 180.d0
         G_plot%x(ig,2) = theta
      enddo
+
+     call C%destroy()
   enddo
   !close (iu)
   !close (iu2)
