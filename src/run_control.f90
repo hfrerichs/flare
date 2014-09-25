@@ -27,7 +27,8 @@ module run_control
      Z_end          = 0.d0, &       ! end position (e.g. for Poincare plots)
      Phi_output     = 0.d0, &       ! Reference plane for Poincare plots
      Theta(2)       = 0.d0, &
-     Psi(2)         = 0.d0
+     Psi(2)         = 0.d0, &
+     offset         = 1.d-2
 
 
   integer :: &
@@ -58,7 +59,7 @@ module run_control
      Run_Type, Output_File, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
-     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z
+     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset
 
   contains
 !=======================================================================
@@ -106,6 +107,7 @@ module run_control
   call broadcast_real_s (Phi_output      )
   call broadcast_real   (Theta      ,   2)
   call broadcast_real   (Psi        ,   2)
+  call broadcast_real_s (offset          )
   call broadcast_inte_s (N_steps         )
   call broadcast_inte_s (N_points        )
   call broadcast_inte_s (N_sym           )

@@ -1,7 +1,7 @@
 !===============================================================================
 subroutine footprint_grid
   use iso_fortran_env
-  use run_control, only: Grid_File, Output_File, n_theta, n_phi
+  use run_control, only: Grid_File, Output_File, n_theta, n_phi, offset
   use parallel
   implicit none
 
@@ -85,8 +85,7 @@ subroutine footprint_grid
      phi = S_quad(iele)%sample_phi(tau)
      C   = S_quad(iele)%slice(phi)
 
-     !call C%plot(60+i)
-     call C%left_hand_shift(1.d-3)
+     call C%left_hand_shift(offset)
      call C%setup_length_sampling()
 
      do j=0,n_theta
