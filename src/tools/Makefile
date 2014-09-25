@@ -20,7 +20,9 @@ OBJECTS =  \
                generate_separatrix.o\
                footprint_grid.o\
                distance_to_surface.o\
-               homoclinic_tangle.o
+               homoclinic_tangle.o\
+               generate_flux_tube.o\
+               FLR_analysis.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR)

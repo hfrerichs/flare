@@ -9,6 +9,7 @@ OBJECTS =  \
                flux_surface_2D.o\
                flux_surface_3D.o\
                separatrix.o\
+               flux_tube.o\
                field_aligned_grid.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR) -I ../$(BFIELD_DIR)

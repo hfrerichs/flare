@@ -183,6 +183,10 @@ module run_control
      call evaluate_distance_to_surface
   case ('homoclinic_tangle')
      call homoclinic_tangle
+  case ('generate_flux_tube')
+     call generate_flux_tube
+  case ('FLR_analysis')
+     call FLR_analysis
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i
