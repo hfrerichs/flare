@@ -1,0 +1,215 @@
+;- grid ----------------------------------------------------------------
+pro iscrape, lun, iout
+	str	= ''
+	readf, lun, str
+	print, strmid(str,2,80)
+	iout	= long(strmid(str,32,10))
+end; iscrape
+pro rscrape, lun, rout
+	str	= ''
+	readf, lun, str
+	print, strmid(str,2,80)
+	rout	= double(strmid(str,32,10))
+end; rscrape
+
+pro read_grid, grid_file, xoffset=xoffset, yoffset=yoffset, swap_xy=swap_xy
+	common	grid,	grid_id, x_data, y_data, n_x, n_y, n_xy, irr, isort, x_title, y_title, $
+			x_min, x_max, y_min, y_max
+
+	; 1. initialize grid
+	str	= ''
+	openr, lun, grid_file, /get_lun
+	readf, lun, str
+	if (strmid(str,2,7) ne 'grid_id') then begin
+		print, 'no grid type defined'
+		stop
+	endif
+	grid_id	= fix(strmid(str,12,4))
+	print, 'grid id = ', grid_id
+
+
+	; 2. coordinate system, layout and fixed/dominant coordinate
+	UNSTRUCTURED    = 1
+	SEMI_STRUCTURED = 2
+	STRUCTURED      = 3
+	LOCAL		= 0
+	CARTESIAN	= 1
+	CYLINDRICAL	= 2
+	TORUS		= 4
+	; 2.1. get coordinates and layout from grid_id
+	coordinates	= grid_id / 100
+	grid_id		= grid_id - 100*coordinates
+	layout		= grid_id / 10
+	fixed_coord	= grid_id - 10*layout
+
+	; 2.2. setup coordinate indices
+	case fixed_coord of
+	1: begin
+		icoord1 = 2
+		icoord2 = 3
+	end
+	2: begin
+		icoord1 = 3
+		icoord2 = 1
+	end
+	0 or 3: begin
+		icoord1 = 1
+		icoord2 = 2
+	end
+	else: begin
+		print, 'error: invalid id = ', fixed_coord, ' for fixed coordinate!'
+		stop
+	end
+	endcase
+
+	; 2.3. read reference parameters
+	c_label	= make_array(4, /string)
+	c_label(0)	= 'Plotting coordinate [a.u.]'
+	c_label(1)	= ''
+	c_label(2)	= ''
+	c_label(3)	= ''
+	case coordinates of
+	CARTESIAN: begin
+		c_label(1)	= 'x [cm]'
+		c_label(2)	= 'y [cm]'
+		c_label(3)	= 'z [cm]'
+	end
+	CYLINDRICAL: begin
+		c_label(1)	= 'Major Radius [cm]'
+		c_label(2)	= 'Z [cm]'
+		c_label(3)	= 'Toroidal Angle [deg]'
+	end
+	TORUS: begin
+		c_label(1)	= 'Minor Radius [cm]'
+		c_label(2)	= 'Poloidal Angle [deg]'
+		c_label(3)	= 'Toroidal Angle [deg]'
+		rscrape, lun, R0
+	end
+	LOCAL: begin
+	end
+	endcase
+
+
+	; 3. read grid resolution and nodes
+	; 3.1 unstructured 3D grid, n_xy: total number of grid nodes
+	if (layout eq UNSTRUCTURED  and  fixed_coord eq 0) then begin
+		print, 'loading unstructured grid ...'
+		print, '... using 1st and 2nd coordinate for plotting'
+		iscrape, lun, n_xy
+
+		x_data	= make_array(n_xy, /fl)
+		y_data	= make_array(n_xy, /fl)
+		tmp	= make_array(2, /fl)
+		for i=0L,n_xy-1 do begin
+			readf, lun, tmp
+			x_data(i)	= tmp(0)
+			y_data(i)	= tmp(1)
+		endfor
+		isort	= 0
+		x_title	= c_label(1)
+		y_title	= c_label(2)
+
+	; 3.2 unstructured 2D grid, one coordinate is fixed, n_xy: total number of grid nodes
+	end else if (layout eq UNSTRUCTURED  and  fixed_coord gt 0) then begin
+		print, 'loading unstructured grid ...'
+		iscrape, lun, n_xy
+		rscrape, lun, y0
+		;print, '... fixed coordinate: ', c_label(fixed_coord), ' = ', y0
+
+		x_data	= make_array(n_xy, /fl)
+		y_data	= make_array(n_xy, /fl)
+		tmp	= make_array(2, /fl)
+		for i=0L,n_xy-1 do begin
+			readf, lun, tmp
+			x_data(i)	= tmp(0)
+			y_data(i)	= tmp(1)
+		endfor
+		isort	= 0
+		x_title	= c_label(icoord1)
+		y_title	= c_label(icoord2)
+
+	; 3.3. semi-structured grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
+	end else if (layout eq SEMI_STRUCTURED) then begin
+		print, 'loading structured grid with plotting coordinate ...'
+		iscrape, lun, n_x
+		iscrape, lun, n_y
+
+		x_data	= make_array(n_x, /fl)
+		y_data	= make_array(n_y, /fl)
+		tmp	= make_array(3, /fl)
+		for i=0L,n_x-1 do begin
+			readf, lun, tmp
+			x_data(i)	= tmp(2)
+		endfor
+		readf, lun, y_data
+		n_xy	= n_x * n_y
+		isort	= 1
+		x_title	= c_label(0)
+		y_title	= c_label(fixed_coord)
+
+	; 3.4. structured grid, separate list of coordinates
+	end else if (layout eq STRUCTURED) then begin
+		print, 'loading structured grid ...'
+		iscrape, lun, n_x
+		iscrape, lun, n_y
+		if (fixed_coord eq 0) then begin
+			print, 'error: unable to determine coordinates for plotting!'
+			stop
+		endif
+		rscrape, lun, y0
+		;print, '... fixed coordinate: ', c_label(fixed_coord), ' = ', y0
+
+		x_data	= make_array(n_x, /fl)
+		y_data	= make_array(n_y, /fl)
+		readf, lun, x_data
+		readf, lun, y_data
+		n_xy	= n_x * n_y
+		isort	= 1
+		x_title	= c_label(icoord1)
+		y_title	= c_label(icoord2)
+
+	end else begin
+		print, 'error: invalid grid layout ', layout, '!'
+		stop
+	endelse
+
+
+	; 4. close grid file and post processing
+	free_lun, lun
+	irr	= 1 - abs(isort)
+
+	; 4.1. offset in x- and y- coordinates for plotting
+        if (keyword_set(xoffset) and (isort ne 0)) then begin
+		x_data(*)	= x_data(*) + xoffset
+	endif
+        if (keyword_set(yoffset) and (isort ne 0)) then begin
+		y_data(*)	= y_data(*) + yoffset
+	endif
+
+	; 4.2. reverse plotting coordinates
+	if (keyword_set(swap_xy)) then begin
+		stmp	= x_title
+		x_title	= y_title
+		y_title	= stmp
+
+		if (irr eq 0) then begin
+			itmp	= n_x
+			n_x	= n_y
+			n_y	= itmp
+		endif
+
+		rtmp	= x_data
+		x_data	= y_data
+		y_data	= rtmp
+	endif
+
+	; 4.3. upper and lower boundaries
+	x_min	= min(x_data)
+	x_max	= max(x_data)
+	y_min	= min(y_data)
+	y_max	= max(y_data)
+end; read_grid
+;-----------------------------------------------------------------------
+
+
+
