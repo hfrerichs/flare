@@ -171,10 +171,12 @@ module flux_surface_2D
   real*8,  intent(in) :: t, y(n)
   real*8, intent(out) :: f(n)
 
-  real*8 :: Bf(3), Bpol
+  real*8 :: Bf(3), Bpol, y3(3)
 
 
-  Bf = get_Bf_eq2D(y)
+  y3(1:2) = y
+  y3(3)   = 0.d0
+  Bf = get_Bf_eq2D(y3)
   Bpol = sqrt(Bf(1)**2 + Bf(2)**2)
   f    = Bf(1:2)/Bpol / Ip_sign
 
