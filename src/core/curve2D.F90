@@ -46,9 +46,12 @@ module curve2D
      procedure :: get_distance_to
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
+     procedure :: setup_coordinate_sampling
      procedure :: sample_at
      procedure :: length
   end type t_curve
+
+  type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,Empty_dataset,null(),null())
 
 
   public :: intersect_curve, make_2D_curve
@@ -736,6 +739,42 @@ module curve2D
   L%w_seg  = L%w_seg / w_tot
 
   end subroutine setup_length_sampling
+!=======================================================================
+
+
+
+!=======================================================================
+! prepare sampling along L using the ic-th coordinate as weight factor
+!=======================================================================
+  subroutine setup_coordinate_sampling(L, ic)
+  class(t_curve)      :: L
+  integer, intent(in) :: ic
+
+  real(real64) :: w_tot, s, dx(L%n_dim)
+  integer      :: i, n
+
+
+  if (ic > L%n_dim) then
+     write (6, *) 'error: cannot use ', ic, '-th coordinate when only ', &
+                  L%n_dim, ' are defined!'
+     stop
+  endif
+
+  ! allocate memory for weight array
+  n = L%n_seg
+  if (associated(L%w_seg)) deallocate(L%w_seg)
+  allocate (L%w_seg(n))
+
+  ! setup weight array
+  w_tot = 0.d0
+  do i=1,n
+     s          = L%x(i,ic) - L%x(i-1,ic)
+     L%w_seg(i) = s
+     w_tot      = w_tot + s
+  enddo
+  L%w_seg  = L%w_seg / w_tot
+
+  end subroutine setup_coordinate_sampling
 !=======================================================================
 
 

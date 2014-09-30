@@ -21,6 +21,8 @@ module dataset
      procedure :: load, plot, new, destroy
   end type t_dataset
 
+  type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,null())
+
   contains
 !=======================================================================
 
