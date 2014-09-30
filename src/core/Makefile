@@ -5,11 +5,11 @@ OBJECTS =  \
                math.o\
                dataset.o\
                search.o\
+               curve2D.o\
                mesh_spacing.o\
                bilinear_system.o\
                interpolate3D.o\
                ode_solver.o\
-               curve2D.o\
                quad_ele.o\
                usr_grid.o\
                grid.o
