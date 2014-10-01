@@ -9,7 +9,6 @@ module fieldline
   use reconstruct
   use bfield
   use equilibrium
-  use boundary
   implicit none
 
   integer, parameter :: FL_LINE  = 1
@@ -20,7 +19,7 @@ module fieldline
 
   type, extends(t_ODE) :: t_fieldline
      ! integrated toroidal and poloidal angle
-     real*8 :: phi0, phi_int, theta0, theta_int
+     real*8 :: phi0, phi_int, theta0, theta_int, Dphi
      ! last (l) and current (c) state in cylindrical coordinates
      real*8 :: rl(3), rc(3), thetal, thetac
      real(real64) :: PsiNl, PsiNc
@@ -105,7 +104,7 @@ module fieldline
   subroutine trace_1step_ODE(this)
   class(t_fieldline), intent(inout) :: this
 
-  real(real64) :: yc(3), Dphi, Dtheta
+  real(real64) :: yc(3), Dtheta
 
   ! save last step
   this%rl        = this%rc
@@ -119,9 +118,9 @@ module fieldline
 
 
   ! update toroidal angle
-  Dphi           = this%rc(3) - this%rl(3)
-  if (abs(Dphi) > pi) Dphi = Dphi - sign(pi2,Dphi)
-  this%phi_int   = this%phi_int + Dphi
+  this%Dphi      = this%rc(3) - this%rl(3)
+  if (abs(this%Dphi) > pi) this%Dphi = this%Dphi - sign(pi2,this%Dphi)
+  this%phi_int   = this%phi_int + this%Dphi
 
 
   ! update poloidal angle
@@ -189,6 +188,8 @@ module fieldline
 !=======================================================================
 ! trace field line for a toroidal distance of Dphi > 0 (direction is not
 ! checked)
+!
+! phi_int will be reset after a call to this subroutine
 !=======================================================================
   subroutine trace_Dphi(this, Dphi, stop_at_boundary, yout, ierr)
   class (t_fieldline)       :: this
@@ -197,12 +198,13 @@ module fieldline
   real(real64), intent(out) :: yout(3)
   integer,      intent(out) :: ierr
 
-  real(real64) :: phi_int, f, dphi_step
+  real(real64) :: phi_int, f
 
 
-  ierr = 0
-  yout = 0.d0
-  phi_int = this%phi_int ! + offset from last call?
+  ierr         = 0
+  yout         = 0.d0
+  phi_int      = -this%phi_int ! offset from last call
+  this%phi_int = 0.d0          ! reset integration distance
   trace_loop: do
      call this%trace_1step()
 
@@ -216,9 +218,11 @@ module fieldline
      ! stop tracing after toroidal distance Dphi
      f = abs(this%phi_int - phi_int) - Dphi
      if (f > 0.d0) then
-        dphi_step = abs(this%rc(3) - this%rl(3))
-        f         = f / dphi_step
+        f         = f / abs(this%Dphi)
         yout      = f*this%rl + (1.d0-f)*this%rc
+
+        ! store offset for next call
+        this%phi_int = f*this%Dphi
         return
      endif
   enddo trace_loop
@@ -254,6 +258,7 @@ module fieldline
 
 !=======================================================================
   function fieldline_intersects_boundary(this, rcut, id) result(l)
+  use boundary
   class(t_fieldline), intent(inout) :: this
   real*8, intent(out), optional     :: rcut(3)
   integer, intent(out), optional    :: id
