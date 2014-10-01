@@ -30,7 +30,7 @@ module flux_surface_2D
 ! An alternate limiting surface can be given by the optional parameter AltSurf.
 ! An optional cut-off poloidal angle theta_cut can be given.
 !=======================================================================
-  subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, Trace_Method, AltSurf, theta_cut)
+  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
   use equilibrium
   use ode_solver
   use boundary
@@ -38,7 +38,7 @@ module flux_surface_2D
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: r(2)
   
-  integer, intent(in), optional       :: direction, Trace_Method
+  integer, intent(in), optional       :: direction, N_steps, Trace_Method
   real(real64), intent(in), optional  :: Trace_Step, theta_cut
   type(t_curve), intent(in), optional :: AltSurf
 
@@ -65,7 +65,11 @@ module flux_surface_2D
 
 
   ! allocate temporary array for output
-  nmax = N_steps_guess(ds)
+  if (present(N_steps)) then
+     nmax = N_steps
+  else
+     nmax = N_steps_guess(ds)
+  endif
   allocate (tmp(-nmax:nmax,2))
 
 
@@ -150,10 +154,10 @@ module flux_surface_2D
 
   ! flux surface is limited on one side only
   else
-     if (n(-1) < nmax) r3(1:2) = tmp(-n(-1),:)
-     if (n( 1) < nmax) r3(1:2) = tmp( n( 1),:)
+     if (n(-1) < nmax) r3(1:2) = tmp(-n(-1),:) + 0.01d0*(tmp(-n(-1),:) - tmp(-n(-1)+1,:))
+     if (n( 1) < nmax) r3(1:2) = tmp( n( 1),:) + 0.01d0*(tmp( n( 1),:) - tmp( n( 1)-1,:))
      deallocate (tmp)
-     call this%generate (r3(1:2), direction, Trace_Step, Trace_Method, AltSurf, theta_cut)
+     call this%generate (r3(1:2), direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
   endif
 
   end subroutine generate_flux_surface_2D
