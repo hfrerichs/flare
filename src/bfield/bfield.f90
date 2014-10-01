@@ -48,15 +48,9 @@ module bfield
      write (6, *) 'Magnetic field input: '
      call load_reconstruct_config (iu, iconfig(BF_RECONSTRUCT ))
      call load_equilibrium_config (iu, iconfig(BF_EQ2D        ))
-     call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
-     call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
-     call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
-     close (iu)
-
-
      ! supplemental equilibrium information
      ! direction of toroidal magnetic field and plasma current
-     ! if Bt_sign is not set by equilibrium
+     ! if Bt_sign (and Ip_sign) is not set by equilibrium
      if (Bt_sign == 0) then
         r(3) = 0.d0
         r    = get_magnetic_axis(r(3))
@@ -64,7 +58,24 @@ module bfield
 
         Bt_sign = 1
         if (Bf(3) < 0.d0) Bt_sign = -1
+        write (6, 1001) Bt_sign
+
+        ! guess poloidal field direction:
+        ! get BZ left of magnetic axis
+        r(1) = 0.9d0 * r(1)
+        Bf   = get_Bf_cyl(r)
+
+        Ip_sign = 1
+        ! switch sign if BZ is negative
+        if (Bf(2) < 0.d0) Ip_sign = -1
+        write (6, 1002) Ip_sign
      endif
+
+
+     call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
+     call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
+     call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
+     close (iu)
   endif
 
 
@@ -80,6 +91,8 @@ module bfield
 
 
  1000 format (/ '========================================================================')
+ 1001 format (8x,'Automatic setup of toroidal field direction: ',i1)
+ 1002 format (8x,'Automatic setup of poloidal field direction: ',i1)
   end subroutine setup_bfield_configuration
 !=======================================================================
 
