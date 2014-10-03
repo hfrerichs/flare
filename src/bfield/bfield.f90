@@ -91,8 +91,8 @@ module bfield
 
 
  1000 format (/ '========================================================================')
- 1001 format (8x,'Automatic setup of toroidal field direction: ',i1)
- 1002 format (8x,'Automatic setup of poloidal field direction: ',i1)
+ 1001 format (8x,'Automatic setup of toroidal field direction: ',i2)
+ 1002 format (8x,'Automatic setup of poloidal field direction: ',i2)
   end subroutine setup_bfield_configuration
 !=======================================================================
 
