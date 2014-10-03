@@ -78,6 +78,7 @@ echo "EMC3_LINK_DIR  = \$(EXTERNAL_DIR)/EMC3" >> include.mk
 echo "CORE_DIR       = core" >> include.mk
 echo "BFIELD_DIR     = bfield" >> include.mk
 echo "GEOMETRY_DIR   = geometry" >> include.mk
+echo "GRIDGEN_DIR    = field_aligned_grid" >> include.mk
 echo "TOOLS_DIR      = tools" >> include.mk
 echo "DEVEL_DIR      = development" >> include.mk
 echo "" >> include.mk

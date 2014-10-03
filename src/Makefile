@@ -16,6 +16,9 @@ BFIELD_OBJ     = $(BFIELD_DIR)/*.o
 GEOMETRY_INC   = -I $(GEOMETRY_DIR)
 GEOMETRY_OBJ   = $(GEOMETRY_DIR)/*.o
 
+GRIDGEN_INC    = -I $(GRIDGEN_DIR)
+GRIDGEN_OBJ    = $(GRIDGEN_DIR)/*.o
+
 TOOLS_INC      = -I $(TOOLS_DIR)
 TOOLS_OBJ      = $(TOOLS_DIR)/*.o
 
@@ -33,10 +36,11 @@ all: $(OBJECTS)
 	cd $(CORE_DIR); $(MAKE) FC='$(FC)'
 	cd $(BFIELD_DIR); $(MAKE) FC='$(FC)'
 	cd $(GEOMETRY_DIR); $(MAKE) FC='$(FC)'
+	cd $(GRIDGEN_DIR); $(MAKE) FC='$(FC)'
 	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
 	cd $(DEVEL_DIR); $(MAKE) FC='$(FC)'
 	$(FC) -c $(GEOMETRY_INC) $(BFIELD_INC) main.f90
-	$(FC) -o  $(PROGRAM) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
+	$(FC) -o  $(PROGRAM) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
 
 
 %.o: %.f*
@@ -56,6 +60,7 @@ clean:
 	cd $(CORE_DIR); $(MAKE) clean
 	cd $(GEOMETRY_DIR); $(MAKE) clean
 	cd $(BFIELD_DIR); $(MAKE) clean
+	cd $(GRIDGEN_DIR); $(MAKE) clean
 	cd $(TOOLS_DIR); $(MAKE) clean
 	cd $(DEVEL_DIR); $(MAKE) clean
 	rm -rf *.o
