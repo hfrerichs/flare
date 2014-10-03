@@ -34,17 +34,21 @@ module grid
 
      ! internal grid nodes
      real(real64), dimension(:),   allocatable :: x1, x2, x3
+     real(real64), dimension(:,:,:), allocatable :: mesh
 
      ! number of nodes
      integer :: n, n1, n2, n3
 
      ! define internal layout and coordinate system
-     integer :: layout, coordinates, fixed_coord
+     integer :: layout, coordinates, fixed_coord, coord1, coord2
+     real(real64) :: fixed_coord_value
 
      contains
      procedure :: new
      procedure :: load
+     procedure :: setup_mesh
      procedure :: store
+     procedure :: plot_mesh
      procedure :: node                   ! return node coordinates
      procedure :: nodes                  ! return number of grid nodes
   end type t_grid
@@ -55,25 +59,52 @@ module grid
 
 
 !=======================================================================
-  subroutine new(this, coordinates, layout, fixed_coord, n1, n2, n3)
+  subroutine new(this, coordinates, layout, fixed_coord, n1, n2, n3, fixed_coord_value, mesh)
   class(t_grid)                 :: this
   integer, intent(in)           :: coordinates, layout, fixed_coord, n1
   integer, intent(in), optional :: n2, n3
+  real(real64), intent(in), optional :: fixed_coord_value
+  logical, intent(in), optional :: mesh
 
 
   this%coordinates = coordinates
   this%n1          = n1
   this%n           = n1
-  !this%layout      = UNSTRUCTURED_3D
   this%layout      = layout
   this%fixed_coord = fixed_coord
   if (present(n2)) then
      this%n2     = n2
      this%n      = this%n * n2
+     if (present(mesh) .and. mesh) then
+        if (fixed_coord > 0) then
+           allocate (this%mesh(0:n1-1, 0:n2-1, 2))
+        else
+           allocate (this%mesh(0:n1-1, 0:n2-1, 3))
+        endif
+     endif
   endif
   if (present(n3)) then
      this%n3     = n3
      this%n      = this%n * n3
+  endif
+
+
+  ! setup coordinate indices
+  select case(fixed_coord)
+  case(1)
+     this%coord1 = 2; this%coord2 = 3
+  case(2)
+     this%coord1 = 3; this%coord2 = 1
+  case(0,3)
+     this%coord1 = 1; this%coord2 = 2
+  case default
+     write (6, *) 'error: invalid id = ', fixed_coord, ' for fixed coordinate!'
+     stop
+  end select
+  if (present(fixed_coord_value)) then
+     this%fixed_coord_value = fixed_coord_value
+  else
+     this%fixed_coord_value = 0.d0
   endif
 
 
@@ -139,7 +170,7 @@ module grid
 
   character(len=120) :: str
   real(real64)       :: y3(3), r(3), y2(2), y1(1), x0, R0
-  integer :: grid_id, coordinates, layout, fixed_coord, coord1, coord2, &
+  integer :: grid_id, coordinates, layout, fixed_coord, &
              i, j, k, ig, n, n1, n2, n3
 
 
@@ -163,18 +194,6 @@ module grid
   layout      = grid_id / 10                   ! J: unstructured, semi-structured, structured
   fixed_coord = grid_id - 10*layout            ! K: select fixed or dominant coordinate
 
-  ! 2.2 setup coordinate indices
-  select case(fixed_coord)
-  case(1)
-     coord1 = 2; coord2 = 3
-  case(2)
-     coord1 = 3; coord2 = 1
-  case(0,3)
-     coord1 = 1; coord2 = 2
-  case default
-     write (6, *) 'error: invalid id = ', fixed_coord, ' for fixed coordinate!'
-     stop
-  end select
   ! 2.3 read reference parameters
   select case(coordinates)
   case(TORUS)
@@ -207,8 +226,8 @@ module grid
      ! read all grid nodes
      do i=1,n
         read  (iu, *) y2
-        this%x(i, coord1)      = y2(1)
-        this%x(i, coord2)      = y2(2)
+        this%x(i, this%coord1) = y2(1)
+        this%x(i, this%coord2) = y2(2)
         this%x(i, fixed_coord) = x0
      enddo
 
@@ -229,8 +248,8 @@ module grid
 
         ! set y2 for all n2 values of x(fixed_coord)
         do j=1,n2
-           this%x((j-1)*n1 + i, coord1) = y2(1)
-           this%x((j-1)*n1 + i, coord2) = y2(2)
+           this%x((j-1)*n1 + i, this%coord1) = y2(1)
+           this%x((j-1)*n1 + i, this%coord2) = y2(2)
         enddo
      enddo
 
@@ -282,8 +301,8 @@ module grid
      do j=1,n2
      do k=1,n3
         ig = (k-1)*n1*n2  +  (j-1)*n1  +  i
-        this%x(ig, coord1)         = this%x1(i)
-        this%x(ig, coord2)         = this%x2(j)
+        this%x(ig, this%coord1)         = this%x1(i)
+        this%x(ig, this%coord2)         = this%x2(j)
         if (fixed_coord == 0) then
            this%x(ig, 3)           = this%x3(k)
         else
@@ -386,6 +405,38 @@ module grid
 
 
 !=======================================================================
+  subroutine setup_mesh(this)
+  class(t_grid)                 :: this
+
+  integer :: i, j, ig
+
+
+  if (.not.allocated(this%mesh)) then
+     write (6, *) 'error in subroutine t_grid%setup_mesh: mesh undefined!'
+     stop
+  endif
+
+
+  ig = 0
+  do j=0,this%n2-1
+     do i=0,this%n1-1
+        ig = ig + 1
+        this%x(ig,this%coord1)      = this%mesh(i,j,1)
+        this%x(ig,this%coord2)      = this%mesh(i,j,2)
+        if (this%fixed_coord > 0) then
+           this%x(ig,this%fixed_coord) = 0.d0
+        else
+           this%x(ig,3)                = this%mesh(i,j,3)
+        endif
+     enddo
+  enddo
+
+  end subroutine setup_mesh
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine store(this, filename, header)
   class(t_grid)                :: this
   character(len=*), intent(in) :: filename
@@ -421,20 +472,6 @@ module grid
  1000 format ('# grid_id = ', i4, 4x, '(', a, ')')
 
 
-  ! fixed or dominant coordinate
-  select case(this%fixed_coord)
-  case(1)
-     coord1 = 2; coord2 = 3
-  case(2)
-     coord1 = 1; coord2 = 3
-  case(0,3)
-     coord1 = 1; coord2 = 2
-  case default
-     write (6, *) 'error: invalid id = ', this%fixed_coord, ' for fixed coordinate!'
-     stop
-  end select
-
-
 ! write grid nodes .............................................
   layout = this%layout
   ! unstructured 3D grids
@@ -449,7 +486,7 @@ module grid
      write (iu, 2001) this%n
      write (iu, 2002) this%x(1, this%fixed_coord)
      do i=1,this%n
-        write (iu, 3002) this%x(i, coord1), this%x(i, coord2)
+        write (iu, 3002) this%x(i, this%coord1), this%x(i, this%coord2)
      enddo
 
   else
@@ -468,6 +505,39 @@ module grid
  3002 format (2e18.10)
  3003 format (3e18.10)
   end subroutine store
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine plot_mesh(this, filename)
+  class(t_grid)                :: this
+  character(len=*), intent(in) :: filename
+
+  integer, parameter :: iu = 42
+
+  integer :: i, j
+
+
+  open  (iu, file=filename)
+  ! write rows
+  do i=0,this%n1-1
+     do j=0,this%n2-1
+        write (iu, *) this%mesh(i,j,:)
+     enddo
+     write (iu, *)
+  enddo
+
+  ! write columns
+  do j=0,this%n2-1
+     do i=0,this%n1-1
+        write (iu, *) this%mesh(i,j,:)
+     enddo
+     write (iu, *)
+  enddo
+  close (iu)
+
+  end subroutine plot_mesh
 !=======================================================================
 
 
