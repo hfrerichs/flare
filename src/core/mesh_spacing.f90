@@ -49,7 +49,7 @@ module mesh_spacing
      this%mode = 0
 
   ! exponential spacing function
-  elseif (mode(1:3) == 'exp:') then
+  elseif (mode(1:4) == 'exp:') then
      this%mode = EXPONENTIAL
      this%nc   = 1
      allocate(this%c(this%nc))
