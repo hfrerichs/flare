@@ -8,15 +8,24 @@ module mesh_spacing
   implicit none
   private
 
+
+  integer, parameter :: &
+     EXPONENTIAL = 1, &
+     USER_DEF    = -1
+
+
   type, public :: t_spacing
      integer :: mode = 0
+
+     integer :: nc ! number of coefficients
+     real(real64), dimension(:), allocatable :: c ! internal coefficients
      type(t_curve) :: D
 
      contains
      procedure init, node, plot
   end type t_spacing
   
-  type(t_spacing), public, parameter :: Equidistant = t_spacing(0,Empty_curve)
+  type(t_spacing), public, parameter :: Equidistant = t_spacing(0,0,null(),Empty_curve)
 
   contains
 !=======================================================================
@@ -31,14 +40,24 @@ module mesh_spacing
   integer :: iB
 
 
+  if (allocated(this%c)) deallocate(this%c)
+  iB = len_trim(mode)
+
+
   ! equidistant spacing
   if (mode == '') then
      this%mode = 0
 
+  ! exponential spacing function
+  elseif (mode(1:3) == 'exp:') then
+     this%mode = EXPONENTIAL
+     this%nc   = 1
+     allocate(this%c(this%nc))
+     read (mode(5:iB), *, err=5000) this%c(1)
+
   ! user defined (external) spacing function
   elseif (mode(1:5) == 'file:') then
-     this%mode = -1
-     iB = len_trim(mode)
+     this%mode = USER_DEF
      call this%D%load(mode(6:iB))
      call check_manual_stretching_function(this%D)
      call this%D%setup_coordinate_sampling(1)
@@ -49,6 +68,9 @@ module mesh_spacing
      stop
   endif
 
+  return
+ 5000 write (6, *) 'error in t_spacing%init: could not read value from string ', this%mode
+  stop
   end subroutine init
 !=======================================================================
 
@@ -119,18 +141,41 @@ module mesh_spacing
   real(real64) :: t, x(2)
 
 
-  ! equidistant sampling
+  ! equidistant spacings
   t  = 1.d0 * i / n
   xi = t
 
 
-  ! user defined stretching function
-  if (this%mode == -1) then
+  select case(this%mode)
+  ! exponential spacings
+  case(EXPONENTIAL)
+     xi = sample_exp(i, n, this%c(1))
+
+  ! user defined spacings
+  case(USER_DEF)
      call this%D%sample_at(t, x)
      xi = x(2)
-  endif
+
+  end select
 
   end function node
+!=======================================================================
+
+
+
+!=======================================================================
+  function sample_exp(i, n, lambda) result(xi)
+  integer,      intent(in) :: i, n
+  real(real64), intent(in) :: lambda
+
+  real(real64) :: xi, t, S
+
+
+  S  = exp(1.d0/lambda) - 1.d0
+  t  = 1.d0 * i / n
+  xi = (exp(t/lambda) - 1.d0)/S
+
+  end function sample_exp
 !=======================================================================
 
 
