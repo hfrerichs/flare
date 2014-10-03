@@ -12,7 +12,8 @@ OBJECTS =  \
                ode_solver.o\
                quad_ele.o\
                usr_grid.o\
-               grid.o
+               grid.o\
+               string.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR)
 
