@@ -424,7 +424,7 @@ module grid
         this%x(ig,this%coord1)      = this%mesh(i,j,1)
         this%x(ig,this%coord2)      = this%mesh(i,j,2)
         if (this%fixed_coord > 0) then
-           this%x(ig,this%fixed_coord) = 0.d0
+           this%x(ig,this%fixed_coord) = this%fixed_coord_value
         else
            this%x(ig,3)                = this%mesh(i,j,3)
         endif
