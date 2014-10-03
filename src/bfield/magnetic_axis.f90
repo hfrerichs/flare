@@ -71,8 +71,9 @@ module magnetic_axis
   R_axis = R
   Z_axis = Z
   get_magnetic_axis => magnetic_axis_2D
+  write (6, 1000) R, Z
 
-  return
+ 1000 format(8x,'Magnetic axis at (',f8.3,', ',f8.3,')')
   end subroutine setup_magnetic_axis_2D
 !=======================================================================
 
