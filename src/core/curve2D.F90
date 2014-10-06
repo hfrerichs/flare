@@ -25,12 +25,17 @@ module curve2D
      ! number of line segments (n_seg), number of coordinates (n_dim)
      integer  :: n_seg = -1, n_dim = 0
 
+     ! length of curve
+     real(real64) :: l = 0.d0
+
      ! nodes along the curve, dimension(0:n_seg, 1:n_dim)
      type (t_dataset) :: nodes
      real(real64), dimension(:,:), pointer :: x => null()
 
      ! relative weight for each line segment, dimension(1:n_seg)
-     real(real64), dimension(:),   pointer :: w_seg => null()
+     !real(real64), dimension(:),   pointer :: w_seg => null()
+     ! relative coordinate along curve (0:n_seg): 0->1
+     real(real64), dimension(:),   pointer :: w => null()
 
      contains
 
@@ -48,10 +53,11 @@ module curve2D
      procedure :: setup_length_sampling
      procedure :: setup_coordinate_sampling
      procedure :: sample_at
+     procedure :: split3
      procedure :: length
   end type t_curve
 
-  type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,Empty_dataset,null(),null())
+  type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
 
 
   public :: intersect_curve, make_2D_curve
@@ -101,7 +107,8 @@ module curve2D
 
   call this%nodes%destroy()
   nullify(this%x)
-  if (associated(this%w_seg)) deallocate(this%w_seg)
+  !if (associated(this%w_seg)) deallocate(this%w_seg)
+  if (associated(this%w)) deallocate(this%w)
 
   end subroutine destroy
 !=======================================================================
@@ -688,24 +695,29 @@ module curve2D
 
 
   ! allocate memory for weight array
-  if (associated(L%w_seg)) deallocate(L%w_seg)
-  allocate (L%w_seg(n))
+  !if (associated(L%w_seg)) deallocate(L%w_seg)
+  !allocate (L%w_seg(n))
+  if (associated(L%w)) deallocate(L%w)
+  allocate (L%w(0:n))
 
   ! setup weight array
   w_tot = 0.d0
   x     = L%x(0,:)
   phi1  = datan2(x(2)-x_c(2), x(1)-x_c(1))
+  L%w     = 0.d0
   do i=1,n
      x     = L%x(i,:)
      phi2  = datan2(x(2)-x_c(2), x(1)-x_c(1))
      dphi  = phi2 - phi1
      if (dabs(dphi) .gt. pi) dphi = dphi - dsign(pi2,dphi)
 
-     L%w_seg(i) = dphi
-     w_tot      = w_tot + dphi
+     !L%w_seg(i) = dphi
+     L%w(i)     = L%w(i-1) + dphi
+     !w_tot      = w_tot + dphi
      phi1  = phi2
   enddo
-  L%w_seg  = L%w_seg / w_tot
+  !L%w_seg  = L%w_seg / w_tot
+  L%w  = L%w / L%w(n)
 
   end subroutine setup_angular_sampling
 !=======================================================================
@@ -724,19 +736,26 @@ module curve2D
 
   ! allocate memory for weight array
   n = L%n_seg
-  if (associated(L%w_seg)) deallocate(L%w_seg)
-  allocate (L%w_seg(n))
+  !if (associated(L%w_seg)) deallocate(L%w_seg)
+  !allocate (L%w_seg(n))
+  if (associated(L%w)) deallocate(L%w)
+  allocate (L%w(0:n))
 
   ! setup weight array
   w_tot = 0.d0
+  L%w = 0.d0
   do i=1,n
      dx    = L%x(i,:) - L%x(i-1,:)
      s     = dsqrt(sum(dx**2))
 
-     L%w_seg(i) = s
+     !L%w_seg(i) = s
+     L%w(i) = L%w(i-1) + s
      w_tot      = w_tot + s
   enddo
-  L%w_seg  = L%w_seg / w_tot
+  !L%w_seg  = L%w_seg / w_tot
+  !L%l      = w_tot
+  L%l      = L%w(n)
+  L%w  = L%w / L%w(n)
 
   end subroutine setup_length_sampling
 !=======================================================================
@@ -762,17 +781,22 @@ module curve2D
 
   ! allocate memory for weight array
   n = L%n_seg
-  if (associated(L%w_seg)) deallocate(L%w_seg)
-  allocate (L%w_seg(n))
+  !if (associated(L%w_seg)) deallocate(L%w_seg)
+  !allocate (L%w_seg(n))
+  if (associated(L%w)) deallocate(L%w)
+  allocate (L%w(0:n))
 
   ! setup weight array
   w_tot = 0.d0
+  L%w = 0.d0
   do i=1,n
      s          = L%x(i,ic) - L%x(i-1,ic)
-     L%w_seg(i) = s
-     w_tot      = w_tot + s
+     !L%w_seg(i) = s
+     L%w(i) = L%w(i-1) + s
+     !w_tot      = w_tot + s
   enddo
-  L%w_seg  = L%w_seg / w_tot
+  !L%w_seg  = L%w_seg / w_tot
+  L%w  = L%w / L%w(n)
 
   end subroutine setup_coordinate_sampling
 !=======================================================================
@@ -783,6 +807,7 @@ module curve2D
 ! sample data point 'x' from curve 'L' at position 't'
 !=======================================================================
   subroutine sample_at (L, t, x, x1)
+  use search
   implicit none
 
   class(t_curve), intent(in) :: L
@@ -795,34 +820,46 @@ module curve2D
 
 
   ! find index i of line segment associated with t
-!  n = L%n_seg
-!  i = binary_interval_search(1, n, L%w_seg, t, ierr)
-!  if (ierr .ne. 0) then
-!     x = 0.d0
-!     return
-!  endif
-  n    = L%n_seg
-  wt   = t
-  wint = 0.d0
-  do i=1,n
-     wint = wint + L%w_seg(i)
-     if (wint .ge. wt) exit
-  enddo
-  if (i.eq.n+1) i=n
+  n = L%n_seg
+  i = binary_interval_search(0, n, L%w, t, ierr)
+  if (ierr .ne. 0) then
+     x = 0.d0
+     return
+  endif
+!  n    = L%n_seg
+!  wt   = t
+!  wint = 0.d0
+!  do i=1,n
+!     wint = wint + L%w_seg(i)
+!     if (wint .ge. wt) exit
+!  enddo
+!  if (i.eq.n+1) i=n
 
 
   ! calculate relative position on line segment
-  wt   = (wint - wt) / L%w_seg(i)
+  !wt   = (wint - wt) / L%w_seg(i)
+  wt   = (L%w(i+1) - t) / (L%w(i+1) - L%w(i))
 
   ! return data point
-  x    = L%x(i-1,:) * wt + L%x(i,:) * (1.d0 - wt)
+  !x    = L%x(i-1,:) * wt + L%x(i,:) * (1.d0 - wt)
+  x    = L%x(i,:) * wt + L%x(i+1,:) * (1.d0 - wt)
 
   ! optional output: tangent vector
   if (present(x1)) then
-     x1 = (L%x(i,:)-L%x(i-1,:))/L%w_seg(i)
+     !x1 = (L%x(i,:)-L%x(i-1,:))/L%w_seg(i)
+     x1 = (L%x(i+1,:)-L%x(i,:))/L%w(i)
   endif
 
   end subroutine sample_at
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine split3(this, C1, C2, C3)
+  class(t_curve) :: this
+  type(t_curve), intent(out) :: C1, C2, C3
+  end subroutine split3
 !=======================================================================
 
 
