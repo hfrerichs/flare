@@ -37,6 +37,7 @@ module field_aligned_grid
   character(len=120) :: &
      Base_Grid_Alignment = '', &
      Radial_Discretization = 'auto', &
+     !Radial_Path           = 'auto', &
      Radial_Spacing        = '', &
      Poloidal_Spacing      = '', &
      Zones                 = 'automatic'
@@ -77,12 +78,23 @@ module field_aligned_grid
   logical :: default_decomposition
 
 
-  ! toroidal discretization (within zones)
-  type t_zone
+  ! user defined input for each zone
+  type t_zone_input
      integer :: nt(-1:1), np, nr
+
+     character(len=120) :: radial_direction, Radial_Spacing, boundary_filter
+     character(len=120) :: Poloidal_Spacing
+     !character(len=120) :: Toroidal_Spacing
+  end type t_zone_input
+
+  type, extends(t_zone_input) :: t_zone
      real(real64), dimension(:), allocatable :: phi
+
+     type(t_spacing) :: radial, poloidal, toroidal
+
   end type t_zone
   type(t_zone), dimension(:), allocatable :: TD
+  type(t_zone_input), dimension(:), allocatable :: Zone
 
 
   real(real64) :: Delta_Phi_Sim, &
@@ -497,19 +509,29 @@ module field_aligned_grid
   use iso_fortran_env
   implicit none
 
+! user defined input parameters ....
+  real(real64) :: &
+     d_SOL1 = 10.d0, &
+     d_SOL2 = 10.d0, &
+     d_PFR1 =  5.d0, &
+     d_PFR2 =  5.d0
+!...................................
+
   type t_X
      real(real64) :: X(2), theta, PsiN
      integer      :: orientation
   end type t_X
 
 
-  real(real64), dimension(:,:), allocatable :: xsp
+  real(real64), dimension(:,:), allocatable :: xsp, lsp
   real(real64), dimension(:,:,:), allocatable :: xsp_mesh
   type(t_separatrix) :: Si, So
-  type(t_flux_surface_2D) :: F
+  type(t_flux_surface_2D), dimension(:), allocatable :: F
+  type(t_flux_surface_2D) :: B_out
+  type(t_curve)           :: C1, C2, C3
   type(t_X)    :: Xp(2)
-  real(real64) :: X(3), t
-  integer      :: iXpi, iXpo, i
+  real(real64) :: X(3), t, l1, l2, ldiv(2)
+  integer      :: iXpi, iXpo, i, j, is
 
   
   ! upper X-point
@@ -540,6 +562,8 @@ module field_aligned_grid
   write (6, 1000) Xp(iXpi)%X
   call Si%generate(Xp(iXpi)%X, Xp(iXpi)%orientation, Xp(iXpo)%theta, cAlign)
   call Si%plot('Si')
+  ldiv(1) = Si%M4%length()
+  ldiv(2) = Si%M3%length()
 
 
   ! generate outer separatrix
@@ -554,26 +578,83 @@ module field_aligned_grid
 
   call split_str(Radial_Spacing)
   call Radial_Path%setup_length_sampling()
-  do i=1,9
-     t = Equidistant%node(i,10)
+  nr = 10
+  allocate (xsp(nr, 2))
+  allocate (lsp(nr, 2))
+  allocate (xsp_mesh(nr, -TD(3)%nt(-1):TD(3)%nt(1), 2))
+  allocate (F(nr))
+  do i=1,nr
+     t = Equidistant%node(i,nr)
      call Radial_Path%sample_at(t, X(1:2))
-     call F%generate(X(1:2), Trace_Step=0.1d0)
+     call F(i)%generate(X(1:2), Trace_Step=0.1d0)
+     call F(i)%setup_length_sampling()
      !call F%plot(98)
      !write (98, *)
 
-     write (90, *) F%x(0,:)
-     write (91, *) F%x(F%n_seg,:)
+     write (90, *) F(i)%x(0,:)
+     write (91, *) F(i)%x(F(i)%n_seg,:)
   enddo
 
+
   ! generate 1st SOL strike points
-  allocate (xsp(1, 2))
-  allocate (xsp_mesh(1, -TD(3)%nt(-1):TD(3)%nt(1), 2))
-  xsp(1,:) = F%x(0,:)
-  call generate_strike_point_mesh(1, TD(3), xsp, xsp_mesh)
-  do i=-TD(3)%nt(-1),TD(3)%nt(1)
-     write (80, *) xsp_mesh(1,i,:)
+  is = Bt_sign * Ip_sign
+  ! a. ISP
+  do i=1,nr
+     xsp(i,:) = F(i)%x(0,:)
   enddo
+  call generate_strike_point_mesh(nr, TD(3), xsp, xsp_mesh)
+  do i=1,nr
+  do j=-TD(3)%nt(-1),TD(3)%nt(1)
+     write (80, *) xsp_mesh(i,j,:)
+  enddo
+
+
+  l1 = 0.d0
+  do j=is,is*TD(3)%nt(is),is
+     l1 = l1 + sqrt(sum((xsp_mesh(i,j,:)-xsp_mesh(i,j-is,:))**2))
+  enddo
+  l1 = ldiv(1) / F(i)%length()
+  lsp(i,1) = l1
+  call F(i)%sample_at(l1, X(1:2))
+  write (81, *) X(1:2)
+  enddo
+
+  ! b. OSP
+  is = -1 * is
+  do i=1,nr
+     xsp(i,:) = F(i)%x(F(i)%n_seg,:)
+  enddo
+  call generate_strike_point_mesh(nr, TD(3), xsp, xsp_mesh)
+  do i=1,nr
+  do j=-TD(3)%nt(-1),TD(3)%nt(1)
+     write (82, *) xsp_mesh(i,j,:)
+  enddo
+
+
+  l2 = 0.d0
+  do j=is,is*TD(3)%nt(is),is
+     l2 = l2 + sqrt(sum((xsp_mesh(i,j,:)-xsp_mesh(i,j-is,:))**2))
+  enddo
+  l2 = 1.d0 - ldiv(2) / F(i)%length()
+  lsp(i,2) = l2
+  call F(i)%sample_at(l2, X(1:2))
+  write (83, *) X(1:2)
+  enddo
+
+
+  call F(5)%split3(lsp(5,1), lsp(5,2), C1, C2, C3)
+  call F(5)%plot(filename='F5.plt')
+  call C1%plot(filename='C1.plt')
+  call C2%plot(filename='C2.plt')
+  call C3%plot(filename='C3.plt')
+
+
+
+
   deallocate (xsp, xsp_mesh)
+  do i=1,nr
+     call F(i)%destroy()
+  enddo
 
 
   ! generate outer boundary
@@ -582,8 +663,8 @@ module field_aligned_grid
   call Radial_Path%setup_length_sampling()
   call Radial_Path%plot(filename='radial_path_2a.txt')
   call Radial_Path%sample_at(1.d0, X(1:2))
-  call F%generate(X(1:2), Trace_Step=0.1d0, AltSurf=cAlign)
-  call F%plot(filename='outer_boundary.plt')
+  call B_out%generate(X(1:2), Trace_Step=0.1d0, AltSurf=cAlign)
+  call B_out%plot(filename='outer_boundary.plt')
 
 
 
@@ -666,7 +747,7 @@ module field_aligned_grid
                            'trace_Dphi returned error ', ierr
               stop
            endif
-           write (6, *) jdir*Dphi/pi*180.d0, y1(3)/pi*180.d0, F%rc(3)/pi*180.d0, F%phi_int/pi*180.d0
+           !write (6, *) jdir*Dphi/pi*180.d0, y1(3)/pi*180.d0, F%rc(3)/pi*180.d0, F%phi_int/pi*180.d0
 
            xsp_mesh(is,jdir*j,:) = y1(1:2)
         enddo
