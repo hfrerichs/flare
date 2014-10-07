@@ -856,9 +856,60 @@ module curve2D
 
 
 !=======================================================================
-  subroutine split3(this, C1, C2, C3)
-  class(t_curve) :: this
+! split curve into 3 elements              |---C1---|---C2---|---C3---|
+! at intrinsic coordinates xiA,xiB    xi = 0        xiA      xiB      1
+!=======================================================================
+  subroutine split3(this, xiA, xiB, C1, C2, C3)
+  use search
+  class(t_curve)             :: this
+  real(real64),  intent(in)  :: xiA, xiB
   type(t_curve), intent(out) :: C1, C2, C3
+
+  real(real64) :: tA, tB, x(this%n_dim)
+  integer :: iA, iB, ierr, n
+
+
+  ! 1. check input
+  if (xiA < 0.d0  .or.  xiA > 1.d0) then
+     write (6, *) 'error in t_curve%split3: xiA must be in [0,1]!'
+     stop
+  endif
+  if (xiB < 0.d0  .or.  xiB > 1.d0) then
+     write (6, *) 'error in t_curve%split3: xiB must be in [0,1]!'
+     stop
+  endif
+  if (xiA > xiB) then
+     write (6, *) 'error in t_curve%split3: xiA > xiB not allowed!'
+     stop
+  endif
+
+
+  ! 2. find segment to split
+  n  = this%n_seg
+  iA = binary_interval_search(0, n, this%w, xiA, ierr)
+  iB = binary_interval_search(0, n, this%w, xiB, ierr)
+  tA   = (this%w(iA+1) - xiA) / (this%w(iA+1) - this%w(iA))
+  tB   = (this%w(iB+1) - xiB) / (this%w(iB+1) - this%w(iB))
+
+
+  ! 3. generate new curves
+  !  |     |     |  x   |     |     |  x   |     |     |
+  !  0           iA xiA iA+1        iB xiB iB+1        n
+  call C1%new(iA+1)
+  C1%x            = this%x(0:iA+1,:)
+  x               = this%x(iA,:) * tA + this%x(iA+1,:) * (1.d0 - tA)
+  C1%x(iA+1,:)    = x
+
+  call C2%new(iB-iA+1)
+  C2%x            = this%x(iA:iB+1,:)
+  C2%x(0,:)       = x
+  x               = this%x(iB,:) * tB + this%x(iB+1,:) * (1.d0 - tB)
+  C2%x(iB-iA+1,:) = x
+
+  call C3%new(n-iB)
+  C3%x            = this%x(iB:n,:)
+  C3%x(0,:)       = x
+
   end subroutine split3
 !=======================================================================
 
