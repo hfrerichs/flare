@@ -303,10 +303,11 @@ module curve2D
 
 
 !=======================================================================
-  subroutine plot(this, iu, filename)
-  class(t_curve)                      :: this
-  integer, intent(in), optional       :: iu
+  subroutine plot(this, iu, filename, append)
+  class(t_curve) :: this
+  integer,          intent(in), optional :: iu
   character(len=*), intent(in), optional :: filename
+  logical,          intent(in), optional :: append
 
   integer :: i, iu0
 
@@ -319,7 +320,12 @@ module curve2D
 
   ! Output_File given?
   if (present(filename)) then
-     open  (iu0, file=filename)
+     if (present(append)  .and.  append) then
+        open  (iu0, file=filename, position='append')
+        write (iu0, *)
+     else
+        open  (iu0, file=filename)
+     endif
   endif
 
 
