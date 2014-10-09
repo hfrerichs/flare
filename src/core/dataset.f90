@@ -3,6 +3,7 @@
 !===============================================================================
 module dataset
   use iso_fortran_env
+  use parallel
   implicit none
   private
 
@@ -18,7 +19,7 @@ module dataset
      real(real64), dimension(:,:), pointer :: x => null()
 
      contains
-     procedure :: load, plot, new, destroy
+     procedure :: load, plot, new, destroy, mpi_allreduce
   end type t_dataset
 
   type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,null())
@@ -128,10 +129,10 @@ module dataset
 ! filename       output filename
 ! nelem          number of elements to output
 !=======================================================================
-  subroutine plot(this, iu, filename, nelem)
+  subroutine plot(this, iu, filename, nelem, formatstr)
   class (t_dataset), intent(in)           :: this
   integer,           intent(in), optional :: iu, nelem
-  character(len=*),  intent(in), optional :: filename
+  character(len=*),  intent(in), optional :: filename, formatstr
 
 
   character(len=11) :: f
@@ -151,8 +152,13 @@ module dataset
 
 
   ! output format
-  write (f, 1000) this%ncol
+  if (present(formatstr)) then
+     write (f, 1001) this%ncol, formatstr
+  else
+     write (f, 1000) this%ncol
+  endif
  1000 format ('(',i3,'e18.10)')
+ 1001 format ('(',i3,a,')')
 
   ! offset and number of elements
   n0 = this%nrow_offset
@@ -212,6 +218,18 @@ module dataset
 
   if (associated(this%x)) deallocate(this%x)
   end subroutine destroy
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine mpi_allreduce(this)
+  class(t_dataset) :: this
+
+  call wait_pe()
+  call sum_real_data (this%x, this%nrow*this%ncol)
+
+  end subroutine mpi_allreduce
 !=======================================================================
 
 end module dataset
