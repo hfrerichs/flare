@@ -14,14 +14,15 @@ subroutine sample_bfield
   use parallel
   use bfield
   use equilibrium
-  use usr_grid
+  use grid
   use math
   implicit none
 
   integer, parameter :: iu = 42
 
+  type(t_grid) :: G
   real*8  :: Bmod, Bf(3), xvec(3), r(3), PsiN, Bpol, rpol
-  integer :: iflag
+  integer :: ig
 
 
   if (firstP) then
@@ -36,10 +37,9 @@ subroutine sample_bfield
      stop
   endif
   write (iu, 1000) COORDINATES(min(Output_Format,2))
-  call read_grid (Grid_File, use_coordinates=COORDINATES(min(Output_Format,2)))
-  grid_point_loop: do
-     call get_next_grid_point (iflag, xvec)
-     if (iflag.eq.-1) exit grid_point_loop
+  call G%load(Grid_File)
+  grid_point_loop: do ig=1,G%nodes()
+     xvec = G%node(ig, coordinates=min(Output_Format,2))
 
      select case (Output_Format)
      case (1)
