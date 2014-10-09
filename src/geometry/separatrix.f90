@@ -118,23 +118,33 @@ module separatrix
 
 
 !=======================================================================
-  subroutine plot(this, filename_prefix)
+  subroutine plot(this, filename_prefix, parts)
   class(t_separatrix)          :: this
   character(len=*), intent(in) :: filename_prefix
+  logical,          intent(in), optional :: parts
 
   integer, parameter :: iu = 99
 
   character(len=120) :: filename
 
 
-  filename = filename_prefix//'_1.txt'
-  call this%M1%plot(filename=filename)
-  filename = filename_prefix//'_2.txt'
-  call this%M2%plot(filename=filename)
-  filename = filename_prefix//'_3.txt'
-  call this%M3%plot(filename=filename)
-  filename = filename_prefix//'_4.txt'
-  call this%M4%plot(filename=filename)
+  if (present(parts)  .and.  parts) then
+     filename = filename_prefix//'_1.txt'
+     call this%M1%plot(filename=filename)
+     filename = filename_prefix//'_2.txt'
+     call this%M2%plot(filename=filename)
+     filename = filename_prefix//'_3.txt'
+     call this%M3%plot(filename=filename)
+     filename = filename_prefix//'_4.txt'
+     call this%M4%plot(filename=filename)
+  else
+     filename = filename_prefix//'.plt'
+     call this%M1%plot(filename=filename)
+     call this%M2%plot(filename=filename, append=.true.)
+     call this%M3%plot(filename=filename, append=.true.)
+     call this%M4%plot(filename=filename, append=.true.)
+  endif
+
   end subroutine plot
 !=======================================================================
 
@@ -168,21 +178,25 @@ module separatrix
 
 !=======================================================================
 ! Generate path along grad-Psi from Px (X-point)
-! orientation = 1: ascent PsiN in left SOL
-!             = 2: ascent PsiN in right SOL
+! orientation = 1: ascent PsiN in left SOL direction
+!             = 2: ascent PsiN in right SOL direction
 !             = 3: descent PsiN to core
 !             = 4: descent PsiN to PFR
 !=======================================================================
-  subroutine generate_gradPsiN_path(this, Px, orientation, L, PsiN)
+  subroutine generate_gradPsiN_path(this, Px, orientation, limit, val)
   use ode_solver
   use run_control, only: Trace_Method, N_steps
   class(t_gradPsiN_path)   :: this
   real(real64), intent(in) :: Px(2)
-  integer,      intent(in) :: orientation
-  real(real64), intent(in), optional :: L, PsiN
+  integer,      intent(in) :: orientation, limit
+  real(real64), intent(in) :: val
+
+  integer, parameter :: &
+     FIXED_PSIN        = 1, &
+     DISTANCE          = 2
 
   type(t_ODE)  :: Path
-  real(real64) :: v1(2), v2(2), x0(2), y(3), ds, dl, t, Psi0
+  real(real64) :: v1(2), v2(2), x0(2), y(3), ds, dl, t, Psi0, PsiN, L
   integer      :: n_seg, is
 
 
@@ -214,7 +228,10 @@ module separatrix
 
 
   ! 2.1 determine length/number of segments by final PsiN value
-  if (present(PsiN)) then
+  select case(limit)
+  case(FIXED_PSIN)
+     PsiN = val
+
      n_seg  = 1
      y(1:2) = x0
      y(3)   = 0.d0
@@ -227,16 +244,17 @@ module separatrix
         n_seg  = n_seg + 1
      enddo
 
-  ! 2.2 expected number of segments
-  elseif (present(L)) then
+  ! 2.2 expected number of segments from curve length
+  case(DISTANCE)
+     L     = val
      n_seg = nint((L-dl) / abs(ds)) + 2
 
   ! either PsiN or L must be given!
-  else
+  case default
      write (6, *) 'error in subroutine t_gradPsiN_Path%generate:'
-     write (6, *) 'either parameter L or PsiN must be given!'
+     write (6, *) 'limit must be either FIXED_PSIN or DISTANCE!'
      stop
-  endif
+  end select
   call this%new(n_seg)
   this%x(0,:) = Px
   this%x(1,:) = x0
@@ -252,7 +270,7 @@ module separatrix
 
   ! 4. adjust last node to match L
   t = 1.d0
-  if (present(L)) t = (L-dl+abs(ds))/abs(ds)
+  if (limit == 2) t = (L-dl+abs(ds))/abs(ds)
   this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
 
   end subroutine generate_gradPsiN_path
