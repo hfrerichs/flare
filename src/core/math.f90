@@ -97,11 +97,9 @@ module math
   integer      :: k
 
 
-  phi_sym = phi
-  Dphi    = pi2 / n_sym
-  k       = phi_sym / Dphi
-  phi_sym = phi_sym - k*Dphi
-  if (phi_sym.lt.0) phi_sym = phi_sym + Dphi
+  Dphi = pi2 / n_sym
+  phi_sym = mod(phi, Dphi)
+  if (phi_sym < 0.d0) phi_sym = phi_sym + Dphi
 
   end function phi_sym
 !=======================================================================
