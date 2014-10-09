@@ -12,11 +12,9 @@
 !> \author 	Heinke Frerichs (h.frerichs at fz-juelich.de)
 !-------------------------------------------------------------------------------
       module usr_grid
+      use math
       implicit none
 
-      character*12, dimension(2), parameter ::
-     .    COORDINATES = (/ 'cartesian   ',
-     .                     'cylindrical ' /)
 
 !> Array with grid nodes
       real*8, dimension(:,:), pointer :: grid_data
