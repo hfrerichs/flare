@@ -102,7 +102,7 @@ module interpolate3D
 
   integer, parameter :: iu = 32
 
-  integer      :: nr, nz, nphi, nsym
+  integer      :: i, nr, nz, nphi, nsym
   real(real64) :: Rc, Zc, w, h
 
 
@@ -110,7 +110,9 @@ module interpolate3D
   read  (iu, *) nr, nz, nphi, nsym
   read  (iu, *) Rc, Zc, w,    h
   call this%new(nr, nz, Rc, Zc, w, h, nphi, nsym)
-  read  (iu, *) this%d
+  do i=1,this%nphi
+     read  (iu, *) this%d(:,:,i)
+  enddo
   call this%setup()
   close (iu)
 
@@ -125,12 +127,15 @@ module interpolate3D
   character(len=*), intent(in) :: filename
 
   integer, parameter :: iu = 32
+  integer :: i
 
 
   open  (iu, file=filename)
   write (iu, *) this%nr, this%nz, this%nphi, this%nsym
   write (iu, *) this%Rc, this%Zc, this%w,    this%h
-  write (iu, *) this%d
+  do i=1,this%nphi
+     write (iu, *) this%d(:,:,i)
+  enddo
   close (iu)
 
   end subroutine store
