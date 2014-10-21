@@ -293,7 +293,7 @@ subroutine connection_length
   enddo
   if (nout.gt.0) close (iu)
 
- 1000 format (3x,' - Additional output:')
+ 1000 format (3x,'- Additional output:')
  2000 format (i4,3x,a)
  2001 format (8x,a)
   end subroutine additional_output_info
