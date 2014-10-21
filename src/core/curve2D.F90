@@ -21,6 +21,11 @@ module curve2D
   private
 
 
+  integer, parameter :: &
+     ANGLE     = 1, &
+     ARCLENGTH = 2
+
+
   type, public :: t_curve
      ! number of line segments (n_seg), number of coordinates (n_dim)
      integer  :: n_seg = -1, n_dim = 0
@@ -37,6 +42,9 @@ module curve2D
      ! relative coordinate along curve (0:n_seg): 0->1
      real(real64), dimension(:),   pointer :: w => null()
 
+     ! treat curve as closed loop?
+     logical :: closed = .false.
+
      contains
 
      procedure :: load
@@ -46,11 +54,15 @@ module curve2D
      procedure :: broadcast
      procedure :: plot
      procedure :: sort_loop
+     procedure :: sort_by_angle
+     procedure :: sort_by_distance
      procedure :: expand
+     procedure :: flip
      procedure :: left_hand_shift
      procedure :: get_distance_to
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
+     procedure :: setup_segment_sampling
      procedure :: setup_coordinate_sampling
      procedure :: sample_at
      procedure :: split3
@@ -74,11 +86,24 @@ module curve2D
   integer,          intent(in),  optional :: output
   character(len=*), intent(out), optional :: header
 
+  real(real64) :: dl, x1(2), x2(2)
+
 
   call this%nodes%load(data_file, 2, output, header, -1)
   this%n_seg =  this%nodes%nrow-1
   this%n_dim =  2
   this%x     => this%nodes%x
+
+
+  ! check if curve is closed
+  x1 = this%x(0,:)
+  x2 = this%x(this%n_seg,:)
+  dl = sqrt(sum((x1-x2)**2))
+  if (dl < epsilon(real(1.0,real64))) then
+     this%closed          = .true.
+     this%x(0,:)          = 0.5d0 * (x1+x2)
+     this%x(this%n_seg,:) = 0.5d0 * (x1+x2)
+  endif
 
   end subroutine load
 !=======================================================================
@@ -187,41 +212,57 @@ module curve2D
 ! th:   position on segment x1->x2
 ! sh:   position on segment ish of curve C
 ! ish:  segment number of C where intersection point is located
+!
+! optional input:
+! intersect_mode = 0: check for intersection with segment x1->x2 only (default)
+!                  1: check for intersection also beyond x2
+!                 -1: check for intersection along the full line defined by x1->x2
 !===============================================================================
-  function intersect_curve (x1, x2, C, xh, th, sh, ish)
+  function intersect_curve (x1, x2, C, xh, th, sh, ish, intersect_mode)
   real(real64),  intent(in)            :: x1(2), x2(2)
   type(t_curve), intent(in)            :: C
   real(real64),  intent(out), optional :: xh(2), th, sh
   integer,       intent(out), optional :: ish
+  integer,       intent(in ), optional :: intersect_mode
   logical                              :: intersect_curve
 
   real(real64) :: t, s, xl1(2), xl2(2), xh0(2)
-  integer      :: is
+  integer      :: is, mode
 
 
   intersect_curve = .false.
   t = 0.d0
   s = 0.d0
 
+  mode = 0
+  if (present(intersect_mode)) mode = intersect_mode
+
   do is=1,C%n_seg
      xl1 = C%x(is-1,:)
      xl2 = C%x(is  ,:)
      if (intersect_lines(x1,x2,xl1,xl2,t,s,xh0)) then
-        if (t.ge.0.d0 .and. t.le.1.d0 .and. s.ge.0.d0 .and. s.le.1.d0) then
-           intersect_curve = .true.
-           if (present(xh)) then
-              xh = xh0
+        ! intersection with actual segment on curve
+        if (s.ge.0.d0 .and. s.le.1.d0) then
+
+           if ((mode == -1)  .or.  &
+               (mode ==  0  .and.  t.ge.0.d0 .and. t.le.1.d0)  .or.  &
+               (mode ==  1  .and.  t.ge.0.d0)) then
+
+              intersect_curve = .true.
+              if (present(xh)) then
+                 xh = xh0
+              endif
+              if (present(th)) then
+                 th = t
+              endif
+              if (present(sh)) then
+                 sh = s
+              endif
+              if (present(ish)) then
+                 ish = is
+              endif
+              return
            endif
-           if (present(th)) then
-              th = t
-           endif
-           if (present(sh)) then
-              sh = s
-           endif
-           if (present(ish)) then
-              ish = is
-           endif
-           return
         endif
      endif
   enddo
@@ -346,52 +387,76 @@ module curve2D
 
 
 !=======================================================================
-! sort points on a closed contour line 'L' with regard to center 'x_c'
-! and direction 'dx'
+! sort points on a closed curve 'C' with regard to center/reference point 'xc'
+! and direction 'd'
 !=======================================================================
-  subroutine sort_loop (L, x_c_, dx_)
+  subroutine sort_loop (C, xc, d, method)
   implicit none
 
-  class(t_curve), intent(inout)          :: L
-  real(real64),     intent(in), optional :: x_c_(2), dx_(2)
+  class(t_curve), intent(inout)        :: C
+  real(real64),   intent(in), optional :: xc(2), d(2)
+  integer,        intent(in), optional :: method
+
+
+  select case (method)
+  case(ANGLE)
+     call C%sort_by_angle(xc, d)
+  case default
+     write (6, *) 'error in t_curve%sort_loop: method ', method, ' undefined!'
+     stop
+  end select
+
+  end subroutine sort_loop
+!=======================================================================
+  subroutine sort_by_angle (C, xc, d)
+  implicit none
+
+  class(t_curve), intent(inout)        :: C
+  real(real64),   intent(in), optional :: xc(2), d(2)
 
   real(real64), dimension(:,:), allocatable :: tmp_arr
-  real(real64) :: x_c(2), dx(2)
+  real(real64) :: xr(2), dr(2), xmax, xmin, ymax, ymin
   real(real64) :: theta_0, theta, dxl(2), x_0(2), tmp(3), t
   integer      :: i, j, n
 
 
-  n = L%n_seg
+  n = C%n_seg
 
 
   ! check if reference point x_c is given
-  if (present(x_c_)) then
-     x_c = x_c_
+  if (present(xc)) then
+     xr = xc
   ! set default values otherwise
   else
-     x_c(1) = sum(L%x(:,1)) / (n+1)
-     x_c(2) = sum(L%x(:,2)) / (n+1)
+     ! calculate characteristic parameters
+     xmin = minval(C%x(:,1))
+     xmax = maxval(C%x(:,1))
+     ymin = minval(C%x(:,2))
+     ymax = maxval(C%x(:,2))
+
+     xr(1) = 0.5d0 * (xmin + xmax)
+     xr(2) = 0.5d0 * (ymin + ymax)
   endif
 
 
   ! check if reference direction is given
-  if (present(dx_)) then
-     dx    = dx_
+  if (present(d)) then
+     dr    = d
   ! set default values otherwise
   else
-     dx(1) = 1.d0
-     dx(2) = 0.d0
+     dr(1) = 1.d0
+     dr(2) = 0.d0
   endif
 
 
   ! allocate memory for temporary array
   allocate (tmp_arr(0:n, 3))
-  tmp_arr(:,1:2) = L%x
+  tmp_arr(:,1:2) = C%x
 
-  ! calculate angles w.r.t. x_c
-  theta_0  = datan2(dx(2), dx(1))
+  ! calculate angles w.r.t. xr
+  theta_0  = datan2(dr(2), dr(1))
   do i=0,n
-     dxl   = L%x(i,:) - x_c
+     dxl   = C%x(i,:) - xr
      theta = datan2(dxl(2), dxl(1))
      if (theta .lt. theta_0) theta = theta + pi2
      tmp_arr(i,3) = theta
@@ -407,11 +472,12 @@ module curve2D
      endif
   100 continue
 
+
   ! close loop
   t    = (tmp_arr(0,3) - tmp_arr(n,3) + pi2)
   if (t.eq.0.d0) then
      ! loop already closed
-     L%x(0:n,:) = tmp_arr(0:n,1:2)
+     C%x(0:n,:) = tmp_arr(0:n,1:2)
   else
      t    = (theta_0      - tmp_arr(n,3) + pi2) / t
      x_0  = tmp_arr(n,1:2)
@@ -420,18 +486,135 @@ module curve2D
 
      ! copy data to output variable L
      if (x_0(1).eq.tmp_arr(0,1) .and. x_0(2).eq.tmp_arr(0,2)) then
-        call L%new(n+1)
-        L%x(0:  n,:) = tmp_arr(0:n,1:2)
-        L%x(  n+1,:) = x_0
+        call C%new(n+1)
+        C%x(0:  n,:) = tmp_arr(0:n,1:2)
+        C%x(  n+1,:) = x_0
      else
-        call L%new(n+2)
-        L%x(0    ,:) = x_0
-        L%x(1:n+1,:) = tmp_arr(0:n,1:2)
-        L%x(  n+2,:) = x_0
+        call C%new(n+2)
+        C%x(0    ,:) = x_0
+        C%x(1:n+1,:) = tmp_arr(0:n,1:2)
+        C%x(  n+2,:) = x_0
      endif
   endif
+  C%closed = .true.
 
-  end subroutine sort_loop
+  end subroutine sort_by_angle
+!=======================================================================
+  subroutine sort_by_distance (C, xc)
+  implicit none
+
+  class(t_curve), intent(inout) :: C
+  real(real64),   intent(in)    :: xc(2)
+
+
+  real(real64), dimension(:,:), allocatable :: x
+  integer,      dimension(:),   allocatable :: imark, jmark
+  real(real64) :: x0(2), t, v(2)
+  integer :: i, inb, n
+
+
+  n = C%n_seg
+  allocate (imark(0:n), jmark(0:n), x(0:n,2))
+  imark = -1
+  jmark = -1
+  x     = 0.d0
+
+  inb = find_first(0.d0)
+  v(1) = 0.d0
+  v(2) = 1.d0
+  imark(0)   = inb
+  jmark(inb) = 0
+  !write (97, *) C%x(inb,:)
+  x(0,:) = C%x(inb,:)
+  do i=0,n-1
+     !write (6, *) i
+     call find_closest_neighbor(imark(i), v, inb)
+     imark(i+1) = inb
+     jmark(inb) = i
+
+     !write (97, *) C%x(inb,:)
+     x(i+1,:) = C%x(inb,:)
+  enddo
+
+  ! close loop
+  t  = (xc(2) - x(0,2)) / (x(n,2) - x(0,2))
+  x0 = x(0,:) + t * (x(n,:) - x(0,:))
+  x(0,:) = x0
+  x(n,:) = x0
+  C%closed = .true.
+
+  C%x = x
+
+
+
+  ! check orientation
+  if (x(1,2)-x(0,2) > 0) then
+!     write (6, *) 1
+  else
+!     write (6, *) -1
+     call C%flip()
+  endif
+
+  deallocate (imark, jmark, x)
+
+  contains
+  !.....................................................................
+  subroutine find_closest_neighbor(i0, v, inb)
+  integer, intent(in)  :: i0
+  real(real64), intent(inout) :: v(2)
+  integer, intent(out) :: inb
+
+  real(real64) :: x0(2), d, dmin, dmin_fallback, vnew(2)
+  integer      :: j, inb_fallback
+
+
+  x0   = C%x(i0,:)
+  dmin = 1.d99
+  dmin_fallback = 1.d99
+  inb  = -1
+  do j=0,n
+     ! only check unmarked elements
+     if (jmark(j) == -1) then
+        vnew = x0-C%x(j,:)
+        d = sqrt(sum(vnew**2))
+        if (d < dmin  .and.  sum(vnew*v) > 0.d0) then
+           dmin = d
+           inb  = j
+        elseif (d < dmin_fallback) then
+           dmin_fallback = d
+           inb_fallback  = j
+        endif
+     endif
+  enddo
+  v = x0-C%x(inb,:)
+
+  if (inb == -1) inb = inb_fallback
+
+  if (inb == -1) then
+     write (6, *) 'error: inb = -1'
+     stop
+  endif
+  !write (6, *) i0, inb, dmin
+
+  end subroutine find_closest_neighbor
+  !.....................................................................
+  function find_first(theta0) result(i0)
+
+  real(real64) :: x(2), theta, theta0, dtheta
+  integer :: j, i0
+
+  dtheta = 1.d99
+  do j=0,n
+     x = C%x(j,:)
+     theta = atan2(x(2)-xc(2), x(1)-xc(1))
+     if (abs(theta-theta0) < dtheta  .and.  theta > 0) then
+        dtheta = theta-theta0
+        i0     = j
+     endif
+  enddo
+
+  end function find_first
+  end subroutine sort_by_distance
 !=======================================================================
 
 
@@ -454,6 +637,29 @@ module curve2D
   enddo
 
   end subroutine expand
+!=======================================================================
+
+
+
+!=======================================================================
+! flip orientation of curve
+!=======================================================================
+  subroutine flip(this)
+  class(t_curve)           :: this
+
+  real(real64) :: xtmp(this%n_dim)
+  integer      :: i, j
+
+
+  do i=0,this%n_seg/2
+     j = this%n_seg - i
+
+     xtmp        = this%x(i,:)
+     this%x(i,:) = this%x(j,:)
+     this%x(j,:) = xtmp
+  enddo
+
+  end subroutine flip
 !=======================================================================
 
 
@@ -598,6 +804,14 @@ module curve2D
   call this%copy(Ctmp)
   deallocate (x_new, ts_new, x_tmp)
   call Ctmp%destroy()
+
+! 6. close curve (optional)
+  if (this%closed) then
+     n = this%n_seg
+     x11 = 0.5d0 * (this%x(0,:) + this%x(n,:))
+     this%x(0,:) = x11
+     this%x(n,:) = x11
+  endif
 
   end subroutine left_hand_shift
 !=======================================================================
@@ -769,6 +983,29 @@ module curve2D
 
 
 !=======================================================================
+  subroutine setup_segment_sampling(L)
+  class(t_curve) :: L
+
+  integer      :: i, n
+
+
+  ! allocate memory for weight array
+  n = L%n_seg
+  if (associated(L%w)) deallocate(L%w)
+  allocate (L%w(0:n))
+
+  do i=0,n
+     L%w(i) = 1.d0 * i / n
+  enddo
+
+
+  end subroutine setup_segment_sampling
+!=======================================================================
+
+
+
+
+!=======================================================================
 ! prepare sampling along L using the ic-th coordinate as weight factor
 !=======================================================================
   subroutine setup_coordinate_sampling(L, ic)
@@ -810,24 +1047,29 @@ module curve2D
 
 
 !=======================================================================
-! sample data point 'x' from curve 'L' at position 't'
+! return point 'x' on curve 'L' at position 'xi'
+!
+! optional output:
+!    et		tangent vector
 !=======================================================================
-  subroutine sample_at (L, t, x, x1)
+  subroutine sample_at (L, xi, x, et)
   use search
   implicit none
 
   class(t_curve), intent(in) :: L
-  real(real64),  intent(in)  :: t
+  real(real64),  intent(in)  :: xi
   real(real64),  intent(out) :: x(L%n_dim)
-  real(real64),  intent(out), optional :: x1(L%n_dim)
+  real(real64),  intent(out), optional :: et(L%n_dim)
 
-  real(real64) :: wt, wint
+  real(real64), parameter :: delta = 0.01d0
+  real(real64) :: w
   integer      :: i, n, ierr
+  integer      :: i2
 
 
   ! find index i of line segment associated with t
   n = L%n_seg
-  i = binary_interval_search(0, n, L%w, t, ierr)
+  i = binary_interval_search(0, n, L%w, xi, ierr)
   if (ierr .ne. 0) then
      x = 0.d0
      return
@@ -844,16 +1086,46 @@ module curve2D
 
   ! calculate relative position on line segment
   !wt   = (wint - wt) / L%w_seg(i)
-  wt   = (L%w(i+1) - t) / (L%w(i+1) - L%w(i))
+  w   = (L%w(i+1) - xi) / (L%w(i+1) - L%w(i))
 
-  ! return data point
+  ! return point x
   !x    = L%x(i-1,:) * wt + L%x(i,:) * (1.d0 - wt)
-  x    = L%x(i,:) * wt + L%x(i+1,:) * (1.d0 - wt)
+  x    = L%x(i,:) * w + L%x(i+1,:) * (1.d0 - w)
+
 
   ! optional output: tangent vector
-  if (present(x1)) then
+  if (present(et)) then
      !x1 = (L%x(i,:)-L%x(i-1,:))/L%w_seg(i)
-     x1 = (L%x(i+1,:)-L%x(i,:))/L%w(i)
+
+     ! tangent vector parallel to line segment
+     et = L%x(i+1,:)-L%x(i,:)
+
+
+     ! transition in the vicinity of the nodes
+     ! ... near lower node
+     if (xi < delta) then
+        i2 = i-1
+        if (i2 < 0) then
+           i2 = 0
+           if (L%closed) i2 = n - 1
+        endif
+
+        et = L%x(i+1,:)-L%x(i2,:)
+     endif
+     ! ... near upper node
+     if (xi > 1.d0-delta) then
+        i2 = i+2
+        if (i2 > n) then
+           i2 = n
+           if (L%closed) i2 = 1
+        endif
+
+        et = L%x(i2,:)-L%x(i,:)
+     endif
+
+
+     ! normalize tangent vector
+     et = et / sqrt(sum(et**2))
   endif
 
   end subroutine sample_at
