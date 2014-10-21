@@ -92,6 +92,7 @@ module fieldline
   this%thetac    = get_poloidal_angle(this%rc)
   this%theta0    = this%thetac
   this%PsiNc     = get_PsiN(this%rc)
+  this%Dphi      = 0.d0
 
   end subroutine init
 !=======================================================================
