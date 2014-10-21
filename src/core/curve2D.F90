@@ -23,7 +23,7 @@ module curve2D
 
   integer, parameter :: &
      ANGLE     = 1, &
-     ARCLENGTH = 2
+     DISTANCE  = 2
 
 
   type, public :: t_curve
@@ -407,6 +407,8 @@ module curve2D
   select case (method)
   case(ANGLE)
      call C%sort_by_angle(xc, d)
+  case(DISTANCE)
+     call C%sort_by_distance(xc)
   case default
      write (6, *) 'error in t_curve%sort_loop: method ', method, ' undefined!'
      stop
@@ -509,14 +511,22 @@ module curve2D
   subroutine sort_by_distance (C, xc)
   implicit none
 
-  class(t_curve), intent(inout) :: C
-  real(real64),   intent(in)    :: xc(2)
+  class(t_curve), intent(inout)        :: C
+  real(real64),   intent(in), optional :: xc(2)
 
 
   real(real64), dimension(:,:), allocatable :: x
   integer,      dimension(:),   allocatable :: imark, jmark
-  real(real64) :: x0(2), t, v(2)
-  integer :: i, inb, n
+  real(real64) :: xr(2), x0(2), t, v(2)
+  integer      :: i, inb, n
+
+
+  if (present(xc)) then
+     xr = xc
+  else
+     xr(1) = 0.5d0 * (minval(C%x(:,1)) + maxval(C%x(:,1)))
+     xr(2) = 0.5d0 * (minval(C%x(:,2)) + maxval(C%x(:,2)))
+  endif
 
 
   n = C%n_seg
@@ -543,7 +553,7 @@ module curve2D
   enddo
 
   ! close loop
-  t  = (xc(2) - x(0,2)) / (x(n,2) - x(0,2))
+  t  = (xr(2) - x(0,2)) / (x(n,2) - x(0,2))
   x0 = x(0,:) + t * (x(n,:) - x(0,:))
   x(0,:) = x0
   x(n,:) = x0
@@ -612,7 +622,7 @@ module curve2D
   dtheta = 1.d99
   do j=0,n
      x = C%x(j,:)
-     theta = atan2(x(2)-xc(2), x(1)-xc(1))
+     theta = atan2(x(2)-xr(2), x(1)-xr(1))
      if (abs(theta-theta0) < dtheta  .and.  theta > 0) then
         dtheta = theta-theta0
         i0     = j
