@@ -172,17 +172,17 @@ subroutine connection_length
            if (dist2PsiN(idir,2).le.0.d0 .and. F%cross_PsiN(Psi(2))) dist2PsiN(idir,2) = abs(lc(idir))
 
 
-           ! check intersection with walls
-           if (F%intersect_boundary(id=id)) then
-              id_limit(idir) = id
-              exit trace_loop
-           endif
-
-
            ! shortest distance (in RZ-plane) to last closed flux surface
            if (distance_to_lcfs) then
               d = abs(LCFS%get_distance_to(F%rc))
               if (d < d_min) d_min = d
+           endif
+
+
+           ! check intersection with walls
+           if (F%intersect_boundary(id=id)) then
+              id_limit(idir) = id
+              exit trace_loop
            endif
         enddo trace_loop
         lpt(idir)  = F%theta_int
