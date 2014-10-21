@@ -397,6 +397,12 @@ module curve2D
   real(real64),   intent(in), optional :: xc(2), d(2)
   integer,        intent(in), optional :: method
 
+  integer :: sort_method
+
+
+  sort_method = ANGLE
+  if (present(method)) sort_method = method
+
 
   select case (method)
   case(ANGLE)
