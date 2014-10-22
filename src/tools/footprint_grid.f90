@@ -1,7 +1,7 @@
 !===============================================================================
 subroutine footprint_grid
   use iso_fortran_env
-  use run_control, only: Grid_File, Output_File, n_theta, n_phi, offset
+  use run_control, only: Grid_File, Output_File, Output_Format, n_theta, n_phi, offset
   use parallel
   implicit none
 
@@ -103,7 +103,12 @@ subroutine footprint_grid
         if (theta < 0) theta = theta + 360.d0
         !write (iu2, *) phi, theta
         G_plot%x(ig,1) = phi / pi * 180.d0
-        G_plot%x(ig,2) = theta
+        select case (Output_Format)
+        case(ANGLE)
+           G_plot%x(ig,2) = theta
+        case(DISTANCE)
+           G_plot%x(ig,2) = xi
+        end select
      enddo
 
      call C%destroy()
