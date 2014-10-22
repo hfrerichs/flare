@@ -1,9 +1,8 @@
 !===============================================================================
-! Generate flux surfaces
+! Generate (non-axisymmetric) flux surfaces, based on module poincare_set
 !===============================================================================
 module flux_surface_3D
   use iso_fortran_env
-  use flux_surface_2D
   use dataset
   use curve2D
   use poincare_set
@@ -21,6 +20,7 @@ module flux_surface_3D
   ! full flux surface
   type, public :: t_flux_surface_3D
      type(t_surface_cut), dimension(:), allocatable :: slice
+     !type(t_slice), dimension(:), allocatable :: slice
 
      real(real64) :: PsiN
      integer      :: n_sym, n_phi, n_theta
@@ -107,22 +107,34 @@ module flux_surface_3D
 ! npoints     number of points per slice
 ! nsym        toroidal symmetry number
 ! nslice      number of slices within 0..360/nsym deg
-! nsteps      number of step between slices
+! nsteps      number of trace steps between slices
 ! solver      id of ODE solver
 !=======================================================================
-  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver)
+  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, poloidal_coordinate)
   use equilibrium
   use mesh_spacing
   class(t_flux_surface_3D) :: this
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
+  integer,      intent(in), optional :: poloidal_coordinate
 
   type(t_poincare_set)     :: P
   type(t_curve)            :: C
   real(real64) :: Maxis(3), phi, t, x(2)
-  integer      :: i, j, n
+  integer      :: i, j, n, ipc
 
 
+  ! set poloidal coordinate
+  ipc = ANGLE
+  if (present(poloidal_coordinate)) ipc = poloidal_coordinate
+  if (ipc < ANGLE  .or.  ipc > DISTANCE) then
+     write (6, *) 'error in t_flux_surface_3D%generate: ', &
+                  'invalid poloidal coordinate id ', ipc, '!'
+     stop
+  endif
+
+
+  ! initialize and generate Poincare plot for y0
   call this%new(nsym, nslice)
   n     = nsteps
   if (n == 0) n = 16
@@ -133,7 +145,7 @@ module flux_surface_3D
   this%PsiN = get_PsiN(y0)
 
 
-  ! check if each slice is complete
+  ! check if each slice is complete, sort points and sample equidistant points on surface
   this%n_theta = npoints
   do i=0,nslice-1
      if (P%slice(i)%npoints .ne. npoints) then
@@ -145,8 +157,7 @@ module flux_surface_3D
      Maxis = get_magnetic_axis(phi)
      call C%new(npoints-1)
      C%x   = P%slice(i)%x(:,1:2)
-     call C%sort_loop(Maxis(1:2))
-     call C%setup_angular_sampling()
+     call C%sort_loop(Maxis(1:2), method=ipc)
 
 
      call this%slice(i)%new(npoints-1)
@@ -210,6 +221,7 @@ module flux_surface_3D
 
 !=======================================================================
   subroutine generate_from_axisymmetric_surface(this, fs2D, n_sym, n_phi, n_theta)
+  use flux_surface_2D
   class(t_flux_surface_3D) :: this
   type(t_flux_surface_2D)  :: fs2D
   integer, intent(in)      :: n_sym, n_phi, n_theta
