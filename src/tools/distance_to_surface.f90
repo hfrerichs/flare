@@ -72,7 +72,7 @@ subroutine setup_distance_to_surface
 
 
   ! save output
-  call distance%store(filename='distance.dat')
+  call distance%store(filename=Output_File)
 
 end subroutine setup_distance_to_surface
 !===============================================================================
