@@ -21,7 +21,7 @@ module curve2D
   private
 
 
-  integer, parameter :: &
+  integer, parameter, public :: &
      ANGLE     = 1, &
      DISTANCE  = 2
 
@@ -505,6 +505,7 @@ module curve2D
      endif
   endif
   C%closed = .true.
+  call C%setup_angular_sampling()
 
   end subroutine sort_by_angle
 !=======================================================================
@@ -572,6 +573,7 @@ module curve2D
   endif
 
   deallocate (imark, jmark, x)
+  call C%setup_length_sampling()
 
   contains
   !.....................................................................
