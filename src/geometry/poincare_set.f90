@@ -9,7 +9,10 @@ module poincare_set
   private
 
   type, extends(t_dataset) :: t_slice
+     ! toroidal position of slice [rad]
      real(real64) :: phi
+
+     ! actual number of points on slice
      integer      :: npoints
   end type t_slice
 
@@ -34,7 +37,7 @@ module poincare_set
 ! npoints     number of points per slice
 ! nsym        toroidal symmetry number
 ! nslice      number of slices within 0..360/nsym deg
-! nsteps      number of step between slices
+! nsteps      number of trace steps between slices
 ! solver      id of ODE solver
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, stop_at_boundary)
