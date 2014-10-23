@@ -2,6 +2,7 @@ include ../../include.mk
 
 
 OBJECTS =  \
+               quicksort.o\
                math.o\
                dataset.o\
                search.o\

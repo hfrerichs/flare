@@ -20,6 +20,7 @@ module dataset
 
      contains
      procedure :: load, plot, new, destroy, mpi_allreduce
+     procedure :: sort_rows
   end type t_dataset
 
   type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,null())
@@ -230,6 +231,28 @@ module dataset
   call sum_real_data (this%x, this%nrow*this%ncol)
 
   end subroutine mpi_allreduce
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine sort_rows(this, icol)
+  class(t_dataset)    :: this
+  integer, intent(in) :: icol
+
+  integer :: n, n0, m
+
+
+  m  = this%ncol
+  if (icol < 1  .or.  icol > m) then
+     write (6, *) 'error in t_dataset%sort_rows: invalid column number ', icol, '!'
+     stop
+  endif
+  n  = this%nrow
+  n0 = this%nrow_offset
+  call quicksort(this%x, n, m, 1+n0, n+n0, icol)
+
+  end subroutine sort_rows
 !=======================================================================
 
 end module dataset
