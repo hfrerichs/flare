@@ -6,6 +6,7 @@
 !
 !    Trace_Step         Size of trace steps (see Trace_Coords)
 !    Limit              Maximum distance for field line tracing (in one direction)
+!    N_theta            Maximum number of poloidal turns
 !
 !    Trace_Method	> 0: Integration (see module ODE_solver)
 !                       = 0: Reconstruction from field aligned grid
@@ -40,12 +41,14 @@
 !                      = 32: Backward distance along field line to Psi(2)
 !                      = 64: Forward  distance along field line to Psi(2)
 !                     = 128: Radial distance to last closed flux surface (lcfs.dat)
+!                     = 256: Final radial position (PsiN) in backward direction
+!                     = 512: Final radial position (PsiN) in forward direction
 !    Psi(1), Psi(2)    Reference radial coordinate for additional data type 8-32
 !    Output_File
 !===============================================================================
 subroutine connection_length
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Trace_Coords, &
-                         Output_Format, Limit, Psi
+                         Output_Format, Limit, Psi, N_theta
   use grid
   use parallel
   use math
@@ -65,7 +68,7 @@ subroutine connection_length
 
   character(len=12)  :: fstr
   real(real64)       :: y(3), r(3), PsiN, Psi_min, Psi_av
-  real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2), d, d_min
+  real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2), d, d_min, PsiN_final(-1:1)
   logical :: distance_to_lcfs
   integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir, id, id_limit(-1:1)
 
@@ -156,6 +159,7 @@ subroutine connection_length
            ! update connection length
            lc(idir)   = lc(idir) + Trace_Step
            if (abs(lc(idir)) .ge. Limit) exit trace_loop
+           if (N_theta > 0  .and.  abs(F%theta_int) .ge. N_theta*pi2) exit trace_loop
 
 
            ! update field line penetration
@@ -186,6 +190,7 @@ subroutine connection_length
            endif
         enddo trace_loop
         lpt(idir)  = F%theta_int
+        PsiN_final(idir) = PsiN
      enddo
 
 
@@ -217,6 +222,10 @@ subroutine connection_length
            lc_data(ig,5+i) = dist2PsiN( 1,2)
         case (7)
            lc_data(ig,5+i) = d_min
+        case (8)
+           lc_data(ig,5+i) = PsiN_final(-1)
+        case (9)
+           lc_data(ig,5+i) = PsiN_final(1)
         end select
      enddo
 
@@ -284,6 +293,10 @@ subroutine connection_length
         text = 'Forward  distance to Psi = '//trim(text)
      case (7)
         text = 'Distance to last closed flux surface'
+     case (8)
+        text = 'Final radial position (PsiN) in backward direction'
+     case (9)
+        text = 'Final radial position (PsiN) in forward direction'
      case default
         write (6, *) 'error: ', 2**i2, ' is not a valid data id!'
         stop

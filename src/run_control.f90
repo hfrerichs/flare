@@ -36,7 +36,7 @@ module run_control
      N_points       = 0, &          ! Max. number of points for Poincare plots
      N_sym          = 1, &          ! Toroidal symmetry factor (for Poincare plots)
      N_mult         = 1, &          !
-     N_theta        = 1, &          ! Resolution in poloidal direction
+     N_theta        = 0, &          ! Resolution in poloidal direction
      N_psi          = 1, &          ! Resolution in radial direction
      N_phi          = 1, &          ! Resolution in toroidal direction
      N_R            = 1, &          ! Resolution in R direction
