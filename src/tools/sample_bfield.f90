@@ -8,6 +8,7 @@
 !    Output_Format      = 1: |B|, Cartesian components (Bx,By,Bz), PsiN
 !                       = 2: |B|, Cylindrical components (BR,BZ,Bphi), PsiN
 !                       = 3: (Output_Format 2), Bpol/Btor
+!                       = 4: |grad PsiN|, e_Psi * e_B
 !===============================================================================
 subroutine sample_bfield
   use iso_fortran_env
@@ -25,6 +26,7 @@ subroutine sample_bfield
   type(t_grid)    :: G
   type(t_dataset) :: D
   real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Bpol, rpol
+  real(real64)    :: DPsiDR, DPsiDZ
   integer         :: ig, n
 
 
@@ -33,7 +35,7 @@ subroutine sample_bfield
      write (6, *)
      open  (iu, file=Output_File, err=5010)
 
-     if (Output_Format < 1 .or. Output_Format > 3) then
+     if (Output_Format < 1 .or. Output_Format > 4) then
         write (6, *) 'undefined output format ', Output_Format
         stop
      endif
@@ -47,7 +49,8 @@ subroutine sample_bfield
 
   ! initialize output data
   n = 5
-  if (Output_Format > 2) n = 6
+  if (Output_Format == 3) n = 6
+  if (Output_Format == 4) n = 2
   call D%new(G%nodes(), n)
 
 
@@ -58,7 +61,7 @@ subroutine sample_bfield
      select case (Output_Format)
      case (1)
         Bf = get_Bf_Cart (xvec)
-     case (2,3)
+     case (2,3,4)
         Bf = get_Bf_Cyl (xvec)
      end select
      Bf   = Bf/1.d4	! Gauss -> Tesla
@@ -70,14 +73,22 @@ subroutine sample_bfield
      PsiN = get_PsiN(r)
 
 
-     D%x(ig,1)   = Bmod
-     D%x(ig,2:4) = Bf
-     D%x(ig,5)   = PsiN
-     if (Output_Format > 2) then
+     if (Output_Format <= 3) then
+        D%x(ig,1)   = Bmod
+        D%x(ig,2:4) = Bf
+        D%x(ig,5)   = PsiN
+     endif
+     if (Output_Format == 3) then
         ! ratio of poloidal to toroidal field
         Bpol = sqrt(Bf(1)**2 + Bf(2)**2)
         rpol = Bpol / Bf(3)
         D%x(ig,6)   = rpol
+     endif
+     if (Output_Format == 4) then
+        DPsiDR      = get_DPsiN(r, 1, 0)
+        DPsiDZ      = get_DPsiN(r, 0, 1)
+        D%x(ig,1)   = sqrt(DPsiDR**2 + DPsiDZ**2)
+        D%x(ig,2)   = (DPsiDR*Bf(1) + DPsiDZ*Bf(2)) / D%x(ig,1) / Bmod
      endif
   enddo grid_loop
   call D%mpi_allreduce()
