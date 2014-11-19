@@ -29,6 +29,14 @@ subroutine get_equi_info_2D
   Px = find_lX()
   write (6, 9000) Px
 
+  ! magnetic axis
+  r(3) = 0.d0
+  r = get_magnetic_axis(r(3))
+  write (6, 9001) r(1:2)
+  open  (iu, file='magnetic_axis.dat')
+  write (iu, *) r(1:2)
+  close (iu)
+
 
   ! write grid with sample locations
   nR = 128
@@ -100,6 +108,7 @@ subroutine get_equi_info_2D
 
 
  9000 format (3x,'- found X-point at: ',2f10.3)
+ 9001 format (3x,'- magnetic axis is at: ',2f10.3)
  1000 format ('# grid_id = 3       (regular RZ grid)')
  1001 format ('# R resolution:      n_R     =  ',i8)
  1002 format ('# Z resolution:      n_Z     =  ',i8)
