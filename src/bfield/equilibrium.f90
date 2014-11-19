@@ -392,7 +392,7 @@ module equilibrium
   integer, intent(in) :: nR, nZ
   real*8              :: DPsiN
 
-  DPsiN = get_DPsi(r, nR, nZ) / (Psi_sepx - Psi_axis)
+  DPsiN = get_DPsi(r(1:2), nR, nZ) / (Psi_sepx - Psi_axis)
 
   end function get_DPsiN
 !=======================================================================
