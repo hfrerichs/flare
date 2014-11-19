@@ -111,15 +111,21 @@ module curve2D
 
 
 !=======================================================================
-  subroutine new(this, n_seg)
+  subroutine new(this, n_seg, sampling)
   class(t_curve)      ::  this
   integer, intent(in) :: n_seg
+  logical, intent(in), optional :: sampling
 
 
   this%n_seg = n_seg
   this%n_dim = 2
   call this%nodes%new(n_seg+1, 2, -1)
   this%x     => this%nodes%x
+
+  if (present(sampling) .and. sampling) then
+     if (associated(this%w)) deallocate(this%w)
+     allocate (this%w(0:n_seg))
+  endif
 
   end subroutine new
 !=======================================================================
