@@ -32,6 +32,7 @@ subroutine generate_flux_surface_3D
   else
      return
   endif
+  call no_parallel_execution_message()
 
 
   y0    = x_start

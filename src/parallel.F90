@@ -50,6 +50,16 @@ end subroutine finished_parallel
 
 
 !===============================================================================
+  subroutine no_parallel_execution_message
+  if (firstP .and. nprs > 1) then
+     write (6, *) 'parallel execution not supported!'
+  endif
+  end subroutine no_parallel_execution_message
+!===============================================================================
+
+
+
+!===============================================================================
 subroutine broadcast_real_s(A)
 real*8, intent(inout) :: A
 
