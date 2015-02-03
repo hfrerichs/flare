@@ -9,6 +9,7 @@ OBJECTS =  \
                equilibrium.o\
                polygones.o\
                m3dc1.o\
+               splineB.o\
                interpolateB.o\
                bfield.o
 
