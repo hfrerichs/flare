@@ -3,7 +3,6 @@
 !===============================================================================
 module dataset
   use iso_fortran_env
-  use parallel
   implicit none
   private
 
@@ -225,10 +224,15 @@ module dataset
 
 !=======================================================================
   subroutine mpi_allreduce(this)
+#if defined(parallelMPI)
+  use parallel
+#endif
   class(t_dataset) :: this
 
+#if defined(parallelMPI)
   call wait_pe()
   call sum_real_data (this%x, this%nrow*this%ncol)
+#endif
 
   end subroutine mpi_allreduce
 !=======================================================================
