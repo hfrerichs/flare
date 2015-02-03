@@ -112,12 +112,12 @@ subroutine poincare_plot
   ! use radial range R_start -> R_end
   if (R_start > 0.d0) then
      dr   = 0.d0
-     my_grid => new_grid(N_steps+1, log_progress=.false.)
+     my_grid => new_grid(N_steps, log_progress=.false.)
 
      if (N_steps .ne. 1) then
-        dr = (R_end - R_start) / N_steps
+        dr = (R_end - R_start) / (N_steps-1)
         if (firstP) write (6,2001) R_start, R_end, N_steps
-        do ig=0,N_steps
+        do ig=0,N_steps-1
            my_grid(ig+1,1) = R_start + ig*dr
         enddo
      else
