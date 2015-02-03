@@ -314,7 +314,7 @@ module grid
 
   !.....................................................................
   else
-     write (6, *) 'error: invalid grid layout ', this%layout, '!'
+     write (6, *) 'error: invalid grid layout ', layout, '!'
      stop
   endif
 
@@ -418,8 +418,8 @@ module grid
 
 
   ig = 0
-  do j=0,this%n2-1
      do i=0,this%n1-1
+  do j=0,this%n2-1
         ig = ig + 1
         this%x(ig,this%coord1)      = this%mesh(i,j,1)
         this%x(ig,this%coord2)      = this%mesh(i,j,2)
