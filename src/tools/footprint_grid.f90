@@ -40,6 +40,20 @@ subroutine footprint_grid
      write (6, *) 'error: surface element ', iele, ' does not exist!'
      stop
   endif
+  write (6, 1000) iele
+ 1000 format (3x,'- for quadrilateral surface ', i2)
+  select case (Output_Format)
+  case(ANGLE)
+     write (6, 1001)
+  case(DISTANCE)
+     write (6, 1002)
+  case default
+     write (6, *) 'error: undefined output format ', Output_Format
+     stop
+  end select
+ 1001 format (3x,'- Using poloidal angle as reference coordinate')
+ 1002 format (3x,'- Using relative position in poloidal direction as reference coordinate')
+
 
 
   ! copy surface (to be modified locally)
