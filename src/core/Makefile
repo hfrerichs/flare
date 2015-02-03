@@ -4,6 +4,7 @@ include ../../include.mk
 OBJECTS =  \
                quicksort.o\
                math.o\
+               Q4.o\
                dataset.o\
                search.o\
                curve2D.o\
