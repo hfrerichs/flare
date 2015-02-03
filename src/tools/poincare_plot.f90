@@ -46,6 +46,7 @@ subroutine poincare_plot
   use boundary
   use fieldline
   use usr_grid
+  use math
   implicit none
 
   integer, parameter :: iu = 40
@@ -77,6 +78,7 @@ subroutine poincare_plot
      write (6, 1001) N_sym
      if (N_mult > 1) write (6, 1002) N_mult
      write (6, 1003) Phi_output
+     write (6, 1004) COORDINATES(Trace_Coords)
      write (6, *)
   endif
 
@@ -114,7 +116,7 @@ subroutine poincare_plot
      dr   = 0.d0
      my_grid => new_grid(N_steps+1, log_progress=.false.)
 
-     if (N_steps .ne. 1) then
+     if (N_steps .ne. 0) then
         dr = (R_end - R_start) / N_steps
         if (firstP) write (6,2001) R_start, R_end, N_steps
         do ig=0,N_steps
@@ -237,6 +239,7 @@ subroutine poincare_plot
  1001 format (8x,'Toroidal symmetry number:         ',i4)
  1002 format (8x,'Number of slices to be generated: ',i4)
  1003 format (8x,'Reference location     ',f7.3,' deg')
+ 1004 format (8x,'Field line tracing coordinates: ',a)
  2001 format (8x,'radial domain:',5x,'R_start = ',f6.2,5x, &
               'R_end = ',f6.2,5x,'with ',i4,' steps'/)
  2002 format (8x,'position:',5x,'R = ',f6.2,5x/)
