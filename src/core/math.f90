@@ -94,7 +94,6 @@ module math
   real(real64)             :: phi_sym
 
   real(real64) :: Dphi
-  integer      :: k
 
 
   Dphi = pi2 / n_sym
