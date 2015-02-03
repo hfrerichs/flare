@@ -7,8 +7,6 @@ module fieldline
   use math
   use ode_solver
   use reconstruct
-  use bfield
-  use equilibrium
   implicit none
 
   integer, parameter :: FL_LINE  = 1
@@ -53,6 +51,7 @@ module fieldline
 
 !=======================================================================
   subroutine init (this, y0, ds, isolver, icoord)
+  use equilibrium
   class (t_fieldline) :: this
   real*8, intent(in)  :: y0(3), ds
   integer, intent(in) :: isolver, icoord
@@ -103,6 +102,7 @@ module fieldline
 ! Trace field line one step size
 !=======================================================================
   subroutine trace_1step_ODE(this)
+  use equilibrium
   class(t_fieldline), intent(inout) :: this
 
   real(real64) :: yc(3), Dtheta
@@ -146,6 +146,7 @@ module fieldline
 
 !=======================================================================
   function fieldline_get_PsiN(this) result(PsiN)
+  use equilibrium
   class(t_fieldline) :: this
   real*8             :: PsiN
 
@@ -258,20 +259,21 @@ module fieldline
 
 
 !=======================================================================
-  function fieldline_intersects_boundary(this, rcut, id) result(l)
+  function fieldline_intersects_boundary(this, rcut, id, ielem) result(l)
   use boundary
   class(t_fieldline), intent(inout) :: this
   real*8, intent(out), optional     :: rcut(3)
-  integer, intent(out), optional    :: id
+  integer, intent(out), optional    :: id, ielem
   logical                           :: l
 
   real*8  :: X(3)
-  integer :: id1
+  integer :: id1, ielem1
 
 
-  l = intersect_boundary (this%rl, this%rc, X, id1)
+  l = intersect_boundary (this%rl, this%rc, X, id1, ielem1)
   if (present(rcut)) rcut = X
   if (present(id))   id   = id1
+  if (present(ielem)) ielem = ielem1
 
   end function fieldline_intersects_boundary
 !=======================================================================
@@ -338,6 +340,7 @@ module fieldline
 
 !=======================================================================
   subroutine Bf_sub_cart (n, t, y, f)
+  use bfield
   implicit none
 
   integer, intent(in) :: n
@@ -354,6 +357,7 @@ module fieldline
 
 !=======================================================================
   subroutine Bf_sub_cyl (n, t, y, f)
+  use bfield
   implicit none
 
   integer, intent(in) :: n
@@ -371,6 +375,7 @@ module fieldline
 
 !=======================================================================
   subroutine Bf_sub_cyl_norm (n, t, y, f)
+  use bfield
   implicit none
 
   integer, intent(in) :: n
