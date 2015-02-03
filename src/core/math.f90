@@ -9,6 +9,10 @@ module math
      CYLINDRICAL = 2, &
      TORUS       = 4      ! torus coordinates: minor radius, poloidal angle, toroidal angle
   
+  integer, parameter :: &
+     GEOANGLE    = 1, &
+     ARCLENGTH   = 2
+
   character(len=12), dimension(2), parameter :: &
      COORDINATES = (/ 'cartesian   ', &
                       'cylindrical ' /)
