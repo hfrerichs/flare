@@ -14,12 +14,12 @@ module bfield
      BF_COILS        = 2, &
      BF_M3DC1        = 3, &
      BF_INTERPOLATEB = 4, &
-     BF_GRID_A       = 5
+     BF_SPLINEB      = 5
 
   integer, parameter :: BF_MAX_CONFIG = 5
 
 
-  integer :: iconfig(0:BF_MAX_CONFIG)
+  integer :: iconfig(0:BF_MAX_CONFIG), icall(2)
 
   contains
 !=======================================================================
@@ -35,12 +35,14 @@ module bfield
   use polygones
   use m3dc1
   use interpolateB
+  use splineB
 
   integer, parameter :: iu = 24
 
   real(real64) :: r(3), Bf(3)
 
 
+  icall = 0
   ! load configuration on first processor
   if (firstP) then
      open  (iu, file=Bfield_input_file)
@@ -75,6 +77,7 @@ module bfield
      call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
      call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
      call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
+     call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
      close (iu)
   endif
 
@@ -87,6 +90,7 @@ module bfield
   if (iconfig(BF_COILS       ) == 1) call broadcast_mod_polygones()
   if (iconfig(BF_M3DC1       ) == 1) call        m3dc1_broadcast()
   if (iconfig(BF_INTERPOLATEB) == 1) call interpolateB_broadcast()
+  if (iconfig(BF_SPLINEB     ) == 1) call      splineB_broadcast()
 
 
 
@@ -106,6 +110,7 @@ module bfield
   use polygones
   use m3dc1
   use interpolateB
+  use splineB
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -116,10 +121,52 @@ module bfield
   if (iconfig(BF_COILS)         == 1) Bf = Bf + get_Bcyl_polygones(r)
   if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
+  if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
+  icall(1) = icall(1) + 1
 
 
   end function get_Bf_Cyl
 !=======================================================================
+
+
+
+!=======================================================================
+! calculate Jacobian
+! WARNING: presently only for interpolateA - components
+!=======================================================================
+  function get_JBf_Cyl(r) result(J)
+  use splineB
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: J(3,3)
+
+
+  J = 0.d0
+
+  if (iconfig(BF_SPLINEB)  == 1) J = J + splineB_get_JBf(r)
+
+  end function get_JBf_Cyl
+!========================================================================
+
+
+
+!========================================================================
+! calculate divergence B (due to numerical representation of magnetic
+! field data)
+!========================================================================
+  function get_divB(r) result(divB)
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: divB
+
+  real(real64) :: J(3,3), Bf(3)
+
+
+  divB = 0.d0
+  Bf   = get_Bf_Cyl(r)
+  J    = get_JBf_Cyl(r)
+  divB = J(1,1) + Bf(1) / r(1) + J(3,3) / r(1) + J(2,2)
+
+  end function get_divB
+!========================================================================
 
 
 
@@ -131,6 +178,7 @@ module bfield
   use polygones
   use m3dc1
   use interpolateB
+  use splineB
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 
@@ -152,12 +200,14 @@ module bfield
   if (iconfig(BF_COILS)         == 1) Bf   = Bf   + get_Bcart_polygones(x)
   if (iconfig(BF_M3DC1)         == 1) Bcyl = Bcyl +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bcyl = Bcyl + interpolateB_get_Bf(r)
+  if (iconfig(BF_SPLINEB)       == 1) Bcyl = Bcyl +      splineB_get_Bf(r)
 
 
   ! combine Cartesian and cylindrical components
   Bf(1) = Bf(1) + Bcyl(1) * cos_phi - Bcyl(3) * sin_phi
   Bf(2) = Bf(2) + Bcyl(1) * sin_phi + Bcyl(3) * cos_phi
   Bf(3) = Bf(3) + Bcyl(2)
+  icall(2) = icall(2) + 1
 
   end function get_Bf_Cart
 !=======================================================================
@@ -165,10 +215,27 @@ module bfield
 
 
 !=======================================================================
+  subroutine reset_counter
+  icall = 0
+  end subroutine reset_counter
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine finished_bfield
   use m3dc1
+  use parallel
 
   if (iconfig(BF_M3DC1)         == 1) call m3dc1_close()
+
+  call wait_pe()
+  call sum_inte_data(icall,2)
+  if (firstP) then
+     write (6, *) icall(1), ' calls to Bf_cyl'
+     write (6, *) icall(2), ' calls to Bf_cart'
+  endif
+
 
   end subroutine finished_bfield
 !=======================================================================
