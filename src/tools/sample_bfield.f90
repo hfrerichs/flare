@@ -9,6 +9,7 @@
 !                       = 2: |B|, Cylindrical components (BR,BZ,Bphi), PsiN
 !                       = 3: (Output_Format 2), Bpol/Btor
 !                       = 4: |grad PsiN|, e_Psi * e_B
+!                       = 5: divB
 !===============================================================================
 subroutine sample_bfield
   use iso_fortran_env
@@ -25,7 +26,7 @@ subroutine sample_bfield
 
   type(t_grid)    :: G
   type(t_dataset) :: D
-  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Bpol, rpol
+  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Bpol, rpol, divB
   real(real64)    :: DPsiDR, DPsiDZ
   integer         :: ig, n
 
@@ -33,12 +34,13 @@ subroutine sample_bfield
   if (firstP) then
      write (6, *) 'Sample magnetic field, output in: ', adjustl(trim(Output_File))
      write (6, *)
-     open  (iu, file=Output_File, err=5010)
 
-     if (Output_Format < 1 .or. Output_Format > 4) then
+     if (Output_Format < 1 .or. Output_Format > 5) then
         write (6, *) 'undefined output format ', Output_Format
         stop
      endif
+
+     open  (iu, file=Output_File, err=5010)
      write (iu, 1000) COORDINATES(min(Output_Format,2))
   endif
 
@@ -51,6 +53,7 @@ subroutine sample_bfield
   n = 5
   if (Output_Format == 3) n = 6
   if (Output_Format == 4) n = 2
+  if (Output_Format == 5) n = 4
   call D%new(G%nodes(), n)
 
 
@@ -58,10 +61,11 @@ subroutine sample_bfield
   grid_loop: do ig=mype+1,G%nodes(),nprs
      xvec = G%node(ig, coordinates=min(Output_Format,2))
 
+     Bf = 0.d0
      select case (Output_Format)
      case (1)
         Bf = get_Bf_Cart (xvec)
-     case (2,3,4)
+     case (2,3,4,5)
         Bf = get_Bf_Cyl (xvec)
      end select
      Bf   = Bf/1.d4	! Gauss -> Tesla
@@ -89,6 +93,13 @@ subroutine sample_bfield
         DPsiDZ      = get_DPsiN(r, 0, 1)
         D%x(ig,1)   = sqrt(DPsiDR**2 + DPsiDZ**2)
         D%x(ig,2)   = (DPsiDR*Bf(1) + DPsiDZ*Bf(2)) / D%x(ig,1) / Bmod
+     endif
+     if (Output_Format == 5) then
+        divB        = get_divB(r)
+        D%x(ig,1)   = r(1)
+        D%x(ig,2)   = r(2)
+        D%x(ig,3)   = divB / 1.d4 ! Gauss/cm -> Tesla/cm
+        D%x(ig,4)   = D%x(ig,3) / Bmod
      endif
   enddo grid_loop
   call D%mpi_allreduce()
