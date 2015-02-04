@@ -132,7 +132,7 @@ subroutine check_emc3_grid
 
         a1 = 0.25d0*(RG(I3)+RG(I4)-RG(I1)-RG(I2))
         b1 = 0.25d0*(RG(I3)+RG(I2)-RG(I1)-RG(I4))
-        d1 = 0.25d0*(RG(I1)+RG(I3)-RG(I2)-RG(I4))
+        c1 = 0.25d0*(RG(I1)+RG(I3)-RG(I2)-RG(I4))
 
         a2 = 0.25d0*(ZG(I3)+ZG(I4)-ZG(I1)-ZG(I2))
         b2 = 0.25d0*(ZG(I3)+ZG(I2)-ZG(I1)-ZG(I4))
