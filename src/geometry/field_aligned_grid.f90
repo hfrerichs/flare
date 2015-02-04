@@ -9,6 +9,8 @@ module field_aligned_grid
   use mesh_spacing
   use fieldline
   use flux_surface_2D
+  use grid
+!  use radial_paths
   implicit none
 
   real(real64), parameter :: &
@@ -16,9 +18,9 @@ module field_aligned_grid
 
 
   character(len=*), parameter :: &
-     LSN    = 'LSN', &
-     DDN    = 'DDN', &
-     SIMPLE = 'SIMPLE'
+     LAYOUT_LSN = 'LSN', &
+     LAYOUT_DDN = 'DDN', &
+     LAYOUT_SC  = 'SIMPLY_CONNECTED'
   
   character(len=*), parameter :: &
      EXACT = 'EXACT', &
@@ -26,12 +28,20 @@ module field_aligned_grid
 
  
   integer, parameter :: &
+     PERIODIC_SF = 1, &
+     UPDOWN_SF   = 2, &
+     MAPPING_SF  = 3, &
+     CORE_BOUNDARY_SF = -1, &
+     EDGE_BOUNDARY_SF = -2
+
+
+  integer, parameter :: &
      N_block_max = 360         ! Maximum number of toroidal blocks
 
 
   ! Type of innermost flux surface (exact or quasi)
   character(len=12) :: &
-     Layout = SIMPLE, &
+     Layout = LAYOUT_SC, &
      Innermost_Flux_Surface = EXACT
 
   character(len=120) :: &
@@ -51,7 +61,12 @@ module field_aligned_grid
      nt      = 16, &             ! default toroidal resolution
      np      = 360, &            ! default poloidal resolution
      nr      = 32, &             ! default radial resolution
-     ntx(N_block_max,-1:1) = -1  ! user defined toroidal resolution for individual blocks
+     ntx(N_block_max,-1:1) = -1, &  ! user defined toroidal resolution for individual blocks
+     r_surf_aligned_range(2,N_block_max) = -1, &   ! radial range with grid nodes aligned to the magnetic field
+     nr_EIRENE_core = 1, &
+     nr_EIRENE_core_aligned = 0, &
+     nr_EIRENE_SOL = 1, &
+     nr_EIRENE_SOL_aligned = 0
 
   real(real64) :: &
      x_in1(3)                    = 0.d0, &  ! reference points (R[cm], Z[cm], phi[deg]) ...
@@ -72,6 +87,8 @@ module field_aligned_grid
   namelist /Basic_Input/ &
      Layout, N_sym, N_block, x_in1, x_in2, Innermost_Flux_Surface, &
      nt, ntx, np, nr, ir1, ir2, x_g1, x_g2, x_out, &
+     r_surf_aligned_range, nr_EIRENE_core, nr_EIRENE_SOL, &
+     nr_EIRENE_core_aligned, nr_EIRENE_SOL_aligned, &
      Phi0, Delta_Phi, Base_Grid_Alignment, Radial_Discretization, Radial_Spacing, Poloidal_Spacing
 
 ! internal variables
@@ -80,7 +97,13 @@ module field_aligned_grid
 
   ! user defined input for each zone
   type t_zone_input
+     ! nt, ntx(-1:1)
      integer :: nt(-1:1), np, nr
+
+
+     ! surface types (periodic, mapping, ...)
+     integer :: irsfa, irsfb, ipsfa, ipsfb, itsfa, itsfb
+
 
      character(len=120) :: radial_direction, Radial_Spacing, boundary_filter
      character(len=120) :: Poloidal_Spacing
@@ -104,7 +127,11 @@ module field_aligned_grid
   type(t_curve) :: cAlign
 
   ! radial discretization setup
-  type(t_gradPsiN_path) :: Radial_Path
+!  type(t_gradPsiN_path) :: Radial_Path
+  !type(t_radial_path), dimension(:), allocatable :: radial_path
+  type(t_gradPsiN_path), dimension(:), allocatable :: radial_path
+
+  type(t_grid), dimension(:), allocatable :: base_grid
 
   contains
 !=======================================================================
@@ -178,8 +205,16 @@ module field_aligned_grid
      call cAlign%new(0)
   endif
 
+  ! 2.4. initialize emc3 grid arrays
+  call setup_emc3_grid_layout
+
+  ! 2.5. setup layout
+  call setup_layout()
+
+
   ! 3. sanity check of user defined input
   call check_usr_conf()
+
 
   return
  9000 write (6, *) 'error while reading input file grid.conf!'
@@ -216,16 +251,20 @@ module field_aligned_grid
         TD(i)%phi(jdir*j) = TD(i)%phi(0) + jdir*j*Delta_Phi(i,jdir) / TD(i)%nt(jdir)
      enddo
      enddo
+
+
+     TD(i)%nr = nr
+     TD(i)%np = np
   enddo
 
 
-!  write (6, *) 'discretization details:'
-!  do i=1,N_block
-!     write (6, *) 'block ', i
-!     do j=-TD(i)%nt(-1),TD(i)%nt(1)
-!        write (6, *) j, TD(i)%phi(j)
-!     enddo
-!  enddo
+  write (6, *) 'discretization details:'
+  do i=1,N_block
+     write (6, *) 'block ', i
+     do j=-TD(i)%nt(-1),TD(i)%nt(1)
+        write (6, *) j, TD(i)%phi(j)
+     enddo
+  enddo
 
   end subroutine setup_toroidal_discretization
 !=======================================================================
@@ -257,6 +296,25 @@ module field_aligned_grid
 
 
 !=======================================================================
+  subroutine setup_layout
+
+  select case (Layout)
+  case (LAYOUT_SC)
+     call setup_layout_sc(TD)
+     !call base_grid_1
+  case (LAYOUT_DDN)
+     !call base_grid_ddn
+  case default
+     write (6, *) 'error: base grid layout ', trim(Layout), ' not supported!'
+     stop
+  end select
+
+  end subroutine setup_layout
+!=======================================================================
+
+
+
+!=======================================================================
 ! Generate pair of innermost boundaries
 !=======================================================================
   subroutine generate_innermost_boundaries
@@ -272,6 +330,7 @@ module field_aligned_grid
      write (6, *) 'error: flux surface type ', trim(Innermost_Flux_Surface), ' not defined!'
      stop
   end select
+  write (6, *) 'finished generating innermost boundaries'
 
   contains
 !-----------------------------------------------------------------------
@@ -330,9 +389,9 @@ module field_aligned_grid
  1000 format (3x,'- Layout for base grid: ',a)
 
   select case (Layout)
-  case ('1')
+  case (LAYOUT_SC)
      call base_grid_1
-  case ('DDN')
+  case (LAYOUT_DDN)
      call base_grid_ddn
   case default
      write (6, *) 'error: base grid layout ', trim(Layout), ' not supported!'
@@ -368,12 +427,12 @@ module field_aligned_grid
 
 
   ! 1. generate outer boundary
-  write (6, 1000) x_out(1:2)
-  call B_out%generate(x_out(1:2), AltSurf=Empty_curve, theta_cut=0.d0)
-  call adjust_DED(B_out%t_curve)
-  call B_out%sort_loop(MagAxis)
-  call B_out%setup_angular_sampling(MagAxis)
-  call B_out%plot(filename='outer_bounary.plt')
+!  write (6, 1000) x_out(1:2)
+!  call B_out%generate(x_out(1:2), AltSurf=Empty_curve, theta_cut=0.d0)
+!  call adjust_DED(B_out%t_curve)
+!  call B_out%sort_loop(MagAxis)
+!  call B_out%setup_angular_sampling(MagAxis)
+!  call B_out%plot(filename='outer_bounary.plt')
 
 
   ! 2.A generate mesh in inner domain ir1->ir2 from flux surfaces
@@ -461,15 +520,34 @@ module field_aligned_grid
   else
   do iz=0,N_block-1
      write (zstr, '(i4)') iz
+
+     ! magnetic axis at toroidal position of base grid
+     r       = get_magnetic_axis(TD(iz+1)%phi(0)/180.d0*pi)
+     write (6, *) 'magnetic axis: ', r
+     MagAxis = r(1:2)
+     ! load outer boundary
+     call B_out%load('boundary_'//trim(adjustl(zstr))//'.txt')
+     call B_out%sort_by_distance(MagAxis)
+     !call B_out%plot(filename='boundary_raw_'//trim(adjustl(zstr))//'.plt')
+     call B_out%left_hand_shift(-10.d0)
+     !call B_out%left_hand_shift(-5.d0)
+     call B_out%setup_length_sampling()
+     call B_out%plot(filename='boundary_'//trim(adjustl(zstr))//'.plt')
+
+
      ! load inner boundaries
      call B_in1%load('lcfs0_'//trim(adjustl(zstr))//'.txt')
-     call B_in1%sort_loop(MagAxis)
-     call B_in1%setup_angular_sampling(MagAxis)
+     !call B_in1%sort_loop(MagAxis)
+     !call B_in1%setup_angular_sampling(MagAxis)
+     call B_in1%sort_by_distance(MagAxis)
+     call B_in1%setup_length_sampling()
      call B_in2%load('lcfs1_'//trim(adjustl(zstr))//'.txt')
-     call B_in2%sort_loop(MagAxis)
-     call B_in2%setup_angular_sampling(MagAxis)
+     !call B_in2%sort_loop(MagAxis)
+     !call B_in2%setup_angular_sampling(MagAxis)
+     call B_in2%sort_by_distance(MagAxis)
+     call B_in2%setup_length_sampling()
 
-     ! interpolate between inner boundary and 1st guiding surface
+     ! interpolate between inner and outer boundary
      do j=0,np
         eta = pol%node(j,np)
 
@@ -480,7 +558,7 @@ module field_aligned_grid
         ! 2nd inner boundary
         call B_in2%sample_at(eta, y1)
 
-        ! 1st guiding surface
+        ! outer boundary
         call B_out%sample_at(eta, y2)
 
         do i=1,nr
@@ -488,6 +566,9 @@ module field_aligned_grid
            G%mesh(i,j,:) = y1 + xi*(y2-y1)
         enddo
      enddo
+
+
+     call my_mesh(B_in2%t_curve, B_out%t_curve, nr, np, G%mesh, iz)
 
      ! write base grids
      G%fixed_coord_value = Phi_base(iz+1) / 180.d0 * pi
@@ -507,15 +588,26 @@ module field_aligned_grid
 !-----------------------------------------------------------------------
   subroutine base_grid_ddn
   use iso_fortran_env
+  use string
   implicit none
 
 ! user defined input parameters ....
   real(real64) :: &
-     d_SOL1 = 10.d0, &
-     d_SOL2 = 10.d0, &
-     d_PFR1 =  5.d0, &
-     d_PFR2 =  5.d0
+     d_SOL1 = 40.d0, &
+     d_SOL2 = 40.d0, &
+     d_PFR1 = 20.d0, &
+     d_PFR2 = 20.d0
 !...................................
+  integer, parameter :: &
+     ASCENT_PSIN_LEFT  = 1, &
+     ASCENT_PSIN_RIGHT = 2, &
+     DESCENT_PSIN_CORE = 3, &
+     DESCENT_PSIN_PFR  = 4
+
+  integer, parameter :: &
+     FIXED_PSIN        = 1, &
+     DISTANCE          = 2
+
 
   type t_X
      real(real64) :: X(2), theta, PsiN
@@ -526,12 +618,12 @@ module field_aligned_grid
   real(real64), dimension(:,:), allocatable :: xsp, lsp
   real(real64), dimension(:,:,:), allocatable :: xsp_mesh
   type(t_separatrix) :: Si, So
-  type(t_flux_surface_2D), dimension(:), allocatable :: F
-  type(t_flux_surface_2D) :: B_out
+  type(t_flux_surface_2D), dimension(:), allocatable :: F, B_out
+  !type(t_flux_surface_2D) :: B_out
   type(t_curve)           :: C1, C2, C3
   type(t_X)    :: Xp(2)
-  real(real64) :: X(3), t, l1, l2, ldiv(2)
-  integer      :: iXpi, iXpo, i, j, is
+  real(real64) :: X(3), r(2), t, l1, l2, ldiv(2), val
+  integer      :: iXpi, iXpo, i, j, is, direction, limit
 
   
   ! upper X-point
@@ -573,11 +665,75 @@ module field_aligned_grid
 
 
   ! generate paths for discretization in radial direction
-  call Radial_Path%generate(Xp(iXpi)%X, 1, PsiN=Xp(iXpo)%PsiN)
-  call Radial_Path%plot(filename='radial_path_1.txt')
+  allocate (radial_path(6))
+  do i=1,6
+     select case(i)
+     ! 1. "confined" region
+     case(1)
+        direction = DESCENT_PSIN_CORE
+        r         = Xp(iXpi)%X
+        limit     = FIXED_PSIN
+        val       = 0.8d0
 
-  call split_str(Radial_Spacing)
-  call Radial_Path%setup_length_sampling()
+     ! 2. inner SOL
+     case(2)
+        !mode = 'GradPsi'
+        direction = ASCENT_PSIN_LEFT
+        r         = Xp(iXpi)%X
+        limit     = FIXED_PSIN
+        val       = Xp(iXpo)%PsiN
+
+     ! 3. left outer SOL
+     case(3)
+        direction = ASCENT_PSIN_LEFT
+        r         = Xp(iXpo)%X
+        limit     = DISTANCE
+        val       = d_SOL1
+
+     ! 4. right outer SOL
+     case(4)
+        direction = ASCENT_PSIN_RIGHT
+        r         = Xp(iXpo)%X
+        limit     = DISTANCE
+        val       = d_SOL2
+
+     ! 5. inner/lower PFR
+     case(5)
+        direction = DESCENT_PSIN_PFR
+        r         = Xp(iXpi)%X
+        limit     = DISTANCE
+        val       = d_PFR1
+
+     ! 6. outer/upper PFR
+     case(6)
+        direction = DESCENT_PSIN_PFR
+        r         = Xp(iXpo)%X
+        limit     = DISTANCE
+        val       = d_PFR2
+     end select
+
+
+     ! select user defined mode
+     ! mode_usr = parse_string(...,i)
+     ! if (mode_usr .ne. 'default') mode = mode_usr
+!     select case(mode)
+!     case('GradPsi')
+!        !call radial_path(i)%setup_from_GradPsi(direction, DISTANCE, L)
+!     end select
+     call radial_path(i)%generate(r, direction, limit, val)
+     call radial_path(i)%setup_length_sampling()
+     !call radial_path(i)%plot(filename='radial_path_'//trim(str(i))//'.plt')
+     call radial_path(i)%plot(filename='radial_path.plt', append=.true.)
+  enddo
+
+
+
+
+!  call Radial_Path%generate(Xp(iXpi)%X, 1, PsiN=Xp(iXpo)%PsiN)
+!  call Radial_Path%plot(filename='radial_path_1.txt')
+!
+!  call split_str(Radial_Spacing)
+!  call Radial_Path%setup_length_sampling()
   nr = 10
   allocate (xsp(nr, 2))
   allocate (lsp(nr, 2))
@@ -585,7 +741,8 @@ module field_aligned_grid
   allocate (F(nr))
   do i=1,nr
      t = Equidistant%node(i,nr)
-     call Radial_Path%sample_at(t, X(1:2))
+     !call Radial_Path%sample_at(t, X(1:2))
+     call radial_path(2)%sample_at(t, X(1:2))
      call F(i)%generate(X(1:2), Trace_Step=0.1d0)
      call F(i)%setup_length_sampling()
      !call F%plot(98)
@@ -658,20 +815,29 @@ module field_aligned_grid
 
 
   ! generate outer boundary
-  call Radial_Path%sample_at(1.d0, X(1:2))
-  call Radial_Path%generate(X(1:2), 1, L=20.d0)
-  call Radial_Path%setup_length_sampling()
-  call Radial_Path%plot(filename='radial_path_2a.txt')
-  call Radial_Path%sample_at(1.d0, X(1:2))
-  call B_out%generate(X(1:2), Trace_Step=0.1d0, AltSurf=cAlign)
-  call B_out%plot(filename='outer_boundary.plt')
+  allocate (B_out(3:6))
+  do i=3,6
+     call radial_path(i)%sample_at(1.d0, r)
+     call B_out(i)%generate(r, Trace_Step=0.1d0, AltSurf=cAlign)
+     call B_out(i)%plot(filename='outer_boundary.plt', append=.true.)
+  enddo
+
+
+!  call Radial_Path%sample_at(1.d0, X(1:2))
+!  call Radial_Path%generate(X(1:2), 1, L=20.d0)
+!  call Radial_Path%setup_length_sampling()
+!  call Radial_Path%plot(filename='radial_path_2a.txt')
+!  call Radial_Path%sample_at(1.d0, X(1:2))
+  !call radial_path(3)%sample_at(1.d0, r)
+  !call B_out%generate(r, Trace_Step=0.1d0, AltSurf=cAlign)
+  !call B_out%plot(filename='outer_boundary.plt')
 
 
 
-  call Radial_Path%generate(Xp(iXpi)%X, 3, PsiN=0.8d0)
-  call Radial_Path%plot(filename='radial_path_0.txt')
-  call Radial_Path%generate(Xp(iXpi)%X, 4, L=20.d0)
-  call Radial_Path%plot(filename='radial_path_3a.txt')
+!  call Radial_Path%generate(Xp(iXpi)%X, 3, PsiN=0.8d0)
+!  call Radial_Path%plot(filename='radial_path_0.txt')
+!  call Radial_Path%generate(Xp(iXpi)%X, 4, L=20.d0)
+!  call Radial_Path%plot(filename='radial_path_3a.txt')
 
 
  1000 format(8x,'Inner X-point: (',f8.3,', ',f8.3,')')
@@ -679,6 +845,23 @@ module field_aligned_grid
   end subroutine base_grid_ddn
 !-----------------------------------------------------------------------
   end subroutine generate_layout
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine load_base_grids
+  use string
+
+  integer :: iz
+
+
+  allocate (base_grid(0:N_block-1))
+  do iz=0,N_block-1
+     call base_grid(iz)%load('base_grid_'//trim(str(iz))//'.dat')
+  enddo
+
+  end subroutine load_base_grids
 !=======================================================================
 
 
@@ -767,5 +950,78 @@ module field_aligned_grid
   end subroutine split_str
 !=======================================================================
 
+
+
+!=======================================================================
+!=======================================================================
+!=======================================================================
+  subroutine grid_3D
+  end subroutine grid_3D
+!=======================================================================
+!=======================================================================
+
+  subroutine my_mesh(C1, C2, n, m, Mesh, iz)
+  type(t_curve), intent(in) :: C1, C2
+  integer, intent(in) :: n, m, iz
+  real(real64), intent(out) :: Mesh(0:n,0:m,2)
+
+  integer, parameter :: m1 = 20
+
+  real(real64) :: s1(0:m1)
+  real(real64) :: xi, eta, r(2), rt(2), rn(2), r2(2), t, s, ds
+  integer :: i, i2, m2, is, j
+  logical :: l
+
+  write (6, *) 'my_mesh'
+
+
+  if (mod(m,m1) .ne.0) then
+     write (6, * ) 'error in subroutine my_mesh: m and m1 incompatible!', m, m1
+  endif
+  m2 = m/m1
+
+
+  do i=0,m1
+     xi = Equidistant%node(i,m1)
+     call C1%sample_at(xi, r, rt)
+     rn(1) =  rt(2)
+     rn(2) = -rt(1)
+
+     l = intersect_curve(r, r+rn, C2, xh=r2, th=t, sh=s, ish=is, intersect_mode=1)
+     is = is - 1
+     s  = C2%w(is) + s * (C2%w(is+1)-C2%w(is))
+     write (80+iz, *) r
+     write (80+iz, *) r2
+     write (80+iz, *)
+
+     call C2%sample_at(s, r)
+     write (70+iz, *) r, s
+     s1(i) = s
+  enddo
+
+
+  do i=0,m1-1
+     s  = s1(i)
+     ds = s1(i+1) - s1(i)
+     if (ds < 0.d0) ds = ds + 1.d0
+
+     do i2=0,m2
+        xi = Equidistant%node(i*m2 + i2,m)
+        call C1%sample_at(xi, r)
+        write (60, *) xi
+
+        xi = Equidistant%node(i2,m2)
+        xi = mod(s + xi*ds,1.d0)
+        call C2%sample_at(xi, r2)
+
+        do j=0,n
+           eta = Equidistant%node(j,n)
+           Mesh(j,i*m2+i2,:) = r + eta*(r2-r)
+        enddo
+     enddo
+  enddo
+
+
+  end subroutine my_mesh
 
 end module field_aligned_grid
