@@ -607,21 +607,21 @@ end module quad_ele
 
 
 
-subroutine test_quad_ele
-  use quad_ele
-  use run_control, only: Output_File, Output_Format, Phi_Output
-
-  type(t_quad_ele) :: S
-  character*120 :: filename
-
-
-  filename = Output_File
-  call S%load(filename)
-  !call S%plot(Output_File, Output_Format)
-
-  filename = trim(Output_File)//'.plt'
-!  call S%plot(filename, 1)
-  call S%plot_at(Phi_output, filename)
-
-
-end subroutine test_quad_ele
+!subroutine test_quad_ele
+!  use quad_ele
+!  use run_control, only: Output_File, Output_Format, Phi_Output
+!
+!  type(t_quad_ele) :: S
+!  character*120 :: filename
+!
+!
+!  filename = Output_File
+!  call S%load(filename)
+!  !call S%plot(Output_File, Output_Format)
+!
+!  filename = trim(Output_File)//'.plt'
+!!  call S%plot(filename, 1)
+!  call S%plot_at(Phi_output, filename)
+!
+!
+!end subroutine test_quad_ele
