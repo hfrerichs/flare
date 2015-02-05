@@ -31,6 +31,7 @@ module Q4
      procedure :: set_shape
      procedure :: set_shape_advanced
      procedure :: area, Rcenter, Zcenter
+     procedure :: generate_mesh
   end type t_Q4
 
   contains
@@ -155,5 +156,39 @@ module Q4
   Zcenter = (this%x1(2)+this%x2(2)+this%x3(2)+this%x4(2)) / 4.d0
   end function Zcenter
 !=======================================================================
+
+
+
+!=======================================================================
+  function generate_mesh(this, nxi, neta) result(M)
+  use math
+  use grid
+  class(t_Q4)         :: this
+  integer, intent(in) :: nxi, neta
+  type(t_grid)        :: M
+
+  real(real64) :: xi, eta, x(2)
+  integer      :: i, j, ig
+
+
+  !write (6, *) 'generating mesh at ', this%phi
+  call M%new(LOCAL, UNSTRUCTURED, 3, nxi, neta, 1, 0.d0)
+  ig = 0
+  do j=0,neta-1
+     eta = -1.d0 + 2.d0*j/(neta-1)
+     do i=0,nxi-1
+        xi = -1.d0 + 2.d0*i/(nxi-1)
+
+        ig = ig + 1
+        x  = this%a0  +  xi*this%a1  +  eta*this%a2  +  xi*eta*this%a3
+        M%x(ig,1:2) = x
+     enddo
+  enddo
+
+  end function generate_mesh
+!=======================================================================
+
+
+
 
 end module Q4
