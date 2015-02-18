@@ -160,19 +160,26 @@ module Q4
 
 
 !=======================================================================
-  function generate_mesh(this, nxi, neta) result(M)
+  function generate_mesh(this, nxi, neta, coord3) result(M)
   use math
   use grid
   class(t_Q4)         :: this
   integer, intent(in) :: nxi, neta
+  real(real64), intent(in), optional :: coord3
   type(t_grid)        :: M
 
-  real(real64) :: xi, eta, x(2)
+  real(real64), parameter :: coord3_default = 0.d0
+  real(real64) :: xi, eta, x(2), coord3_use = 0.d0
   integer      :: i, j, ig
 
 
+  ! set 3rd coordinate for mesh
+  coord3_use = coord3_default
+  if (present(coord3)) coord3_use = coord3
+
+
   !write (6, *) 'generating mesh at ', this%phi
-  call M%new(LOCAL, UNSTRUCTURED, 3, nxi, neta, 1, 0.d0)
+  call M%new(LOCAL, UNSTRUCTURED, 3, nxi, neta, 1, coord3_use)
   ig = 0
   do j=0,neta-1
      eta = -1.d0 + 2.d0*j/(neta-1)
