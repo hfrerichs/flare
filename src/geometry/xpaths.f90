@@ -43,14 +43,14 @@ module xpaths
 !             = 3: descent PsiN to core
 !             = 4: descent PsiN to PFR
 !=======================================================================
-  subroutine generate(this, Px, orientation, limit, val)
+  subroutine generate(this, Px, orientation, limit_type, limit_val)
   use ode_solver
   use equilibrium
   use run_control, only: Trace_Method, N_steps
   class(t_xpath)           :: this
   real(real64), intent(in) :: Px(2)
-  integer,      intent(in) :: orientation, limit
-  real(real64), intent(in) :: val
+  integer,      intent(in) :: orientation, limit_type
+  real(real64), intent(in) :: limit_val
 
   type(t_ODE)  :: Path
   real(real64) :: v1(2), v2(2), x0(2), y(3), ds, dl, t, Psi0, PsiN, L
@@ -85,9 +85,9 @@ module xpaths
 
 
   ! 2.1 determine length/number of segments by final PsiN value
-  select case(limit)
+  select case(limit_type)
   case(LIMIT_PSIN)
-     PsiN = val
+     PsiN = limit_val
 
      n_seg  = 1
      y(1:2) = x0
@@ -103,7 +103,7 @@ module xpaths
 
   ! 2.2 expected number of segments from curve length
   case(LIMIT_LENGTH)
-     L     = val
+     L     = limit_val
      n_seg = nint((L-dl) / abs(ds)) + 2
 
   ! either PsiN or L must be given!
@@ -127,7 +127,7 @@ module xpaths
 
   ! 4. adjust last node to match L
   t = 1.d0
-  if (limit == 2) t = (L-dl+abs(ds))/abs(ds)
+  if (limit_type == LIMIT_LENGTH) t = (L-dl+abs(ds))/abs(ds)
   this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
 
   end subroutine generate
