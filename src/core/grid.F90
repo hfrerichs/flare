@@ -54,6 +54,7 @@ module grid
      procedure :: load
      procedure :: setup_mesh
      procedure :: store
+     procedure :: destroy
      procedure :: plot_mesh
      procedure :: node                   ! return node coordinates
      procedure :: nodes                  ! return number of grid nodes
@@ -118,6 +119,7 @@ module grid
   if (allocated(this%x)) deallocate(this%x)
   allocate (this%x(this%n,3))
   this%x = 0.d0
+  this%x(:,fixed_coord) = this%fixed_coord_value
 
 !  select case (layout)
 !  case(UNSTRUCTURED_3D)
@@ -522,11 +524,27 @@ module grid
 
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
- 2002 format ('# fixed coordinate:             ',f7.2)
+ 2002 format ('# fixed coordinate:             ',f10.5)
  3001 format (1e18.10)
  3002 format (2e18.10)
  3003 format (3e18.10)
   end subroutine store
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine destroy(this)
+  class(t_grid)                :: this
+
+
+  if (allocated(this%x))  deallocate(this%x)
+  if (allocated(this%x1)) deallocate(this%x1)
+  if (allocated(this%x2)) deallocate(this%x2)
+  if (allocated(this%x3)) deallocate(this%x3)
+  if (allocated(this%mesh)) deallocate(this%mesh)
+
+  end subroutine destroy
 !=======================================================================
 
 
