@@ -20,7 +20,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Wall index',$
 			   'Pol. locat. of minPsiN',$
 			   'Tor. locat. of minPsiN',$
-			   'Radial distance to LCFS']
+			   'Radial distance to LCFS',$
+			   'Delta Final PsiN',$
+			   'Final PsiN (backward)',$
+			   'Final PsiN (forward)']
 	u_title_strs	= ['Connection Length [m]',$
 			   'Shortest Length [m]',$
 			   'Length [m]',$
@@ -37,7 +40,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   '',$
 			   'Pol. locat. of minPsiN',$
 			   'Tor. locat. of minPsiN',$
-			   'Radial distance to LCFS']
+			   'Radial distance to LCFS',$
+			   'Delta Final PsiN',$
+			   'Final PsiN (backward)',$
+			   'Final PsiN (forward)']
 
 
 	; check data file for the correct # of lines ..................................
@@ -68,7 +74,7 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 	endif
 	;columns	= 6
 	columns	= 5 + nout
-	n_vars	= 10 + 4 + 2 + 1
+	n_vars	= 10 + 4 + 2 + 1 + 3
 	;..............................................................................
 	
 
@@ -140,27 +146,28 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 		for j=0,nout-1 do begin
 		case iout(j) of
 		0: begin
-		end
-		1: begin
 			data(i,6) = tmp(5+j)			; average psiN
 		end
-		2: begin
+		1: begin
 			data(i,11)= tmp(5+j)			; Limiting surface # (neg. direction)
 		end
-		4: begin
+		2: begin
 			data(i,12)= tmp(5+j)			; Limiting surface # (pos. direction)
 		end
-		8: begin
+		3: begin
 			data(i,14)= tmp(5+j)			; Toroidal location of deepest penetration
 		end
-		16: begin
+		4: begin
 			data(i,15)= tmp(5+j)			; Poloidal location of deepest penetration
 		end
 		7: begin
 			data(i,16)= tmp(5+j)			; radial distance to LCFS
 		end
-		512: begin
-			data(i,16)= tmp(5+j)			; radial distance to LCFS
+		8: begin
+			data(i,18)= tmp(5+j)			; Final PsiN (backward)
+		end
+		9: begin
+			data(i,19)= tmp(5+j)			; Final PsiN (forward)
 		end
 		endcase
 		endfor
@@ -169,6 +176,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 		;if (data(i,13) eq -1) then data(i,13) = data(i,11)
 		;if (data(i,8) le 1.0) then data(i,13) = data(i,11)
 		if (data(i,8) le data(i,7)) then data(i,13) = data(i,11)
+
+		; Delta Final PsiN
+		;data(i,17) = data(i,19) - data(i,18)
+		data(i,17) = data(i,18) - data(i,19)		; reverse for comparison between BT < 0 configurations with EMC3 (where forward is in +phi direction)
 	endfor
 	free_lun, lun
 	;..............................................................................
@@ -369,9 +380,9 @@ endelse
 		;ct_red(1)	= 255	; lower limit = white for printing
 		;ct_green(1)	= 255
 		;ct_blue(1)	= 255
-		ct_red  ( 64)	= ct_red  (cb_cutoff(0))
-		ct_green( 64)	= ct_green(cb_cutoff(0))
-		ct_blue ( 64)	= ct_blue (cb_cutoff(0))
+		ct_red  ( 1)	= ct_red  (cb_cutoff(0))
+		ct_green( 1)	= ct_green(cb_cutoff(0))
+		ct_blue ( 1)	= ct_blue (cb_cutoff(0))
 	endif
 
 	; uppter cut-off
@@ -396,6 +407,16 @@ endelse
 		ct_blue (65-i)	= ib
 	endfor
 	endif
+
+; some additional colors
+	ct_red  (100)	= 127
+	ct_green(100)	=   0
+	ct_blue (100)	= 255
+	ct_red  (101)	= 255
+	ct_green(101)	=   0
+	ct_blue (101)	= 127
+
+
 
 
 	ct_red  (250)	= 220
@@ -434,7 +455,7 @@ end; close_device
 pro plot_poincare, poincare_file
 	common	grid
 	print, 'overlaying poincare plot'
-	columns	= 5
+	columns	= 4
 	n_data	= FILE_LINES(poincare_file)
 
 	tmp	= make_array(columns, /fl)
@@ -481,7 +502,7 @@ pro plot_limiter, limiter_file, fill_color=fill_color, lim_style=lim_style
 		openr, lun, file_str, /get_lun
 		while not eof(lun) do begin
 			readf, lun, str
-			if (strmid(str,0,1) ne '#') then n_data = n_data + 1
+			if (strmid(str,0,1) ne '#'  and  str ne '') then n_data = n_data + 1
 		endwhile
 		free_lun, lun
 
@@ -494,7 +515,7 @@ pro plot_limiter, limiter_file, fill_color=fill_color, lim_style=lim_style
 		i_data		= 0L
 		while not eof(lun) do begin
 			readf, lun, str
-			if (strmid(str,0,1) ne '#') then begin
+			if (strmid(str,0,1) ne '#'  and  str ne '') then begin
 				reads, str, dline
 				lim_data(*,i_data)	= dline
 				i_data 			= i_data + 1
@@ -541,6 +562,14 @@ pro plot_limiter, limiter_file, fill_color=fill_color, lim_style=lim_style
 		8:	oplot, lim_data(0,*), lim_data(1,*), color=252, psym=3
 		9:	oplot, lim_data(0,*), lim_data(1,*), thick=10.0, color=251
 		10:	oplot, lim_data(0,*), lim_data(1,*), thick=10.0, color=0, linestyle=2
+		20:	oplot, lim_data(0,*), lim_data(1,*), thick=2.0, color=10
+		21:	oplot, lim_data(0,*), lim_data(1,*), thick=2.0, color=56
+		200:	oplot, lim_data(0,*), lim_data(1,*), thick=4.0, color=10
+		210:	oplot, lim_data(0,*), lim_data(1,*), thick=4.0, color=56
+		22:	oplot, lim_data(0,*), lim_data(1,*), thick=2.0, color=96
+		23:	oplot, lim_data(0,*), lim_data(1,*), thick=2.0, color=128
+		40:	oplot, lim_data(0,*), lim_data(1,*), thick=4.0, color=100
+		41:	oplot, lim_data(0,*), lim_data(1,*), thick=4.0, color=101
 
 		; point styles
 		100:	oplot, lim_data(0,*), lim_data(1,*), color=0, psym=8, thick=1.0
@@ -661,6 +690,9 @@ pro plot_lc, grid_file, data_file, idata, $
 		'PolLocminPsiN': idata=14
 		'TorLocminPsiN': idata=15
 		'RD2LCFS': idata=16
+		'DeltaFinalPsiN': idata=17
+		'FinalPsiN-': idata=18
+		'FinalPsiN+': idata=19
 		else: begin
 			print, 'error: invalid expression for "Zdata"'
 			return
