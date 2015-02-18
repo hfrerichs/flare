@@ -48,6 +48,10 @@ module run_control
      Panic_Level    = IMODERATE
 
 
+  logical :: &
+     Debug          = .false.
+
+
 
   ! internal variables
   character*120 :: Prefix, &
@@ -59,7 +63,8 @@ module run_control
      Run_Type, Output_File, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
-     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset
+     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, &
+     Debug
 
   contains
 !=======================================================================
@@ -122,6 +127,7 @@ module run_control
   call broadcast_inte_s (Input_Format    )
   call broadcast_inte_s (Output_Format   )
   call broadcast_inte_s (Panic_Level     )
+  call broadcast_logi   (Debug           )
 
   return
  5000 write  (6,5001)

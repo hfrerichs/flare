@@ -175,17 +175,19 @@ module flux_surface_3D
 
 
 !=======================================================================
-  subroutine plot(this, iu, filename)
+  subroutine plot(this, iu, filename, output_format)
   use math
   class(t_flux_surface_3D)               :: this
-  integer,          intent(in), optional :: iu
+  integer,          intent(in), optional :: iu, output_format
   character(len=*), intent(in), optional :: filename
 
-  integer :: i, iu0
+  integer :: i, j, iu0, oformat
 
 
-  ! set default unit number for output
+  ! set default unit number for output, and default format
   iu0 = 90
+  oformat = 1
+  if (present(output_format)) oformat = output_format
 
   ! Unit number given for output?
   if (present(iu)) iu0 = iu
@@ -203,9 +205,17 @@ module flux_surface_3D
 
   ! write data
   do i=0,this%n_phi-1
-     write (iu0, 1002) this%slice(i)%phi / pi * 180.d0
-     call this%slice(i)%plot(iu=iu0)
-     write (iu0, *)
+     select case (oformat)
+     case(1)
+        write (iu0, 1002) this%slice(i)%phi / pi * 180.d0
+        call this%slice(i)%plot(iu=iu0)
+        write (iu0, *)
+     case(2)
+        do j=0,this%slice(i)%n_seg-1
+           write (iu0, *) this%slice(i)%x(j,:), this%slice(i)%phi / pi * 180.d0
+        enddo
+     case default
+     end select
   enddo
 
   ! Output_File given?

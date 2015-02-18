@@ -38,14 +38,15 @@ subroutine trace_bline
   use fieldline
   use parallel
   use math
-  use usr_grid
+  use grid
   implicit none
 
   integer, parameter :: iu = 42
 
   type(t_fieldline) :: F
+  type(t_grid)      :: G
   real(real64), dimension(:,:), pointer :: grid_ptr
-  integer       :: i, iflag
+  integer       :: i, ig, iflag
   logical       :: Stop_at_Boundary
 
 
@@ -83,17 +84,22 @@ subroutine trace_bline
 
   ! select initial position(s) for tracing
   if (sum(x_start) .ne. 0.d0) then
-     grid_ptr => new_grid(1, log_progress=.false.)
-     grid_ptr(1,:) = x_start
+     !grid_ptr => new_grid(1, log_progress=.false.)
+     !grid_ptr(1,:) = x_start
+     call G%new(Trace_Coords, UNSTRUCTURED, 0, 1)
+     G%x(1,:) = x_start
+     !grid_ptr(1,:) = G%x
   else
-     call read_grid (Grid_file, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
+     !call read_grid (Grid_file, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
+     call G%load(Grid_file)
   endif
 
  
   ! main loop
   write (6,  1002)
-  field_line_loop: do
-     call get_next_grid_point (iflag, x_start)
+  field_line_loop: do ig=1,G%nodes()
+     !call get_next_grid_point (iflag, x_start)
+     x_start = G%node(ig, coordinates=min(Trace_Coords,2))
      if (iflag < 0) exit field_line_loop
 
      ! trace one field line

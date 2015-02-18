@@ -21,6 +21,7 @@ subroutine field_line_loss
   use run_control, only: N_sym, N_phi, N_theta, Psi, N_psi, &
                          Trace_Step, Trace_Method, Trace_Coords, Limit, &
                          Output_File
+  use equilibrium
   use fieldline
   use parallel
   implicit none

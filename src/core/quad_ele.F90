@@ -206,8 +206,8 @@ module quad_ele
   real(real64), intent(in)  :: phi
   type(t_curve)             :: C
 
-  real*8  :: t, R, Z
-  integer :: i, ind, ierr
+  real(real64) :: t, R, Z, dl
+  integer      :: i, ind, ierr
 
 
   ! check boundaries
@@ -234,6 +234,10 @@ module quad_ele
      C%x(i,1) = R
      C%x(i,2) = Z
   enddo
+
+  ! check if slice is closed
+  dl = sqrt((Z-C%x(0,2))**2 + (R-C%x(0,1))**2)
+  if (dl < epsilon(real(1.0,real64))) C%closed = .true.
 
   end function slice
 !=======================================================================
@@ -276,12 +280,13 @@ module quad_ele
 
 
 !=======================================================================
-  function quad_ele_intersect(this, r1, r2, X) result(l)
+  function quad_ele_intersect(this, r1, r2, X, nelem) result(l)
   use math
   use search
   class(t_quad_ele)   :: this
   real*8, intent(in)  :: r1(3), r2(3)
   real*8, intent(out) :: X(3)
+  integer, intent(out), optional :: nelem
   logical             :: l
 
   logical :: ljump
@@ -295,6 +300,8 @@ module quad_ele
   r1s(3) = phi_sym(r1s(3), n)
   r2s    = r2
   r2s(3) = phi_sym(r2s(3), n)
+
+  if (present(nelem)) nelem = -1
 
 
   ! jump beyond symmetry domain? ASSUMPTION: |phi2 - phi1| < pi/n_sym
@@ -343,7 +350,7 @@ module quad_ele
 
   real*8  :: Dphi, phil, phir, phi1, phi2
   real*8  :: xA(2), xB(2), xC(2), xD(2), x5(2), x6(2), y1(2), y2(2), tc(2), ts
-  integer :: Di, i, iA, iB, j, n
+  integer :: Di, i, iA, iB, j, n, is, js
 
 
   ! 0. get search direction
@@ -426,6 +433,8 @@ module quad_ele
   ! check slice [phi(i), phi(i+1)] for intersections
   istat = 0
   t     = 2.d0
+  is    = -1
+  js    = -1
   do i=iA+1,iB+1,Di
      do j=1,this%n_RZ
         x5 = r1(1:2) + (r2(1:2)-r1(1:2)) * (this%phi(i-1)-phi1) / Dphi
@@ -443,13 +452,18 @@ module quad_ele
            ts = (this%phi(i-1)-phi1) / Dphi + (this%phi(i)-this%phi(i-1)) / Dphi * tc(k)
 
            ! update intersection if new solution is closer to t=0
-           if (ts < t .and. ts.ge.0.d0) t = ts
+           if (ts < t .and. ts.ge.0.d0) then
+              t = ts
+              js = j
+              is = i
+           endif
         enddo
      enddo
 
      ! exit if an intersection has been found in this slice
      if (t < 2.d0) then
         istat = 1
+        if (present(nelem)) nelem = (js-1) + (is-1)*this%n_RZ
         return
      endif
   enddo
@@ -593,21 +607,21 @@ end module quad_ele
 
 
 
-subroutine test_quad_ele
-  use quad_ele
-  use run_control, only: Output_File, Output_Format, Phi_Output
-
-  type(t_quad_ele) :: S
-  character*120 :: filename
-
-
-  filename = Output_File
-  call S%load(filename)
-  !call S%plot(Output_File, Output_Format)
-
-  filename = trim(Output_File)//'.plt'
-!  call S%plot(filename, 1)
-  call S%plot_at(Phi_output, filename)
-
-
-end subroutine test_quad_ele
+!subroutine test_quad_ele
+!  use quad_ele
+!  use run_control, only: Output_File, Output_Format, Phi_Output
+!
+!  type(t_quad_ele) :: S
+!  character*120 :: filename
+!
+!
+!  filename = Output_File
+!  call S%load(filename)
+!  !call S%plot(Output_File, Output_Format)
+!
+!  filename = trim(Output_File)//'.plt'
+!!  call S%plot(filename, 1)
+!  call S%plot_at(Phi_output, filename)
+!
+!
+!end subroutine test_quad_ele

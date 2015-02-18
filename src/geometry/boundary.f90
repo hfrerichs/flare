@@ -9,11 +9,12 @@
 !
 !===============================================================================
 module boundary
+  use iso_fortran_env
   use dataset
   use curve2D
   use block_limiter, only: setup_block_limiter, center_bl, center_s, dist_p_oripocs, &
                            oripo_p, radius_s, normv_p, num_p, num_s, radius_bl, bl_filename, &
-                           max_num_p, max_num_s, check_intersection, allocate_bl_arrays
+                           max_num_p, max_num_s, check_intersection, allocate_bl_arrays, bl_outside
   use quad_ele
   implicit none
 
@@ -33,7 +34,9 @@ module boundary
   type(t_curve), dimension(:), allocatable :: S_axi
   type(t_quad_ele), dimension(:), allocatable :: S_quad
 
-  integer :: n_axi, n_block, n_tri, n_quad
+  integer, dimension(:), allocatable :: elem_os
+
+  integer :: n_axi, n_block, n_tri, n_quad, n_boundary1, n_elem
 
   contains
 !=======================================================================
@@ -60,7 +63,7 @@ module boundary
 
   character*120 :: boundary_dir(3)
   character*80  :: header
-  integer :: io, i, j, irun
+  integer :: io, i, j, irun, n
 
   write (6,1000)
   write (6, *) 'Boundaries (divertor targets, limiters, vessel): '
@@ -185,6 +188,29 @@ module boundary
   enddo
 
 
+  ! setup offset for boundary elements
+  ! actual number of boundaries
+  ! (might be larger than n_boundary for stellarator symmetric elements)
+  n_boundary1 = n_axi + n_quad + n_tri + n_block
+  allocate (elem_os(0:n_boundary1))
+  elem_os = 0
+  do i=1,n_axi
+     elem_os(i) = elem_os(i-1) + S_axi(i)%n_seg
+  enddo
+  do i=1,n_block
+     elem_os(n_axi+i) = elem_os(n_axi+i-1) + 0
+  enddo
+  do i=1,n_quad
+     n = S_quad(i)%n_phi * S_quad(i)%n_RZ
+     elem_os(n_axi+n_block+i) = elem_os(n_axi+n_block+i-1) + n
+  enddo
+  n_elem = elem_os(n_boundary1)
+
+  write (6, *) 'elem_os = '
+  do i=0,n_boundary1
+     write (6, *) elem_os(i)
+  enddo
+
   return
  1000 format (/ '========================================================================')
  2000 write (6, *) 'error while reading boundary input file!'
@@ -301,28 +327,35 @@ module boundary
 !=======================================================================
 ! check intersection (X) of trajectory r1->r2 with boundaries
 !=======================================================================
-  function intersect_boundary(r1, r2, X, id) result(l)
+! optional output:
+!    id: boundary number
+!    ielem: element number on boundary
+!=======================================================================
+  function intersect_boundary(r1, r2, X, id, ielem) result(l)
   use math
   real*8, intent(in)   :: r1(3), r2(3)
   real*8, intent(out)  :: X(3)
   integer, intent(out) :: id
+  integer, intent(out), optional :: ielem
   logical :: l
 
   real*8  :: phih, rz(2), t, x1(3), x2(3), lambda_min
-  integer :: i, i_ip
+  integer :: i, i_ip, ish
 
 
   l  = .false.
   id = 0
+  if (present(ielem)) ielem = -1
 
   ! check intersection with axisymmetric surfaces
   do i=1,n_axi
-     if (intersect_curve (r1(1:2), r2(1:2), S_axi(i), rz, t)) then
+     if (intersect_curve (r1(1:2), r2(1:2), S_axi(i), rz, t, ish=ish)) then
      !if (intersect_axisym_surf (r1, r2, S_axi(i), X)) then
         l      = .true.
         X(1:2) = rz
         X(3)   = r1(3) + t*(r2(3)-r1(3))
         id     = i
+        if (present(ielem)) ielem  = ish
         return
      endif
   enddo
@@ -344,15 +377,90 @@ module boundary
 
   ! check intersection with mesh of quadrilateral elements
   do i=1,n_quad
-     if (S_quad(i)%intersect(r1, r2, X)) then
+     if (S_quad(i)%intersect(r1, r2, X, ish)) then
         l  = .true.
         id = n_axi + n_block + i
+        if (present(ielem)) ielem  = ish
         return
      endif
   enddo
 
 
   end function intersect_boundary
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine surface_plot (n, W)
+  integer, intent(in) :: n
+  real(real64), dimension(0:n_elem-1,n), intent(in) :: W
+
+  integer, parameter :: iu = 42
+
+
+  real(real64) :: Wsurf(n)
+  integer :: is, i1, i2, j, ielem, ielem0, ix, iy
+
+
+  do is=1,n_boundary1
+     i1    = elem_os(is-1)
+     i2    = elem_os(is)-1
+
+     write (6, *) 'surface ', is, ': element ', i1, '->', i2
+     do j=1,n
+        Wsurf(j) = sum(W(i1:i2,j))
+     enddo
+     write (6, *) 'total = ', Wsurf
+
+     if (sum(Wsurf) > 0.d0) then
+        open (iu, file="surface_plot.txt")
+        ! check surface type
+        do ielem=i1,i2
+           ielem0 = ielem - i1
+
+           ix = ielem0 / S_quad(1)%n_RZ
+           iy = ielem0 - ix * S_quad(1)%n_RZ
+
+           if (iy == 0) write(iu, *)
+           write (iu, *) ix, iy, W(ielem,:)
+        enddo
+        close (iu)
+     endif
+  enddo
+
+  end subroutine surface_plot
+!=======================================================================
+
+
+
+!=======================================================================
+! !!! this is not used and may be deleted !!!
+!=======================================================================
+!  function outside_boundary(x)
+!  use iso_fortran_env
+!  real(real64), dimension(3), intent(in) :: x
+!  logical                                :: outside_boundary
+!
+!  real(real64) :: phi
+!  type(t_curve) :: C
+!  integer :: ib
+!
+!
+!  outside_boundary = .false.
+!  stop
+!  phi = x(3)
+
+  ! check Q4-type boundaries
+!  do ib=1,n_quad
+!     C = S_quad(ib)%slice(phi)
+!     if (C%inside(x(1:2))) then
+!        outside_boundary = .true.
+!        return
+!     endif
+!  enddo
+
+!  end function outside_boundary
 !=======================================================================
 
 

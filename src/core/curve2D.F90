@@ -67,6 +67,7 @@ module curve2D
      procedure :: sample_at
      procedure :: split3
      procedure :: length
+     procedure :: outside
   end type t_curve
 
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
@@ -1231,6 +1232,52 @@ module curve2D
   enddo
 
   end function length
+!=======================================================================
+
+
+
+!=======================================================================
+  function outside(this, x)
+  use math
+  class(t_curve)                         :: this
+  real(real64), intent(in), dimension(2) :: x
+  logical                                :: outside
+
+  real(real64), parameter :: eps = 1.d-8
+
+  real(real64) :: Iphi, phi, phi0, dphi, dx(2)
+  integer      :: i, n
+
+
+  ! set default
+  outside = .false.
+  if (.not.this%closed) then
+     write (6, *) 'warning: "outside" of open curve not defined!'
+     return
+  endif
+
+
+  ! integrate
+  n    = this%n_seg
+  dx   = x - this%x(0,1:2)
+  Iphi = 0.d0
+  phi0 = atan2(dx(2), dx(1))
+  do i=1,n
+     dx = x - this%x(i,1:2)
+     phi  = atan2(dx(2), dx(1))
+     dphi = phi - phi0
+     if (dphi.gt.pi)  dphi = dphi - 2*pi
+     if (dphi.lt.-pi) dphi = dphi + 2*pi
+
+     Iphi = Iphi + dphi
+     phi0 = phi
+  enddo
+
+  if (abs(Iphi) < eps) then
+     outside = .true.
+  endif
+
+  end function outside
 !=======================================================================
 
 end module curve2D

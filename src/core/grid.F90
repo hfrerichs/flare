@@ -7,6 +7,11 @@
 ! coordinates. The grid layout can be irregular/unstructured (1D array)
 ! or regular/structured (2D/3D array).
 !
+  ! grid id = IJK
+  ! I: select internal coordinate system
+  ! J: unstructured (1), semi-structured (2), structured (3)
+  ! K: select fixed or dominant coordinate
+
 ! Heinke Frerichs (hfrerichs at wisc.edu)
 !===============================================================================
 module grid
@@ -25,7 +30,8 @@ module grid
   integer, public, parameter :: &
      UNSTRUCTURED    = 1, &
      SEMI_STRUCTURED = 2, &
-     STRUCTURED      = 3
+     STRUCTURED      = 3, &
+     UNSTRUCTURED_MESH = 4
 
 
   type, public :: t_grid
@@ -48,6 +54,7 @@ module grid
      procedure :: load
      procedure :: setup_mesh
      procedure :: store
+     procedure :: destroy
      procedure :: plot_mesh
      procedure :: node                   ! return node coordinates
      procedure :: nodes                  ! return number of grid nodes
@@ -112,6 +119,7 @@ module grid
   if (allocated(this%x)) deallocate(this%x)
   allocate (this%x(this%n,3))
   this%x = 0.d0
+  this%x(:,fixed_coord) = this%fixed_coord_value
 
 !  select case (layout)
 !  case(UNSTRUCTURED_3D)
@@ -204,12 +212,15 @@ module grid
   ! 3. read grid resolution and grid nodes
   !.....................................................................
   ! 3.1. unstructured 3D grid, n: total number of grid nodes
-  if (layout == UNSTRUCTURED  .and.  fixed_coord == 0) then
-     call iscrape (iu, n)
-     call this%new(coordinates, layout, fixed_coord, n)
+  if ((layout == UNSTRUCTURED  .and.  fixed_coord == 0) .or. &
+      (layout == UNSTRUCTURED_MESH  .and.  fixed_coord == 0)) then
+     call iscrape (iu, n1)
+     n2 = 1
+     if (layout == UNSTRUCTURED_MESH) call iscrape (iu, n2)
+     call this%new(coordinates, layout, fixed_coord, n1, n2)
 
      ! read all grid nodes and convert to cylindrical coordinates
-     do i=1,n
+     do i=1,n1*n2
         read  (iu, *) y3
         this%x(i,:) = y3
      enddo
@@ -222,6 +233,7 @@ module grid
 
      ! read fixed coordinate
      call rscrape (iu, x0)
+     this%fixed_coord_value = x0
 
      ! read all grid nodes
      do i=1,n
@@ -335,6 +347,7 @@ module grid
   case(CYLINDRICAL)
      ! deg -> rad
      this%x(:,3) = this%x(:,3) / 180.d0 * pi
+     if (fixed_coord == 3) this%fixed_coord_value = this%fixed_coord_value / 180.d0 * pi
 
   case(TORUS)
      ! poloidal, toroidal angle: deg -> rad
@@ -444,7 +457,7 @@ module grid
 
   integer, parameter :: iu = 32
 
-  real(real64) :: phi
+  real(real64) :: phi, fixed_coord_value_out
   integer :: grid_id, i, layout, coord1, coord2
 
 
@@ -470,6 +483,16 @@ module grid
      endif
   end select
  1000 format ('# grid_id = ', i4, 4x, '(', a, ')')
+  fixed_coord_value_out = this%fixed_coord_value
+
+
+! convert output units
+  if (this%coordinates == CYLINDRICAL) then
+     if (this%fixed_coord == 3) then
+        fixed_coord_value_out = fixed_coord_value_out / pi * 180.d0 
+     endif
+     ! TODO: convert x1, x2 if fixed_coord = 1,2
+  endif
 
 
 ! write grid nodes .............................................
@@ -484,7 +507,8 @@ module grid
   ! unstructured 2D grids, one coordinate fixed
   elseif (layout == UNSTRUCTURED  .and.  this%fixed_coord > 0) then
      write (iu, 2001) this%n
-     write (iu, 2002) this%x(1, this%fixed_coord)
+     !write (iu, 2002) this%x(1, this%fixed_coord)
+     write (iu, 2002) fixed_coord_value_out
      do i=1,this%n
         write (iu, 3002) this%x(i, this%coord1), this%x(i, this%coord2)
      enddo
@@ -500,11 +524,27 @@ module grid
 
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
- 2002 format ('# fixed coordinate:             ',f7.2)
+ 2002 format ('# fixed coordinate:             ',f10.5)
  3001 format (1e18.10)
  3002 format (2e18.10)
  3003 format (3e18.10)
   end subroutine store
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine destroy(this)
+  class(t_grid)                :: this
+
+
+  if (allocated(this%x))  deallocate(this%x)
+  if (allocated(this%x1)) deallocate(this%x1)
+  if (allocated(this%x2)) deallocate(this%x2)
+  if (allocated(this%x3)) deallocate(this%x3)
+  if (allocated(this%mesh)) deallocate(this%mesh)
+
+  end subroutine destroy
 !=======================================================================
 
 

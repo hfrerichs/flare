@@ -6,6 +6,7 @@
 ! N_points              Number of points for each slice
 ! N_sym                 Toroidal symmetry number (i.e. 5: 0->72 deg)
 ! N_mult                Number of slices
+! N_steps               Number of trace steps between slices
 ! Output_Format         = 1: use poloidal angle to sample points of flux surface slice
 !                       = 2: use distance along flux surface slice to sample points
 !
@@ -38,8 +39,9 @@ subroutine generate_flux_surface_3D
   y0    = x_start
   y0(3) = y0(3) / 180.d0 * pi
   if (N_steps == 0) N_steps = 10
-  call S%generate(y0, N_points, N_sym, N_mult, N_steps, Trace_Method, poloidal_coordinate=Output_Format)
-  call S%plot(filename=Output_File)
+  call S%generate(y0, N_points, N_sym, N_mult, N_steps, Trace_Method, poloidal_coordinate=2)
+  !call S%generate(y0, N_points, N_sym, N_mult, N_steps, Trace_Method, poloidal_coordinate=Output_Format)
+  call S%plot(filename=Output_File, output_format=Output_Format)
   
  1001 format (8x,'Toroidal symmetry number:         ',i4)
  1002 format (8x,'Number of slices to be generated: ',i4)

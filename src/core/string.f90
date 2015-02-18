@@ -48,9 +48,9 @@ module string
 ! Convert an integer to string
 !=======================================================================
   character(len=20) function str(k)
-    integer, intent(in) :: k
-    write (str, *) k
-    str = adjustl(str)
+  integer, intent(in) :: k
+  write (str, *) k
+  str = adjustl(str)
   end function str
 !=======================================================================
 

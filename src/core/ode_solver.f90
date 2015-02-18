@@ -349,8 +349,8 @@ module ode_solver
   this%mf = 10
   this%istate = 1
 
-  this%rtol = 0.d0
-  this%atol = 1.d-8
+  this%rtol = 1.d-9
+  this%atol = 1.d-9
 
   if (allocated(this%rwork)) deallocate(this%rwork)
   neq = 3

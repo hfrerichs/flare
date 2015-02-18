@@ -4,6 +4,8 @@ include ../../include.mk
 OBJECTS =  \
                quicksort.o\
                math.o\
+               grid.o\
+               Q4.o\
                dataset.o\
                search.o\
                curve2D.o\
@@ -13,7 +15,6 @@ OBJECTS =  \
                ode_solver.o\
                quad_ele.o\
                usr_grid.o\
-               grid.o\
                string.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR)

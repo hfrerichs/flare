@@ -892,6 +892,26 @@
       RETURN
       END SUBROUTINE check_point_behind_bl
 !------------------------------------------------------------------
+! check if r (cylindrical coordinates) is outside of block limiter ibl
+!------------------------------------------------------------------
+      function bl_outside(ibl, r)
+      use math
+      integer, intent(in) :: ibl
+      real*8,  intent(in) :: r(3)
+      logical :: bl_outside
+
+      real*8, parameter :: eps = 1.d-9
+      logical :: inside
+      real*8 :: x(3)
+
+
+      bl_outside = .true.
+      call coord_trans(r, CYLINDRICAL, x, CARTESIAN)
+      call check_point_behind_bl (x, eps, ibl, inside)
+      if (inside) bl_outside = .false.
+
+      end function bl_outside
+!------------------------------------------------------------------
 
 !------------------------------------------------------------------
 ! FUNCTION TO CALCULATE THE INTERSECTION POINTS OF A LINE SEGMENT 

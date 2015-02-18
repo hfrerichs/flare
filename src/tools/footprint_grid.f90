@@ -7,6 +7,13 @@ subroutine footprint_grid
 
   integer, parameter :: iu = 32, iu2 = 33
 
+  ! user input for grid generation
+  integer :: &
+     slice_phi = -1
+
+  namelist /Grid_Input/ slice_phi
+
+
 
   if (firstP) then
      write (6, *) 'Generate footprint grid, output in: ', adjustl(trim(Output_File)), &
@@ -15,6 +22,10 @@ subroutine footprint_grid
   else
      return
   endif
+
+  open  (iu, file='run_input')
+  read  (iu, Grid_Input, end=1000)
+ 1000 close (iu)
 
   call footprint_grid_Q(1)
   contains
@@ -33,7 +44,7 @@ subroutine footprint_grid
   type(t_quad_ele) :: S
   type(t_curve)    :: C
   real(real64) :: tau, xi, phi, theta, r(3), d(2)
-  integer      :: i, j, n, ig
+  integer      :: i, iA, iB, j, n, ig
 
 
   if (iele < 1  .or.  iele > n_quad) then
@@ -54,6 +65,21 @@ subroutine footprint_grid
  1001 format (3x,'- Using poloidal angle as reference coordinate')
  1002 format (3x,'- Using relative position in poloidal direction as reference coordinate')
 
+
+
+  ! select slice
+  if (slice_phi >= 0) then
+     if (slice_phi > n_phi) then
+        write (6, *) 'error: cannot extract slice ', slice_phi, '/', n_phi
+        stop
+     endif
+
+     iA = slice_phi
+     iB = slice_phi
+  else
+     iA = 0
+     iB = n_phi
+  endif
 
 
   ! copy surface (to be modified locally)
@@ -78,7 +104,7 @@ subroutine footprint_grid
   !call S%left_hand_shift(1.d-3)
 
 
-  n = (n_phi+1) * (n_theta+1)
+  n = (iB-iA+1) * (n_theta+1)
   ! output file for cylindrical coordinates
   !open  (iu, file=Grid_File)
   !write (iu, 1000)
@@ -94,7 +120,7 @@ subroutine footprint_grid
 
   call S%setup_coefficients()
   ig = 0
-  do i=0,n_phi
+  do i=iA,iB
      tau = Equidistant%node(i, n_phi)
      phi = S_quad(iele)%sample_phi(tau)
      C   = S_quad(iele)%slice(phi)

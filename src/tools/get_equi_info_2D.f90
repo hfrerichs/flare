@@ -109,7 +109,7 @@ subroutine get_equi_info_2D
 
  9000 format (3x,'- found X-point at: ',2f10.3)
  9001 format (3x,'- magnetic axis is at: ',2f10.3)
- 1000 format ('# grid_id = 3       (regular RZ grid)')
+ 1000 format ('# grid_id = 233     (regular RZ grid)')
  1001 format ('# R resolution:      n_R     =  ',i8)
  1002 format ('# Z resolution:      n_Z     =  ',i8)
  1003 format ('# phi position:      phi     =  ',f7.2)
@@ -122,7 +122,7 @@ subroutine get_equi_info_2D
  2004 format ('exit')
  2005 format ('fi')
  2006 format ('idl << EOF')
- 2007 format ("plot_data, 'equi_info.grid', 'equi_info.data', 0, zbound=[0,2], clevels=[0.9, 1.0, 1.1], $")
+ 2007 format ("plot_data, 'equi_info.grid', 'equi_info.data', 0, zrange=[0,2], clevels=[0.9, 1.0, 1.1], $")
  2008 format (a120)
  2009 format ("ps_plot='equi_info.eps'")
  2010 format ('EOF')

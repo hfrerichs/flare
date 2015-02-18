@@ -87,6 +87,7 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange, scale=scale
 	case isort of
 	; irregular grid
 	0: begin
+		z_data	= make_array(n_xy, /fl)
 		z_data	= data(*,idata)
 	end
 	; regular grid (in columns)
@@ -278,6 +279,7 @@ pro overlay_data, data_files, plot_style=plot_style
 		8:	oplot, xy_data(0,*), xy_data(1,*), color=252, psym=3
 		9:	oplot, xy_data(0,*), xy_data(1,*), thick=10.0, color=251
 		10:	oplot, xy_data(0,*), xy_data(1,*), thick=10.0, color=0, linestyle=2
+		11:	oplot, xy_data(0,*), xy_data(1,*), thick=10.0, color=255, linestyle=2
 		100:	oplot, xy_data(0,*), xy_data(1,*), thick=3.0, color=0, psym=6, symsize=2
 		endcase
 	endfor
@@ -405,6 +407,7 @@ pro plot_data, grid_file, data_file, idata, zrange=zrange, ps_plot=ps_plot, poin
 		plot_add_data=plot_add_data, add_data_style=add_data_style, log10=log10, scale=scale, $
 		xtitle=xtitle, ytitle=ytitle, utitle=utitle, ct=ct, white0=white0, $
 		xselect=xselect, yselect=yselect, xfile=xfile, yfile=yfile, xsize=xsize, ysize=ysize, $
+		zticks=zticks, ztickinterval=ztickinterval, $
 		swap_xy=swap_xy
 	common	grid
 	common	data
@@ -515,7 +518,8 @@ pro plot_data, grid_file, data_file, idata, zrange=zrange, ps_plot=ps_plot, poin
 	contour, bar_dummy, [0,1], levels, /fill, levels=levels, $
 		 ystyle=1, xstyle=4, xmargin=[XL_Margin_CBar,XR_Margin_Cbar], /noerase, $
 		 ytitle=utitle, c_colors=colors, $
-		 charsize=char_size, charthick=char_thick
+		 charsize=char_size, charthick=char_thick, $
+		 ytickname=zticks, ytickinterval=ztickinterval
 
 
 	close_device, ps_plot=ps_plot
