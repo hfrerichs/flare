@@ -172,11 +172,10 @@ module curve2D
 
 
 #if defined(FLARE)
-  n = this%n_seg
-  m = this%n_dim
-
   call broadcast_inte_s (this%n_seg)
   call broadcast_inte_s (this%n_dim)
+  n = this%n_seg
+  m = this%n_dim
 
   if (mype > 0) then
      allocate (this%nodes%x(0:n,m))
