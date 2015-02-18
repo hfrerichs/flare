@@ -245,12 +245,16 @@ module fieldline
 
   lc = 0.d0
   trace_loop: do
-     this%rl = this%rc
-     yc      = this%next_step()
+     call this%trace_1step()
      lc      = lc + this%ds
-     call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
 
      if (abs(lc) > Limit) exit trace_loop
+
+     if (stop_at_boundary) then
+        if (this%intersect_boundary()) then
+           exit trace_loop
+        endif
+     endif
   enddo trace_loop
 
   end subroutine trace
