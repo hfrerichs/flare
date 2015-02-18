@@ -9,6 +9,7 @@ OBJECTS =  \
                flux_surface_2D.o\
                flux_surface_3D.o\
                separatrix.o\
+               xpaths.o\
                flux_tube.o\
                field_aligned_grid.o
 

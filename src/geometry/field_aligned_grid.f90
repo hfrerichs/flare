@@ -4,8 +4,9 @@
 module field_aligned_grid
   use iso_fortran_env
   use equilibrium
-  use separatrix
   use curve2D
+  use separatrix
+  use xpaths
   use mesh_spacing
   use fieldline
   use flux_surface_2D
@@ -129,7 +130,7 @@ module field_aligned_grid
   ! radial discretization setup
 !  type(t_gradPsiN_path) :: Radial_Path
   !type(t_radial_path), dimension(:), allocatable :: radial_path
-  type(t_gradPsiN_path), dimension(:), allocatable :: radial_path
+  type(t_xpath), dimension(:), allocatable :: radial_path
 
   type(t_grid), dimension(:), allocatable :: base_grid
 
