@@ -58,7 +58,7 @@ echo "timestamp: $(date)" >> $LOG_FILE
 # MPI support / Fortran compiler
 if type mpif90 >/dev/null 2>/dev/null; then
 	echo "Compiling with MPI support" | tee -a $LOG_FILE
-	echo "FC_BASE        = mpif90 -DparallelMPI" >> include.mk
+	echo "FC_BASE        = mpif90 -DMPI" >> include.mk
 elif type ifort >/dev/null 2>/dev/null; then
 	echo "Using Inter Fortran compiler" | tee -a $LOG_FILE
 	echo "FC_BASE        = ifort" >> include.mk
@@ -86,10 +86,10 @@ echo "" >> include.mk
 
 # checking for coupling to EMC3
 if [ "$EMC3_dir" == "" ]; then
-	NOTE='Compiling without support for field aligned grid input (bases on EMC3 sources)'
+	NOTE='Compiling without support for fieldline-grid input (bases on EMC3 sources)'
 	echo $NOTE | tee -a $LOG_FILE
 else
-	NOTE='Compiling with support for field aligned grid input (bases on EMC3 sources)'
+	NOTE='Compiling with support for fieldline-grid input (bases on EMC3 sources)'
 	echo $NOTE | tee -a $LOG_FILE
 	echo "# $NOTE" >> include.mk
 	echo "EMC3_FLAG      = -DEMC3" >> include.mk

@@ -6,7 +6,7 @@
 module parallel
 implicit none
 
-#if defined(parallelMPI)
+#if defined(MPI)
     include 'mpif.h'
 #endif
 
@@ -21,7 +21,7 @@ contains
 !===============================================================================
 subroutine initial_parallel
 
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_INIT (er_par)
     call MPI_COMM_SIZE (MPI_COMM_WORLD, nprs, er_par)
     call MPI_COMM_RANK (MPI_COMM_WORLD, mype, er_par)
@@ -39,7 +39,7 @@ end subroutine initial_parallel
 subroutine finished_parallel
 
 call wait_pe
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_FINALIZE (er_par)
 #endif
 
@@ -64,7 +64,7 @@ subroutine broadcast_real_s(A)
 real*8, intent(inout) :: A
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BCAST (A, 1, MPI_REAL8, 0, MPI_COMM_WORLD, er_par)
 #endif
 
@@ -80,7 +80,7 @@ integer, intent(in)   :: ndim
 real*8, dimension(ndim), intent(inout) :: A
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BCAST (A, ndim, MPI_REAL8, 0, MPI_COMM_WORLD, er_par)
 #endif
 
@@ -95,7 +95,7 @@ subroutine broadcast_inte_s(A)
 integer, intent(inout) :: A
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BCAST (A, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, er_par)
 #endif
 
@@ -111,7 +111,7 @@ integer, intent(in) :: ndim
 integer, dimension(ndim), intent(inout) :: A
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BCAST (A, ndim, MPI_INTEGER, 0, MPI_COMM_WORLD, er_par)
 #endif
 
@@ -126,7 +126,7 @@ subroutine broadcast_logi(A)
 logical, intent(inout) :: A
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BCAST (A, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, er_par)
 #endif
 
@@ -142,7 +142,7 @@ integer, intent(in) :: ndim
     character(ndim), intent(inout) :: A
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BCAST (A, ndim, MPI_CHARACTER, 0, MPI_COMM_WORLD, er_par)
 #endif
 
@@ -159,7 +159,7 @@ integer, dimension(ndim), intent(inout) :: A
 integer, dimension(:), allocatable      :: B,C
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BARRIER(MPI_COMM_WORLD,ER_PAR)
     allocate (B(ndim))
     B = A
@@ -182,7 +182,7 @@ integer, parameter :: ndim_max = 100000
 integer :: n1, n2
 
 if (nprs.le.1) return
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BARRIER(MPI_COMM_WORLD,ER_PAR)
     if (ndim .le. ndim_max) then
         allocate (b(ndim))
@@ -213,7 +213,7 @@ end subroutine sum_real_data
 !===============================================================================
 subroutine wait_pe()
 
-#if defined(parallelMPI)
+#if defined(MPI)
     call MPI_BARRIER (MPI_COMM_WORLD, er_par)
 #endif
 

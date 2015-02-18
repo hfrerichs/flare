@@ -224,12 +224,12 @@ module dataset
 
 !=======================================================================
   subroutine mpi_allreduce(this)
-#if defined(parallelMPI)
+#if defined(MPI)
   use parallel
 #endif
   class(t_dataset) :: this
 
-#if defined(parallelMPI)
+#if defined(MPI)
   call wait_pe()
   call sum_real_data (this%x, this%nrow*this%ncol)
 #endif
