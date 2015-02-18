@@ -40,7 +40,7 @@ module field_aligned_grid
 
 
   ! Type of innermost flux surface (exact or quasi)
-  character(len=12) :: &
+  character(len=16) :: &
      Layout = LAYOUT_SC, &
      Innermost_Flux_Surface = EXACT
 
