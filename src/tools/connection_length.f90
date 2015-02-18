@@ -67,7 +67,7 @@ subroutine connection_length
   type(t_grid)       :: G
 
   character(len=12)  :: fstr
-  real(real64)       :: y(3), r(3), PsiN, Psi_min, Psi_av
+  real(real64)       :: y(3), r(3), PsiN, Psi_min, Psi_av, ltor(-1:1)
   real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2), d, d_min, PsiN_final(-1:1)
   logical :: distance_to_lcfs
   integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir, id, id_limit(-1:1)
@@ -190,6 +190,7 @@ subroutine connection_length
            endif
         enddo trace_loop
         lpt(idir)  = F%theta_int
+        ltor(idir) = F%phi_int / pi * 180.d0
         PsiN_final(idir) = PsiN
      enddo
 
