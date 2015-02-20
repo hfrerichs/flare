@@ -22,7 +22,113 @@ module emc3_grid
 !=======================================================================
 
 
+
 !=======================================================================
+  subroutine scrape(nu,readfi)
+  implicit none
+  integer, intent(in) :: nu
+  character(len=72)   :: readfi
+
+
+  do
+     read  (nu, '(a72)') readfi
+     if (readfi(1:1) == '*') then
+        if (readfi(2:3) == '**') then
+           write (6, *) readfi
+        endif
+     else
+        exit
+     endif
+  enddo
+
+  end subroutine scrape
+!===============================================================================
+
+
+
+!===============================================================================
+! LOAD_GRID_LAYOUT (from input file "input.geo")
+!===============================================================================
+  subroutine load_grid_layout
+  implicit none
+
+  integer, parameter :: iu = 24
+
+  character(len=72)  :: readfi
+  integer :: i, iz, nz
+
+
+  open  (iu, file='input.geo')
+  call scrape(iu, readfi)
+  read (readfi, *) NZONET
+
+
+  allocate (SRF_RADI(0:NZONET-1),SRF_POLO(0:NZONET-1),SRF_TORO(0:NZONET-1), &
+            ZON_RADI(0:NZONET-1),ZON_POLO(0:NZONET-1),ZON_TORO(0:NZONET-1))
+  do iz=0,NZONET-1
+     call scrape(iu, readfi)
+     read  (readfi, *) SRF_RADI(iz), SRF_POLO(iz), SRF_TORO(iz)
+     write (6 , *)     SRF_RADI(iz), SRF_POLO(iz), SRF_TORO(iz)
+  enddo
+  ZON_RADI(iz) = SRF_RADI(iz) - 1
+  ZON_POLO(iz) = SRF_POLO(iz) - 1
+  ZON_TORO(iz) = SRF_TORO(iz) - 1
+  close (iu)
+
+  allocate (GRID_P_OS(0:NZONET), PHI_PL_OS(0:NZONET))
+      
+  PHI_PL_OS(0) = 0
+  GRID_P_OS(0) = 0
+  do i=1,NZONET
+     PHI_PL_OS(i) = PHI_PL_OS(i-1) + SRF_TORO(i-1)
+     GRID_P_OS(i) = GRID_P_OS(i-1) + SRF_RADI(i-1)*SRF_POLO(i-1)*SRF_TORO(i-1)
+  enddo
+
+  ! 3. allocate main arrays
+  allocate (PHI_PLANE(0:PHI_PL_OS(NZONET)-1), &
+                   RG(0:GRID_P_OS(NZONET)-1), &
+                   ZG(0:GRID_P_OS(NZONET)-1))
+
+  end subroutine load_grid_layout
+!===============================================================================
+
+
+
+!===============================================================================
+! LOAD_EMC3_GRID
+!===============================================================================
+  subroutine load_emc3_grid
+  use math
+  implicit none
+
+  integer, parameter :: iu = 24
+
+  integer :: iz, i, i1, i2, k, nr, np, nt
+
+
+  open  (iu, file='grid3D.dat')
+  do iz=0,NZONET-1
+     read  (iu, *) nr, np, nt
+     do k=0,nt-1
+        read (iu, *) PHI_PLANE(k+PHI_PL_OS(iz))
+        ! convert deg to rad
+        PHI_PLANE(k+PHI_PL_OS(iz)) = PHI_PLANE(k+PHI_PL_OS(iz)) * pi / 180.d0
+
+        i1 = GRID_P_OS(iz) + k*SRF_RADI(iz)*SRF_POLO(iz)
+        i2 = i1 + SRF_RADI(iz)*SRF_POLO(iz) - 1
+        read (iu, *) (RG(i), i=i1,i2)
+        read (iu, *) (ZG(i), i=i1,i2)
+     enddo
+  enddo
+  close (iu)
+
+  end subroutine load_emc3_grid
+!=======================================================================
+
+
+
+!=======================================================================
+#ifdef FLARE
   function export_flux_tube(iz, ir, ip) result(flux_tube)
   use flux_tube
   use math
@@ -49,13 +155,14 @@ module emc3_grid
   enddo
 
   end function export_flux_tube
+#endif
 !=======================================================================
 
 end module emc3_grid
 !=======================================================================
 
 
-
+#ifdef FLARE
 !=======================================================================
   subroutine setup_emc3_grid_layout
   use field_aligned_grid
@@ -116,6 +223,7 @@ end module emc3_grid
 !===============================================================================
   subroutine write_emc3_grid
   use emc3_grid
+  use math
   implicit none
 
   integer, parameter :: iu = 24
@@ -129,7 +237,7 @@ end module emc3_grid
      it = ZON_TORO(iz)
      write (iu, *) SRF_RADI(iz), SRF_POLO(iz), SRF_TORO(iz)
      do k=0,it
-        write (iu, *) PHI_PLANE(k+PHI_PL_OS(iz))
+        write (iu, *) PHI_PLANE(k+PHI_PL_OS(iz)) / pi * 180.d0
 
         i = k*SRF_POLO(iz)*SRF_RADI(iz) + GRID_P_OS(iz)
         j = i + SRF_POLO(iz)*SRF_RADI(iz) - 1
@@ -140,40 +248,6 @@ end module emc3_grid
   close (iu)
 
   end subroutine write_emc3_grid
-!=======================================================================
-
-
-
-!===============================================================================
-! LOAD_EMC3_GRID
-!===============================================================================
-  subroutine load_emc3_grid
-  use emc3_grid
-  use math
-  implicit none
-
-  integer, parameter :: iu = 24
-
-  integer :: iz, i, i1, i2, k, nr, np, nt
-
-
-  open  (iu, file='grid3D.dat')
-  do iz=0,NZONET-1
-     read  (iu, *) nr, np, nt
-     do k=0,nt-1
-        read (iu, *) PHI_PLANE(k+PHI_PL_OS(iz))
-        PHI_PLANE(k+PHI_PL_OS(iz)) = PHI_PLANE(k+PHI_PL_OS(iz))
-        !PHI_PLANE(k+PHI_PL_OS(iz)) = PHI_PLANE(k+PHI_PL_OS(iz)) * pi / 180.d0
-
-        i1 = GRID_P_OS(iz) + k*SRF_RADI(iz)*SRF_POLO(iz)
-        i2 = i1 + SRF_RADI(iz)*SRF_POLO(iz) - 1
-        read (iu, *) (RG(i), i=i1,i2)
-        read (iu, *) (ZG(i), i=i1,i2)
-     enddo
-  enddo
-  close (iu)
-
-  end subroutine load_emc3_grid
 !=======================================================================
 
 
@@ -201,7 +275,6 @@ end module emc3_grid
   do it=0,SRF_TORO(iz)-1
      write (6, *) iz, it
      x(3) = PHI_PLANE(it + PHI_PL_OS(iz))
-     x(3) = x(3) / 180.d0 * pi ! TODO: consistent units for toroidal angle
      do ip=0,SRF_POLO(iz)-1
      !do ir=0,SRF_RADI(iz)-1
      do ir=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)
@@ -700,7 +773,6 @@ end module emc3_grid
      do k=0,nt-1
      do l=1,n_quad
          phi  = (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz))) / 2.d0
-         phi  = phi / 180.d0 * pi          !!!!! TODO: consistent units for PHI_PLANE
          phi  = phi_sym(phi, N_sym)
          C(k,l) = S_quad(l)%slice(phi)
 
@@ -1011,3 +1083,5 @@ end module emc3_grid
   !-------------------------------------------------------------------
   end subroutine generate_plates
 !=======================================================================
+
+#endif
