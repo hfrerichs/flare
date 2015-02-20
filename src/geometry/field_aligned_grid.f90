@@ -33,7 +33,7 @@ module field_aligned_grid
      UPDOWN_SF   = 2, &
      MAPPING_SF  = 3, &
      CORE_BOUNDARY_SF = -1, &
-     EDGE_BOUNDARY_SF = -2
+     VACUUM_BOUNDARY_SF = -2
 
 
   integer, parameter :: &
@@ -420,7 +420,8 @@ module field_aligned_grid
   ! 0. initialize base grid and spacing function
   r       = get_magnetic_axis(x_in1(3)/180.d0*pi)
   MagAxis = r(1:2)
-  call G%new(CYLINDRICAL, UNSTRUCTURED, 3, nr+1, np+1, mesh=.true.)
+  !call G%new(CYLINDRICAL, UNSTRUCTURED, 3, nr+1, np+1, mesh=.true.)
+  call G%new(CYLINDRICAL, UNSTRUCTURED_MESH, 3, nr+1, np+1)
   call rad1%init(parse_string(Radial_Spacing, 1))
   call radg%init(parse_string(Radial_Spacing, 2))
   call rad2%init(parse_string(Radial_Spacing, 3))

@@ -3,14 +3,14 @@
 !===============================================================================
 subroutine vacuum_domain_for_EIRENE
   use emc3_grid
-  use field_aligned_grid, only: TD, EDGE_BOUNDARY_SF
+  use field_aligned_grid, only: TD, VACUUM_BOUNDARY_SF
   implicit none
 
   integer :: iz
 
 
   do iz=0,NZONET-1
-     if (TD(iz+1)%irsfb == EDGE_BOUNDARY_SF) then
+     if (TD(iz+1)%irsfb == VACUUM_BOUNDARY_SF) then
         call setup_vacuum_domain(iz, 1, 1)
      endif
   enddo

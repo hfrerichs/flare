@@ -21,7 +21,7 @@ subroutine setup_layout_sc (tZ)
 
   do iz=0,N_block-1
      tZ(iz)%irsfa = CORE_BOUNDARY_SF
-     tZ(iz)%irsfb = EDGE_BOUNDARY_SF
+     tZ(iz)%irsfb = VACUUM_BOUNDARY_SF
      tZ(iz)%ipsfa = PERIODIC_SF
      tZ(iz)%ipsfb = PERIODIC_SF
      tZ(iz)%itsfa = MAPPING_SF
