@@ -1,6 +1,7 @@
 subroutine generate_field_aligend_grid (run_level)
   use parallel
   use field_aligned_grid
+  use emc3_grid
   implicit none
 
   integer, intent(in) :: run_level
