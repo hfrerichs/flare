@@ -73,9 +73,9 @@ module splineB
   write (6, *)
   write (6, 1001)
   select case(data_type)
-  case(BFIELD)
-     write (6, 1002)
   case(VECTOR_POTENTIAL)
+     write (6, 1002)
+  case(BFIELD)
      write (6, 1003)
   end select
   write (6, 1004) spline_order
