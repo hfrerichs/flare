@@ -82,7 +82,9 @@ module grid
   if (present(n2)) then
      this%n2     = n2
      this%n      = this%n * n2
-     if (present(mesh) .and. mesh) then
+     !if (present(mesh) .and. mesh) then
+     if (layout == UNSTRUCTURED_MESH) then
+        if (allocated(this%mesh)) deallocate(this%mesh)
         if (fixed_coord > 0) then
            allocate (this%mesh(0:n1-1, 0:n2-1, 2))
         else
@@ -211,22 +213,19 @@ module grid
 
   ! 3. read grid resolution and grid nodes
   !.....................................................................
-  ! 3.1. unstructured 3D grid, n: total number of grid nodes
-  if ((layout == UNSTRUCTURED  .and.  fixed_coord == 0) .or. &
-      (layout == UNSTRUCTURED_MESH  .and.  fixed_coord == 0)) then
+  ! 3.1a. unstructured 3D grid, n: total number of grid nodes
+  if (layout == UNSTRUCTURED  .and.  fixed_coord == 0) then
      call iscrape (iu, n1)
-     n2 = 1
-     if (layout == UNSTRUCTURED_MESH) call iscrape (iu, n2)
-     call this%new(coordinates, layout, fixed_coord, n1, n2)
+     call this%new(coordinates, layout, fixed_coord, n1)
 
-     ! read all grid nodes and convert to cylindrical coordinates
-     do i=1,n1*n2
+     ! read all grid nodes
+     do i=1,n1
         read  (iu, *) y3
         this%x(i,:) = y3
      enddo
 
   !.....................................................................
-  ! 3.2. unstructured 2D grid, one coordinate is fixed, n: total number of grid nodes
+  ! 3.1b. unstructured 2D grid, one coordinate is fixed, n: total number of grid nodes
   elseif (layout == UNSTRUCTURED  .and.  fixed_coord > 0) then
      call iscrape (iu, n)
      call this%new(coordinates, layout, fixed_coord, n)
@@ -244,7 +243,7 @@ module grid
      enddo
 
   !.....................................................................
-  ! 3.3. semi-structured grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
+  ! 3.2. semi-structured grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
   elseif (layout == SEMI_STRUCTURED) then
      if (fixed_coord == 0) then
         write (6, *) 'error: fixed_coord > 0 required for semi-structured grids!'
@@ -276,7 +275,7 @@ module grid
      enddo
 
   !.....................................................................
-  ! 3.4. structured grid, separate list of coordinates
+  ! 3.3. structured grid, separate list of coordinates
   elseif (layout == STRUCTURED) then
      call iscrape (iu, n1)
      call iscrape (iu, n2)
@@ -323,6 +322,34 @@ module grid
      enddo
      enddo
      enddo
+
+  !.....................................................................
+  ! 3.4. unstructured mesh, n1*n2: total number of grid nodes
+  elseif (layout == UNSTRUCTURED_MESH  .and.  fixed_coord > 0) then
+     call iscrape (iu, n1)
+     call iscrape (iu, n2)
+     !call this%new(coordinates, layout, fixed_coord, n1, n2, mesh=.true.)
+     call this%new(coordinates, layout, fixed_coord, n1, n2)
+
+     ! read fixed coordinate
+     call rscrape (iu, x0)
+     this%fixed_coord_value = x0
+
+     ! read all grid nodes
+     do j=0,n2-1
+        do i=0,n1-1
+           read  (iu, *) y2
+           this%mesh(i,j,1) = y2(1)
+           this%mesh(i,j,2) = y2(2)
+           !this%mesh(i,j,this%coord1) = y2(1)
+           !this%mesh(i,j,this%coord2) = y2(2)
+           !this%mesh(i,j,fixed_coord) = x0
+           !this%x(i, this%coord1) = y2(1)
+           !this%x(i, this%coord2) = y2(2)
+           !this%x(i, fixed_coord) = x0
+        enddo
+     enddo
+     call this%setup_mesh()
 
   !.....................................................................
   else
@@ -431,8 +458,8 @@ module grid
 
 
   ig = 0
-     do i=0,this%n1-1
   do j=0,this%n2-1
+     do i=0,this%n1-1
         ig = ig + 1
         this%x(ig,this%coord1)      = this%mesh(i,j,1)
         this%x(ig,this%coord2)      = this%mesh(i,j,2)
@@ -458,7 +485,7 @@ module grid
   integer, parameter :: iu = 32
 
   real(real64) :: phi, fixed_coord_value_out
-  integer :: grid_id, i, layout, coord1, coord2
+  integer :: grid_id, i, j, layout, coord1, coord2
 
 
 ! open output file .............................................
@@ -497,20 +524,31 @@ module grid
 
 ! write grid nodes .............................................
   layout = this%layout
-  ! unstructured 3D grids
+  ! 1.a unstructured 3D grids
   if (layout == UNSTRUCTURED  .and.  this%fixed_coord == 0) then
      write (iu, 2001) this%n
      do i=1,this%n
         write (iu, 3003) this%x(i,:)
      enddo
 
-  ! unstructured 2D grids, one coordinate fixed
+  ! 1.b unstructured 2D grids, one coordinate fixed
   elseif (layout == UNSTRUCTURED  .and.  this%fixed_coord > 0) then
      write (iu, 2001) this%n
      !write (iu, 2002) this%x(1, this%fixed_coord)
      write (iu, 2002) fixed_coord_value_out
      do i=1,this%n
         write (iu, 3002) this%x(i, this%coord1), this%x(i, this%coord2)
+     enddo
+
+  ! 4 unstructured meshs, one coordinate fixed
+  elseif (layout == UNSTRUCTURED_MESH  .and.  this%fixed_coord > 0) then
+     write (iu, 2003) this%n1
+     write (iu, 2004) this%n2
+     write (iu, 2002) fixed_coord_value_out
+     do j=0,this%n2-1
+     do i=0,this%n1-1
+        write (iu, 3002) this%mesh(i,j,1), this%mesh(i,j,2)
+     enddo
      enddo
 
   else
@@ -525,6 +563,8 @@ module grid
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
  2002 format ('# fixed coordinate:             ',f10.5)
+ 2003 format ('# grid resolution:   n1      =  ',i10)
+ 2004 format ('#                    n2      =  ',i10)
  3001 format (1e18.10)
  3002 format (2e18.10)
  3003 format (3e18.10)
