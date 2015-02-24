@@ -72,6 +72,7 @@ echo "" >> include.mk
 echo "# setting directory for links to executables" >> include.mk
 echo "BIN_DIR        = $BIN_DIR" >> include.mk
 echo "" >> include.mk
+echo "Binary directory is $BIN_DIR" | tee -a $LOG_FILE
 
 
 # MPI support / Fortran compiler
