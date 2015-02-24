@@ -1,9 +1,6 @@
 include ../include.mk
 
 
-PROGRAM        = ../bin/flare_bin
-PROGRAM_DEBUG  = ../bin/flare_bin_debug
-
 EXTERNAL_INC   = -I $(EXTERNAL_DIR)
 EXTERNAL_OBJ   = $(EXTERNAL_DIR)/*.o $(EMC3_OBJ_LONG)
 
@@ -40,7 +37,7 @@ all: $(OBJECTS)
 	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
 	cd $(DEVEL_DIR); $(MAKE) FC='$(FC)'
 	$(FC) -c $(GEOMETRY_INC) $(BFIELD_INC) main.f90
-	$(FC) -o  $(PROGRAM) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
+	$(FC) -o ../bin/$(PROGRAM) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
 
 
 %.o: %.f*
@@ -53,6 +50,7 @@ all: $(OBJECTS)
 .PHONY: debug
 debug:
 	$(MAKE) FC="$(FC_DEBUG)" PROGRAM="$(PROGRAM_DEBUG)"
+
 
 .PHONY: clean
 clean:

@@ -9,6 +9,8 @@ EMC3_dir=""
 
 fusion_io_dir=$M3DC1_INSTALL_DIR
 fusion_io_arch=`uname`
+
+BIN_DIR=$HOME/bin
 ################################################################################
 
 
@@ -24,6 +26,8 @@ for opt in "$@"; do
         echo "  --base_dir=DIR          base directory for magnetic configuration"
 	echo "	                        database (relative to home directory)"
 	echo ""
+	echo "  --bin_dir=DIR           directory with links to executables"
+	echo ""
 	echo "  --EMC3_dir=DIR          set EMC3 source directory"
 	echo ""
 	echo "  --fusion_io_dir=DIR     set directory of M3D-C1 / fusion_io installation"
@@ -33,6 +37,8 @@ for opt in "$@"; do
 	exit
     elif [ "$par" == "--base_dir" ]; then
         base_dir=$val
+    elif [ "$par" == "--bin_dir" ]; then
+        BIN_DIR=$val
     elif [ "$par" == "--EMC3_dir" ]; then
         EMC3_dir=$val
     elif [ "$par" == "--fusion_io_dir" ]; then
@@ -54,6 +60,19 @@ touch include.mk
 LOG_FILE=configure.log
 echo "command: $0 $@" > $LOG_FILE
 echo "timestamp: $(date)" >> $LOG_FILE
+
+# Main program
+echo "# Main program"             >> include.mk
+echo "PROGRAM        = flare_bin" >> include.mk
+echo "PROGRAM_DEBUG  = flare_bin_debug" >> include.mk
+echo "" >> include.mk
+
+
+# directory for links to executables
+echo "# setting directory for links to executables" >> include.mk
+echo "BIN_DIR        = $BIN_DIR" >> include.mk
+echo "" >> include.mk
+
 
 # MPI support / Fortran compiler
 if type mpif90 >/dev/null 2>/dev/null; then
