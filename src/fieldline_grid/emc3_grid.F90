@@ -805,7 +805,6 @@ end module emc3_grid
            x(2)    = sum(ZG(ig))/8.d0
            x(3)    = (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz))) / 2.d0
            !write (6, *) x
-           x(3)    = x(3) / 180.d0 * pi
            x(3)    = phi_sym(x(3), N_sym)
 
            ic      = i + (j + k*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
@@ -1023,7 +1022,7 @@ end module emc3_grid
   x2(1)   = RG(ig(2)); x2(2)   = ZG(ig(2))
   x3(1)   = RG(ig(3)); x3(2)   = ZG(ig(3))
   x4(1)   = RG(ig(4)); x4(2)   = ZG(ig(4))
-  phi     = PHI_PLANE(jt+PHI_PL_OS(iz)) / 180.d0 * pi
+  phi     = PHI_PLANE(jt+PHI_PL_OS(iz))
 
   ! setup quadrilateral
   call Q%set_nodes(x1, x2, x3, x4)

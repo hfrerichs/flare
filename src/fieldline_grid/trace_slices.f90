@@ -69,7 +69,7 @@ subroutine trace_slices()
   do jdir=-1,1,2
      do j=0,tZ%nt(jdir)
         it = jdir*j + tZ%nt(-1)
-        PHI_PLANE(it + PHI_PL_OS(iz)) = tZ%phi(jdir*j)
+        PHI_PLANE(it + PHI_PL_OS(iz)) = tZ%phi(jdir*j) / 180.d0 * pi
      enddo
   enddo
 
