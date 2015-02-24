@@ -158,6 +158,7 @@ module curve2D
   n_seg = C%n_seg
   call this%new(n_seg)
   this%x = C%x
+  this%closed = C%closed
 
   end subroutine copy
 !=======================================================================
@@ -698,16 +699,19 @@ module curve2D
 !
 !=======================================================================
   recursive subroutine left_hand_shift(this, dl)
+  use string
   class(t_curve)           :: this
   real(real64), intent(in) :: dl
 
   real(real64), parameter  :: emin = 1.d-8
 
+  integer, save :: IDEBUG = 0
+
   real(real64), dimension(:,:,:), allocatable :: x_new
   real(real64), dimension(:,:),   allocatable :: ts_new, x_tmp
   type(t_curve) :: Ctmp
   real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s
-  integer       :: k, n, k2, n2, i_remove
+  integer       :: k, n, k2, kmax, n2, i_remove
 
 
 ! 1. initialize local variables
@@ -717,6 +721,9 @@ module curve2D
      stop
   endif
   call Ctmp%copy(this)
+#ifdef DEBUG
+  write (6, *) 'left_hand_shift', IDEBUG
+#endif
 
 
 ! 2. working array x_new(i,j,k): raw nodes positions
@@ -746,12 +753,15 @@ module curve2D
   allocate (ts_new(2,0:n-1))
   ts_new(1,0)   = 0.d0
   ts_new(2,n-1) = 1.d0
+  kmax          = n-1
+  if (this%closed) kmax = n
   ! calculate new nodes (at the intersection of the 2 lines defined by the shiftet adjacent segments)
-  do k=1,n-1
+  do k=1,kmax
+     k2  = mod(k,n)
      x11 = x_new(:,1,k-1)
      x12 = x_new(:,2,k-1)
-     x21 = x_new(:,1,  k)
-     x22 = x_new(:,2,  k)
+     x21 = x_new(:,1,  k2)
+     x22 = x_new(:,2,  k2)
 
      s   = (x12(2)-x11(2))*(x22(1)-x21(1)) - (x12(1)-x11(1))*(x22(2)-x21(2))
      s   = s / (abs(x12(2)-x11(2))+abs(x22(1)-x21(1))) &
@@ -761,13 +771,13 @@ module curve2D
      if (abs(s).lt.emin) then
         Ctmp%x(k,:)   = x12
         ts_new(2,k-1) = 1.d0
-        ts_new(1,k)   = 0.d0
+        ts_new(1,k2)   = 0.d0
 
      ! calculate intersection point
      elseif (intersect_lines (x11, x12, x21, x22, t, s, xh)) then
         Ctmp%x(k,:)   = xh
         ts_new(2,k-1) = t
-        ts_new(1,k)   = s
+        ts_new(1,k2)   = s
 
      else
         write (6, *) 'error in t_curve%left_hand_shift: no intersection!'
@@ -775,7 +785,11 @@ module curve2D
         write (6, *) 'L_2: ', x21, x22
         stop
      endif
+     if (k == n) Ctmp%x(0,:) = Ctmp%x(k,:)
   enddo
+#ifdef DEBUG
+  call Ctmp%plot(filename='tmp1_'//trim(str(IDEBUG))//'.plt')
+#endif
 
 
 ! 4. check misaligned nodes
@@ -786,6 +800,9 @@ module curve2D
   do k=0,n-1
      if (ts_new(1,k) .gt. ts_new(2,k)) then
         ! remove original segment
+#ifdef DEBUG
+        write (6, *) 'removing segment ', k
+#endif
         i_remove = i_remove + 1
 
         ! first segment (-> skip first node)
@@ -820,6 +837,10 @@ module curve2D
   if (i_remove .ne. 0) then
      call Ctmp%new(n2)
      Ctmp%x = x_tmp(0:n2,:)
+#ifdef DEBUG
+     call Ctmp%plot(filename='tmp2_'//trim(str(IDEBUG))//'.plt')
+     IDEBUG = IDEBUG + 1
+#endif
      call Ctmp%left_hand_shift(dl)
   endif
 
