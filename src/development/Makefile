@@ -2,7 +2,6 @@ include ../../include.mk
 
 
 OBJECTS =  \
-               hyperbolic_fixed_point.o\
                run_control_development.o
 
 
