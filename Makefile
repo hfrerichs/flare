@@ -13,7 +13,6 @@ install:
 	ln -s $(PWD)/bin/$(PROGRAM_DEBUG) $(BIN_DIR)
 
 
-
 .PHONY: clean
 clean:
 	cd src; $(MAKE) clean
