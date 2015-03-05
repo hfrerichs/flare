@@ -9,7 +9,7 @@
 !
   ! grid id = IJK
   ! I: select internal coordinate system
-  ! J: unstructured (1), semi-structured (2), structured (3)
+  ! J: unstructured (1), semi-structured (2), structured (3), 2D mesh (4)
   ! K: select fixed or dominant coordinate
 
 ! Heinke Frerichs (hfrerichs at wisc.edu)
@@ -31,7 +31,7 @@ module grid
      UNSTRUCTURED    = 1, &
      SEMI_STRUCTURED = 2, &
      STRUCTURED      = 3, &
-     UNSTRUCTURED_MESH = 4
+     MESH_2D         = 4
 
 
   type, public :: t_grid
@@ -83,7 +83,7 @@ module grid
      this%n2     = n2
      this%n      = this%n * n2
      !if (present(mesh) .and. mesh) then
-     if (layout == UNSTRUCTURED_MESH) then
+     if (layout == MESH_2D) then
         if (allocated(this%mesh)) deallocate(this%mesh)
         if (fixed_coord > 0) then
            allocate (this%mesh(0:n1-1, 0:n2-1, 2))
@@ -325,7 +325,7 @@ module grid
 
   !.....................................................................
   ! 3.4. unstructured mesh, n1*n2: total number of grid nodes
-  elseif (layout == UNSTRUCTURED_MESH  .and.  fixed_coord > 0) then
+  elseif (layout == MESH_2D  .and.  fixed_coord > 0) then
      call iscrape (iu, n1)
      call iscrape (iu, n2)
      !call this%new(coordinates, layout, fixed_coord, n1, n2, mesh=.true.)
@@ -541,7 +541,7 @@ module grid
      enddo
 
   ! 4 unstructured meshs, one coordinate fixed
-  elseif (layout == UNSTRUCTURED_MESH  .and.  this%fixed_coord > 0) then
+  elseif (layout == MESH_2D  .and.  this%fixed_coord > 0) then
      write (iu, 2003) this%n1
      write (iu, 2004) this%n2
      write (iu, 2002) fixed_coord_value_out
