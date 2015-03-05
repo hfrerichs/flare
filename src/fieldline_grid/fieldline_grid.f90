@@ -110,7 +110,7 @@ module fieldline_grid
 
 
   ! interface to grid topology related functions and subroutines
-  procedure(), pointer :: setup_topology, setup_zones
+  procedure(), pointer :: setup_topology
 !.......................................................................
 
   contains
@@ -120,8 +120,6 @@ module fieldline_grid
 
 !=======================================================================
   subroutine load_layout()
-!  procedure()       :: setup_zones_sc, &
-!                       setup_zones_lsn, &
    procedure()      :: setup_topology_sc, &
                        setup_topology_lsn
 
@@ -168,18 +166,9 @@ module fieldline_grid
   call setup_topology()
 
 
-  ! 4. setup resolution in zones
-  ! read input for grid resolution
-  !call setup_zones()
-  !call setup_toroidal_discretization()
-
-
-  ! 5. setup emc3 grid layout
+  ! 4. setup emc3 grid layout
   call setup_emc3_grid_layout()
 
-
-  ! 6. setup global topology (connectivity between zones)
-  !call setup_topology()
 
   return
  1000 format(3x,'- Topology of configuration: ',a)
@@ -190,69 +179,6 @@ module fieldline_grid
 
 
 
-!=======================================================================
-!  subroutine setup_toroidal_blocks_v1()
-!
-!  logical      :: default_decomposition
-!  real(real64) :: tmp
-!  integer      :: i
-!
-!
-!  ! 1. set total size of simulation domain
-!  Delta_phi_sim         = real(360, real64) / symmetry
-!
-!
-!  ! 2. set size of toroidal blocks
-!  ! DEFAULT: Delta_phi_sim / (number of blocks), split equally in forward and backward direction
-!  tmp = 0.d0
-!  default_decomposition = .true.
-!  do i=0,blocks-1
-!     if (block_size(i,-1) < 0.d0) then
-!        block_size(i,-1) = Delta_phi_sim / blocks / 2
-!     else
-!        default_decomposition = .false.
-!     endif
-!     if (block_size(i, 1) < 0.d0) then
-!        block_size(i, 1) = Delta_phi_sim / blocks / 2
-!     else
-!        default_decomposition = .false.
-!     endif
-!     block_size(i,0) = block_size(i,-1) + block_size(i,1)
-!     tmp             = tmp + block_size(i,0)
-!  enddo
-!
-!
-!  ! 3. set lower boundary of simulation domain
-!  ! DEFAULT: neg. half of first block
-!  if (phi0 == -360.d0) phi0 = -block_size(0,-1)
-!
-!
-!  ! 4. set absolute position of block centers (phi_base)
-!  phi_base(0) = phi0 + block_size(0,-1)
-!  do i=1,blocks-1
-!     phi_base(i) = phi_base(i-1) + block_size(i-1,1) + block_size(i,-1)
-!  enddo
-!
-!
-!  ! 5. output to screen
-!  write (6, *)
-!  write (6, 1000) phi0, phi0 + Delta_phi_sim
-!  write (6, 1001)
-!  do i=0,blocks-1
-!     write (6, 1002) i, phi_base(i), phi_base(i)-block_size(i,-1), phi_base(i)+block_size(i,1)
-!  enddo
-! 1000 format (3x,'- Decomposition of simulation domain (',f7.3,' -> ',f7.3,' deg):')
-! 1001 format (8x,'block #, base location [deg], domain [deg]')
-! 1002 format (8x,      i7,5x,f7.3,':',5x,f7.3,' -> ',f7.3)
-!
-!
-!  ! 6. check input
-!  if (abs(Delta_phi_sim - tmp) > epsilon_r64) then
-!     write (6, *) 'error: block sizes do not add up to size of simulation domain!'
-!     stop
-!  endif
-!
-!  end subroutine setup_toroidal_blocks_v1
 !=======================================================================
   subroutine setup_toroidal_blocks(Block_input)
   type(t_block_input), intent(in) :: Block_input(0:max_blocks-1)
@@ -351,10 +277,6 @@ module fieldline_grid
  1001 format (8x,'block #, base location [deg], domain [deg]')
  1002 format (8x,      i7,5x,f7.3,':',5x,f7.3,' -> ',f7.3)
 
-
-  ! 7. check input
-  !...
-
   end subroutine setup_toroidal_blocks
 !=======================================================================
 
@@ -371,10 +293,7 @@ module fieldline_grid
   allocate (SRF_RADI(0:NZONET-1),SRF_POLO(0:NZONET-1),SRF_TORO(0:NZONET-1), &
             ZON_RADI(0:NZONET-1),ZON_POLO(0:NZONET-1),ZON_TORO(0:NZONET-1) )
   allocate (R_SURF_PL_TRANS_RANGE(2,0:NZONET-1), P_SURF_PL_TRANS_RANGE(2,0:NZONET-1))
-  R_SURF_PL_TRANS_RANGE = 0
-  P_SURF_PL_TRANS_RANGE = 0
-
-  ! 1b. set grid resolution
+  ! 1b. set grid resolution and plasma transport range
   do iz=0,NZONET-1
      ZON_RADI(iz) = Zone(iz)%nr
      ZON_POLO(iz) = Zone(iz)%np
