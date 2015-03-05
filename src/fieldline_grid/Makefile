@@ -3,9 +3,11 @@ include ../../include.mk
 
 OBJECTS =  \
                emc3_grid.o\
-               layout_sc.o\
+               fieldline_grid.o\
+               topo_sc.o\
+               topo_lsn.o\
                vacuum_domain.o\
-               trace_slices.o\
+               trace_nodes.o\
                check.o
 
 
