@@ -19,15 +19,6 @@ subroutine trace_nodes()
   write (6, 1000)
   write (6, *)
 
-  ! 1. setup toroidal discretization
-  ! -> this is done in setup_toroidal_discretization in module fieldline_grid
-  ! check setup
-!  do ib=0,blocks-1
-!     do it=0,Block(ib)%nt
-!        write (6, *) ib, it, Block(ib)%phi(it)
-!     enddo
-!  enddo
-
 
   ! set parameters for field line tracing
   ts = pi2 / 3600.d0
