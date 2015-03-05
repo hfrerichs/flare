@@ -535,7 +535,7 @@ module grid
   elseif (layout == UNSTRUCTURED  .and.  this%fixed_coord > 0) then
      write (iu, 2001) this%n
      !write (iu, 2002) this%x(1, this%fixed_coord)
-     write (iu, 2002) fixed_coord_value_out
+     write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
      do i=1,this%n
         write (iu, 3002) this%x(i, this%coord1), this%x(i, this%coord2)
      enddo
@@ -544,7 +544,7 @@ module grid
   elseif (layout == MESH_2D  .and.  this%fixed_coord > 0) then
      write (iu, 2003) this%n1
      write (iu, 2004) this%n2
-     write (iu, 2002) fixed_coord_value_out
+     write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
      do j=0,this%n2-1
      do i=0,this%n1-1
         write (iu, 3002) this%mesh(i,j,1), this%mesh(i,j,2)
@@ -562,7 +562,7 @@ module grid
 
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
- 2002 format ('# fixed coordinate:             ',f10.5)
+ 2002 format ('# ',a12,' =                ',f10.5)
  2003 format ('# grid resolution:   n1      =  ',i10)
  2004 format ('#                    n2      =  ',i10)
  3001 format (1e18.10)
