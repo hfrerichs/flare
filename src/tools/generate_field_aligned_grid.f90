@@ -1,6 +1,6 @@
 subroutine generate_field_aligend_grid (run_level)
   use parallel
-  use field_aligned_grid
+  use fieldline_grid
   use emc3_grid
   implicit none
 
@@ -10,12 +10,12 @@ subroutine generate_field_aligend_grid (run_level)
 
 
   if (firstP) then
-     write (6, *) 'Generating field aligned grid ...'
+     write (6, *) 'Generating fieldline grid ...'
      write (6, *) '... executing run level ', run_level
   endif
 
 
-  call load_usr_conf
+  call load_layout()
 
 
   ! select run level
@@ -28,24 +28,23 @@ subroutine generate_field_aligend_grid (run_level)
      write (6, *) 'error: run level ', run_level, ' not implemented!'
      stop
   endif
-
-
-  ! Level 1: generate pair of innermost boundaries (for field line reconstruction)
-  if (level(1)) then
-     call generate_innermost_boundaries()
-  endif
-
-
-  ! Level 2: generate layout (outer boundary + separatrix for block-structure)
-  if (level(2)) then
-     call generate_layout()
-  endif
-
-
-  ! Level 3: generate raw 3D magnetic field aligned grid from field line tracing
+!
+!
+!  ! Level 1: generate pair of innermost boundaries (for field line reconstruction)
+!  if (level(1)) then
+!     call generate_innermost_boundaries()
+!  endif
+!
+!
+!  ! Level 2: generate layout (outer boundary + separatrix for block-structure)
+!  if (level(2)) then
+!     call generate_layout()
+!  endif
+!
+!
+  ! Level 3: generate 3D grid from field line tracing
   if (level(3)) then
-     call load_base_grids()
-     call trace_slices()
+     call trace_nodes()
      call write_emc3_grid()
      call write_emc3_input_files()
   endif

@@ -3,15 +3,15 @@
 !===============================================================================
 subroutine vacuum_domain_for_EIRENE
   use emc3_grid
-  use field_aligned_grid, only: TD, VACUUM_BOUNDARY_SF
+  use fieldline_grid
   implicit none
 
   integer :: iz
 
 
   do iz=0,NZONET-1
-     if (TD(iz+1)%irsfb == VACUUM_BOUNDARY_SF) then
-        call setup_vacuum_domain(iz, 1, 1)
+     if (Zone(iz)%isfr(2) == SF_VACUUM) then
+        call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
      endif
   enddo
 
@@ -34,7 +34,7 @@ subroutine setup_vacuum_domain(iz, nrvac, Method)
   write (6, *) 'setting up vacuum domain for zone ', iz
   select case (Method)
   case (UPSCALE)
-      call vacuum_domain_by_upscale(iz, nrvac, -30.d0)
+      call vacuum_domain_by_upscale(iz, nrvac, -35.d0)
   end select
 
 
@@ -47,6 +47,8 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, dl)
   use iso_fortran_env
   use emc3_grid
   use curve2D
+  use run_control, only: Debug
+  use string
   implicit none
 
   integer, intent(in)      :: iz, nrvac
@@ -73,6 +75,9 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, dl)
         C%x(ip,1) = RG(ig)
         C%x(ip,2) = ZG(ig)
      enddo
+     if (Debug) then
+        call C%plot(filename='debug/VacuumBoundary_'//trim(str(iz))//'_'//trim(str(it))//'.raw')
+     endif
 
      ! poloidal loop (setup segment weights)
      xi(0) = 0.d0
@@ -85,6 +90,9 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, dl)
      xi = xi / xi(SRF_POLO(iz)-1)
 
      call C%left_hand_shift(dl)
+     if (Debug) then
+        call C%plot(filename='debug/VacuumBoundary_'//trim(str(iz))//'_'//trim(str(it))//'.plt')
+     endif
      call C%setup_length_sampling()
 
      ! poloidal loop (set new grid nodes)
