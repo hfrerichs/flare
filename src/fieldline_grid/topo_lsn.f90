@@ -26,11 +26,18 @@ subroutine setup_topology_lsn()
      np1l    =   30, &                    ! ... of left divertor leg
      np1r    =   30                       ! ... of right divertor leg
 
+
+  real(real64) :: &
+     DSOL = 24.0, &            ! width of scrape-off layer (SOL)
+     DPFR = 12.0               ! width of private flux reagion (PFR)
+
+
   type(t_zone_input) :: Zone(0:max_zones-1)
 !...............................................................................
 
   namelist /Block_Resolution/ &
-      Zone, nr0, nr1, nr2, np0, np1l, np1r, nt
+      Zone, nr0, nr1, nr2, np0, np1l, np1r, nt, &
+      DSOL, DPFR
 
 !...............................................................................
 ! internal variables
