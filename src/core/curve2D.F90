@@ -66,6 +66,7 @@ module curve2D
      procedure :: setup_coordinate_sampling
      procedure :: sample_at
      procedure :: split3
+     procedure :: split3seg
      procedure :: length
      procedure :: outside
   end type t_curve
@@ -1188,7 +1189,7 @@ module curve2D
   real(real64),  intent(in)  :: xiA, xiB
   type(t_curve), intent(out) :: C1, C2, C3
 
-  real(real64) :: tA, tB, x(this%n_dim)
+  real(real64) :: tA, tB
   integer :: iA, iB, ierr, n
 
 
@@ -1216,8 +1217,26 @@ module curve2D
 
 
   ! 3. generate new curves
+  call this%split3seg(iA, iB, tA, tB, C1, C2, C3)
+
+  end subroutine split3
+!=======================================================================
+
+
+!=======================================================================
+! split at position t within segment i
   !  |     |     |  x   |     |     |  x   |     |     |
-  !  0           iA xiA iA+1        iB xiB iB+1        n
+  !  0           iA tA  iA+1        iB tB  iB+1        n
+!=======================================================================
+  subroutine split3seg(this, iA, iB, tA, tB, C1, C2, C3)
+  class(t_curve)             :: this
+  integer,       intent(in)  :: iA, iB
+  real(real64),  intent(in)  :: tA, tB
+  type(t_curve), intent(out) :: C1, C2, C3
+
+  real(real64) :: x(this%n_dim)
+
+
   call C1%new(iA+1)
   C1%x            = this%x(0:iA+1,:)
   x               = this%x(iA,:) * tA + this%x(iA+1,:) * (1.d0 - tA)
@@ -1229,11 +1248,11 @@ module curve2D
   x               = this%x(iB,:) * tB + this%x(iB+1,:) * (1.d0 - tB)
   C2%x(iB-iA+1,:) = x
 
-  call C3%new(n-iB)
-  C3%x            = this%x(iB:n,:)
+  call C3%new(this%n_seg-iB)
+  C3%x            = this%x(iB:this%n_seg,:)
   C3%x(0,:)       = x
 
-  end subroutine split3
+  end subroutine split3seg
 !=======================================================================
 
 
