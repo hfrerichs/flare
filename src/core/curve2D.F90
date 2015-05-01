@@ -700,7 +700,9 @@ module curve2D
 !
 !=======================================================================
   recursive subroutine left_hand_shift(this, dl)
+#ifdef DEBUG
   use string
+#endif
   class(t_curve)           :: this
   real(real64), intent(in) :: dl
 
