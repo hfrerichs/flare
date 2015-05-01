@@ -184,7 +184,7 @@ subroutine connection_length
 
 
            ! check intersection with walls
-           if (F%intersect_boundary(id=id)) then
+           if (PsiN .ge. 1.d0  .and.  F%intersect_boundary(id=id)) then
               id_limit(idir) = id
               exit trace_loop
            endif
