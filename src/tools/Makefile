@@ -22,7 +22,8 @@ OBJECTS =  \
                distance_to_surface.o\
                homoclinic_tangle.o\
                generate_flux_tube.o\
-               FLR_analysis.o
+               FLR_analysis.o\
+               melnikov_function.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR) -I ../$(GRIDGEN_DIR)

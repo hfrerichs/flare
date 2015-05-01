@@ -195,6 +195,8 @@ module run_control
      call generate_flux_tube
   case ('FLR_analysis')
      call FLR_analysis
+  case ('melnikov_function')
+     call melnikov_function()
   case default
      if (Run_Type(1:27) == 'generate_field_aligned_grid') then
         read (Run_Type(40:42), *) i
