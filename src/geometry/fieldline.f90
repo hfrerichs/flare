@@ -192,6 +192,8 @@ module fieldline
 ! checked)
 !
 ! phi_int will be reset after a call to this subroutine
+!
+! ierr = 1 if stop_at_boundary == .true. and field line intersects boundary
 !=======================================================================
   subroutine trace_Dphi(this, Dphi, stop_at_boundary, yout, ierr)
   class (t_fieldline)       :: this
