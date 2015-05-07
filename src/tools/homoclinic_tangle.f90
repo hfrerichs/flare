@@ -4,16 +4,20 @@
 ! Input (taken from run control file):
 ! Grid_File             toroidal discretization of X-point (+ small offset for tracing)
 ! Phi_Output            toroidal reference position [deg]
+! N_sym                 toroidal symmetry of the configuration
+! N_mult                multiplicity of grid point (in terms of 2 pi / N_sym)
 !
 ! Trace_Step, Trace_Method
 ! Output_File
 !===============================================================================
 subroutine homoclinic_tangle
   use iso_fortran_env
-  use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Phi_Output
+  use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Phi_Output, N_sym, N_mult
   use grid
   use fieldline
   use boundary
+  use math
+  use dataset
   use parallel
   implicit none
 
@@ -21,8 +25,9 @@ subroutine homoclinic_tangle
 
   type(t_fieldline)  :: F
   type(t_grid)       :: G
+  type(t_dataset)    :: D
   real(real64)       :: y(3), yh(3), Dphi
-  integer            :: i, ierr
+  integer            :: i, j, k, ind, ierr
 
 
   ! initialize
@@ -34,7 +39,7 @@ subroutine homoclinic_tangle
   write (6, *)
   
 
-  open  (iu, file=Output_File)
+  call D%new(G%nodes() * N_mult, 3)
   grid_loop: do i=1,G%nodes()
      y = G%node(i)
      write (6, *) y(3) / pi * 180.d0
@@ -42,16 +47,22 @@ subroutine homoclinic_tangle
      ! set initial location
      call F%init(y, Trace_Step, Trace_Method, CYLINDRICAL)
 
+     ! initial trace to reference plane
      Dphi = abs(Phi_Output / 180.d0 * pi - y(3))
-     call F%trace_Dphi(Dphi, .true., yh, ierr)
+     call F%trace_Dphi(Dphi, .false., yh, ierr)
+     D%x(i,:) = yh
 
-     if (ierr == 0) then
-        write (iu, *) yh
-     else
-        write (iu, *)
-     endif
+
+     ! trace to symmetry planes
+     Dphi = pi2 / N_sym
+     do j=1,N_mult-1
+        call F%trace_Dphi(Dphi, .false., yh, ierr)
+
+        ind = i + j*G%nodes()
+        D%x(ind,:) = yh
+     enddo
   enddo grid_loop
-  close (iu)
+  call D%plot(filename=Output_File)
 
   return
 end subroutine homoclinic_tangle
