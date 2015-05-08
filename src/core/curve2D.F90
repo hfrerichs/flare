@@ -73,7 +73,7 @@ module curve2D
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
 
 
-  public :: intersect_curve, make_2D_curve
+  public :: intersect_curve, make_2D_curve, connect
 
   contains
 !=======================================================================
@@ -411,13 +411,13 @@ module curve2D
   if (present(method)) sort_method = method
 
 
-  select case (method)
+  select case (sort_method)
   case(ANGLE)
      call C%sort_by_angle(xc, d)
   case(DISTANCE)
      call C%sort_by_distance(xc)
   case default
-     write (6, *) 'error in t_curve%sort_loop: method ', method, ' undefined!'
+     write (6, *) 'error in t_curve%sort_loop: method ', sort_method, ' undefined!'
      stop
   end select
 
@@ -1298,6 +1298,45 @@ module curve2D
   endif
 
   end function outside
+!=======================================================================
+
+
+
+!=======================================================================
+  function connect(C1, C2) result(C)
+  type(t_curve), intent(in) :: C1, C2
+  type(t_curve)             :: C
+
+  real(real64) :: x1(C1%n_dim), x2(C2%n_dim), dl
+  integer :: i2, n, n1, n2
+
+
+  if (C1%n_dim .ne. C2%n_dim) then
+     write (6, *) 'error in module curve2D, connect:'
+     write (6, *) 'cannot connect curves with unequal dimension!'
+     stop
+  endif
+
+
+  ! check if end node of C1 matches first node of C2
+  n1 = C1%n_seg
+  n2 = C2%n_seg
+  x1 = C1%x(n1,:)
+  x2 = C1%x(0,:)
+  dl = sqrt(sum((x1-x2)**2))
+  i2 = 0
+  n  = n1 + n2 + 1
+  if (dl < epsilon(real(1.0,real64))) then
+     i2 = 1
+     n  = n - 1
+  endif
+
+
+  call C%new(n)
+  C%x(0:n1,:)   = C1%x(0:n1,:)
+  C%x(n1+1:n,:) = C2%x(i2:n2,:)
+
+  end function connect
 !=======================================================================
 
 end module curve2D
