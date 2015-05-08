@@ -2,6 +2,7 @@ subroutine generate_field_aligend_grid (run_level)
   use parallel
   use fieldline_grid
   use emc3_grid
+  use topo_lsn, make_base_grids_lsn => make_base_grids
   implicit none
 
   integer, intent(in) :: run_level
@@ -30,18 +31,25 @@ subroutine generate_field_aligend_grid (run_level)
   endif
 
 
-  ! Level 1: generate pair of innermost boundaries (for field line reconstruction)
+  ! Level 1: generate pair of innermost boundaries
   if (level(1)) then
      call generate_innermost_boundaries()
   endif
 
 
-!  ! Level 2: generate layout (outer boundary + separatrix for block-structure)
-!  if (level(2)) then
-!     call generate_layout()
-!  endif
-!
-!
+  ! Level 2: generate base grids
+  if (level(2)) then
+     select case(topology)
+     case(TOPO_SC, TOPO_SC1)
+     case(TOPO_LSN, TOPO_LSN1)
+        call make_base_grids_lsn()
+     case default
+        write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
+        stop
+     end select
+  endif
+
+
   ! Level 3: generate 3D grid from field line tracing
   if (level(3)) then
      call trace_nodes()
