@@ -131,6 +131,7 @@ subroutine poincare_plot
   elseif (N_steps == 0  .and.  x_start(1).ne.0.d0) then
      my_grid => new_grid(N_steps+1, log_progress=.false.)
      my_grid(1,:) = x_start
+     if (firstP) write (6, 2003) x_start
 
   ! use points from grid file if R_start is missing
   elseif (Grid_File .ne. '') then
@@ -243,6 +244,7 @@ subroutine poincare_plot
  2001 format (8x,'radial domain:',5x,'R_start = ',f6.2,5x, &
               'R_end = ',f6.2,5x,'with ',i4,' steps'/)
  2002 format (8x,'position:',5x,'R = ',f6.2,5x/)
+ 2003 format (8x,'Initial coordinate: (',f7.3,', ',f7.3,', ',f7.3,')')
 
  4000 format (5x,i5,',',8x,'L_c = ',f9.2,' m,',8x,'n_points = ',i5)
  4001 format (5x,i5,',',8x,'L_c > ',f9.2,' m,',8x,'n_points = ',i5)
