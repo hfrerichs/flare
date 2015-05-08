@@ -1,6 +1,10 @@
-!module inner_boundary
-!  use iso_fortran_env
-!  implicit none
+module inner_boundary
+  use iso_fortran_env
+  use fieldline_grid, only: blocks
+  use curve2D
+  implicit none
+
+  type(t_curve), dimension(:,:), allocatable :: C_in
 !
 !  real(real64) :: &
 !     Theta0, &                 ! Reference poloidal angle [deg]
@@ -12,7 +16,71 @@
 !     Theta0, x_guide1, x_guide2
 !
 !
-!end module inner_boundary
+  contains
+  !=====================================================================
+
+
+  !=====================================================================
+  subroutine load_inner_boundaries (Pmag, theta0)
+  real(real64), intent(in)           :: Pmag(2)
+  real(real64), intent(in), optional :: theta0
+
+  character(len=72) :: filename
+  real(real64)     :: d(2)
+  integer          :: i, iblock
+
+
+  ! set reference direction
+  d(1) = 1.d0
+  d(2) = 0.d0
+  if (present(theta0)) then
+     d(1) = cos(theta0)
+     d(2) = sin(theta0)
+  endif
+
+
+  allocate (C_in(0:blocks-1,0:1))
+  do iblock=0,blocks-1
+     do i=0,1
+        write (filename, 1000) i, iblock
+        call C_in(iblock,i)%load(filename)
+        call C_in(iblock,i)%sort_loop(Pmag, d)
+        call C_in(iblock,i)%setup_angular_sampling(Pmag)
+     enddo
+  enddo
+
+ 1000 format ('fsin',i0,'_',i0,'.txt')
+  end subroutine load_inner_boundaries
+  !=====================================================================
+
+
+
+!  !=====================================================================
+!  ! return width of high pressure region (HPR) at poloidal angle of X-point
+!  !=====================================================================
+!  function d_HPR (Px)
+!  real(real64), intent(in) :: Px(2)
+!  real(real64)             :: d_HPR(2)
+!
+!  real(real64) :: x(2)
+!  integer :: i
+!
+!
+!  d_HPR = 0.d0
+!  do i=0,blocks-1
+!     call C_in(0,1)%sample_at(0.d0, x)
+!     d_HPR = d_HPR + x / blocks
+!  enddo
+!
+!  end function d_HPR
+  !=====================================================================
+
+end module inner_boundary
+
+
+
+
+
 
 
 !=======================================================================
