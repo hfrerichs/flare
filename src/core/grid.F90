@@ -40,7 +40,7 @@ module grid
 
      ! internal grid nodes
      real(real64), dimension(:),   allocatable :: x1, x2, x3
-     real(real64), dimension(:,:,:), allocatable :: mesh
+     real(real64), dimension(:,:,:), pointer :: mesh => null()
 
      ! number of nodes
      integer :: n, n1, n2, n3
@@ -84,7 +84,7 @@ module grid
      this%n      = this%n * n2
      !if (present(mesh) .and. mesh) then
      if (layout == MESH_2D) then
-        if (allocated(this%mesh)) deallocate(this%mesh)
+        if (associated(this%mesh)) deallocate(this%mesh)
         if (fixed_coord > 0) then
            allocate (this%mesh(0:n1-1, 0:n2-1, 2))
         else
@@ -451,7 +451,7 @@ module grid
   integer :: i, j, ig
 
 
-  if (.not.allocated(this%mesh)) then
+  if (.not.associated(this%mesh)) then
      write (6, *) 'error in subroutine t_grid%setup_mesh: mesh undefined!'
      stop
   endif
@@ -582,7 +582,7 @@ module grid
   if (allocated(this%x1)) deallocate(this%x1)
   if (allocated(this%x2)) deallocate(this%x2)
   if (allocated(this%x3)) deallocate(this%x3)
-  if (allocated(this%mesh)) deallocate(this%mesh)
+  if (associated(this%mesh)) deallocate(this%mesh)
 
   end subroutine destroy
 !=======================================================================
