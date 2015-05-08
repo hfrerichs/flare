@@ -28,14 +28,14 @@ subroutine generate_field_aligend_grid (run_level)
      write (6, *) 'error: run level ', run_level, ' not implemented!'
      stop
   endif
-!
-!
-!  ! Level 1: generate pair of innermost boundaries (for field line reconstruction)
-!  if (level(1)) then
-!     call generate_innermost_boundaries()
-!  endif
-!
-!
+
+
+  ! Level 1: generate pair of innermost boundaries (for field line reconstruction)
+  if (level(1)) then
+     call generate_innermost_boundaries()
+  endif
+
+
 !  ! Level 2: generate layout (outer boundary + separatrix for block-structure)
 !  if (level(2)) then
 !     call generate_layout()

@@ -4,6 +4,7 @@ include ../../include.mk
 OBJECTS =  \
                emc3_grid.o\
                fieldline_grid.o\
+               inner_boundary.o\
                topo_sc.o\
                topo_lsn.o\
                vacuum_domain.o\

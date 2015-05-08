@@ -22,6 +22,13 @@ module fieldline_grid
      SF_CORE     = -1, &
      SF_VACUUM   = -2
 
+
+  ! Type of innermost flux surface (exact or quasi flux surface)
+  character(len=*), parameter :: &
+     SF_EXACT = 'EXACT', &
+     SF_QUASI = 'QUASI'
+
+
   integer, parameter :: &
      max_blocks  = 360, &        ! Maximum number of toroidal blocks
      max_zones   = 360           ! Maximum number of zones
@@ -32,7 +39,8 @@ module fieldline_grid
 ! user defined variables
 !.......................................................................
   character(len=80) :: &
-     topology       = TOPO_SC
+     topology       = TOPO_SC, &
+     Innermost_Flux_Surface = SF_EXACT
 
   integer :: &
      symmetry       =  1, &
@@ -183,23 +191,29 @@ module fieldline_grid
   subroutine setup_toroidal_blocks(Block_input)
   type(t_block_input), intent(in) :: Block_input(0:max_blocks-1)
 
-  logical      :: default_decomposition
   real(real64) :: tmp, xi, Dphi
   integer      :: ib, it
 
 
   ! 0. Initialize variable Block
+  default_decomposition = .true.
   Block%t_block_input = Block_input
   do ib=0,blocks-1
      ! set toroidal resolution
      if (Block(ib)%nt == -1) Block(ib)%nt = nt
+     ! check input
      if (Block(ib)%nt <= 0) then
         write (6, 9001) ib, Block(ib)%nt
         stop
      endif
 
      ! set index of base plane
-     if (Block(ib)%it_base == -1) Block(ib)%it_base = Block(ib)%nt / 2
+     if (Block(ib)%it_base == -1) then
+        Block(ib)%it_base = Block(ib)%nt / 2
+     else
+        default_decomposition = .false.
+     endif
+     ! check input
      if (Block(ib)%it_base < 0  .or.  Block(ib)%it_base > Block(ib)%nt) then
         write (6, 9002) ib, Block(ib)%it_base, Block(ib)%nt
         stop
@@ -217,7 +231,6 @@ module fieldline_grid
   ! 2. set size of toroidal blocks
   ! DEFAULT: Delta_phi_sim / (number of blocks), split equally in forward and backward direction
   tmp = 0.d0
-  default_decomposition = .true.
   do ib=0,blocks-1
      if (Block(ib)%width < 0.d0) then
         Block(ib)%width = Delta_phi_sim / blocks
@@ -270,12 +283,14 @@ module fieldline_grid
   write (6, *)
   write (6, 1000) phi0, phi0 + Delta_phi_sim
   write (6, 1001)
+  if (default_decomposition) write (6, 1004)
   do ib=0,blocks-1
      write (6, 1002) ib, Block(ib)%phi_base, Block(ib)%phi_left, Block(ib)%phi_right
   enddo
  1000 format (3x,'- Decomposition of simulation domain (',f7.3,' -> ',f7.3,' deg):')
  1001 format (8x,'block #, base location [deg], domain [deg]')
  1002 format (8x,      i7,5x,f7.3,':',5x,f7.3,' -> ',f7.3)
+ 1004 format (8x,'using default decomposition')
 
   end subroutine setup_toroidal_blocks
 !=======================================================================
