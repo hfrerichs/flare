@@ -29,8 +29,9 @@ module flux_surface_2D
 !
 ! An alternate limiting surface can be given by the optional parameter AltSurf.
 ! An optional cut-off poloidal angle theta_cut can be given.
+! Re-tracing of half-open surfaces is optional
 !=======================================================================
-  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
+  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut, retrace)
   use equilibrium
   use ode_solver
   use boundary
@@ -41,18 +42,20 @@ module flux_surface_2D
   integer, intent(in), optional       :: direction, N_steps, Trace_Method
   real(real64), intent(in), optional  :: Trace_Step, theta_cut
   type(t_curve), intent(in), optional :: AltSurf
+  logical, intent(in), optional       :: retrace
 
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
   real*8  :: yl(3), yc(3), thetal, thetac, dtheta, X(3), ds, r3(3)
   integer :: idir, i, nmax, imethod, id, n(-1:1)
+  logical :: retrace_from_boundary = .false.
 
 
   ! determine trace step
   if (present(Trace_Step)) then
      ds = Trace_Step
   else
-     ds = length_scale() / 200.d0
+     ds = length_scale() / 400.d0
   endif
 
 
@@ -81,6 +84,10 @@ module flux_surface_2D
      endif
      n(-direction) = 0
   endif
+
+
+  ! re-trace from boundary if flux surface is half-open?
+  if (present(retrace)) retrace_from_boundary = retrace
 
 
   ! initialize variables
@@ -146,8 +153,8 @@ module flux_surface_2D
 
 ! save data
   ! either closed flux surface, or flux surface is limited on both side
-  if ((n(-1)  < nmax  .and.  n(1)  < nmax)  .or.  &
-      (n(-1) == nmax  .and.  n(1) == nmax)) then
+  if (((n(-1)  < nmax  .and.  n(1)  < nmax)  .or.  &
+      (n(-1) == nmax  .and.  n(1) == nmax)) .or. .not.retrace_from_boundary) then
      call this%new(n(-1) + n(1))
      this%x = tmp(-n(-1):n(1),:)
      deallocate (tmp)
@@ -182,7 +189,7 @@ module flux_surface_2D
   y3(3)   = 0.d0
   Bf      = get_Bf_eq2D(y3)
   Bpol    = sqrt(Bf(1)**2 + Bf(2)**2)
-  f       = Bf(1:2)/Bpol / Ip_sign
+  f       = - Bf(1:2)/Bpol / Ip_sign
 
   end subroutine Bpol_sub
 !=======================================================================

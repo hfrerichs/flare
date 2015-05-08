@@ -57,23 +57,23 @@ module separatrix
 
   ! right core segment
   x0 = Px + v1 + v2
-  call this%M1%generate(x0, -1, ds, AltSurf=AltSurf, theta_cut=theta_cut)
-  this%M1%x(this%M1%n_seg,:) = Px
+  call this%M1%generate(x0,  1, ds, AltSurf=AltSurf, theta_cut=theta_cut)
+  this%M1%x(0,:) = Px
 
   ! left core segment
   x0 = Px - v1 + v2
-  call this%M2%generate(x0,  1, ds, AltSurf=AltSurf, theta_cut=theta_cut)
-  this%M2%x(0,:) = Px
+  call this%M2%generate(x0, -1, ds, AltSurf=AltSurf, theta_cut=theta_cut)
+  this%M2%x(this%M2%n_seg,:) = Px
 
   ! right divertor leg
   x0 = Px + v1 - v2
-  call this%M3%generate(x0,  1, ds, AltSurf=AltSurf)
-  this%M3%x(0,:) = Px
+  call this%M3%generate(x0, -1, ds, AltSurf=AltSurf)
+  this%M3%x(this%M3%n_seg,:) = Px
 
   ! left divertor leg
   x0 = Px - v1 - v2
-  call this%M4%generate(x0, -1, ds, AltSurf=AltSurf)
-  this%M4%x(this%M4%n_seg,:) = Px
+  call this%M4%generate(x0,  1, ds, AltSurf=AltSurf)
+  this%M4%x(0,:) = Px
 
   end subroutine generate
 !=======================================================================
