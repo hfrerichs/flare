@@ -108,6 +108,9 @@ module fieldline_grid
      ! toroidal discretization
      integer :: it_base ! index of base grid position
      real(real64), dimension(:), allocatable :: phi
+
+     ! spacing for radial and poloidal discretization
+     type(t_spacing) :: Sr = Equidistant, Sp = Equidistant
   end type t_zone
   type(t_zone) :: Zone(0:max_zones-1)
 
