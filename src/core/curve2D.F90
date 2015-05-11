@@ -710,7 +710,7 @@ module curve2D
   real(real64), dimension(:,:,:), allocatable :: x_new
   real(real64), dimension(:,:),   allocatable :: ts_new, x_tmp
   type(t_curve) :: Ctmp
-  real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s
+  real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s, d
   integer       :: k, n, k2, kmax, n2, i_remove
 
 
@@ -734,7 +734,12 @@ module curve2D
   do k=0,n-1
      ! direction of line segment
      el = Ctmp%x(k+1,:) - Ctmp%x(k,:)
-     el = el / dsqrt(sum(el**2))
+     d  = dsqrt(sum(el**2))
+     if (d == 0.d0) then
+        write (6, *) 'error in t_curve%left_hand_shift: duplicate nodes!'
+        stop
+     endif
+     el = el / d
 
      ! left-hand normal vector
      en(1) = - el(2)
