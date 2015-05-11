@@ -68,6 +68,7 @@ module curve2D
      procedure :: split3
      procedure :: length
      procedure :: outside
+     procedure :: intersect_curve => t_curve_intersect_curve
   end type t_curve
 
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
@@ -346,6 +347,44 @@ module curve2D
   endif
 
   end function intersect_lines
+!=======================================================================
+
+
+
+!=======================================================================
+! Calculate (first) intersection with curve C
+! output:
+!     x      intersection point
+!     tau    relative coordinate from first node
+!=======================================================================
+  function t_curve_intersect_curve(this, C, x, tau)
+  class(t_curve)            :: this
+  type(t_curve), intent(in) :: C
+  real(real64), intent(out) :: x(2), tau
+  logical                   :: t_curve_intersect_curve
+
+  real(real64) :: x1(2), x2(2)
+  integer :: is
+
+
+  t_curve_intersect_curve = .false.
+  x   =  0.d0
+  tau = -1.d0
+  do is=1,this%n_seg
+     x1 = this%x(is-1, :)
+     x2 = this%x(is  , :)
+     if (intersect_curve(x1, x2, C, x)) then
+        tau = tau + dsqrt(sum((x-x1)**2))
+        tau = tau / this%length()
+        t_curve_intersect_curve = .true.
+        exit
+     endif
+
+     tau = tau + sqrt(sum((x2-x1)**2))
+  enddo
+
+
+  end function t_curve_intersect_curve
 !=======================================================================
 
 
