@@ -5,13 +5,18 @@ module flux_surface_2D
   use iso_fortran_env
   use curve2D
   implicit none
-
   private
+
+  integer, parameter, public :: &
+     RIGHT_HANDED =  1, &
+     LEFT_HANDED  = -1
+
   type, extends(t_curve) :: t_flux_surface_2D
      real(real64) :: PsiN
 
      contains
      procedure :: generate => generate_flux_surface_2D
+     procedure :: generate_closed
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -168,6 +173,46 @@ module flux_surface_2D
   endif
 
   end subroutine generate_flux_surface_2D
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_closed(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, retrace)
+  use equilibrium
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: r(2)
+  integer, intent(in)      :: direction
+
+  integer, intent(in), optional       :: N_steps, Trace_Method
+  real(real64), intent(in), optional  :: Trace_Step
+  type(t_curve), intent(in), optional :: AltSurf
+  logical, intent(in), optional       :: retrace
+
+  real(real64) :: theta_cut, r3(3), x1(2), x2(2), dl, dl0
+
+
+  r3(1:2) = r
+  r3(3)   = 0.d0
+  theta_cut = get_poloidal_angle(r3)
+  call this%generate(r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut, retrace)
+
+  ! retrieve step size
+  x1  = this%x(0,:)
+  x2  = this%x(1,:)
+  dl0 = sqrt(sum((x1-x2)**2))
+
+  ! close flux surface
+  x1 = this%x(0,:)
+  x2 = this%x(this%n_seg,:)
+  dl = sqrt(sum((x1-x2)**2))
+  this%closed          = .true.
+  this%x(this%n_seg,:) = x1
+  if (dl > 1.d-2*dl0) then
+     write (6, *) 'warning: deviation in closed flux surface > 0.01 * Trace_Step!'
+  endif
+
+  end subroutine generate_closed
 !=======================================================================
 
 
