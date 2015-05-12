@@ -17,6 +17,7 @@ module flux_surface_2D
      contains
      procedure :: generate => generate_flux_surface_2D
      procedure :: generate_closed
+     procedure :: generate_open
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -36,7 +37,8 @@ module flux_surface_2D
 ! An optional cut-off poloidal angle theta_cut can be given.
 ! Re-tracing of half-open surfaces is optional
 !=======================================================================
-  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut, retrace)
+  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, &
+      Trace_Method, AltSurf, theta_cut, retrace, sampling)
   use equilibrium
   use ode_solver
   use boundary
@@ -48,6 +50,7 @@ module flux_surface_2D
   real(real64), intent(in), optional  :: Trace_Step, theta_cut
   type(t_curve), intent(in), optional :: AltSurf
   logical, intent(in), optional       :: retrace
+  integer, intent(in), optional       :: sampling
 
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
@@ -60,7 +63,7 @@ module flux_surface_2D
   if (present(Trace_Step)) then
      ds = Trace_Step
   else
-     ds = length_scale() / 400.d0
+     ds = length_scale() / 800.d0
   endif
 
 
@@ -172,6 +175,20 @@ module flux_surface_2D
      call this%generate (r3(1:2), direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
   endif
 
+
+  ! setup sampling array
+  if (present(sampling)) then
+     select case(sampling)
+     case(ANGLE)
+        r3 = get_magnetic_axis(0.d0)
+        call this%setup_angular_sampling(r3(1:2))
+     case(DISTANCE)
+        call this%setup_length_sampling()
+     case default
+        write (6, *) 'warning: invalid option for sampling in t_flux_surface%generate!'
+     end select
+  endif
+
   end subroutine generate_flux_surface_2D
 !=======================================================================
 
@@ -213,6 +230,26 @@ module flux_surface_2D
   endif
 
   end subroutine generate_closed
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_open(this, r, cut_fw, cut_bw, extend_fw, extend_bw)
+  class(t_flux_surface_2D)            :: this
+  real(real64), intent(in)            :: r(2)
+  type(t_curve), intent(in), optional :: cut_fw, cut_bw
+  real(real64), intent(in), optional  :: extend_fw, extend_bw
+
+  type(t_flux_surface_2D) :: f_fw, f_bw
+
+
+  call f_fw%generate(r,  1, AltSurf=cut_fw)
+  call f_bw%generate(r, -1, AltSurf=cut_bw)
+  this%t_curve = connect(f_bw%t_curve, f_fw%t_curve)
+  call this%setup_length_sampling()
+
+  end subroutine generate_open
 !=======================================================================
 
 
