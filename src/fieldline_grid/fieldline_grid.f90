@@ -31,7 +31,8 @@ module fieldline_grid
 
   integer, parameter :: &
      max_blocks  = 360, &        ! Maximum number of toroidal blocks
-     max_zones   = 360           ! Maximum number of zones
+     max_zones   = 360, &        ! Maximum number of zones
+     max_layers  = 6             ! Maximum number of layer (zones per block)
 !.......................................................................
 
 
@@ -40,19 +41,33 @@ module fieldline_grid
 !.......................................................................
   character(len=80) :: &
      topology       = TOPO_SC, &
-     Innermost_Flux_Surface = SF_EXACT
+     Innermost_Flux_Surface = SF_EXACT, &
+     guiding_surface = ''
 
   integer :: &
      symmetry       =  1, &
      blocks         =  1, &
      nr_EIRENE_core =  0, &
      nr_EIRENE_vac  =  1, &
-     nt             = 12             ! default toroidal resolution
+     nt             = 12, &          ! default toroidal resolution
+     np(0:max_layers-1) = 360, &
+     npL(0:max_layers-1) = 30, &
+     npR(0:max_layers-1) = 30, &
+     nr(0:max_layers-1) = 32
 
   real(real64) :: &
-     phi0                            = -360.d0  ! lower boundary of simulation domain
+     phi0                            = -360.d0, &  ! lower boundary of simulation domain
 !     phi0                            = -360.d0, &  ! lower boundary of simulation domain
 !     block_size(0:max_blocks-1,-1:2) = -1.d0     ! user defined (non-default) toroidal block width [deg]
+     d_SOL(2)   = 24.d0, &     ! radial width of scrape-off layer
+     d_PFR(2)   = 15.d0, &     ! radial width of private flux region
+     d_cutL(2)  = 6.d0, &      ! cut-off length for flux surfaces behind the wall
+     d_cutR(2)  = 8.d0, &      ! (l)eft and (r)ight divertor segments
+     alphaL(2)  = 0.9d0, &
+     alphaR(2)  = 1.0d0, &
+     etaL(2)    = 0.8d0, &     ! discretization parameter for left ...
+     etaR(2)    = 0.8d0        ! ... and right divertor leg
+
 
 
   ! user defined input for individual blocks
@@ -140,8 +155,10 @@ module fieldline_grid
 
   namelist /Grid_Layout/ &
      topology, symmetry, blocks, Block, &
-     nt, nr_EIRENE_core, nr_EIRENE_vac, &
-     phi0
+     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
+     phi0, d_SOL, d_PFR, &
+     d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
+     guiding_surface
 
 
   ! 1. read user configuration from input file

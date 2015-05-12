@@ -7,7 +7,7 @@ module topo_lsn
   use grid
   use separatrix
   use curve2D
-  use fieldline_grid, only: blocks, Block, Zone
+  use fieldline_grid, only: blocks, Block, Zone, guiding_surface, d_cutL, d_cutR, etaL, etaR, d_SOL, d_PFR, alphaL, alphaR
   implicit none
 
   private
@@ -19,9 +19,9 @@ module topo_lsn
 
 ! np: poloidal resolution ...
   integer :: &
-      np0     =  60, &                  ! ... in high pressure region
-      np1l    =  70, &                  ! ... in left divertor leg
-      np1r    =  70                     ! ... in right divertor leg
+      np0     = 180, &                  ! ... in high pressure region
+      np1l    =  30, &                  ! ... in left divertor leg
+      np1r    =  30                     ! ... in right divertor leg
 
 
 ! nr: radial resolution ...
@@ -61,6 +61,10 @@ module topo_lsn
   type(t_separatrix) :: S
   type(t_curve)      :: S0
 
+  ! guiding_surface
+  type(t_curve)      :: C_guide, C_cutL, C_cutR
+
+
   public :: &
      make_base_grids
 
@@ -70,13 +74,99 @@ module topo_lsn
 
 
   !=====================================================================
+  subroutine setup_domain
+  use boundary
+  use run_control, only: Debug
+
+
+  ! setup guiding surface for divertor legs ----------------------------
+  if (guiding_surface .ne. '') then
+     call C_guide%load(guiding_surface)
+  else if (n_axi > 1) then
+     call C_guide%copy(S_axi(1))
+  else
+     write (6, *) 'error: cannot determine divertor geometry!'
+     write (6, *) 'neither guiding_surface is set, nor is an axisymmetric surface defined.'
+     stop
+  endif
+
+
+  ! setup extended guiding surfaces for divertor leg discretization ----
+  call C_cutL%copy(C_guide)
+  call C_cutL%left_hand_shift(d_cutL(1))
+  call C_cutR%copy(C_guide)
+  call C_cutR%left_hand_shift(d_cutR(1))
+
+
+  if (Debug) then
+     call C_cutL%plot(filename='C_cutL.plt')
+     call C_cutR%plot(filename='C_cutR.plt')
+  endif
+
+  end subroutine setup_domain
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine divertor_leg_interface(C_leg, C_cut, eta)
+  type(t_curve), intent(in) :: C_leg, C_cut
+  real(real64), intent(out) :: eta
+
+  real(real64) :: x(2)
+
+
+  if (.not.C_leg%intersect_curve(C_cut, x, eta)) then
+     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     call C_leg%plot(filename='divertor_leg.plt')
+     stop
+  endif
+  write (99, *) x, eta
+
+  end subroutine divertor_leg_interface
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine divide_SOL(F, eta, CL, C0, CR)
+  use flux_surface_2D
+  use math
+  type(t_flux_surface_2D), intent(in)  :: F
+  real(real64),            intent(in)  :: eta
+  type(t_curve),           intent(out) :: CL, CR
+  type(t_flux_surface_2D), intent(out) :: C0
+
+  real(real64) :: l, alpha, xiR, xiL
+
+
+  l = F%length()
+
+  alpha = 1.d0 + eta * (alphaR(1) - 1.d0)
+  xiR   = alpha * S%M3%l / l
+  alpha = 1.d0 + eta * (alphaL(1) - 1.d0)
+  xiL   = 1.d0 - alpha * S%M4%l / l
+  call F%split3(xiR, xiL, CR, C0%t_curve, CL)
+  call CR%setup_length_sampling()
+  !call C0%setup_angular_sampling(Pmag)
+  call C0%setup_sampling(Px, Px, Pmag, eta, eta, pi2)
+  call CL%setup_length_sampling()
+
+  end subroutine divide_SOL
+  !=====================================================================
+
+
+
+  !=====================================================================
   subroutine make_base_grids
   use math
   use equilibrium
   use inner_boundary
+  use flux_surface_2D, only: RIGHT_HANDED
 
 
   real(real64) :: Rbox(2), Zbox(2), Px0(2), tmp(3), theta0
+  real(real64) :: xiL, xiR
   integer :: iblock
 
 
@@ -112,9 +202,10 @@ module topo_lsn
 !      eXm = Pmag - Px
 !      eXm = eXm / dsqrt(sum(eXm**2))
 !-----------------------------------------------------------------------
+  call setup_domain()
 
-  call S%generate(Px, 1, pi/2.d0)
-  !call S%plot('S', parts=.true.)
+  call S%generate(Px, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
+  call S%plot('S', parts=.true.)
 
   ! connect core segments of separatrix
   !call S%M1%flip()
@@ -122,6 +213,8 @@ module topo_lsn
   S0 = connect(S%M1%t_curve, S%M2%t_curve)
   call S0%plot(filename='S0.plt')
   call S0%setup_angular_sampling(Pmag)
+  call S%M3%setup_length_sampling()
+  call S%M4%setup_length_sampling()
 
   call load_inner_boundaries(Pmag, theta0)
 !.......................................................................
@@ -153,15 +246,18 @@ module topo_lsn
   use math
   use inner_boundary
   use flux_surface_2D
+  use mesh_spacing
 
   !integer, intent(in) :: iblock
 
-  type(t_flux_surface_2D) :: FS
+  type(t_flux_surface_2D) :: FS, FSL, FSR, C0
+  type(t_curve)           :: CL, CR
+  type(t_spacing)         :: Sl, Sr
 
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL, M_PFR
 
   character(len=72)   :: filename
-  real(real64) :: xi, eta, phi, x(2), x1(2), x2(2), d_HPR(2)
+  real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
   integer :: i, j, iz, iz1, iz2
 
 
@@ -185,7 +281,7 @@ module topo_lsn
   M_PFR => G_PFR(iblock)%mesh
 
 
-  ! 1. generate discretization on separatrix and innermost boundaries
+  ! 1.a discretization on innermost boundaries and main part of separatrix
   do j=0,np0
      xi = Zone(iz)%Sp%node(j,np0)
 
@@ -198,26 +294,42 @@ module topo_lsn
         M_HPR(i, j, :) = x
      enddo
   enddo
+  ! 1.b discretization of right separatrix leg
+  call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
+  call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
+  do j=0,np1r
+     xi = 1.d0 - Sr%node(np1r-j,np1r)
+     call S%M3%sample_at(xi, x)
+     M_SOL(  0,j,:) = x
+     M_PFR(nr2,j,:) = x
+  enddo
+  ! 1.c discretization of left separatrix leg
+  call divertor_leg_interface(S%M4%t_curve, C_guide, xiL)
+  call Sl%init_spline_X1(etaL(1), xiL)
+  do j=1,np1l
+     xi = Sl%node(j,np1l)
+     call S%M4%sample_at(xi, x)
+     M_SOL(  0,np1r + np0 + j,:) = x
+     M_PFR(nr2,np1r       + j,:) = x
+  enddo
 
 
-  ! 2. FLUX SURFACES
+  ! 2. unperturbed FLUX SURFACES (high pressure region)
+  ! 2.1 get radial width at poloidal angle of X-point
   d_HPR = 0.d0
   do i=0,blocks-1
      call C_in(0,1)%sample_at(0.d0, x)
      d_HPR = d_HPR + x / blocks
   enddo
   d_HPR = d_HPR - Px
-
+  ! 2.2 generate flux surfaces
   if (nr0-1 .ge. 2+n_int) write (6, 1000) nr0-1, 2+n_int
   do i=nr0-1, 2+n_int, -1
+     write (6, *) i
      eta = 1.d0 - Zone(iz)%Sr%node(i-1,nr0-1)
 
      x = Px + eta * d_HPR
-     write (6, *) i, eta, x
-     call FS%generate(x, 1, theta_cut=theta0)
-     FS%x(FS%n_seg,:) = FS%x(0,:)
-     call FS%plot(filename='test_fs.plt')
-     !stop
+     call FS%generate_closed(x, RIGHT_HANDED)
      call FS%setup_angular_sampling(Pmag)
 
      do j=0,np0
@@ -228,12 +340,9 @@ module topo_lsn
   enddo
 
 
-
-
-  ! 3. interpolate (2 -> 1+n_int)
+  ! 3. interpolate (2 -> 1+n_int) (high pressure region)
+  write (6, 1001) 2, 1+n_int
   do j=0,np0
-     !xi = Zone(iz)%Sp%node(j,np0)
-
      x1 = M_HPR(1,      j,:)
      x2 = M_HPR(2+n_int,j,:)
      do i=2,1+n_int
@@ -245,13 +354,98 @@ module topo_lsn
   enddo
 
 
-  ! 4. output
+  ! 4. scrape-off layer
+  dx(1) = Px(2) - Pmag(2)
+  dx(2) = Pmag(1) - Px(1)
+  dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
+  write (6, 1002) nr1
+  do i=1,nr1
+     write (6, *) i
+     eta = Zone(iz1)%Sr%node(i,nr1)
+     x0  = Px + eta * dx
+     call FS%generate_open(x0, C_cutL, C_cutR)
+     call divide_SOL(FS, eta, CL, C0, CR)
+     !call CL%plot(filename='CL.plt')
+     !call CR%plot(filename='CR.plt')
+     call C0%plot(filename='C0.plt')
+     !call FS%plot(filename='fs_SOL.plt')
+     !stop
+
+     ! right divertor leg
+     call divertor_leg_interface(CR, C_guide, xiR)
+     call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
+     do j=0,np1r
+        xi = 1.d0 - Sr%node(np1r-j,np1r)
+        call CR%sample_at(xi, x)
+        M_SOL(i,j,:) = x
+     enddo
+
+     ! main SOL
+     do j=0,np0
+        xi = Zone(iz)%Sp%node(j,np0)
+        call C0%sample_at(xi, x)
+        M_SOL(i,np1r+j,:) = x
+     enddo
+
+     ! left divertor leg
+     call divertor_leg_interface(CL, C_guide, xiL)
+     call Sl%init_spline_X1(etaL(1), xiL)
+     do j=1,np1l
+        xi = Sl%node(j,np1l)
+        call CL%sample_at(xi, x)
+        M_SOL(i,np1r+np0+j,:) = x
+     enddo
+  enddo
+
+
+  ! 5. private flux region
+  dx = Px - Pmag
+  dx = dx / sqrt(sum(dx**2)) * d_PFR(1)
+  write (6, 1003) nr2-1
+  do i=0,nr2-1
+     write (6, *) i
+     eta = Zone(iz2)%Sr%node(i,nr2)
+
+     x0 = Px + (1.d0-eta) * dx
+     ! right divertor leg
+     call FSR%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
+     call divertor_leg_interface(FSR%t_curve, C_guide, xiR)
+     call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
+     do j=0,np1r
+        xi = 1.d0 - Sr%node(np1r-j,np1r)
+        call FSR%sample_at(xi, x)
+        M_PFR(i,j,:) = x
+     enddo
+
+     ! left divertor leg
+     call FSL%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
+     call divertor_leg_interface(FSL%t_curve, C_guide, xiL)
+     call Sl%init_spline_X1(etaL(1), xiL)
+     do j=1,np1l
+        xi = Sl%node(j,np1l)
+        call FSL%sample_at(xi, x)
+        M_PFR(i,np1r       + j,:) = x
+     enddo
+  enddo
+
+
+
+  ! 99. output
   write (filename, 9000) iz
   call G_HPR(iblock)%store(filename=filename)
   write (filename, 9001) iz
   call G_HPR(iblock)%plot_mesh(filename)
 
+  write (filename, 9001) iz1
+  call G_SOL(iblock)%plot_mesh(filename)
+  write (filename, 9001) iz2
+  call G_PFR(iblock)%plot_mesh(filename)
+
  1000 format (8x,'generating unperturbed flux surfaces: ', i0, ' -> ', i0)
+ 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface:, ', &
+              i0, ' -> ', i0)
+ 1002 format (8x,'generating scrape-off layer: 1 -> ', i0)
+ 1003 format (8x,'generating private flux region: 0 -> ', i0)
  9000 format ('base_grid_',i0,'.dat')
  9001 format ('base_grid_',i0,'.plt')
   end subroutine make_HPR_grid
