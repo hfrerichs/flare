@@ -18,6 +18,7 @@ module flux_surface_2D
      procedure :: generate => generate_flux_surface_2D
      procedure :: generate_closed
      procedure :: generate_open
+     procedure :: setup_sampling
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -298,6 +299,118 @@ module flux_surface_2D
   N  = int(dl)
 
   end function N_steps_guess
+!===============================================================================
+
+
+
+!===============================================================================
+! Prepare flux surface for sampling using length weights for the parts near the
+! X-points while angular weights are used for the intermediate part.
+! The line X-point (x1,x2) to magnetic axis (xc) is used as reference. The transition
+! between angle-weighted sampling and length-weighted sampling occurs at an
+! angle of (r1,r2) * phi_trunc.
+! dphi0: reference angular weight (pi2 for full loop)
+!===============================================================================
+  subroutine setup_sampling(this, x1, x2, xc, r1, r2, dphi0)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: x1(2), x2(2), xc(2), r1, r2, dphi0
+
+  real(real64), parameter :: phi_trunc = pi2 / 9.d0
+
+  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w
+  integer      :: i, n, iseg1, iseg2
+
+
+  !.....................................................................
+  ! 0. use angular weights in the limit r = 0
+  if (r1.eq.0.0d0 .and. r2.eq.0.d0) then
+     call this%setup_angular_sampling(xc)
+     return
+  endif
+
+  ! otherwise setup sampling by segment lengths
+  n  = this%n_seg
+  call this%setup_length_sampling(raw_weights=.true.)
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 1. find first and last segment number for angle-weighted domain
+
+  phi1  = datan2(x1(2)-xc(2), x1(1)-xc(1))
+  ! find first segment on L
+  do i=1,n
+     ! upper node of segment
+     x     = this%x(i,:)
+     phi   = datan2(x(2)-xc(2), x(1)-xc(1))
+     dphi1 = phi - phi1
+     iseg1 = i
+     if (dabs(dphi1) .gt. phi_trunc*r1) exit
+  enddo
+
+  phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
+  ! find last segment on L
+  do i=n,1,-1
+     ! lower node of segment
+     x     = this%x(i-1,:)
+     phi   = datan2(x(2)-xc(2), x(1)-xc(1))
+     dphi2 = phi - phi2
+     iseg2 = i
+     if (dabs(dphi2) .gt. phi_trunc*r2) exit
+  enddo
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 2. set new (angle) weights in middle part
+  x    = this%x(iseg1,:)
+  phi1 = datan2(x(2)-xc(2), x(1)-xc(1))
+  w    = 0.d0
+  do i=iseg1+1,iseg2-1
+     x    = this%x(i,:)
+     phi2 = datan2(x(2)-xc(2), x(1)-xc(1))
+
+     dphi = phi2 - phi1
+     if (dabs(dphi) .gt. pi) dphi = dphi - dsign(pi2,dphi)
+
+     this%w(i) = dphi / dphi0
+     w         = w + dphi / dphi0
+     phi1      = phi2
+  enddo
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 3. update length weights in first and last parts
+
+  ! first part
+  s     = sum(this%w(1:iseg1))
+  dphi1 = dabs(dphi1) / dphi0
+  this%w(1:iseg1) = this%w(1:iseg1) / s * dphi1
+
+  !  last part
+  s     = sum(this%w(iseg2:n))
+  dphi2 = dabs(dphi2) / dphi0
+  this%w(iseg2:n) = this%w(iseg2:n) / s * dphi2
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 4. check normalization
+  w = sum(this%w)
+  if (w < 1.d0 - 1.d-7) then
+     write (6, *) 'error: unexpected sum of weights!'
+     stop
+  else
+     do i=1,n
+        this%w(i) = this%w(i-1) + this%w(i)
+     enddo
+     this%w = this%w / this%w(n)
+  endif
+  !.....................................................................
+
+  end subroutine setup_sampling
 !===============================================================================
 
 
