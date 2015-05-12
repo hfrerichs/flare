@@ -1036,11 +1036,20 @@ module curve2D
 !=======================================================================
 ! prepare sampling along L using the segment lengths as weight factor
 !=======================================================================
-  subroutine setup_length_sampling(L)
+  subroutine setup_length_sampling(L, raw_weights)
   class(t_curve) :: L
 
-  real(real64) :: w_tot, s, dx(L%n_dim)
+  logical, intent(in), optional :: raw_weights
+
+  logical      :: integrated_weights
+  real(real64) :: s, dx(L%n_dim)
   integer      :: i, n
+
+
+  integrated_weights = .true.
+  if (present(raw_weights)) then
+     integrated_weights = .not.raw_weights
+  endif
 
 
   ! allocate memory for weight array
@@ -1051,20 +1060,32 @@ module curve2D
   allocate (L%w(0:n))
 
   ! setup weight array
-  w_tot = 0.d0
+  !w_tot = 0.d0
+  L%l = 0.d0
   L%w = 0.d0
   do i=1,n
      dx    = L%x(i,:) - L%x(i-1,:)
      s     = dsqrt(sum(dx**2))
 
+     L%l   = L%l + s
+     if (integrated_weights) then
+        L%w(i) = L%l
+     else
+        L%w(i) = s
+     endif
+
+
      !L%w_seg(i) = s
-     L%w(i) = L%w(i-1) + s
-     w_tot      = w_tot + s
+     !L%w(i) = L%w(i-1) + s
+     !w_tot      = w_tot + s
   enddo
   !L%w_seg  = L%w_seg / w_tot
   !L%l      = w_tot
-  L%l      = L%w(n)
-  L%w  = L%w / L%w(n)
+  !L%l      = L%w(n)
+  ! normalize weights
+  if (integrated_weights) then
+     L%w  = L%w / L%w(n)
+  endif
 
   end subroutine setup_length_sampling
 !=======================================================================
