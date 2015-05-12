@@ -353,6 +353,9 @@ module topo_lsn
   nr1 = Zone(iz1)%nr; np1 = Zone(iz1)%np
   nr2 = Zone(iz2)%nr; np2 = Zone(iz2)%np
 
+  ! cell spacings
+  call Zone(iz1)%Sr%init(radial_spacing(1))
+
 
   call G_HPR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr0+1, np0+1, fixed_coord_value=phi)
   call G_SOL(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr1+1, np1+1, fixed_coord_value=phi)
@@ -362,12 +365,12 @@ module topo_lsn
   M_PFR => G_PFR(iblock)%mesh
 
 
-  ! 1.a discretization on innermost boundaries and main part of separatrix
+  ! 1.a discretization of innermost boundaries and main part of separatrix
   do j=0,np0
      xi = Zone(iz)%Sp%node(j,np0)
 
      call S0%sample_at(xi, x)
-     M_HPR(nr0,      j, :) = x
+     M_HPR(nr0,        j, :) = x
      M_SOL(  0, npR(1)+j, :) = x
 
      do i=0,1
@@ -397,12 +400,13 @@ module topo_lsn
 
   ! 2. unperturbed FLUX SURFACES (high pressure region)
   ! 2.1 get radial width at poloidal angle of X-point
-  d_HPR = 0.d0
-  do i=0,blocks-1
-     call C_in(0,1)%sample_at(0.d0, x)
-     d_HPR = d_HPR + x / blocks
-  enddo
-  d_HPR = d_HPR - Px
+!  d_HPR = 0.d0
+!  do i=0,blocks-1
+!     call C_in(i,1)%sample_at(0.d0, x)
+!     d_HPR = d_HPR + x / blocks
+!  enddo
+!  d_HPR = d_HPR - Px
+  d_HPR = get_d_HPR(Px, Pmag)
   ! 2.2 generate flux surfaces
   if (nr0-1 .ge. 2+n_int) write (6, 1000) nr0-1, 2+n_int
   do i=nr0-1, 2+n_int, -1
@@ -427,8 +431,9 @@ module topo_lsn
      x1 = M_HPR(1,      j,:)
      x2 = M_HPR(2+n_int,j,:)
      do i=2,1+n_int
-        eta = (Zone(iz)%Sr%node(    i-1,nr0-1) - Zone(iz)%Sr%node(0,nr0-1)) &
-            / (Zone(iz)%Sr%node(1+n_int,nr0-1) - Zone(iz)%Sr%node(0,nr0-1))
+!        eta = (Zone(iz)%Sr%node(    i-1,nr0-1) - Zone(iz)%Sr%node(1,nr0-1)) &
+!            / (Zone(iz)%Sr%node(1+n_int,nr0-1) - Zone(iz)%Sr%node(1,nr0-1))
+        eta = 1.d0 * (i-1) / (1+n_int)
 
         M_HPR(i,j,:) = x1 + eta * (x2-x1)
      enddo

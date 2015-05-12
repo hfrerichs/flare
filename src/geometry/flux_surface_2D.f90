@@ -64,7 +64,7 @@ module flux_surface_2D
   if (present(Trace_Step)) then
      ds = Trace_Step
   else
-     ds = length_scale() / 800.d0
+     ds = length_scale() / 10000.d0
   endif
 
 

@@ -42,6 +42,9 @@ module fieldline_grid
   character(len=80) :: &
      topology       = TOPO_SC, &
      Innermost_Flux_Surface = SF_EXACT, &
+     radial_spacing(0:max_layers-1)   = '', &
+     poloidal_spacing(0:max_layers-1) = '', &
+     toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface = ''
 
   integer :: &
@@ -100,6 +103,7 @@ module fieldline_grid
 
   ! extended block data
   type, extends(t_block_input) :: t_block
+     ! toroidal cell spacings
      type(t_spacing) :: S = Equidistant
 
      real(real64) :: &
@@ -155,8 +159,9 @@ module fieldline_grid
 
   namelist /Grid_Layout/ &
      topology, symmetry, blocks, Block, &
-     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      phi0, d_SOL, d_PFR, &
+     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
+     radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
      guiding_surface
 
@@ -174,6 +179,10 @@ module fieldline_grid
 
   ! 2. setup size and position of toroidal blocks
   call setup_toroidal_blocks(Block)
+
+
+  ! 3. setup mesh spacing functions
+  call setup_mesh_spacing()
 
 
   return
@@ -257,6 +266,7 @@ module fieldline_grid
      Block(ib)%phi_right = Block(ib)%phi_left + Block(ib)%width
   enddo
   ! 4b. set position of base planes
+  ! TODO: non-default toroidal spacing
   do ib=0,blocks-1
      xi   = Block(ib)%S%node(Block(ib)%it_base, Block(ib)%nt)
      Dphi = Block(ib)%phi_right - Block(ib)%phi_left
@@ -291,6 +301,13 @@ module fieldline_grid
  1004 format (8x,'using default decomposition')
 
   end subroutine setup_toroidal_blocks
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_mesh_spacing()
+  end subroutine setup_mesh_spacing
 !=======================================================================
 
 
