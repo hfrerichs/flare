@@ -2,11 +2,13 @@ subroutine generate_field_aligend_grid (run_level)
   use parallel
   use fieldline_grid
   use emc3_grid
-  use topo_lsn, make_base_grids_lsn => make_base_grids
+  use topo_sc
+  use topo_lsn
   implicit none
 
   integer, intent(in) :: run_level
 
+  procedure(), pointer :: make_base_grids
   logical :: level(8)
 
 
@@ -16,7 +18,18 @@ subroutine generate_field_aligend_grid (run_level)
   endif
 
 
-  call load_layout()
+  call setup_grid_configuration()
+  select case(topology)
+  case(TOPO_SC, TOPO_SC1)
+     call setup_topo_sc()
+     make_base_grids => make_base_grids_sc
+  case(TOPO_LSN, TOPO_LSN1)
+     call setup_topo_lsn()
+     make_base_grids => make_base_grids_lsn
+  case default
+     write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
+     stop
+  end select
 
 
   ! select run level
@@ -39,19 +52,13 @@ subroutine generate_field_aligend_grid (run_level)
 
   ! Level 2: generate base grids
   if (level(2)) then
-     select case(topology)
-     case(TOPO_SC, TOPO_SC1)
-     case(TOPO_LSN, TOPO_LSN1)
-        call make_base_grids_lsn()
-     case default
-        write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
-        stop
-     end select
+     call make_base_grids()
   endif
 
 
   ! Level 3: generate 3D grid from field line tracing
   if (level(3)) then
+     call setup_emc3_grid_layout()
      call trace_nodes()
      call write_emc3_grid()
      call write_emc3_input_files()

@@ -145,7 +145,7 @@ module fieldline_grid
 
 
 !=======================================================================
-  subroutine load_layout()
+  subroutine setup_grid_configuration
    procedure()      :: setup_topology_sc, &
                        setup_topology_lsn
 
@@ -176,33 +176,11 @@ module fieldline_grid
   call setup_toroidal_blocks(Block)
 
 
-  ! 3. set topology related functions and subroutines
-  write (6, *)
-  select case(topology)
-  case(TOPO_SC,TOPO_SC1)
-      write (6, 1000) 'simply connected'
-      !setup_zones         => setup_zones_sc
-      setup_topology      => setup_topology_sc
-  case(TOPO_LSN,TOPO_LSN1)
-      write (6, 1000) 'lower single null'
-      !setup_zones         => setup_zones_lsn
-      setup_topology      => setup_topology_lsn
-  case default
-     write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
-     stop
-  end select
-  call setup_topology()
-
-
-  ! 4. setup emc3 grid layout
-  call setup_emc3_grid_layout()
-
-
   return
  1000 format(3x,'- Topology of configuration: ',a)
  9000 write (6, *) 'error while reading input file ', trim(config_file), '!'
   stop
-  end subroutine load_layout
+  end subroutine setup_grid_configuration
 !=======================================================================
 
 

@@ -7,30 +7,12 @@ module topo_lsn
   use grid
   use separatrix
   use curve2D
-  use fieldline_grid, only: blocks, Block, Zone, guiding_surface, d_cutL, d_cutR, etaL, etaR, d_SOL, d_PFR, alphaL, alphaR
+  use fieldline_grid, unused => TOPO_LSN
   implicit none
-
   private
 
   integer, parameter :: DEFAULT = 0
 
-!...............................................................................
-! user defined parameters (to be set via configuration file)                   .
-
-! np: poloidal resolution ...
-  integer :: &
-      np0     = 180, &                  ! ... in high pressure region
-      np1l    =  30, &                  ! ... in left divertor leg
-      np1r    =  30                     ! ... in right divertor leg
-
-
-! nr: radial resolution ...
-  integer :: &
-      nr0     =  10, &                  ! ... in high pressure region
-      nr1     =  20, &                  ! ... in SOL region
-      nr2     =  20                     ! ... in private flux region
-
-!...............................................................................
 
 
 ! more parameters related to the grid generation process
@@ -66,9 +48,114 @@ module topo_lsn
 
 
   public :: &
-     make_base_grids
+     setup_topo_lsn, &
+     make_base_grids_lsn
 
   contains
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine setup_topo_lsn()
+  use emc3_grid, only: NZONET
+  implicit none
+
+  integer :: iz, iz0, iz1, iz2, ib
+
+
+  ! 0. setup number of zones for lower single null topology
+  NZONET = blocks * 3
+
+
+  ! 1. setup resolution for each zone
+  np1 = npR(1) + np(0) + npL(1)
+  np2 = npR(1) +         npL(1)
+  write (6, 1000)
+  write (6, 1001)
+  do ib=0,blocks-1
+     ! high pressure region (HPR)
+     iz0 = 3*ib
+     if (Zone(iz0)%nr == -1) Zone(iz0)%nr = nr(0)
+     if (Zone(iz0)%np == -1) Zone(iz0)%np = np(0)
+     !if (Zone(iz0)%nt == -1) Zone(iz0)%nt = nt
+     Zone(iz0)%nt = Block(ib)%nt
+
+     ! scrape-off layer (SOL)
+     iz1 = iz0 + 1
+     if (Zone(iz1)%nr == -1) Zone(iz1)%nr = nr(1)
+     if (Zone(iz1)%np == -1) Zone(iz1)%np = np1
+     !if (Zone(iz1)%nt == -1) Zone(iz1)%nt = nt
+     Zone(iz1)%nt = Block(ib)%nt
+
+     ! private flux region (PFR)
+     iz2 = iz1 + 1
+     if (Zone(iz2)%nr == -1) Zone(iz2)%nr = nr(2)
+     if (Zone(iz2)%np == -1) Zone(iz2)%np = np2
+     !if (Zone(iz2)%nt == -1) Zone(iz2)%nt = nt
+     Zone(iz2)%nt = Block(ib)%nt
+
+     ! setup toroidal discretization
+     do iz=iz0,iz2
+        allocate (Zone(iz)%phi(0:Zone(iz)%nt))
+        Zone(iz)%phi = Block(ib)%phi
+        Zone(iz)%it_base = Block(ib)%it_base
+     enddo
+
+
+     !write (6, 1002) ib, nr0, np0, nt, nr1, np1, nt, nr2, np2, nt
+     write (6, 1002) ib, Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt, &
+                         Zone(iz1)%nr, Zone(iz1)%np, Zone(iz1)%nt, &
+                         Zone(iz2)%nr, Zone(iz2)%np, Zone(iz2)%nt
+  enddo
+ 1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')
+ 1001 format(8x,'block #, high pressure region, scrape-off layer, private flux region')
+ 1002 format(12x,i3,3(3x,'(',i0,' x ',i0,' x ',i0,')'))
+
+
+  ! 2. setup connectivity between zones
+  do ib=0,blocks-1
+     ! high pressure region (HPR)
+     iz = 3 * ib
+     Zone(iz)%isfr(1) = SF_CORE
+     Zone(iz)%isfr(2) = SF_MAPPING
+     Zone(iz)%isfp(1) = SF_PERIODIC
+     Zone(iz)%isfp(2) = SF_PERIODIC
+     Zone(iz)%isft(1) = SF_MAPPING
+     Zone(iz)%isft(2) = SF_MAPPING
+     Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_core
+     Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
+     Zone(iz)%p_surf_pl_trans_range(1) = 0
+     Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
+
+     ! scrape-off layer (SOL)
+     iz = 3 * ib + 1
+     Zone(iz)%isfr(1) = SF_MAPPING
+     Zone(iz)%isfr(2) = SF_VACUUM
+     Zone(iz)%isfp(1) = SF_VACUUM
+     Zone(iz)%isfp(2) = SF_VACUUM
+     Zone(iz)%isft(1) = SF_MAPPING
+     Zone(iz)%isft(2) = SF_MAPPING
+     Zone(iz)%r_surf_pl_trans_range(1) = 0
+     Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr - nr_EIRENE_vac
+     Zone(iz)%p_surf_pl_trans_range(1) = 0
+     Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
+
+     ! private flux region (PFR)
+     iz = 3 * ib + 2
+     Zone(iz)%isfr(1) = SF_VACUUM
+     Zone(iz)%isfr(2) = SF_MAPPING
+     Zone(iz)%isfp(1) = SF_VACUUM
+     Zone(iz)%isfp(2) = SF_VACUUM
+     Zone(iz)%isft(1) = SF_MAPPING
+     Zone(iz)%isft(2) = SF_MAPPING
+     Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
+     Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
+     Zone(iz)%p_surf_pl_trans_range(1) = 0
+     Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
+  enddo
+
+  end subroutine setup_topo_lsn
   !=====================================================================
 
 
@@ -121,7 +208,6 @@ module topo_lsn
      call C_leg%plot(filename='divertor_leg.plt')
      stop
   endif
-  write (99, *) x, eta
 
   end subroutine divertor_leg_interface
   !=====================================================================
@@ -158,7 +244,7 @@ module topo_lsn
 
 
   !=====================================================================
-  subroutine make_base_grids
+  subroutine make_base_grids_lsn
   use math
   use equilibrium
   use inner_boundary
@@ -170,11 +256,6 @@ module topo_lsn
   integer :: iblock
 
 
-  ! set derived parameters
-  np1 = np1r + np0 + np1l
-  np2 = np1r +       np1l
-
-
 !.......................................................................
 ! 0. initialize geometry
 !.......................................................................
@@ -182,7 +263,7 @@ module topo_lsn
   if (n_int < 0) then
      write (6, *) 'error: n_int must not be negative!'; stop
   endif
-  if (n_int > nr0-2) then
+  if (n_int > nr(0)-2) then
      write (6, *) 'error: n_int > nr0 - 2!'; stop
   endif
   
@@ -258,7 +339,7 @@ module topo_lsn
 
   character(len=72)   :: filename
   real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
-  integer :: i, j, iz, iz1, iz2
+  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1, np2
 
 
   phi = Block(iblock)%phi_base
@@ -287,7 +368,7 @@ module topo_lsn
 
      call S0%sample_at(xi, x)
      M_HPR(nr0,      j, :) = x
-     M_SOL(  0, np1r+j, :) = x
+     M_SOL(  0, npR(1)+j, :) = x
 
      do i=0,1
         call C_in(iblock,i)%sample_at(xi, x)
@@ -297,8 +378,8 @@ module topo_lsn
   ! 1.b discretization of right separatrix leg
   call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
   call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-  do j=0,np1r
-     xi = 1.d0 - Sr%node(np1r-j,np1r)
+  do j=0,npR(1)
+     xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
      call S%M3%sample_at(xi, x)
      M_SOL(  0,j,:) = x
      M_PFR(nr2,j,:) = x
@@ -306,11 +387,11 @@ module topo_lsn
   ! 1.c discretization of left separatrix leg
   call divertor_leg_interface(S%M4%t_curve, C_guide, xiL)
   call Sl%init_spline_X1(etaL(1), xiL)
-  do j=1,np1l
-     xi = Sl%node(j,np1l)
+  do j=1,npL(1)
+     xi = Sl%node(j,npL(1))
      call S%M4%sample_at(xi, x)
-     M_SOL(  0,np1r + np0 + j,:) = x
-     M_PFR(nr2,np1r       + j,:) = x
+     M_SOL(  0,npR(1) + np0 + j,:) = x
+     M_PFR(nr2,npR(1)       + j,:) = x
   enddo
 
 
@@ -374,8 +455,8 @@ module topo_lsn
      ! right divertor leg
      call divertor_leg_interface(CR, C_guide, xiR)
      call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,np1r
-        xi = 1.d0 - Sr%node(np1r-j,np1r)
+     do j=0,npR(1)
+        xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
         call CR%sample_at(xi, x)
         M_SOL(i,j,:) = x
      enddo
@@ -384,16 +465,16 @@ module topo_lsn
      do j=0,np0
         xi = Zone(iz)%Sp%node(j,np0)
         call C0%sample_at(xi, x)
-        M_SOL(i,np1r+j,:) = x
+        M_SOL(i,npR(1)+j,:) = x
      enddo
 
      ! left divertor leg
      call divertor_leg_interface(CL, C_guide, xiL)
      call Sl%init_spline_X1(etaL(1), xiL)
-     do j=1,np1l
-        xi = Sl%node(j,np1l)
+     do j=1,npL(1)
+        xi = Sl%node(j,npL(1))
         call CL%sample_at(xi, x)
-        M_SOL(i,np1r+np0+j,:) = x
+        M_SOL(i,npR(1)+np0+j,:) = x
      enddo
   enddo
 
@@ -411,8 +492,8 @@ module topo_lsn
      call FSR%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
      call divertor_leg_interface(FSR%t_curve, C_guide, xiR)
      call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,np1r
-        xi = 1.d0 - Sr%node(np1r-j,np1r)
+     do j=0,npR(1)
+        xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
         call FSR%sample_at(xi, x)
         M_PFR(i,j,:) = x
      enddo
@@ -421,10 +502,10 @@ module topo_lsn
      call FSL%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
      call divertor_leg_interface(FSL%t_curve, C_guide, xiL)
      call Sl%init_spline_X1(etaL(1), xiL)
-     do j=1,np1l
-        xi = Sl%node(j,np1l)
+     do j=1,npL(1)
+        xi = Sl%node(j,npL(1))
         call FSL%sample_at(xi, x)
-        M_PFR(i,np1r       + j,:) = x
+        M_PFR(i,npR(1) + j,:) = x
      enddo
   enddo
 
@@ -450,167 +531,7 @@ module topo_lsn
  9001 format ('base_grid_',i0,'.plt')
   end subroutine make_HPR_grid
   !=====================================================================
-  end subroutine make_base_grids
+  end subroutine make_base_grids_lsn
+  !=============================================================================
 
 end module topo_lsn
-
-
-
-
-
-
-
-
-
-
-
-
-
-!===============================================================================
-! Lower Single Null configuration: block-structured decomposition with zones for
-! confined region (CNF), scrape-off layer (SOL) and private flux region (PFR)
-!===============================================================================
-subroutine setup_topology_lsn()
-  use fieldline_grid, Zone_ => Zone
-  use emc3_grid
-  implicit none
-
-  ! unit number for grid configuration file
-  integer, parameter :: iu = 12
-
-!...............................................................................
-! user defined parameters (to be set via configuration file)                   .
-
-  ! radial resolution ...
-  integer :: &
-     nr0     =   10, &                    ! ... of confined region
-     nr1     =   20, &                    ! ... of SOL region
-     nr2     =   20                       ! ... of private flux region
-
-
-  ! poloidal resolution ...
-  integer :: &
-     np0     =  180, &                    ! ... of confined region
-     np1l    =   30, &                    ! ... of left divertor leg
-     np1r    =   30                       ! ... of right divertor leg
-
-
-  real(real64) :: &
-     DSOL = 24.0, &            ! width of scrape-off layer (SOL)
-     DPFR = 12.0               ! width of private flux reagion (PFR)
-
-
-  type(t_zone_input) :: Zone(0:max_zones-1)
-!...............................................................................
-
-  namelist /Block_Resolution/ &
-      Zone, nr0, nr1, nr2, np0, np1l, np1r, nt, &
-      DSOL, DPFR
-
-!...............................................................................
-! internal variables
-
-  integer :: np1, np2, iz, iz0, iz1, iz2, ib
-!...............................................................................
-
-
-  ! 0. setup number of zones for lower single null topology
-  NZONET = blocks * 3
-
-
-  ! 1. read user configuration from input file
-  open  (iu, file=config_file)
-  read  (iu, Block_Resolution)
-  close (iu)
-  np1 = np1r + np0 + np1l
-  np2 = np1r + np1l
-
-
-  ! 3. setup resolution for each zone
-  write (6, 1000)
-  write (6, 1001)
-  do ib=0,blocks-1
-     ! confined region
-     iz0 = 3*ib
-     if (Zone(iz0)%nr == -1) Zone(iz0)%nr = nr0
-     if (Zone(iz0)%np == -1) Zone(iz0)%np = np0
-     !if (Zone(iz0)%nt == -1) Zone(iz0)%nt = nt
-     Zone(iz0)%nt = Block(ib)%nt
-
-     ! scrape-off layer
-     iz1 = iz0 + 1
-     if (Zone(iz1)%nr == -1) Zone(iz1)%nr = nr1
-     if (Zone(iz1)%np == -1) Zone(iz1)%np = np1
-     !if (Zone(iz1)%nt == -1) Zone(iz1)%nt = nt
-     Zone(iz1)%nt = Block(ib)%nt
-
-     ! private flux region
-     iz2 = iz1 + 1
-     if (Zone(iz2)%nr == -1) Zone(iz2)%nr = nr2
-     if (Zone(iz2)%np == -1) Zone(iz2)%np = np2
-     !if (Zone(iz2)%nt == -1) Zone(iz2)%nt = nt
-     Zone(iz2)%nt = Block(ib)%nt
-
-     ! setup toroidal discretization
-     do iz=iz0,iz2
-        allocate (Zone_(iz)%phi(0:Zone(iz)%nt))
-        Zone_(iz)%phi = Block(ib)%phi
-        Zone_(iz)%it_base = Block(ib)%it_base
-     enddo
-
-
-     !write (6, 1002) ib, nr0, np0, nt, nr1, np1, nt, nr2, np2, nt
-     write (6, 1002) ib, Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt, &
-                         Zone(iz1)%nr, Zone(iz1)%np, Zone(iz1)%nt, &
-                         Zone(iz2)%nr, Zone(iz2)%np, Zone(iz2)%nt
-  enddo
-
- 1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')
- 1001 format(8x,'block #, confined region, scrape-off layer, private flux region')
- 1002 format(12x,i3,3(3x,'(',i0,' x ',i0,' x ',i0,')'))
-
-
-  ! setup connectivity between zones
-  do ib=0,blocks-1
-     ! upstream region
-     iz = 3 * ib
-     Zone_(iz)%isfr(1) = SF_CORE
-     Zone_(iz)%isfr(2) = SF_MAPPING
-     Zone_(iz)%isfp(1) = SF_PERIODIC
-     Zone_(iz)%isfp(2) = SF_PERIODIC
-     Zone_(iz)%isft(1) = SF_MAPPING
-     Zone_(iz)%isft(2) = SF_MAPPING
-     Zone_(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_core
-     Zone_(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
-     Zone_(iz)%p_surf_pl_trans_range(1) = 0
-     Zone_(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
-
-     ! scrape-off layer
-     iz = 3 * ib + 1
-     Zone_(iz)%isfr(1) = SF_MAPPING
-     Zone_(iz)%isfr(2) = SF_VACUUM
-     Zone_(iz)%isfp(1) = SF_VACUUM
-     Zone_(iz)%isfp(2) = SF_VACUUM
-     Zone_(iz)%isft(1) = SF_MAPPING
-     Zone_(iz)%isft(2) = SF_MAPPING
-     Zone_(iz)%r_surf_pl_trans_range(1) = 0
-     Zone_(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr - nr_EIRENE_vac
-     Zone_(iz)%p_surf_pl_trans_range(1) = 0
-     Zone_(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
-
-     ! private flux region
-     iz = 3 * ib + 2
-     Zone_(iz)%isfr(1) = SF_VACUUM
-     Zone_(iz)%isfr(2) = SF_MAPPING
-     Zone_(iz)%isfp(1) = SF_VACUUM
-     Zone_(iz)%isfp(2) = SF_VACUUM
-     Zone_(iz)%isft(1) = SF_MAPPING
-     Zone_(iz)%isft(2) = SF_MAPPING
-     Zone_(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
-     Zone_(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
-     Zone_(iz)%p_surf_pl_trans_range(1) = 0
-     Zone_(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
-  enddo
-
-  Zone_%t_zone_input = Zone
-end subroutine setup_topology_lsn
