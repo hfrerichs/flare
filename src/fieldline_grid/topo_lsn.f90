@@ -164,31 +164,70 @@ module topo_lsn
   subroutine setup_domain
   use boundary
   use run_control, only: Debug
+  use math
+  use flux_surface_2D, only: RIGHT_HANDED
+  use equilibrium
+  use inner_boundary
+
+  real(real64) :: tmp(3), Rbox(2), Zbox(2), Px0(2), theta0
 
 
-  ! setup guiding surface for divertor legs ----------------------------
+  ! 1.a setup guiding surface for divertor legs (C_guide) ------------------
   if (guiding_surface .ne. '') then
+     write (6, 1000)
      call C_guide%load(guiding_surface)
   else if (n_axi > 1) then
+     write (6, 1001)
      call C_guide%copy(S_axi(1))
   else
      write (6, *) 'error: cannot determine divertor geometry!'
      write (6, *) 'neither guiding_surface is set, nor is an axisymmetric surface defined.'
      stop
   endif
+ 1000 format(8x,'User defined guiding surface for divertor strike points')
+ 1001 format(8x,'First axisymmetric surface used for divertor strike points')
 
-
-  ! setup extended guiding surfaces for divertor leg discretization ----
+  ! 1.b setup extended guiding surfaces for divertor leg discretization ----
+  ! C_cutL, C_cutR
   call C_cutL%copy(C_guide)
   call C_cutL%left_hand_shift(d_cutL(1))
   call C_cutR%copy(C_guide)
   call C_cutR%left_hand_shift(d_cutR(1))
-
-
   if (Debug) then
      call C_cutL%plot(filename='C_cutL.plt')
      call C_cutR%plot(filename='C_cutR.plt')
   endif
+
+
+  ! 2.a setup magnetic axis (Pmag) --------------------------------------
+  tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+
+  ! 2.b setup X-point (Px, theta0) --------------------------------------
+  call get_domain(Rbox, Zbox)
+  Px0(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
+  Px0(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
+  Px     = find_X(Px0)
+  write (6, 2000) Px
+
+  theta0 = atan2(Px(2) - Pmag(2), Px(1) - Pmag(1))
+  write (6, 2001) theta0/pi*180.d0
+
+  ! 2.c separatrix (S, S0) ---------------------------------------------
+  call S%generate(Px, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
+  call S%plot('S', parts=.true.)
+
+  ! connect core segments of separatrix
+  S0 = connect(S%M1%t_curve, S%M2%t_curve)
+  call S0%plot(filename='S0.plt')
+  call S0%setup_angular_sampling(Pmag)
+  call S%M3%setup_length_sampling()
+  call S%M4%setup_length_sampling()
+ 2000 format(8x,'found magnetic X-point at: ',2f10.4)
+ 2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
+
+
+  ! 3. inner boundaries for EMC3 grid
+  call load_inner_boundaries(Pmag, theta0)
 
   end subroutine setup_domain
   !=====================================================================
@@ -246,72 +285,77 @@ module topo_lsn
   !=====================================================================
   subroutine make_base_grids_lsn
   use math
-  use equilibrium
   use inner_boundary
-  use flux_surface_2D, only: RIGHT_HANDED
+  use flux_surface_2D
+  use mesh_spacing
 
+  type(t_flux_surface_2D) :: FS, FSL, FSR, C0
+  type(t_curve)           :: CL, CR
+  type(t_spacing)         :: Sl, Sr
 
-  real(real64) :: Rbox(2), Zbox(2), Px0(2), tmp(3), theta0
+  real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL, M_PFR
+
+  character(len=72)   :: filename
+  real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
+  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1, np2, np1l, np1r
+
   real(real64) :: xiL, xiR
   integer :: iblock
 
 
-!.......................................................................
-! 0. initialize geometry
-!.......................................................................
-  ! check input
+  !.....................................................................
+  ! 0. initialize geometry
+  call setup_domain()
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 1. check input
   if (n_int < 0) then
      write (6, *) 'error: n_int must not be negative!'; stop
   endif
   if (n_int > nr(0)-2) then
      write (6, *) 'error: n_int > nr0 - 2!'; stop
   endif
-  
-!- setup magnetic axis -------------------------------------------------
-  tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+  !.....................................................................
 
 
-!- setup X-point -------------------------------------------------------
-  call get_domain(Rbox, Zbox)
-  Px0(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
-  Px0(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
-  Px     = find_X(Px0)
-  write (6, *) 'found magnetic X-point at: ', Px
-
-  theta0 = atan2(Px(2) - Pmag(2), Px(1) - Pmag(1))
-  write (6, *) '   -> poloidal angle: ', theta0
-!      eXm = Pmag - Px
-!      eXm = eXm / dsqrt(sum(eXm**2))
-!-----------------------------------------------------------------------
-  call setup_domain()
-
-  call S%generate(Px, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
-  call S%plot('S', parts=.true.)
-
-  ! connect core segments of separatrix
-  !call S%M1%flip()
-  !call S%M2%flip()
-  S0 = connect(S%M1%t_curve, S%M2%t_curve)
-  call S0%plot(filename='S0.plt')
-  call S0%setup_angular_sampling(Pmag)
-  call S%M3%setup_length_sampling()
-  call S%M4%setup_length_sampling()
-
-  call load_inner_boundaries(Pmag, theta0)
-!.......................................................................
-
-
-
-!.......................................................................
-! setup working arrays for base grid
+  !.....................................................................
+  ! 2. setup working arrays for base grid
   allocate (G_HPR(0:blocks-1), G_SOL(0:blocks-1), G_PFR(0:blocks-1))
-!.......................................................................
+  !.....................................................................
 
 
 
   do iblock=0,blocks-1
+     phi = Block(iblock)%phi_base
+
+     ! 0. initialize grids
+     iz = iblock*3
+     iz1 = iz + 1
+     iz2 = iz + 2
+
+     nr0 = Zone(iz)%nr;  np0 = Zone(iz)%np
+     nr1 = Zone(iz1)%nr; np1 = Zone(iz1)%np
+     nr2 = Zone(iz2)%nr; np2 = Zone(iz2)%np
+     np1l = npL(1)
+     np1r = npR(1)
+
+     ! cell spacings
+     call Zone(iz1)%Sr%init(radial_spacing(1))
+
+
+     call G_HPR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr0+1, np0+1, fixed_coord_value=phi)
+     call G_SOL(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr1+1, np1+1, fixed_coord_value=phi)
+     call G_PFR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr2+1, np2+1, fixed_coord_value=phi)
+     M_HPR => G_HPR(iblock)%mesh
+     M_SOL => G_SOL(iblock)%mesh
+     M_PFR => G_PFR(iblock)%mesh
      !call make_HPR_grid(iblock)
+
      call make_HPR_grid()
+     !call make_flux_surface_discretization()
+     !call interpolateMMMM()
   enddo
 
 
@@ -324,45 +368,9 @@ module topo_lsn
   !=====================================================================
   !subroutine make_HPR_grid (iblock)
   subroutine make_HPR_grid
-  use math
-  use inner_boundary
-  use flux_surface_2D
-  use mesh_spacing
-
-  !integer, intent(in) :: iblock
-
-  type(t_flux_surface_2D) :: FS, FSL, FSR, C0
-  type(t_curve)           :: CL, CR
-  type(t_spacing)         :: Sl, Sr
-
-  real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL, M_PFR
-
-  character(len=72)   :: filename
-  real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
-  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1, np2
 
 
-  phi = Block(iblock)%phi_base
 
-  ! 0. initialize grids
-  iz = iblock*3
-  iz1 = iz + 1
-  iz2 = iz + 2
-
-  nr0 = Zone(iz)%nr;  np0 = Zone(iz)%np
-  nr1 = Zone(iz1)%nr; np1 = Zone(iz1)%np
-  nr2 = Zone(iz2)%nr; np2 = Zone(iz2)%np
-
-  ! cell spacings
-  call Zone(iz1)%Sr%init(radial_spacing(1))
-
-
-  call G_HPR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr0+1, np0+1, fixed_coord_value=phi)
-  call G_SOL(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr1+1, np1+1, fixed_coord_value=phi)
-  call G_PFR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr2+1, np2+1, fixed_coord_value=phi)
-  M_HPR => G_HPR(iblock)%mesh
-  M_SOL => G_SOL(iblock)%mesh
-  M_PFR => G_PFR(iblock)%mesh
 
 
   ! 1.a discretization of innermost boundaries and main part of separatrix
@@ -370,8 +378,8 @@ module topo_lsn
      xi = Zone(iz)%Sp%node(j,np0)
 
      call S0%sample_at(xi, x)
-     M_HPR(nr0,        j, :) = x
-     M_SOL(  0, npR(1)+j, :) = x
+     M_HPR(nr0,      j, :) = x
+     M_SOL(  0, np1r+j, :) = x
 
      do i=0,1
         call C_in(iblock,i)%sample_at(xi, x)
@@ -381,8 +389,8 @@ module topo_lsn
   ! 1.b discretization of right separatrix leg
   call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
   call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-  do j=0,npR(1)
-     xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
+  do j=0,np1r
+     xi = 1.d0 - Sr%node(np1r-j,np1r)
      call S%M3%sample_at(xi, x)
      M_SOL(  0,j,:) = x
      M_PFR(nr2,j,:) = x
@@ -390,11 +398,11 @@ module topo_lsn
   ! 1.c discretization of left separatrix leg
   call divertor_leg_interface(S%M4%t_curve, C_guide, xiL)
   call Sl%init_spline_X1(etaL(1), xiL)
-  do j=1,npL(1)
-     xi = Sl%node(j,npL(1))
+  do j=1,np1l
+     xi = Sl%node(j,np1l)
      call S%M4%sample_at(xi, x)
-     M_SOL(  0,npR(1) + np0 + j,:) = x
-     M_PFR(nr2,npR(1)       + j,:) = x
+     M_SOL(  0,np1r + np0 + j,:) = x
+     M_PFR(nr2,np1r       + j,:) = x
   enddo
 
 
@@ -431,9 +439,7 @@ module topo_lsn
      x1 = M_HPR(1,      j,:)
      x2 = M_HPR(2+n_int,j,:)
      do i=2,1+n_int
-!        eta = (Zone(iz)%Sr%node(    i-1,nr0-1) - Zone(iz)%Sr%node(1,nr0-1)) &
-!            / (Zone(iz)%Sr%node(1+n_int,nr0-1) - Zone(iz)%Sr%node(1,nr0-1))
-        eta = 1.d0 * (i-1) / (1+n_int)
+        eta = Zone(iz)%Sr%node(    i-1,nr0-1) / Zone(iz)%Sr%node(1+n_int,nr0-1)
 
         M_HPR(i,j,:) = x1 + eta * (x2-x1)
      enddo
@@ -460,8 +466,8 @@ module topo_lsn
      ! right divertor leg
      call divertor_leg_interface(CR, C_guide, xiR)
      call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,npR(1)
-        xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
+     do j=0,np1r
+        xi = 1.d0 - Sr%node(np1r-j,np1r)
         call CR%sample_at(xi, x)
         M_SOL(i,j,:) = x
      enddo
@@ -470,16 +476,16 @@ module topo_lsn
      do j=0,np0
         xi = Zone(iz)%Sp%node(j,np0)
         call C0%sample_at(xi, x)
-        M_SOL(i,npR(1)+j,:) = x
+        M_SOL(i,np1r+j,:) = x
      enddo
 
      ! left divertor leg
      call divertor_leg_interface(CL, C_guide, xiL)
      call Sl%init_spline_X1(etaL(1), xiL)
-     do j=1,npL(1)
-        xi = Sl%node(j,npL(1))
+     do j=1,np1l
+        xi = Sl%node(j,np1l)
         call CL%sample_at(xi, x)
-        M_SOL(i,npR(1)+np0+j,:) = x
+        M_SOL(i,np1r+np0+j,:) = x
      enddo
   enddo
 
@@ -497,8 +503,8 @@ module topo_lsn
      call FSR%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
      call divertor_leg_interface(FSR%t_curve, C_guide, xiR)
      call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,npR(1)
-        xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
+     do j=0,np1r
+        xi = 1.d0 - Sr%node(np1r-j,np1r)
         call FSR%sample_at(xi, x)
         M_PFR(i,j,:) = x
      enddo
@@ -507,10 +513,10 @@ module topo_lsn
      call FSL%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
      call divertor_leg_interface(FSL%t_curve, C_guide, xiL)
      call Sl%init_spline_X1(etaL(1), xiL)
-     do j=1,npL(1)
-        xi = Sl%node(j,npL(1))
+     do j=1,np1l
+        xi = Sl%node(j,np1l)
         call FSL%sample_at(xi, x)
-        M_PFR(i,npR(1) + j,:) = x
+        M_PFR(i,np1r + j,:) = x
      enddo
   enddo
 
