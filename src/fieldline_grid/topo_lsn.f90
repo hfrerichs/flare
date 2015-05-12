@@ -297,7 +297,7 @@ module topo_lsn
 
   character(len=72)   :: filename
   real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
-  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1, np2, np1l, np1r
+  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1l, np1r
 
   real(real64) :: xiL, xiR
   integer :: iblock
@@ -335,9 +335,12 @@ module topo_lsn
      iz1 = iz + 1
      iz2 = iz + 2
 
-     nr0 = Zone(iz)%nr;  np0 = Zone(iz)%np
-     nr1 = Zone(iz1)%nr; np1 = Zone(iz1)%np
-     nr2 = Zone(iz2)%nr; np2 = Zone(iz2)%np
+     !nr0 = Zone(iz)%nr;  np0 = Zone(iz)%np
+     !nr1 = Zone(iz1)%nr; np1 = Zone(iz1)%np
+     !nr2 = Zone(iz2)%nr; np2 = Zone(iz2)%np
+     nr0 = nr(0); np0 = np(0)
+     nr1 = nr(1)
+     nr2 = nr(2)
      np1l = npL(1)
      np1r = npR(1)
 
@@ -373,18 +376,13 @@ module topo_lsn
 
 
 
-  ! 1.a discretization of innermost boundaries and main part of separatrix
+  ! 1.a discretization of main part of separatrix
   do j=0,np0
      xi = Zone(iz)%Sp%node(j,np0)
 
      call S0%sample_at(xi, x)
      M_HPR(nr0,      j, :) = x
      M_SOL(  0, np1r+j, :) = x
-
-     do i=0,1
-        call C_in(iblock,i)%sample_at(xi, x)
-        M_HPR(i, j, :) = x
-     enddo
   enddo
   ! 1.b discretization of right separatrix leg
   call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
@@ -433,9 +431,17 @@ module topo_lsn
   enddo
 
 
-  ! 3. interpolate (2 -> 1+n_int) (high pressure region)
+  ! 3. inner boundaries and interpolated surfaces (2 -> 1+n_int) (high pressure region)
   write (6, 1001) 2, 1+n_int
   do j=0,np0
+     xi = Zone(iz)%Sp%node(j,np0)
+     ! innermost surfaces
+     do i=0,1
+        call C_in(iblock,i)%sample_at(xi, x)
+        M_HPR(i, j, :) = x
+     enddo
+
+     ! interpolated surfaces
      x1 = M_HPR(1,      j,:)
      x2 = M_HPR(2+n_int,j,:)
      do i=2,1+n_int
