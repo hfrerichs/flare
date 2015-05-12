@@ -369,7 +369,7 @@ module curve2D
 
   t_curve_intersect_curve = .false.
   x   =  0.d0
-  tau = -1.d0
+  tau =  0.d0
   do is=1,this%n_seg
      x1 = this%x(is-1, :)
      x2 = this%x(is  , :)
