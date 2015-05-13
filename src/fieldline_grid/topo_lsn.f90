@@ -23,7 +23,7 @@ module topo_lsn
 
 !...............................................................................
 ! derived parameters                                                           .
-  integer :: np1, np2
+!  integer :: np1, np2
 !...............................................................................
 
 
@@ -69,29 +69,34 @@ module topo_lsn
 
 
   ! 1. setup resolution for each zone
-  np1 = npR(1) + np(0) + npL(1)
-  np2 = npR(1) +         npL(1)
+!  np1 = npR(1) + np(0) + npL(1)
+!  np2 = npR(1) +         npL(1)
   write (6, 1000)
   write (6, 1001)
   do ib=0,blocks-1
+     ! set derived parameters
+     Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%np(0) + Block(ib)%npL(1)
+     Block(ib)%np(2) = Block(ib)%npR(1)                   + Block(ib)%npL(1)
+
+
      ! high pressure region (HPR)
      iz0 = 3*ib
-     if (Zone(iz0)%nr == -1) Zone(iz0)%nr = nr(0)
-     if (Zone(iz0)%np == -1) Zone(iz0)%np = np(0)
+     if (Zone(iz0)%nr == -1) Zone(iz0)%nr = Block(ib)%nr(0)
+     if (Zone(iz0)%np == -1) Zone(iz0)%np = Block(ib)%np(0)
      !if (Zone(iz0)%nt == -1) Zone(iz0)%nt = nt
      Zone(iz0)%nt = Block(ib)%nt
 
      ! scrape-off layer (SOL)
      iz1 = iz0 + 1
-     if (Zone(iz1)%nr == -1) Zone(iz1)%nr = nr(1)
-     if (Zone(iz1)%np == -1) Zone(iz1)%np = np1
+     if (Zone(iz1)%nr == -1) Zone(iz1)%nr = Block(ib)%nr(1)
+     if (Zone(iz1)%np == -1) Zone(iz1)%np = Block(ib)%np(1)
      !if (Zone(iz1)%nt == -1) Zone(iz1)%nt = nt
      Zone(iz1)%nt = Block(ib)%nt
 
      ! private flux region (PFR)
      iz2 = iz1 + 1
-     if (Zone(iz2)%nr == -1) Zone(iz2)%nr = nr(2)
-     if (Zone(iz2)%np == -1) Zone(iz2)%np = np2
+     if (Zone(iz2)%nr == -1) Zone(iz2)%nr = Block(ib)%nr(2)
+     if (Zone(iz2)%np == -1) Zone(iz2)%np = Block(ib)%np(2)
      !if (Zone(iz2)%nt == -1) Zone(iz2)%nt = nt
      Zone(iz2)%nt = Block(ib)%nt
 
@@ -295,14 +300,17 @@ module topo_lsn
 
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL, M_PFR
 
-  character(len=72)   :: filename
   real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
-  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1l, np1r
+  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1, np1l, np1r, np2
 
+  logical :: generate_flux_surfaces_HPR
+  logical :: generate_flux_surfaces_SOL
+  logical :: generate_flux_surfaces_PFR
   real(real64) :: xiL, xiR
   integer :: iblock
 
 
+  write (6, 1000)
   !.....................................................................
   ! 0. initialize geometry
   call setup_domain()
@@ -328,26 +336,42 @@ module topo_lsn
 
 
   do iblock=0,blocks-1
-     phi = Block(iblock)%phi_base
+     write (6, 1001) iblock
 
-     ! 0. initialize grids
-     iz = iblock*3
+     ! set zone indices
+     iz  = iblock*3
      iz1 = iz + 1
      iz2 = iz + 2
 
-     !nr0 = Zone(iz)%nr;  np0 = Zone(iz)%np
-     !nr1 = Zone(iz1)%nr; np1 = Zone(iz1)%np
-     !nr2 = Zone(iz2)%nr; np2 = Zone(iz2)%np
-     nr0 = nr(0); np0 = np(0)
-     nr1 = nr(1)
-     nr2 = nr(2)
-     np1l = npL(1)
-     np1r = npR(1)
+     ! set local variables for resolution
+     nr0 = Block(iblock)%nr(0); np0 = Block(iblock)%np(0)
+     nr1 = Block(iblock)%nr(1); np1 = Block(iblock)%np(1)
+     np1l = Block(iblock)%npL(1); np1r = Block(iblock)%npR(1)
+     nr2 = Block(iblock)%nr(2); np2 = Block(iblock)%np(2)
+     ! check if radial-poloidal resolution is different from last block
+     generate_flux_surfaces_HPR = .true.
+     generate_flux_surfaces_SOL = .true.
+     generate_flux_surfaces_PFR = .true.
+     if (iblock > 0) then
+        ! copy unperturbed flux surface discretization if resolution is the same
+        if (nr0 == Block(iblock-1)%nr(0)  .and.  np0 == Block(iblock-1)%np(0)) then
+           generate_flux_surfaces_HPR = .false.
+        endif
+
+        if (np1l == Block(iblock-1)%npL(1) .and. np1r == Block(iblock-1)%npR(1)) then
+           if (nr1 == Block(iblock-1)%nr(1)) generate_flux_surfaces_SOL = .false.
+           if (nr2 == Block(iblock-1)%nr(2)) generate_flux_surfaces_PFR = .false.
+        endif
+     endif
+
+
 
      ! cell spacings
      call Zone(iz1)%Sr%init(radial_spacing(1))
 
 
+     ! initialize base grids in present block
+     phi = Block(iblock)%phi_base
      call G_HPR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr0+1, np0+1, fixed_coord_value=phi)
      call G_SOL(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr1+1, np1+1, fixed_coord_value=phi)
      call G_PFR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr2+1, np2+1, fixed_coord_value=phi)
@@ -355,44 +379,48 @@ module topo_lsn
      M_SOL => G_SOL(iblock)%mesh
      M_PFR => G_PFR(iblock)%mesh
 
-     !call make_HPR_grid()
 
+     ! start grid generation
+     ! 1. unperturbed separatrix
      call make_separatrix()
-     call make_flux_surfaces_HPR()
+
+     ! 2. unperturbed FLUX SURFACES
+     ! 2.a high pressure region (HPR)
+     if (generate_flux_surfaces_HPR) then
+        call make_flux_surfaces_HPR()
+     else
+        G_HPR(iblock)%mesh = G_HPR(iblock-1)%mesh
+     endif
+
+     ! 2.b scrape-off layer (SOL)
+     if (generate_flux_surfaces_SOL) then
+        call make_flux_surfaces_SOL()
+     else
+        G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
+     endif
+
+     ! 2.c private flux region (PFR)
+     if (generate_flux_surfaces_PFR) then
+        call make_flux_surfaces_PFR()
+     else
+        G_PFR(iblock)%mesh = G_PFR(iblock-1)%mesh
+     endif
+
+     ! 3. interpolated surfaces
      call make_interpolated_surfaces()
-     call make_flux_surfaces_SOL()
-     call make_flux_surfaces_PFR()
+
 
      ! output
-     write (filename, 9000) iz
-     call G_HPR(iblock)%store(filename=filename)
-     write (filename, 9001) iz
-     call G_HPR(iblock)%plot_mesh(filename)
-
-     write (filename, 9000) iz1
-     call G_SOL(iblock)%store(filename=filename)
-     write (filename, 9001) iz1
-     call G_SOL(iblock)%plot_mesh(filename)
-
-     write (filename, 9000) iz2
-     call G_PFR(iblock)%store(filename=filename)
-     write (filename, 9001) iz2
-     call G_PFR(iblock)%plot_mesh(filename)
+     call write_base_grid(G_HPR(iblock), iz)
+     call write_base_grid(G_SOL(iblock), iz1)
+     call write_base_grid(G_PFR(iblock), iz2)
+     write (6, 1002) iblock
   enddo
 
- 9000 format ('base_grid_',i0,'.dat')
- 9001 format ('base_grid_',i0,'.plt')
+ 1000 format(//3x,'- Setup for base grids:')
+ 1001 format(//1x,'Start generation of base grids for block ',i0,' ',32('.'))
+ 1002 format(1x,'Finished generation of base grids for block ',i0,' ',32('.'),//)
   contains
-  !=====================================================================
-
-
-
-  !=====================================================================
-  !subroutine make_HPR_grid (iblock)
-  !subroutine make_HPR_grid
-
-
-
   !.....................................................................
   subroutine make_separatrix()
 
@@ -427,7 +455,6 @@ module topo_lsn
   end subroutine make_separatrix
   !.....................................................................
 
-
   !.....................................................................
   subroutine make_flux_surfaces_HPR()
   ! unperturbed FLUX SURFACES (high pressure region)
@@ -458,10 +485,9 @@ module topo_lsn
      enddo
   enddo
 
- 1000 format (8x,'generating unperturbed flux surfaces: ', i0, ' -> ', i0)
+ 1000 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
   end subroutine make_flux_surfaces_HPR
   !.....................................................................
-
 
   !.....................................................................
   subroutine make_interpolated_surfaces()
@@ -490,7 +516,6 @@ module topo_lsn
               i0, ' -> ', i0)
   end subroutine make_interpolated_surfaces
   !.....................................................................
-
 
   !.....................................................................
   subroutine make_flux_surfaces_SOL
@@ -537,7 +562,6 @@ module topo_lsn
   end subroutine make_flux_surfaces_SOL
   !.....................................................................
 
-
   !.....................................................................
   subroutine make_flux_surfaces_PFR
   ! private flux region
@@ -573,6 +597,27 @@ module topo_lsn
 
  1003 format (8x,'generating private flux region: 0 -> ', i0)
   end subroutine make_flux_surfaces_PFR
+  !.....................................................................
+
+  !.....................................................................
+  subroutine write_base_grid(G, iz)
+  type(t_grid), intent(in) :: G
+  integer, intent(in)      :: iz
+
+  character(len=72) :: filename
+
+
+  ! write grid file for field line tracing
+  write (filename, 9000) iz
+  call G%store(filename=filename)
+
+  ! write grid file for plotting
+  write (filename, 9001) iz
+  call G%plot_mesh(filename)
+
+ 9000 format ('base_grid_',i0,'.dat')
+ 9001 format ('base_grid_',i0,'.plt')
+  end subroutine write_base_grid
   !.....................................................................
 
   end subroutine make_base_grids_lsn

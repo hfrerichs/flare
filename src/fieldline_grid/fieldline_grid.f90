@@ -76,6 +76,10 @@ module fieldline_grid
   ! user defined input for individual blocks
   type t_block_input
      integer :: &
+        nr(0:max_layers-1) = -1, & ! radial resolution
+        np(0:max_layers-1) = -1, & ! poloital resolution
+        npL(0:max_layers-1) = -1, &
+        npR(0:max_layers-1) = -1, &
         nt      = -1, &            ! number of cells in toroidal direction
         it_base = -1               ! 0 <= index of base grid position <= nt
 
@@ -199,7 +203,7 @@ module fieldline_grid
   type(t_block_input), intent(in) :: Block_input(0:max_blocks-1)
 
   real(real64) :: tmp, xi, Dphi
-  integer      :: ib, it
+  integer      :: ib, it, i
 
 
   ! 0. Initialize variable Block
@@ -207,12 +211,7 @@ module fieldline_grid
   Block%t_block_input = Block_input
   do ib=0,blocks-1
      ! set toroidal resolution
-     if (Block(ib)%nt == -1) Block(ib)%nt = nt
-     ! check input
-     if (Block(ib)%nt <= 0) then
-        write (6, 9001) ib, Block(ib)%nt
-        stop
-     endif
+     call set_value(Block(ib)%nt, nt)
 
      ! set index of base plane
      if (Block(ib)%it_base == -1) then
@@ -287,7 +286,16 @@ module fieldline_grid
   enddo
 
 
-  ! 6. output to screen
+  ! 6. radial and poloidal resolution
+  do ib=0,blocks-1
+     do i=0,max_layers-1; call set_value(Block(ib)%nr(i),  nr(i)); enddo
+     do i=0,max_layers-1; call set_value(Block(ib)%np(i),  np(i)); enddo
+     do i=0,max_layers-1; call set_value(Block(ib)%npL(i), npL(i)); enddo
+     do i=0,max_layers-1; call set_value(Block(ib)%npR(i), npR(i)); enddo
+  enddo
+
+
+  ! 7. output to screen
   write (6, *)
   write (6, 1000) phi0, phi0 + Delta_phi_sim
   write (6, 1001)
@@ -300,6 +308,21 @@ module fieldline_grid
  1002 format (8x,      i7,5x,f7.3,':',5x,f7.3,' -> ',f7.3)
  1004 format (8x,'using default decomposition')
 
+  contains
+!.......................................................................
+  subroutine set_value(n, n_default)
+  integer, intent(inout) :: n
+  integer, intent(in)    :: n_default
+
+  if (n == -1) n = n_default
+  if (n <= 0) then
+     write (6, 9000) n
+     stop
+  endif
+ 9000 format('error: non-positive value ',i0,' not allowed!')
+
+  end subroutine set_value
+!.......................................................................
   end subroutine setup_toroidal_blocks
 !=======================================================================
 
