@@ -354,29 +354,49 @@ module topo_lsn
      M_HPR => G_HPR(iblock)%mesh
      M_SOL => G_SOL(iblock)%mesh
      M_PFR => G_PFR(iblock)%mesh
-     !call make_HPR_grid(iblock)
 
-     call make_HPR_grid()
-     !call make_flux_surface_discretization()
-     !call interpolateMMMM()
+     !call make_HPR_grid()
+
+     call make_separatrix()
+     call make_flux_surfaces_HPR()
+     call make_interpolated_surfaces()
+     call make_flux_surfaces_SOL()
+     call make_flux_surfaces_PFR()
+
+     ! output
+     write (filename, 9000) iz
+     call G_HPR(iblock)%store(filename=filename)
+     write (filename, 9001) iz
+     call G_HPR(iblock)%plot_mesh(filename)
+
+     write (filename, 9000) iz1
+     call G_SOL(iblock)%store(filename=filename)
+     write (filename, 9001) iz1
+     call G_SOL(iblock)%plot_mesh(filename)
+
+     write (filename, 9000) iz2
+     call G_PFR(iblock)%store(filename=filename)
+     write (filename, 9001) iz2
+     call G_PFR(iblock)%plot_mesh(filename)
   enddo
 
-
+ 9000 format ('base_grid_',i0,'.dat')
+ 9001 format ('base_grid_',i0,'.plt')
   contains
-  !end subroutine make_base_grids
   !=====================================================================
 
 
 
   !=====================================================================
   !subroutine make_HPR_grid (iblock)
-  subroutine make_HPR_grid
+  !subroutine make_HPR_grid
 
 
 
+  !.....................................................................
+  subroutine make_separatrix()
 
-
-  ! 1.a discretization of main part of separatrix
+  ! 1. discretization of main part of separatrix
   do j=0,np0
      xi = Zone(iz)%Sp%node(j,np0)
 
@@ -384,7 +404,8 @@ module topo_lsn
      M_HPR(nr0,      j, :) = x
      M_SOL(  0, np1r+j, :) = x
   enddo
-  ! 1.b discretization of right separatrix leg
+
+  ! 2. discretization of right separatrix leg
   call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
   call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
   do j=0,np1r
@@ -393,7 +414,8 @@ module topo_lsn
      M_SOL(  0,j,:) = x
      M_PFR(nr2,j,:) = x
   enddo
-  ! 1.c discretization of left separatrix leg
+
+  ! 3. discretization of left separatrix leg
   call divertor_leg_interface(S%M4%t_curve, C_guide, xiL)
   call Sl%init_spline_X1(etaL(1), xiL)
   do j=1,np1l
@@ -402,10 +424,15 @@ module topo_lsn
      M_SOL(  0,np1r + np0 + j,:) = x
      M_PFR(nr2,np1r       + j,:) = x
   enddo
+  end subroutine make_separatrix
+  !.....................................................................
 
 
-  ! 2. unperturbed FLUX SURFACES (high pressure region)
-  ! 2.1 get radial width at poloidal angle of X-point
+  !.....................................................................
+  subroutine make_flux_surfaces_HPR()
+  ! unperturbed FLUX SURFACES (high pressure region)
+
+  ! 1. get radial width at poloidal angle of X-point
 !  d_HPR = 0.d0
 !  do i=0,blocks-1
 !     call C_in(i,1)%sample_at(0.d0, x)
@@ -413,7 +440,8 @@ module topo_lsn
 !  enddo
 !  d_HPR = d_HPR - Px
   d_HPR = get_d_HPR(Px, Pmag)
-  ! 2.2 generate flux surfaces
+
+  ! 2. generate flux surfaces
   if (nr0-1 .ge. 2+n_int) write (6, 1000) nr0-1, 2+n_int
   do i=nr0-1, 2+n_int, -1
      write (6, *) i
@@ -430,8 +458,15 @@ module topo_lsn
      enddo
   enddo
 
+ 1000 format (8x,'generating unperturbed flux surfaces: ', i0, ' -> ', i0)
+  end subroutine make_flux_surfaces_HPR
+  !.....................................................................
 
-  ! 3. inner boundaries and interpolated surfaces (2 -> 1+n_int) (high pressure region)
+
+  !.....................................................................
+  subroutine make_interpolated_surfaces()
+  ! inner boundaries and interpolated surfaces (2 -> 1+n_int) (high pressure region)
+
   write (6, 1001) 2, 1+n_int
   do j=0,np0
      xi = Zone(iz)%Sp%node(j,np0)
@@ -451,8 +486,16 @@ module topo_lsn
      enddo
   enddo
 
+ 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface:, ', &
+              i0, ' -> ', i0)
+  end subroutine make_interpolated_surfaces
+  !.....................................................................
 
-  ! 4. scrape-off layer
+
+  !.....................................................................
+  subroutine make_flux_surfaces_SOL
+  ! scrape-off layer
+
   dx(1) = Px(2) - Pmag(2)
   dx(2) = Pmag(1) - Px(1)
   dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
@@ -463,11 +506,6 @@ module topo_lsn
      x0  = Px + eta * dx
      call FS%generate_open(x0, C_cutL, C_cutR)
      call divide_SOL(FS, eta, CL, C0, CR)
-     !call CL%plot(filename='CL.plt')
-     !call CR%plot(filename='CR.plt')
-     call C0%plot(filename='C0.plt')
-     !call FS%plot(filename='fs_SOL.plt')
-     !stop
 
      ! right divertor leg
      call divertor_leg_interface(CR, C_guide, xiR)
@@ -495,8 +533,15 @@ module topo_lsn
      enddo
   enddo
 
+ 1002 format (8x,'generating scrape-off layer: 1 -> ', i0)
+  end subroutine make_flux_surfaces_SOL
+  !.....................................................................
 
-  ! 5. private flux region
+
+  !.....................................................................
+  subroutine make_flux_surfaces_PFR
+  ! private flux region
+
   dx = Px - Pmag
   dx = dx / sqrt(sum(dx**2)) * d_PFR(1)
   write (6, 1003) nr2-1
@@ -526,28 +571,10 @@ module topo_lsn
      enddo
   enddo
 
-
-
-  ! 99. output
-  write (filename, 9000) iz
-  call G_HPR(iblock)%store(filename=filename)
-  write (filename, 9001) iz
-  call G_HPR(iblock)%plot_mesh(filename)
-
-  write (filename, 9001) iz1
-  call G_SOL(iblock)%plot_mesh(filename)
-  write (filename, 9001) iz2
-  call G_PFR(iblock)%plot_mesh(filename)
-
- 1000 format (8x,'generating unperturbed flux surfaces: ', i0, ' -> ', i0)
- 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface:, ', &
-              i0, ' -> ', i0)
- 1002 format (8x,'generating scrape-off layer: 1 -> ', i0)
  1003 format (8x,'generating private flux region: 0 -> ', i0)
- 9000 format ('base_grid_',i0,'.dat')
- 9001 format ('base_grid_',i0,'.plt')
-  end subroutine make_HPR_grid
-  !=====================================================================
+  end subroutine make_flux_surfaces_PFR
+  !.....................................................................
+
   end subroutine make_base_grids_lsn
   !=============================================================================
 
