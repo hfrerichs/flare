@@ -23,6 +23,7 @@ module inner_boundary
   !=====================================================================
   subroutine load_inner_boundaries (theta0)
   use equilibrium
+  use math
   real(real64), intent(in), optional :: theta0
 
   character(len=72) :: filename
@@ -43,7 +44,7 @@ module inner_boundary
 
   allocate (C_in(0:blocks-1,0:1))
   do iblock=0,blocks-1
-     phi  = Block(iblock)%phi_base
+     phi  = Block(iblock)%phi_base / 180.d0 * pi
      r3   = get_magnetic_axis(phi)
      Pmag = r3(1:2)
 
