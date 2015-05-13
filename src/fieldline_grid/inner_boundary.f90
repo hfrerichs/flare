@@ -1,6 +1,6 @@
 module inner_boundary
   use iso_fortran_env
-  use fieldline_grid, only: blocks
+  use fieldline_grid, only: blocks, Block
   use curve2D
   implicit none
 
@@ -21,38 +21,42 @@ module inner_boundary
 
 
   !=====================================================================
-  subroutine load_inner_boundaries (Pmag, theta0)
-  real(real64), intent(in)           :: Pmag(2)
+  subroutine load_inner_boundaries (theta0)
+  use equilibrium
   real(real64), intent(in), optional :: theta0
 
   character(len=72) :: filename
-  real(real64)     :: d(2)
-  integer          :: i, iblock
+  real(real64)     :: d(2), phi, r3(3), Pmag(2)
+  integer          :: i, iblock, sort_method
 
 
   ! set reference direction
   d(1) = 1.d0
   d(2) = 0.d0
+  sort_method = DISTANCE
   if (present(theta0)) then
      d(1) = cos(theta0)
      d(2) = sin(theta0)
+     sort_method = ANGLE
   endif
 
 
   allocate (C_in(0:blocks-1,0:1))
   do iblock=0,blocks-1
+     phi  = Block(iblock)%phi_base
+     r3   = get_magnetic_axis(phi)
+     Pmag = r3(1:2)
+
      do i=0,1
         write (filename, 1000) i, iblock
         call C_in(iblock,i)%load(filename)
-        call C_in(iblock,i)%sort_loop(Pmag, d)
-        call C_in(iblock,i)%setup_angular_sampling(Pmag)
+        call C_in(iblock,i)%sort_loop(Pmag, d, sort_method)
      enddo
   enddo
 
  1000 format ('fsin',i0,'_',i0,'.txt')
   end subroutine load_inner_boundaries
   !=====================================================================
-
 
 
   !=====================================================================
@@ -75,7 +79,7 @@ module inner_boundary
   r3(1:2) = x
   r3(3)   = 0.d0
   theta0 = get_poloidal_angle(r3)
-  write (6, *) 'theta0 = ', theta0
+  !write (6, *) 'theta0 = ', theta0
   call F%generate_closed(x, RIGHT_HANDED)
   call F%setup_angular_sampling(Pmag)
 
@@ -83,7 +87,7 @@ module inner_boundary
   r3(3)   = 0.d0
   theta = get_poloidal_angle(r3)
   xi    = (-theta0 + theta)/pi2
-  write (6, *) 'xi = ', xi
+  !write (6, *) 'xi = ', xi
 
   call F%sample_at(xi, dx)
   dx = dx - Px
@@ -93,6 +97,30 @@ module inner_boundary
   get_d_HPR = dx
 
   end function get_d_HPR
+  !=====================================================================
+
+
+  !=====================================================================
+  ! Setup discretization of inner boundaries for block iblock
+  ! Input:
+  !    S    poloidal spacing function
+  !    
+  !=====================================================================
+  subroutine setup_inner_boundaries(G, iblock, sampling_method, S)
+  use grid
+  use mesh_spacing
+  type(t_grid),    intent(inout) :: G
+  integer,         intent(in)    :: iblock, sampling_method
+  type(t_spacing), intent(in)    :: S
+
+  real(real64) :: xi
+  integer :: j, np
+
+  np = G%n2-1
+  do j=0,np
+  enddo
+
+  end subroutine setup_inner_boundaries
   !=====================================================================
 
 end module inner_boundary

@@ -232,7 +232,7 @@ module topo_lsn
 
 
   ! 3. inner boundaries for EMC3 grid
-  call load_inner_boundaries(Pmag, theta0)
+  call load_inner_boundaries(theta0)
 
   end subroutine setup_domain
   !=====================================================================
