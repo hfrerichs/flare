@@ -551,7 +551,7 @@ module curve2D
      endif
   endif
   C%closed = .true.
-  call C%setup_angular_sampling()
+  call C%setup_angular_sampling(xc)
 
   end subroutine sort_by_angle
 !=======================================================================
