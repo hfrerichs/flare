@@ -20,6 +20,7 @@ module dataset
      contains
      procedure :: load, plot, new, destroy, mpi_allreduce
      procedure :: sort_rows
+     procedure :: smooth
   end type t_dataset
 
   type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,null())
@@ -257,6 +258,54 @@ module dataset
   call quicksort(this%x, n, m, 1+n0, n+n0, icol)
 
   end subroutine sort_rows
+!=======================================================================
+
+
+
+!=======================================================================
+! smooth data
+! input:
+!    column		select column for smoothing, <=0: smooth all columns
+!    smooth_width
+!=======================================================================
+  subroutine smooth(this, smooth_width, column)
+  class(t_dataset)    :: this
+  integer, intent(in) :: smooth_width, column
+
+  real(real64), dimension(:,:), allocatable :: tmp
+  integer :: i, i1, i2, j, j1, j2, n, n0
+
+
+  j2 = this%ncol
+  if (column > j2) then
+     write (6, *) 'error in t_dataset%smooth: column > ', j2, ' not allowed!'
+     stop
+  endif
+
+  if (column < 0) then
+     j1 = 1
+  else
+     j1 = column
+     j2 = column
+  endif
+
+
+  n  = this%nrow
+  n0 = this%nrow_offset
+  allocate (tmp(1+n0:n+n0, j1:j2))
+  do i=1+n0,n+n0
+     i1 = max(i-smooth_width,1+n0)
+     i2 = min(i+smooth_width,n+n0)
+
+     do j=j1,j2
+        tmp(i, j) = sum(this%x(i1:i2, j)) / (i2-i1+1)
+     enddo
+  enddo
+
+  this%x(:,j1:j2) = tmp
+  deallocate (tmp)
+
+  end subroutine smooth
 !=======================================================================
 
 end module dataset
