@@ -62,6 +62,7 @@ module curve2D
      procedure :: get_distance_to
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
+     procedure :: setup_length_sampling_curvature_weighted
      procedure :: setup_segment_sampling
      procedure :: setup_coordinate_sampling
      procedure :: sample_at
@@ -418,7 +419,11 @@ module curve2D
 
   ! write data
   do i=0,this%n_seg
-     write (iu0, *) this%x(i,:)
+     if (associated(this%w)) then
+        write (iu0, *) this%x(i,:), this%w(i)
+     else
+        write (iu0, *) this%x(i,:)
+     endif
   enddo
 
 
@@ -1402,6 +1407,64 @@ module curve2D
   C%x(n1+1:n,:) = C2%x(i2:n2,:)
 
   end function connect
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_length_sampling_curvature_weighted(this)
+  class(t_curve) :: this
+
+  integer, parameter :: iu = 31
+
+  type(t_dataset) :: kappa
+  real(real64) :: dx, dy, ddx, ddy, x(2), x1(2), x2(2), L, t
+  integer :: i, i1, i2, n
+
+
+  n = this%n_seg
+  if (associated(this%w)) deallocate(this%w)
+  allocate (this%w(0:n))
+  call kappa%new(n+1, 2, -1)
+
+
+!  open  (iu, file=filename)
+  L = 0.d0
+  do i=0,n
+     x = this%x(i,:)
+
+     i1 = i+1; if (i == n) i1 = 1
+     i2 = i-1; if (i == 0) i2 = n-1
+     x1 = this%x(i1,:)
+     x2 = this%x(i2,:)
+     t  = sqrt(sum((x2-x1)**2))
+     dx = x1(1) - x2(1)
+     dy = x1(2) - x2(2)
+     ddx = x1(1) - 2.d0*x(1) + x2(1)
+     ddy = x1(2) - 2.d0*x(2) + x2(2)
+
+     kappa%x(i,1) = (dx*ddy - dy*ddx) / (dx**2 + dy**2)**1.5d0
+     kappa%x(i,2) = t
+!     write (iu, *) L, kappa
+!!     L = L + t
+
+!!     this%w(i) = t * (1.d-2 + kappa)
+  enddo
+!  close (iu)
+  call kappa%plot(filename='kappa0.plt')
+  call kappa%smooth(2,1)
+  call kappa%plot(filename='kappa2.plt')
+
+
+  ! integrate and normalize weights
+  this%w(0) = 0.d0
+  do i=1,n
+     t = kappa%x(i,2)
+     this%w(i) = this%w(i-1) + t * (1.d-2 + kappa%x(i,1))
+  enddo
+  this%w = this%w / this%w(n)
+
+  end subroutine setup_length_sampling_curvature_weighted
 !=======================================================================
 
 end module curve2D
