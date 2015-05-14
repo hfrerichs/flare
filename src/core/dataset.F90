@@ -255,7 +255,7 @@ module dataset
   endif
   n  = this%nrow
   n0 = this%nrow_offset
-  call quicksort(this%x, n, m, 1+n0, n+n0, icol)
+  call quicksort(this%x, n, m, 1, n, icol)
 
   end subroutine sort_rows
 !=======================================================================
