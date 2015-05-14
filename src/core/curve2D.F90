@@ -240,8 +240,9 @@ module curve2D
 
 
   intersect_curve = .false.
-  t = 0.d0
-  s = 0.d0
+  t  = 0.d0
+  s  = 0.d0
+  th = 1.d99
 
   mode = 0
   if (present(intersect_mode)) mode = intersect_mode
@@ -258,6 +259,7 @@ module curve2D
                (mode ==  1  .and.  t.ge.0.d0)) then
 
               intersect_curve = .true.
+              if (abs(t) < abs(th)) then
               if (present(xh)) then
                  xh = xh0
               endif
@@ -270,7 +272,7 @@ module curve2D
               if (present(ish)) then
                  ish = is
               endif
-              return
+              endif
            endif
         endif
      endif
