@@ -58,7 +58,7 @@ module emc3_grid
   integer, parameter :: iu = 24
 
   character(len=72)  :: readfi
-  integer :: i, iz, nz
+  integer :: i, iz, ir, itmp, n
 
 
   write (6, 1000)
@@ -78,7 +78,6 @@ module emc3_grid
      ZON_POLO(iz) = SRF_POLO(iz) - 1
      ZON_TORO(iz) = SRF_TORO(iz) - 1
   enddo
-  close (iu)
 
   allocate (GRID_P_OS(0:NZONET), PHI_PL_OS(0:NZONET))
       
@@ -93,6 +92,60 @@ module emc3_grid
   allocate (PHI_PLANE(0:PHI_PL_OS(NZONET)-1), &
                    RG(0:GRID_P_OS(NZONET)-1), &
                    ZG(0:GRID_P_OS(NZONET)-1))
+
+
+
+
+  ! initialize radial plasma range (r_surf_pl_trans_range)
+  allocate (R_SURF_PL_TRANS_RANGE(2,0:NZONET-1), P_SURF_PL_TRANS_RANGE(2,0:NZONET-1))
+  do iz=0,NZONET-1
+     R_SURF_PL_TRANS_RANGE(1,iz) = SRF_RADI(iz)-1
+     R_SURF_PL_TRANS_RANGE(2,iz) = 0
+  enddo
+
+
+  ! non default surfaces
+  ! 1. radial
+  call scrape(iu, readfi)
+  read (readfi, *) n
+  do i=1,n
+     read  (iu, *) ir, iz, itmp
+     write (6,  *) ir, iz, itmp
+     read  (iu, *) readfi
+     R_SURF_PL_TRANS_RANGE(1,iz) = min(R_SURF_PL_TRANS_RANGE(1,iz), ir)
+     R_SURF_PL_TRANS_RANGE(2,iz) = max(R_SURF_PL_TRANS_RANGE(2,iz), ir)
+  enddo
+
+  ! 2. poloidal
+  call scrape(iu, readfi)
+  read (readfi, *) n
+  do i=1,n
+     read (iu, *) readfi
+     read (iu, *) readfi
+  enddo
+
+  ! 3. toroidal
+  call scrape(iu, readfi)
+  read (readfi, *) n
+  do i=1,n
+     read (iu, *) readfi
+     read (iu, *) readfi
+  enddo
+
+
+  ! non transparent surfaces
+  ! 1. radial
+  call scrape(iu, readfi)
+  read (readfi, *) n
+  do i=1,n
+     read  (iu, *) ir, iz, itmp
+     write (6,  *) ir, iz, itmp
+     read  (iu, *) readfi
+     R_SURF_PL_TRANS_RANGE(1,iz) = min(R_SURF_PL_TRANS_RANGE(1,iz), ir)
+     R_SURF_PL_TRANS_RANGE(2,iz) = max(R_SURF_PL_TRANS_RANGE(2,iz), ir)
+  enddo
+
+  close (iu)
 
   end subroutine load_grid_layout
 !===============================================================================
