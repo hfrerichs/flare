@@ -679,7 +679,7 @@ module curve2D
      x = C%x(j,:)
      theta = atan2(x(2)-xr(2), x(1)-xr(1))
      if (abs(theta-theta0) < dtheta  .and.  theta > 0) then
-        dtheta = theta-theta0
+        dtheta = abs(theta-theta0)
         i0     = j
      endif
   enddo
