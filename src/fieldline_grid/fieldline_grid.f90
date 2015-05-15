@@ -50,7 +50,7 @@ module fieldline_grid
   integer :: &
      symmetry       =  1, &
      blocks         =  1, &
-     nr_EIRENE_core =  0, &
+     nr_EIRENE_core =  1, &
      nr_EIRENE_vac  =  1, &
      nt             = 12, &          ! default toroidal resolution
      np(0:max_layers-1) = 360, &

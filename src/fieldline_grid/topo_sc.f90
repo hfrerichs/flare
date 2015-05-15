@@ -32,7 +32,7 @@ module topo_sc
   write (6, 1000)
   do ib=0,blocks-1
      iz = ib
-     if (Zone(iz)%nr == -1) Zone(iz)%nr = nr(0)
+     if (Zone(iz)%nr == -1) Zone(iz)%nr = nr(0) + nr_EIRENE_core + nr_EIRENE_vac
      if (Zone(iz)%np == -1) Zone(iz)%np = np(0)
      !if (Zone(iz)%nt == -1) Zone(iz)%nt = nt
      Zone(iz)%nt = Block(ib)%nt
@@ -106,7 +106,7 @@ module topo_sc
   !do iblock=0,0
      write (6, *) iblock
      iz  = iblock
-     phi = Block(iblock)%phi_base
+     phi = Block(iblock)%phi_base / 180.d0 * pi
 
      nr = Block(iblock)%nr(0)
      np = Block(iblock)%np(0)

@@ -81,21 +81,21 @@ module topo_lsn
 
      ! high pressure region (HPR)
      iz0 = 3*ib
-     if (Zone(iz0)%nr == -1) Zone(iz0)%nr = Block(ib)%nr(0)
+     if (Zone(iz0)%nr == -1) Zone(iz0)%nr = Block(ib)%nr(0) + nr_EIRENE_core
      if (Zone(iz0)%np == -1) Zone(iz0)%np = Block(ib)%np(0)
      !if (Zone(iz0)%nt == -1) Zone(iz0)%nt = nt
      Zone(iz0)%nt = Block(ib)%nt
 
      ! scrape-off layer (SOL)
      iz1 = iz0 + 1
-     if (Zone(iz1)%nr == -1) Zone(iz1)%nr = Block(ib)%nr(1)
+     if (Zone(iz1)%nr == -1) Zone(iz1)%nr = Block(ib)%nr(1) + nr_EIRENE_vac
      if (Zone(iz1)%np == -1) Zone(iz1)%np = Block(ib)%np(1)
      !if (Zone(iz1)%nt == -1) Zone(iz1)%nt = nt
      Zone(iz1)%nt = Block(ib)%nt
 
      ! private flux region (PFR)
      iz2 = iz1 + 1
-     if (Zone(iz2)%nr == -1) Zone(iz2)%nr = Block(ib)%nr(2)
+     if (Zone(iz2)%nr == -1) Zone(iz2)%nr = Block(ib)%nr(2) + nr_EIRENE_vac
      if (Zone(iz2)%np == -1) Zone(iz2)%np = Block(ib)%np(2)
      !if (Zone(iz2)%nt == -1) Zone(iz2)%nt = nt
      Zone(iz2)%nt = Block(ib)%nt
@@ -371,7 +371,7 @@ module topo_lsn
 
 
      ! initialize base grids in present block
-     phi = Block(iblock)%phi_base
+     phi = Block(iblock)%phi_base / 180.d0 * pi
      call G_HPR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr0+1, np0+1, fixed_coord_value=phi)
      call G_SOL(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr1+1, np1+1, fixed_coord_value=phi)
      call G_PFR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr2+1, np2+1, fixed_coord_value=phi)
