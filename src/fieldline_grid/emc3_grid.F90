@@ -164,7 +164,7 @@ module emc3_grid
   integer :: iz, i, i1, i2, k, nr, np, nt
 
 
-  !call load_grid_layout()
+  call load_grid_layout()
   open  (iu, file='grid3D.dat')
   do iz=0,NZONET-1
      read  (iu, *) nr, np, nt

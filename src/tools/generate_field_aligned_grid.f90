@@ -91,6 +91,7 @@ subroutine generate_field_aligend_grid (run_level)
 
   ! Level 7: re-generate input files
   if (level(7)) then
+     call setup_emc3_grid_layout()
      call write_emc3_input_files()
   endif
 
