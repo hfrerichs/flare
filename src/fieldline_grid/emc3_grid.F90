@@ -52,7 +52,7 @@ module emc3_grid
 !===============================================================================
 ! LOAD_GRID_LAYOUT (from input file "input.geo")
 !===============================================================================
-  subroutine load_grid_layout
+  subroutine load_grid_layout()
   implicit none
 
   integer, parameter :: iu = 24
@@ -61,6 +61,8 @@ module emc3_grid
   integer :: i, iz, nz
 
 
+  write (6, 1000)
+ 1000 format(3x,'- Loading EMC3-EIRENE grid ...')
   open  (iu, file='input.geo')
   call scrape(iu, readfi)
   read (readfi, *) NZONET
@@ -72,10 +74,10 @@ module emc3_grid
      call scrape(iu, readfi)
      read  (readfi, *) SRF_RADI(iz), SRF_POLO(iz), SRF_TORO(iz)
      write (6 , *)     SRF_RADI(iz), SRF_POLO(iz), SRF_TORO(iz)
+     ZON_RADI(iz) = SRF_RADI(iz) - 1
+     ZON_POLO(iz) = SRF_POLO(iz) - 1
+     ZON_TORO(iz) = SRF_TORO(iz) - 1
   enddo
-  ZON_RADI(iz) = SRF_RADI(iz) - 1
-  ZON_POLO(iz) = SRF_POLO(iz) - 1
-  ZON_TORO(iz) = SRF_TORO(iz) - 1
   close (iu)
 
   allocate (GRID_P_OS(0:NZONET), PHI_PL_OS(0:NZONET))
@@ -109,6 +111,7 @@ module emc3_grid
   integer :: iz, i, i1, i2, k, nr, np, nt
 
 
+  !call load_grid_layout()
   open  (iu, file='grid3D.dat')
   do iz=0,NZONET-1
      read  (iu, *) nr, np, nt
