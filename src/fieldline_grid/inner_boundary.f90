@@ -24,6 +24,7 @@ module inner_boundary
   subroutine load_inner_boundaries (theta0)
   use equilibrium
   use math
+  use run_control, only: Debug
   real(real64), intent(in), optional :: theta0
 
   character(len=72) :: filename
@@ -52,10 +53,15 @@ module inner_boundary
         write (filename, 1000) i, iblock
         call C_in(iblock,i)%load(filename)
         call C_in(iblock,i)%sort_loop(Pmag, d, sort_method)
+        if (Debug) then
+           write (filename, 1001) i, iblock
+           call C_in(iblock,i)%plot(filename=filename)
+        endif
      enddo
   enddo
 
  1000 format ('fsin',i0,'_',i0,'.txt')
+ 1001 format ('fsin',i0,'_',i0,'.plt')
   end subroutine load_inner_boundaries
   !=====================================================================
 
@@ -74,6 +80,11 @@ module inner_boundary
   real(real64) :: x(2), d, dx(2), theta, theta0, r3(3), xi
   integer :: i
 
+!  real(real64), save :: d_HPR = 0.d0
+!  if (d_HPR > 0) then
+!     get_d_HPR = d_HPR
+!     return
+!  endif
 
   x(1) = 118.123d0
   x(2) = 0.d0
