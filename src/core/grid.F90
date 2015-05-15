@@ -17,8 +17,14 @@
 module grid
   use iso_fortran_env
   use math
+#ifdef MPI
   use parallel
   implicit none
+#else
+  implicit none
+
+  logical, parameter :: firstP = .true.
+#endif
   private
 
 
@@ -400,6 +406,7 @@ module grid
 !-----------------------------------------------------------------------
   subroutine broadcast_grid
 
+#ifdef MPI
   call wait_pe()
   call broadcast_inte_s(this%n)
   call broadcast_inte_s(this%coordinates)
@@ -409,6 +416,7 @@ module grid
      allocate (this%x(this%n, 3))
   endif
   call broadcast_real  (this%x, this%n*3)
+#endif
 
   end subroutine broadcast_grid
 !-----------------------------------------------------------------------
