@@ -58,7 +58,7 @@ module divamhd
 
   ! set reference toroidal magnetic field
   Bt = Bt_
-  R0 = R0_ / 1.d2
+  R0 = R0_
 
   ! read data from DIVA-equilibrium file
   open  (iu, file=Data_file, iostat=io)
