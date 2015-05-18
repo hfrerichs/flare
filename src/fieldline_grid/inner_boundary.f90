@@ -1,6 +1,6 @@
 module inner_boundary
   use iso_fortran_env
-  use fieldline_grid, only: blocks, Block
+  use fieldline_grid, only: blocks, Block, x_in2
   use curve2D
   implicit none
 
@@ -68,36 +68,31 @@ module inner_boundary
   real(real64)             :: get_d_HPR(2)
 
   type(t_flux_surface_2D)  :: F
+  real(real64), save       :: d_HPR = 0.d0
   real(real64) :: x(2), d, dx(2), theta, theta0, r3(3), xi
-  integer :: i
+  integer      :: i
 
-!  real(real64), save :: d_HPR = 0.d0
-!  if (d_HPR > 0) then
-!     get_d_HPR = d_HPR
-!     return
-!  endif
 
-  x(1) = 118.123d0
-  x(2) = 0.d0
-  r3(1:2) = x
-  r3(3)   = 0.d0
-  theta0 = get_poloidal_angle(r3)
-  !write (6, *) 'theta0 = ', theta0
+
+  if (d_HPR > 0) then
+     get_d_HPR = d_HPR
+     return
+  endif
+
+  r3      = x_in2
+  x       = r3(1:2)
+  theta0  = get_poloidal_angle(r3)
   call F%generate_closed(x, RIGHT_HANDED)
   call F%setup_angular_sampling(Pmag)
 
   r3(1:2) = Px
   r3(3)   = 0.d0
-  theta = get_poloidal_angle(r3)
-  xi    = (-theta0 + theta)/pi2
-  !write (6, *) 'xi = ', xi
+  theta   = get_poloidal_angle(r3)
+  xi      = (-theta0 + theta)/pi2
 
   call F%sample_at(xi, dx)
-  dx = dx - Px
-  d  = sqrt(sum(dx**2))
-  dx = dx / d * (d - 0.105d0)
-
-  get_d_HPR = dx
+  d_HPR     = sqrt(sum((dx-Px)**2))
+  get_d_HPR = d_HPR
 
   end function get_d_HPR
   !=====================================================================
