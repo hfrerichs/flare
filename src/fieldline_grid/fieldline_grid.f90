@@ -64,6 +64,7 @@ module fieldline_grid
 !     block_size(0:max_blocks-1,-1:2) = -1.d0     ! user defined (non-default) toroidal block width [deg]
      d_SOL(2)   = 24.d0, &     ! radial width of scrape-off layer
      d_PFR(2)   = 15.d0, &     ! radial width of private flux region
+     d_N0(max_layers) = 10.d0, &
      d_cutL(2)  = 6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)  = 8.d0, &      ! (l)eft and (r)ight divertor segments
      alphaL(2)  = 0.9d0, &
@@ -134,6 +135,9 @@ module fieldline_grid
 
      ! spacing for radial and poloidal discretization
      type(t_spacing) :: Sr = Equidistant, Sp = Equidistant
+
+     ! additional domain for neutral particles
+     real(real64) :: d_N0 = 0.d0
   end type t_zone
   type(t_zone) :: Zone(0:max_zones-1)
 
@@ -163,7 +167,7 @@ module fieldline_grid
 
   namelist /Grid_Layout/ &
      topology, symmetry, blocks, Block, &
-     phi0, d_SOL, d_PFR, &
+     phi0, d_SOL, d_PFR, d_N0, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
@@ -868,6 +872,10 @@ module fieldline_grid
   integer      :: nr, np, nt, iz, i, j, k, l, l1, l2, irun, icut, ig(8), ic
 
 
+  write (6, 9000)
+ 9000 format(3x,'- Set up plate surfaces')
+
+
   !call outside_boundary_check()
   allocate (ID_TEM(0:MESH_P_OS(NZONET)-1))
   allocate (RC_TEM(0:MESH_P_OS(NZONET)-1))
@@ -886,6 +894,7 @@ module fieldline_grid
      1000 format (8x,'zone ',i0,' (',i0,' x ',i0,' x ',i0,')')
 
      ! setup slices for Q4-type surfaces
+     if (n_quad > 0) then
      allocate (C(0:nt-1, n_quad))
      do k=0,nt-1
      do l=1,n_quad
@@ -899,6 +908,7 @@ module fieldline_grid
          endif
      enddo
      enddo
+     endif
 
 
      ! (0) count plate cells, (1) setup plate cells
@@ -969,12 +979,14 @@ module fieldline_grid
      enddo
 
      ! cleanup slices of Q4-type surfaces
+     if (n_quad > 0) then
      do k=0,nt-1
      do l=1,n_quad
         call C(k,l)%destroy()
      enddo
      enddo
      deallocate (C)
+     endif
   enddo
   close (iu)
 

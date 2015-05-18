@@ -145,6 +145,7 @@ module topo_lsn
      Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr - nr_EIRENE_vac
      Zone(iz)%p_surf_pl_trans_range(1) = 0
      Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
+     Zone(iz)%d_N0    = d_N0(1)
 
      ! private flux region (PFR)
      iz = 3 * ib + 2
@@ -158,6 +159,7 @@ module topo_lsn
      Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
      Zone(iz)%p_surf_pl_trans_range(1) = 0
      Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
+     Zone(iz)%d_N0    = d_N0(2)
   enddo
 
   end subroutine setup_topo_lsn
