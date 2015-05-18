@@ -49,7 +49,8 @@ module topo_lsn
 
   public :: &
      setup_topo_lsn, &
-     make_base_grids_lsn
+     make_base_grids_lsn, &
+     post_process_grid_lsn
 
   contains
   !=====================================================================
@@ -623,6 +624,31 @@ module topo_lsn
   !.....................................................................
 
   end subroutine make_base_grids_lsn
+  !=============================================================================
+
+
+
+  !=============================================================================
+  subroutine post_process_grid_lsn()
+  use divertor
+
+  integer :: iblock, iz, iz1, iz2
+
+
+  write (6, 1000)
+ 1000 format(3x,'- Post processing fieldline grid')
+
+  write (6, 1001)
+ 1001 format(8x,'closing grid at last divertor cells')
+  do iblock=0,blocks-1
+     iz1 = 3*iblock + 1
+     iz2 = 3*iblock + 2
+     do iz=iz1,iz2
+        call close_grid_domain(iz)
+     enddo
+  enddo
+
+  end subroutine post_process_grid_lsn
   !=============================================================================
 
 end module topo_lsn

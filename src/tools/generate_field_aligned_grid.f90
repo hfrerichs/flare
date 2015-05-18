@@ -8,8 +8,8 @@ subroutine generate_field_aligend_grid (run_level)
 
   integer, intent(in) :: run_level
 
-  procedure(), pointer :: make_base_grids
-  logical :: level(8)
+  procedure(), pointer :: make_base_grids, post_process_grid
+  logical :: level(9)
 
 
   if (firstP) then
@@ -22,10 +22,12 @@ subroutine generate_field_aligend_grid (run_level)
   select case(topology)
   case(TOPO_SC, TOPO_SC1)
      call setup_topo_sc()
-     make_base_grids => make_base_grids_sc
+     make_base_grids   => make_base_grids_sc
+     post_process_grid => post_process_grid_sc
   case(TOPO_LSN, TOPO_LSN1)
      call setup_topo_lsn()
-     make_base_grids => make_base_grids_lsn
+     make_base_grids   => make_base_grids_lsn
+     post_process_grid => post_process_grid_lsn
   case default
      write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
      stop
@@ -36,7 +38,7 @@ subroutine generate_field_aligend_grid (run_level)
   level = .false.
   if (run_level == 0) then
      level = .true.
-  elseif (run_level > 0  .and.  run_level <=8) then
+  elseif (run_level > 0  .and.  run_level <=9) then
      level(run_level) = .true.
   else
      write (6, *) 'error: run level ', run_level, ' not implemented!'
@@ -60,6 +62,7 @@ subroutine generate_field_aligend_grid (run_level)
   if (level(3)) then
      call setup_emc3_grid_layout()
      call trace_nodes()
+     call post_process_grid()
      call write_emc3_grid()
      call write_emc3_input_files()
   endif
@@ -100,6 +103,14 @@ subroutine generate_field_aligend_grid (run_level)
   if (level(8)) then
      call load_emc3_grid()
      call check_emc3_grid()
+  endif
+
+
+  ! Level 9: re-run post processing
+  if (level(9)) then
+     call load_emc3_grid()
+     call post_process_grid()
+     call write_emc3_grid()
   endif
 
 
