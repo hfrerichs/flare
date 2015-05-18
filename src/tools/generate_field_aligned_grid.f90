@@ -68,7 +68,7 @@ subroutine generate_field_aligend_grid (run_level)
   ! Level 4: generate vacuum domain (used by EIRENE only)
   if (level(4)) then
      call load_emc3_grid()
-     call vacuum_domain_for_EIRENE()
+     call vacuum_and_core_domain_for_EIRENE()
      call write_emc3_grid()
   endif
 
