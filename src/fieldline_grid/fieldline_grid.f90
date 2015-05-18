@@ -47,30 +47,33 @@ module fieldline_grid
      toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface                  = ''
 
+
   integer :: &
-     symmetry            =  1, &
-     blocks              =  1, &
-     nr_EIRENE_core      =  1, &
-     nr_EIRENE_vac       =  1, &
-     nt                  = 12, &          ! default toroidal resolution
-     np(0:max_layers-1)  = 360, &
-     npL(0:max_layers-1) = 30, &
-     npR(0:max_layers-1) = 30, &
-     nr(0:max_layers-1)  = 32
+     symmetry            =   1, &          ! toroidal symmetry (i.e. 5 => 72 deg)
+     blocks              =   1, &          ! number of toroidal blocks
+     nt                  =  12, &          ! default toroidal resolution
+     np(0:max_layers-1)  = 360, &          ! default poloidal resolution
+     npL(0:max_layers-1) =  30, &          ! default poloidal resolution in divertor legs
+     npR(0:max_layers-1) =  30, &          !    (L)eft and (R)ight segments
+     nr(0:max_layers-1)  =  32, &          ! default radial resolution
+     n_interpolate       =   4, &          ! number of interpolated flux surfaces (for the transition between the pair of perturbed flux surfaces at the inner simulation boundary and unperturbed flux surfaces further outside)
+     nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
+     nr_EIRENE_vac       =   1             ! radial resolution in vacuum (EIRENE only)
+
 
   real(real64) :: &
-     phi0                = -360.d0, &  ! lower boundary of simulation domain
+     phi0                = -360.d0, &      ! lower boundary of simulation domain [deg]
      x_in1(3)            = (/120.d0, 0.d0, 0.d0/), &  ! reference points (R[cm], Z[cm], phi[deg]) ...
      x_in2(3)            = (/119.d0, 0.d0, 0.d0/), &  ! ... on 1st and 2nd innermost flux surfaces
-     d_SOL(2)            = 24.d0, &     ! radial width of scrape-off layer
-     d_PFR(2)            = 15.d0, &     ! radial width of private flux region
-     d_N0(max_layers)    = 10.d0, &
-     d_cutL(2)           = 6.d0, &      ! cut-off length for flux surfaces behind the wall
-     d_cutR(2)           = 8.d0, &      ! (l)eft and (r)ight divertor segments
-     alphaL(2)           = 0.9d0, &
-     alphaR(2)           = 1.0d0, &
-     etaL(2)             = 0.8d0, &     ! discretization parameter for left ...
-     etaR(2)             = 0.8d0        ! ... and right divertor leg
+     d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
+     d_PFR(2)            =   15.d0, &      ! radial width of private flux region
+     d_N0(max_layers)    =   10.d0, &      ! radial width of vacuum region
+     d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
+     d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
+     alphaL(2)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
+     alphaR(2)           =    1.0d0, &     !    (L)eft and (R)ight segments
+     etaL(2)             =    0.8d0, &     ! fraction of cells in front of the target
+     etaR(2)             =    0.8d0        !    (L)eft and (R)ight segments
 
 
 
@@ -155,6 +158,7 @@ module fieldline_grid
      topology, symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
+     n_interpolate, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
      guiding_surface

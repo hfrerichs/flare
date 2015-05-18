@@ -15,19 +15,6 @@ module topo_lsn
 
 
 
-! more parameters related to the grid generation process
-      integer :: n_int  = 4			! use n_int interpolated surfaces for the transition between perturbed flux surfaces at the inner simulation boundary and unperturbed flux surfaces in the main part.
-
-
-
-
-!...............................................................................
-! derived parameters                                                           .
-!  integer :: np1, np2
-!...............................................................................
-
-
-
 
   ! coordinates of X-point and magnetic axis
   real(real64) :: Px(2), Pmag(2)
@@ -319,11 +306,11 @@ module topo_lsn
 
   !.....................................................................
   ! 1. check input
-  if (n_int < 0) then
-     write (6, *) 'error: n_int must not be negative!'; stop
+  if (n_interpolate < 0) then
+     write (6, *) 'error: n_interpolate must not be negative!'; stop
   endif
-  if (n_int > nr(0)-2) then
-     write (6, *) 'error: n_int > nr0 - 2!'; stop
+  if (n_interpolate > nr(0)-2) then
+     write (6, *) 'error: n_interpolate > nr0 - 2!'; stop
   endif
   !.....................................................................
 
@@ -469,8 +456,8 @@ module topo_lsn
   d_HPR = get_d_HPR(Px, Pmag)
 
   ! 2. generate flux surfaces
-  if (nr0-1 .ge. 2+n_int) write (6, 1000) nr0-1, 2+n_int
-  do i=nr0-1, 2+n_int, -1
+  if (nr0-1 .ge. 2+n_interpolate) write (6, 1000) nr0-1, 2+n_interpolate
+  do i=nr0-1, 2+n_interpolate, -1
      write (6, *) i
      eta = 1.d0 - Zone(iz)%Sr%node(i-1,nr0-1)
 
@@ -491,9 +478,9 @@ module topo_lsn
 
   !.....................................................................
   subroutine make_interpolated_surfaces()
-  ! inner boundaries and interpolated surfaces (2 -> 1+n_int) (high pressure region)
+  ! inner boundaries and interpolated surfaces (2 -> 1+n_interpolate) (high pressure region)
 
-  write (6, 1001) 2, 1+n_int
+  write (6, 1001) 2, 1+n_interpolate
   do j=0,np0
      xi = Zone(iz)%Sp%node(j,np0)
      ! innermost surfaces
@@ -503,10 +490,10 @@ module topo_lsn
      enddo
 
      ! interpolated surfaces
-     x1 = M_HPR(1,      j,:)
-     x2 = M_HPR(2+n_int,j,:)
-     do i=2,1+n_int
-        eta = Zone(iz)%Sr%node(    i-1,nr0-1) / Zone(iz)%Sr%node(1+n_int,nr0-1)
+     x1 = M_HPR(1,              j,:)
+     x2 = M_HPR(2+n_interpolate,j,:)
+     do i=2,1+n_interpolate
+        eta = Zone(iz)%Sr%node(    i-1,nr0-1) / Zone(iz)%Sr%node(1+n_interpolate,nr0-1)
 
         M_HPR(i,j,:) = x1 + eta * (x2-x1)
      enddo
