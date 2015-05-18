@@ -541,7 +541,30 @@ module fieldline_grid
   enddo
   ! 2.2.b - poloidal
   write (iu, 2003)
-  write (iu, *) 0
+  n = 0
+  do irun=0,1
+     ! write number of non transparent poloidal surfaces
+     if (irun == 1) write (iu, *) n
+
+     do iz=0,NZONET-1
+        if (Zone(iz)%isfp(1) < 0) then
+           if (irun == 0) then
+              n = n + 1
+           else
+              write (iu, *) P_SURF_PL_TRANS_RANGE(1,iz), iz, 1
+              write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
+           endif
+        endif
+        if (Zone(iz)%isfp(2) < 0) then
+           if (irun == 0) then
+              n = n + 1
+           else
+              write (iu, *) P_SURF_PL_TRANS_RANGE(2,iz), iz, -1
+              write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
+           endif
+        endif
+     enddo
+  enddo
   ! 2.2.c - toroidal
   write (iu, 2004)
   write (iu, *) 0
@@ -613,7 +636,7 @@ module fieldline_grid
               write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
-        if (Zone(iz)%isfr(1) < 0) then
+        if (Zone(iz)%isfr(2) < 0) then
            if (irun == 0) then
               n = n + 1
            else
@@ -649,7 +672,7 @@ module fieldline_grid
 
      ! confined region
      do iz=0,NZONET-1
-        if (Zone(iz)%isfr(1) < 0  .and.  R_SURF_PL_TRANS_RANGE(1,iz) > 0) then
+        if (Zone(iz)%isfr(1) == SF_CORE) then
            if (irun == 0) then
               n = n + R_SURF_PL_TRANS_RANGE(1,iz)
            else
