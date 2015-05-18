@@ -79,13 +79,15 @@ module emc3_grid
      ZON_TORO(iz) = SRF_TORO(iz) - 1
   enddo
 
-  allocate (GRID_P_OS(0:NZONET), PHI_PL_OS(0:NZONET))
+  allocate (GRID_P_OS(0:NZONET), MESH_P_OS(0:NZONET), PHI_PL_OS(0:NZONET))
       
   PHI_PL_OS(0) = 0
   GRID_P_OS(0) = 0
+  MESH_P_OS(0) = 0
   do i=1,NZONET
      PHI_PL_OS(i) = PHI_PL_OS(i-1) + SRF_TORO(i-1)
      GRID_P_OS(i) = GRID_P_OS(i-1) + SRF_RADI(i-1)*SRF_POLO(i-1)*SRF_TORO(i-1)
+     MESH_P_OS(i) = GRID_P_OS(i-1) + ZON_RADI(i-1)*ZON_POLO(i-1)*ZON_TORO(i-1)
   enddo
 
   ! 3. allocate main arrays
@@ -101,6 +103,8 @@ module emc3_grid
   do iz=0,NZONET-1
      R_SURF_PL_TRANS_RANGE(1,iz) = SRF_RADI(iz)-1
      R_SURF_PL_TRANS_RANGE(2,iz) = 0
+     P_SURF_PL_TRANS_RANGE(1,iz) = 0
+     P_SURF_PL_TRANS_RANGE(2,iz) = SRF_POLO(iz)-1
   enddo
 
 
