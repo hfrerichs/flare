@@ -5,17 +5,8 @@ module inner_boundary
   implicit none
 
   type(t_curve), dimension(:,:), allocatable :: C_in
-!
-!  real(real64) :: &
-!     Theta0, &                 ! Reference poloidal angle [deg]
-!     x_guide1(3), &            ! Reference point (R,Z,phi) on inner guiding surface
-!     x_guide2(3)               !                       ... on outer guiding surface
-!
-!
-!  namelist /Simple_Layout/ &
-!     Theta0, x_guide1, x_guide2
-!
-!
+
+
   contains
   !=====================================================================
 
@@ -151,31 +142,10 @@ end module inner_boundary
   use fieldline_grid
   implicit none
 
-  integer, parameter :: iu = 12
-
-!  character(len=*), parameter :: &
-!     EXACT = 'EXACT', &
-!     QUASI = 'QUASI'
-
-
-  character(len=72)  :: position, type
-
-  real(real64) :: &
-     x_in1(3)                    = (/120.d0, 0.d0, 0.d0/), &  ! reference points (R[cm], Z[cm], phi[deg]) ...
-     x_in2(3)                    = (/119.d0, 0.d0, 0.d0/)     ! ... on 1st and 2nd innermost flux surfaces
-
-  namelist /Inner_Boundary/ &
-     x_in1, x_in2, position, type
-
 
   write (6, *)
   write (6, 1000)
   write (6, *)
-
-  open  (iu, file=config_file, err=9000)
-  read  (iu, Inner_boundary, end=9000)
-  close (iu)
-
 
   select case (Innermost_Flux_Surface)
   case (SF_EXACT)

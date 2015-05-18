@@ -25,8 +25,8 @@ module fieldline_grid
 
   ! Type of innermost flux surface (exact or quasi flux surface)
   character(len=*), parameter :: &
-     SF_EXACT = 'EXACT', &
-     SF_QUASI = 'QUASI'
+     SF_EXACT    = 'EXACT', &
+     SF_QUASI    = 'QUASI'
 
 
   integer, parameter :: &
@@ -40,63 +40,53 @@ module fieldline_grid
 ! user defined variables
 !.......................................................................
   character(len=80) :: &
-     topology       = TOPO_SC, &
-     Innermost_Flux_Surface = SF_EXACT, &
+     topology                         = TOPO_SC, &
+     Innermost_Flux_Surface           = SF_EXACT, &
      radial_spacing(0:max_layers-1)   = '', &
      poloidal_spacing(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
-     guiding_surface = ''
+     guiding_surface                  = ''
 
   integer :: &
-     symmetry       =  1, &
-     blocks         =  1, &
-     nr_EIRENE_core =  1, &
-     nr_EIRENE_vac  =  1, &
-     nt             = 12, &          ! default toroidal resolution
-     np(0:max_layers-1) = 360, &
+     symmetry            =  1, &
+     blocks              =  1, &
+     nr_EIRENE_core      =  1, &
+     nr_EIRENE_vac       =  1, &
+     nt                  = 12, &          ! default toroidal resolution
+     np(0:max_layers-1)  = 360, &
      npL(0:max_layers-1) = 30, &
      npR(0:max_layers-1) = 30, &
-     nr(0:max_layers-1) = 32
+     nr(0:max_layers-1)  = 32
 
   real(real64) :: &
-     phi0                            = -360.d0, &  ! lower boundary of simulation domain
-!     phi0                            = -360.d0, &  ! lower boundary of simulation domain
-!     block_size(0:max_blocks-1,-1:2) = -1.d0     ! user defined (non-default) toroidal block width [deg]
-     d_SOL(2)   = 24.d0, &     ! radial width of scrape-off layer
-     d_PFR(2)   = 15.d0, &     ! radial width of private flux region
-     d_N0(max_layers) = 10.d0, &
-     d_cutL(2)  = 6.d0, &      ! cut-off length for flux surfaces behind the wall
-     d_cutR(2)  = 8.d0, &      ! (l)eft and (r)ight divertor segments
-     alphaL(2)  = 0.9d0, &
-     alphaR(2)  = 1.0d0, &
-     etaL(2)    = 0.8d0, &     ! discretization parameter for left ...
-     etaR(2)    = 0.8d0        ! ... and right divertor leg
+     phi0                = -360.d0, &  ! lower boundary of simulation domain
+     x_in1(3)            = (/120.d0, 0.d0, 0.d0/), &  ! reference points (R[cm], Z[cm], phi[deg]) ...
+     x_in2(3)            = (/119.d0, 0.d0, 0.d0/), &  ! ... on 1st and 2nd innermost flux surfaces
+     d_SOL(2)            = 24.d0, &     ! radial width of scrape-off layer
+     d_PFR(2)            = 15.d0, &     ! radial width of private flux region
+     d_N0(max_layers)    = 10.d0, &
+     d_cutL(2)           = 6.d0, &      ! cut-off length for flux surfaces behind the wall
+     d_cutR(2)           = 8.d0, &      ! (l)eft and (r)ight divertor segments
+     alphaL(2)           = 0.9d0, &
+     alphaR(2)           = 1.0d0, &
+     etaL(2)             = 0.8d0, &     ! discretization parameter for left ...
+     etaR(2)             = 0.8d0        ! ... and right divertor leg
 
 
 
   ! user defined input for individual blocks
   type t_block_input
      integer :: &
-        nr(0:max_layers-1) = -1, & ! radial resolution
-        np(0:max_layers-1) = -1, & ! poloital resolution
-        npL(0:max_layers-1) = -1, &
+        nr(0:max_layers-1)  = -1, & ! radial resolution
+        np(0:max_layers-1)  = -1, & ! poloidal resolution
+        npL(0:max_layers-1) = -1, & ! poloidal resolution in divertor legs
         npR(0:max_layers-1) = -1, &
-        nt      = -1, &            ! number of cells in toroidal direction
-        it_base = -1               ! 0 <= index of base grid position <= nt
+        nt      = -1, &             ! number of cells in toroidal direction
+        it_base = -1                ! 0 <= index of base grid position <= nt
 
      real(real64) :: &
         width   = -360.d0          ! toroidal width of block [deg]
   end type t_block_input
-
-
-  ! user defined input for individual zones
-  type t_zone_input
-     ! resolution in radial, poloidal and toroidal direction
-     integer :: &
-        nr = -1, &
-        np = -1, &
-        nt = -1 ! user input for toroidal resolution is NOT used!
-  end type t_zone_input
 !.......................................................................
 
 
@@ -121,8 +111,11 @@ module fieldline_grid
   type(t_block) :: Block(0:max_blocks-1)
 
 
-  ! extended zone data
-  type, extends(t_zone_input) :: t_zone
+  ! zone data
+  type :: t_zone
+     ! resolution in radial, poloidal and toroidal direction
+     integer :: nr, np, nt
+
      ! connectivity between zones (surface types = periodic, mapping, ...)
      integer :: isfr(2), isfp(2), isft(2)
 
@@ -143,12 +136,7 @@ module fieldline_grid
 
 
   logical      :: default_decomposition
-  !real(real64) :: phi_base(0:max_blocks-1), Delta_phi_sim
   real(real64) :: Delta_phi_sim
-
-
-  ! interface to grid topology related functions and subroutines
-  procedure(), pointer :: setup_topology
 !.......................................................................
 
   contains
@@ -158,8 +146,6 @@ module fieldline_grid
 
 !=======================================================================
   subroutine setup_grid_configuration
-   procedure()      :: setup_topology_sc, &
-                       setup_topology_lsn
 
   integer, parameter :: iu = 12
 
@@ -167,7 +153,7 @@ module fieldline_grid
 
   namelist /Grid_Layout/ &
      topology, symmetry, blocks, Block, &
-     phi0, d_SOL, d_PFR, d_N0, &
+     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
@@ -899,14 +885,12 @@ module fieldline_grid
  9000 format(3x,'- Set up plate surfaces')
 
 
-  !call outside_boundary_check()
   allocate (ID_TEM(0:MESH_P_OS(NZONET)-1))
   allocate (RC_TEM(0:MESH_P_OS(NZONET)-1))
   allocate (ZC_TEM(0:MESH_P_OS(NZONET)-1))
   ID_TEM = 0
   open  (iu, file='plates.dat')
   do iz=0,NZONET-1
-  !do iz=0,0
      nr = ZON_RADI(iz)
      np = ZON_POLO(iz)
      nt = ZON_TORO(iz)
@@ -914,7 +898,7 @@ module fieldline_grid
      iindex = 0
 
      write (6, 1000) iz, nr, np, nt
-     1000 format (8x,'zone ',i0,' (',i0,' x ',i0,' x ',i0,')')
+ 1000 format (8x,'zone ',i0,' (',i0,' x ',i0,' x ',i0,')')
 
      ! setup slices for Q4-type surfaces
      if (n_quad > 0) then
@@ -940,10 +924,6 @@ module fieldline_grid
         ! loop over all flux tubes
         do i=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
         do j=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
-        !do i=0,nr-1
-        !do j=0,np-1
-        !do i=23,23
-        !do j=120,120
         do k=0,nt-1
            ig(1)   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
            ig(2)   = ig(1) + 1
@@ -954,14 +934,12 @@ module fieldline_grid
            x(1)    = sum(RG(ig))/8.d0
            x(2)    = sum(ZG(ig))/8.d0
            x(3)    = (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz))) / 2.d0
-           !write (6, *) x
            x(3)    = phi_sym(x(3), symmetry)
 
            ic      = i + (j + k*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
            RC_TEM(ic) = x(1)
            ZC_TEM(ic) = x(2)
 
-           !plate_cell = .false.
            plate_cell = outside_boundary()
 
            if (plate_cell) then

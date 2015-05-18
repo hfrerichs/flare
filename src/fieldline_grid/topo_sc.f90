@@ -33,9 +33,8 @@ module topo_sc
   write (6, 1000)
   do ib=0,blocks-1
      iz = ib
-     if (Zone(iz)%nr == -1) Zone(iz)%nr = nr(0) + nr_EIRENE_core + nr_EIRENE_vac
-     if (Zone(iz)%np == -1) Zone(iz)%np = np(0)
-     !if (Zone(iz)%nt == -1) Zone(iz)%nt = nt
+     Zone(iz)%nr = Block(ib)%nr(0) + nr_EIRENE_core + nr_EIRENE_vac
+     Zone(iz)%np = Block(ib)%np(0)
      Zone(iz)%nt = Block(ib)%nt
 
      ! setup toroidal discretization
