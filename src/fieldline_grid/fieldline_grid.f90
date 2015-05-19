@@ -1028,7 +1028,7 @@ module fieldline_grid
   !    k: toroidal index
   !    C: slices of Q4-type surfaces at phi(k)
   !    x: reference point
-  logical :: outside_boundary
+  logical :: outside_boundary, side
 
 
   ! set default
@@ -1037,7 +1037,8 @@ module fieldline_grid
 
   ! check axisymmetric (L2-type) surfaces
   do l=1,n_axi
-     if (S_axi(l)%outside(x(1:2))) then
+     side = boundary_side(l) == 1
+     if (S_axi(l)%outside(x(1:2)) .eqv. side) then
         outside_boundary = .true.
         return
      endif
@@ -1045,7 +1046,8 @@ module fieldline_grid
 
   ! check Q4-type surfaces
   do l=1,n_quad
-     if (C(k,l)%outside(x(1:2))) then
+     side = boundary_side(n_axi + n_block + l) == 1
+     if (C(k,l)%outside(x(1:2)) .eqv. side) then
         outside_boundary = .true.
         return
      endif

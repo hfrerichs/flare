@@ -27,9 +27,14 @@ module boundary
 
   character*120 :: boundary_file(N_BNDRY_MAX) = ''
   integer       :: boundary_type(N_BNDRY_MAX) = 0
+
+  ! type 1 and 4 surfaces can be used to model a limiter. Then boundary_side = -1 defines
+  ! the outside of this volume (MUST BE A CLOSED CONTOUR IN R-Z PLANE) as inside the
+  ! plasma domain
+  integer       :: boundary_side(N_BNDRY_MAX) = 1
   integer       :: n_boundary = 0
 
-  namelist /Boundary_Input/ n_boundary, boundary_file, boundary_type
+  namelist /Boundary_Input/ n_boundary, boundary_file, boundary_type, boundary_side
 
   type(t_curve), dimension(:), allocatable :: S_axi
   type(t_quad_ele), dimension(:), allocatable :: S_quad
