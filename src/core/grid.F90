@@ -127,7 +127,7 @@ module grid
   if (allocated(this%x)) deallocate(this%x)
   allocate (this%x(this%n,3))
   this%x = 0.d0
-  this%x(:,fixed_coord) = this%fixed_coord_value
+  if (fixed_coord > 0) this%x(:,fixed_coord) = this%fixed_coord_value
 
 !  select case (layout)
 !  case(UNSTRUCTURED_3D)
