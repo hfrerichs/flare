@@ -263,18 +263,19 @@ module fieldline
 
 
 !=======================================================================
-  function fieldline_intersects_boundary(this, rcut, id, ielem) result(l)
+  function fieldline_intersects_boundary(this, rcut, id, ielem, tau) result(l)
   use boundary
   class(t_fieldline), intent(inout) :: this
   real*8, intent(out), optional     :: rcut(3)
   integer, intent(out), optional    :: id, ielem
+  real(real64), intent(out), optional :: tau
   logical                           :: l
 
   real*8  :: X(3)
   integer :: id1, ielem1
 
 
-  l = intersect_boundary (this%rl, this%rc, X, id1, ielem1)
+  l = intersect_boundary (this%rl, this%rc, X, id1, ielem1, tau)
   if (present(rcut)) rcut = X
   if (present(id))   id   = id1
   if (present(ielem)) ielem = ielem1
