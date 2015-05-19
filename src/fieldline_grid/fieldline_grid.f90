@@ -1046,6 +1046,7 @@ module fieldline_grid
 
   ! check Q4-type surfaces
   do l=1,n_quad
+     if (C(k,l)%n_seg <= 0) cycle
      side = boundary_side(n_axi + n_block + l) == 1
      if (C(k,l)%outside(x(1:2)) .eqv. side) then
         outside_boundary = .true.
