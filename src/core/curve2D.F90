@@ -235,14 +235,14 @@ module curve2D
   integer,       intent(in ), optional :: intersect_mode
   logical                              :: intersect_curve
 
-  real(real64) :: t, s, xl1(2), xl2(2), xh0(2)
+  real(real64) :: t, s, xl1(2), xl2(2), xh0(2), th0
   integer      :: is, mode
 
 
   intersect_curve = .false.
-  t  = 0.d0
-  s  = 0.d0
-  th = 1.d99
+  t   = 0.d0
+  s   = 0.d0
+  th0 = 1.d99
 
   mode = 0
   if (present(intersect_mode)) mode = intersect_mode
@@ -259,7 +259,8 @@ module curve2D
                (mode ==  1  .and.  t.ge.0.d0)) then
 
               intersect_curve = .true.
-              if (abs(t) < abs(th)) then
+              if (abs(t) < abs(th0)) then
+              th0 = t
               if (present(xh)) then
                  xh = xh0
               endif
