@@ -68,13 +68,13 @@ module inner_boundary
   real(real64)             :: get_d_HPR(2)
 
   type(t_flux_surface_2D)  :: F
-  real(real64), save       :: d_HPR = 0.d0
+  real(real64), save       :: d_HPR(2) = 0.d0
   real(real64) :: x(2), d, dx(2), theta, theta0, r3(3), xi
   integer      :: i
 
 
 
-  if (d_HPR > 0) then
+  if (d_HPR(1) > 0) then
      get_d_HPR = d_HPR
      return
   endif
@@ -91,7 +91,7 @@ module inner_boundary
   xi      = (-theta0 + theta)/pi2
 
   call F%sample_at(xi, dx)
-  d_HPR     = sqrt(sum((dx-Px)**2))
+  d_HPR     = dx-Px
   get_d_HPR = d_HPR
 
   end function get_d_HPR
