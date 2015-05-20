@@ -59,7 +59,7 @@ module fieldline_grid
      n_interpolate       =   4, &          ! number of interpolated flux surfaces (for the transition between the pair of perturbed flux surfaces at the inner simulation boundary and unperturbed flux surfaces further outside)
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
      nr_EIRENE_vac       =   1             ! radial resolution in vacuum (EIRENE only)
-
+! TODO: aligned surfaces for neutrals (nr_EIRENE_core_aligned, ...)
 
   real(real64) :: &
      phi0                = -360.d0, &      ! lower boundary of simulation domain [deg]
@@ -817,6 +817,32 @@ module fieldline_grid
   end subroutine write_input_par
   !---------------------------------------------------------------------
   end subroutine write_emc3_input_files
+!=======================================================================
+
+
+
+!=======================================================================
+! WRITE BASE GRID
+!=======================================================================
+  subroutine write_base_grid(G, iz)
+  use grid
+  type(t_grid), intent(in) :: G
+  integer, intent(in)      :: iz
+
+  character(len=72) :: filename
+
+
+  ! write grid file for field line tracing
+  write (filename, 9000) iz
+  call G%store(filename=filename)
+
+  ! write grid file for plotting
+  write (filename, 9001) iz
+  call G%plot_mesh(filename)
+
+ 9000 format ('base_grid_',i0,'.dat')
+ 9001 format ('base_grid_',i0,'.plt')
+  end subroutine write_base_grid
 !=======================================================================
 
 

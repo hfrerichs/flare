@@ -191,27 +191,6 @@ module topo_sc
   end subroutine make_base_grids_sc
   !=====================================================================
 
-  !.....................................................................
-  subroutine write_base_grid(G, iz)
-  use grid
-  type(t_grid), intent(in) :: G
-  integer, intent(in)      :: iz
-
-  character(len=72) :: filename
-
-
-  ! write grid file for field line tracing
-  write (filename, 9000) iz
-  call G%store(filename=filename)
-
-  ! write grid file for plotting
-  write (filename, 9001) iz
-  call G%plot_mesh(filename)
-
- 9000 format ('base_grid_',i0,'.dat')
- 9001 format ('base_grid_',i0,'.plt')
-  end subroutine write_base_grid
-  !.....................................................................
 
 
   !=============================================================================
