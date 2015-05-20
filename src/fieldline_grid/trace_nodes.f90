@@ -44,8 +44,8 @@ subroutine trace_nodes()
      phi1 = Zone(iz)%phi(Zone(iz)%it_base)
      phi2 = B%fixed_coord_value / pi * 180.d0
      if (abs((phi1-phi2)/phi2) > 1.d-6) then
-        write (6, *) 'error: unexpected toroidal position of base grid: ', phi2
-        write (6, *) 'expected position: ', phi1
+        write (6, *) 'error: unexpected toroidal position of base grid: ', phi2, ' deg'
+        write (6, *) 'expected position: ', phi1, ' deg'
         stop
      endif
 
