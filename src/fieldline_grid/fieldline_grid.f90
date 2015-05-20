@@ -134,6 +134,10 @@ module fieldline_grid
 
      ! additional domain for neutral particles
      real(real64) :: d_N0 = 0.d0
+
+     contains
+     procedure :: setup_default_toroidal_discretization
+     procedure :: setup_default_boundaries
   end type t_zone
   type(t_zone) :: Zone(0:max_zones-1)
 
@@ -143,6 +147,50 @@ module fieldline_grid
 !.......................................................................
 
   contains
+!=======================================================================
+
+
+
+!=======================================================================
+! t_zone: default discretization in toroidal direction
+!=======================================================================
+  subroutine setup_default_toroidal_discretization(this, ib)
+  class(t_zone)       :: this
+  integer, intent(in) :: ib
+
+
+  this%nt      = Block(ib)%nt
+  allocate (this%phi(0:this%nt))
+  this%phi     = Block(ib)%phi
+  this%it_base = Block(ib)%it_base
+
+  end subroutine setup_default_toroidal_discretization
+!=======================================================================
+
+
+
+!=======================================================================
+! t_zone: default setup of boundaries
+!=======================================================================
+  subroutine setup_default_boundaries(this)
+  class(t_zone) :: this
+
+
+  ! set up boundary types
+  this%isfr(1) = SF_CORE
+  this%isfr(2) = SF_VACUUM
+  this%isfp(1) = SF_PERIODIC
+  this%isfp(2) = SF_PERIODIC
+  this%isft(1) = SF_MAPPING
+  this%isft(2) = SF_MAPPING
+
+  ! set up plasma transport range
+  this%r_surf_pl_trans_range(1) = nr_EIRENE_core
+  this%r_surf_pl_trans_range(2) = this%nr - nr_EIRENE_vac
+  this%p_surf_pl_trans_range(1) = 0
+  this%p_surf_pl_trans_range(2) = this%np
+
+  end subroutine setup_default_boundaries
 !=======================================================================
 
 
@@ -326,7 +374,6 @@ module fieldline_grid
   subroutine setup_mesh_spacing()
   end subroutine setup_mesh_spacing
 !=======================================================================
-
 
 
 !=======================================================================

@@ -56,12 +56,10 @@ module topo_lsn
   NZONET = blocks * 3
 
 
-  ! 1. setup resolution for each zone
-!  np1 = npR(1) + np(0) + npL(1)
-!  np2 = npR(1) +         npL(1)
   write (6, 1000)
   write (6, 1001)
   do ib=0,blocks-1
+     ! 1. setup resolution for each zone
      ! set derived parameters
      Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%np(0) + Block(ib)%npL(1)
      Block(ib)%np(2) = Block(ib)%npR(1)                   + Block(ib)%npL(1)
@@ -71,29 +69,49 @@ module topo_lsn
      iz0 = 3*ib
      Zone(iz0)%nr = Block(ib)%nr(0) + nr_EIRENE_core
      Zone(iz0)%np = Block(ib)%np(0)
-     Zone(iz0)%nt = Block(ib)%nt
 
      ! scrape-off layer (SOL)
      iz1 = iz0 + 1
      Zone(iz1)%nr = Block(ib)%nr(1) + nr_EIRENE_vac
      Zone(iz1)%np = Block(ib)%np(1)
-     Zone(iz1)%nt = Block(ib)%nt
 
      ! private flux region (PFR)
      iz2 = iz1 + 1
      Zone(iz2)%nr = Block(ib)%nr(2) + nr_EIRENE_vac
      Zone(iz2)%np = Block(ib)%np(2)
-     Zone(iz2)%nt = Block(ib)%nt
 
-     ! setup toroidal discretization
      do iz=iz0,iz2
-        allocate (Zone(iz)%phi(0:Zone(iz)%nt))
-        Zone(iz)%phi = Block(ib)%phi
-        Zone(iz)%it_base = Block(ib)%it_base
+        ! setup toroidal discretization
+        call Zone(iz)%setup_default_toroidal_discretization(ib)
      enddo
 
 
-     !write (6, 1002) ib, nr0, np0, nt, nr1, np1, nt, nr2, np2, nt
+     ! 2. setup boundaries and connectivity between zones
+     do iz=iz0,iz2
+        call Zone(iz)%setup_default_boundaries()
+     enddo
+
+     ! 2.a high pressure region (HPR)
+     Zone(iz0)%isfr(2) = SF_MAPPING
+     Zone(iz0)%r_surf_pl_trans_range(2) = Zone(iz0)%nr
+
+     ! 2.b scrape-off layer (SOL)
+     Zone(iz1)%isfr(1) = SF_MAPPING
+     Zone(iz1)%isfp(1) = SF_VACUUM
+     Zone(iz1)%isfp(2) = SF_VACUUM
+     Zone(iz1)%r_surf_pl_trans_range(1) = 0
+     Zone(iz1)%d_N0    = d_N0(1)
+
+     ! 2.c private flux region (PFR)
+     Zone(iz)%isfr(1) = SF_VACUUM
+     Zone(iz)%isfr(2) = SF_MAPPING
+     Zone(iz)%isfp(1) = SF_VACUUM
+     Zone(iz)%isfp(2) = SF_VACUUM
+     Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
+     Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
+     Zone(iz)%d_N0    = d_N0(2)
+
+
      write (6, 1002) ib, Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt, &
                          Zone(iz1)%nr, Zone(iz1)%np, Zone(iz1)%nt, &
                          Zone(iz2)%nr, Zone(iz2)%np, Zone(iz2)%nt
@@ -101,51 +119,6 @@ module topo_lsn
  1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')
  1001 format(8x,'block #, high pressure region, scrape-off layer, private flux region')
  1002 format(12x,i3,3(3x,'(',i0,' x ',i0,' x ',i0,')'))
-
-
-  ! 2. setup connectivity between zones
-  do ib=0,blocks-1
-     ! high pressure region (HPR)
-     iz = 3 * ib
-     Zone(iz)%isfr(1) = SF_CORE
-     Zone(iz)%isfr(2) = SF_MAPPING
-     Zone(iz)%isfp(1) = SF_PERIODIC
-     Zone(iz)%isfp(2) = SF_PERIODIC
-     Zone(iz)%isft(1) = SF_MAPPING
-     Zone(iz)%isft(2) = SF_MAPPING
-     Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_core
-     Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
-     Zone(iz)%p_surf_pl_trans_range(1) = 0
-     Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
-
-     ! scrape-off layer (SOL)
-     iz = 3 * ib + 1
-     Zone(iz)%isfr(1) = SF_MAPPING
-     Zone(iz)%isfr(2) = SF_VACUUM
-     Zone(iz)%isfp(1) = SF_VACUUM
-     Zone(iz)%isfp(2) = SF_VACUUM
-     Zone(iz)%isft(1) = SF_MAPPING
-     Zone(iz)%isft(2) = SF_MAPPING
-     Zone(iz)%r_surf_pl_trans_range(1) = 0
-     Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr - nr_EIRENE_vac
-     Zone(iz)%p_surf_pl_trans_range(1) = 0
-     Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
-     Zone(iz)%d_N0    = d_N0(1)
-
-     ! private flux region (PFR)
-     iz = 3 * ib + 2
-     Zone(iz)%isfr(1) = SF_VACUUM
-     Zone(iz)%isfr(2) = SF_MAPPING
-     Zone(iz)%isfp(1) = SF_VACUUM
-     Zone(iz)%isfp(2) = SF_VACUUM
-     Zone(iz)%isft(1) = SF_MAPPING
-     Zone(iz)%isft(2) = SF_MAPPING
-     Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
-     Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
-     Zone(iz)%p_surf_pl_trans_range(1) = 0
-     Zone(iz)%p_surf_pl_trans_range(2) = Zone(iz)%np
-     Zone(iz)%d_N0    = d_N0(2)
-  enddo
 
   end subroutine setup_topo_lsn
   !=====================================================================
