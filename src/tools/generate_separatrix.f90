@@ -26,7 +26,7 @@ subroutine generate_separatrix
   write (6, 1000) X
   ! generate separatrix
   call S%generate(X, 1, 2.d0)
-  call S%plot('separatrix_lX')
+  call S%plot('separatrix_lX', parts=.true.)
 
 
   ! now find upper X-point
@@ -34,7 +34,7 @@ subroutine generate_separatrix
   write (6, 1000) X
   ! generate separatrix
   call S%generate(X, -1, -2.d0)
-  call S%plot('separatrix_uX')
+  call S%plot('separatrix_uX', parts=.true.)
 
  1000 format('Found X-point at: (',f8.3,', ',f8.3,')')
 end subroutine generate_separatrix

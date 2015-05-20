@@ -46,7 +46,8 @@ subroutine trace_bline
   type(t_fieldline) :: F
   type(t_grid)      :: G
   real(real64), dimension(:,:), pointer :: grid_ptr
-  integer       :: i, ig, iflag
+  real(real64)  :: rb(3), tau, y(3), l
+  integer       :: i, ig
   logical       :: Stop_at_Boundary
 
 
@@ -84,13 +85,9 @@ subroutine trace_bline
 
   ! select initial position(s) for tracing
   if (sum(x_start) .ne. 0.d0) then
-     !grid_ptr => new_grid(1, log_progress=.false.)
-     !grid_ptr(1,:) = x_start
      call G%new(Trace_Coords, UNSTRUCTURED, 0, 1)
      G%x(1,:) = x_start
-     !grid_ptr(1,:) = G%x
   else
-     !call read_grid (Grid_file, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
      call G%load(Grid_file)
   endif
 
@@ -98,28 +95,34 @@ subroutine trace_bline
   ! main loop
   write (6,  1002)
   field_line_loop: do ig=1,G%nodes()
-     !call get_next_grid_point (iflag, x_start)
      x_start = G%node(ig, coordinates=min(Trace_Coords,2))
-     if (iflag < 0) exit field_line_loop
 
      ! trace one field line
      call F%init(x_start, Trace_Step, Trace_Method, Trace_Coords)
-     write (iu, 1003) output_coordinates()
-     write (6,  1004) output_coordinates()
+     y = output_coordinates()
+     write (iu, 1003) y
+     write (6,  1004) y
 
+     l = 0.d0
      do i=1,N_steps
         call F%trace_1step()
 
         ! intersect boundary?
-        if (Stop_at_Boundary  .and.  F%intersect_boundary()) then
-           write (iu, 1003) output_coordinates()
+        if (Stop_at_Boundary  .and.  F%intersect_boundary(tau=tau)) then
+           rb = output_coordinates()
+           rb = y + tau * (rb-y)
+           l  = l + tau * Trace_Step
+           write (iu, 1003) rb
            write (6, *) 'Field line tracing is stopped at the boundary'
            exit
         endif
 
-        write (iu, 1003) output_coordinates()
+        l = l + Trace_Step
+        y = output_coordinates()
+        write (iu, 1003) y
      enddo
      write (iu, *)
+     write (6, 3000) l
   enddo field_line_loop
   close (iu)
 
@@ -130,6 +133,7 @@ subroutine trace_bline
  2000 format ('# Flux coordinates: Theta[rad], PsiN, Phi[rad]')
  2001 format ('# Cartesian coordinates: x[cm], y[cm], z[cm]')
  2002 format ('# Cylindrical coordinates: R[cm], Z[cm], Phi[rad]')
+ 3000 format (8x,'trace length: ',f12.4)
   contains
 !.......................................................................
   function output_coordinates () result (y)

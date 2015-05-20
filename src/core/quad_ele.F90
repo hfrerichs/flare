@@ -280,13 +280,14 @@ module quad_ele
 
 
 !=======================================================================
-  function quad_ele_intersect(this, r1, r2, X, nelem) result(l)
+  function quad_ele_intersect(this, r1, r2, X, nelem, tau) result(l)
   use math
   use search
   class(t_quad_ele)   :: this
   real*8, intent(in)  :: r1(3), r2(3)
   real*8, intent(out) :: X(3)
   integer, intent(out), optional :: nelem
+  real(real64), intent(out), optional :: tau
   logical             :: l
 
   logical :: ljump
@@ -336,9 +337,11 @@ module quad_ele
 
 
   l = .false.
+  if (present(tau)) tau = -1.d0
   if (istat.eq.1) then
      l = .true.
      X = r1 + (r2-r1) * xi
+     if (present(tau)) tau = xi
   endif
 
   contains

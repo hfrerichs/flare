@@ -62,6 +62,7 @@ module curve2D
      procedure :: get_distance_to
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
+     procedure :: setup_length_sampling_curvature_weighted
      procedure :: setup_segment_sampling
      procedure :: setup_coordinate_sampling
      procedure :: sample_at
@@ -69,12 +70,13 @@ module curve2D
      procedure :: split3seg
      procedure :: length
      procedure :: outside
+     procedure :: intersect_curve => t_curve_intersect_curve
   end type t_curve
 
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
 
 
-  public :: intersect_curve, make_2D_curve
+  public :: intersect_curve, make_2D_curve, connect
 
   contains
 !=======================================================================
@@ -234,13 +236,14 @@ module curve2D
   integer,       intent(in ), optional :: intersect_mode
   logical                              :: intersect_curve
 
-  real(real64) :: t, s, xl1(2), xl2(2), xh0(2)
+  real(real64) :: t, s, xl1(2), xl2(2), xh0(2), th0
   integer      :: is, mode
 
 
   intersect_curve = .false.
-  t = 0.d0
-  s = 0.d0
+  t   = 0.d0
+  s   = 0.d0
+  th0 = 1.d99
 
   mode = 0
   if (present(intersect_mode)) mode = intersect_mode
@@ -257,6 +260,8 @@ module curve2D
                (mode ==  1  .and.  t.ge.0.d0)) then
 
               intersect_curve = .true.
+              if (abs(t) < abs(th0)) then
+              th0 = t
               if (present(xh)) then
                  xh = xh0
               endif
@@ -269,7 +274,7 @@ module curve2D
               if (present(ish)) then
                  ish = is
               endif
-              return
+              endif
            endif
         endif
      endif
@@ -352,6 +357,44 @@ module curve2D
 
 
 !=======================================================================
+! Calculate (first) intersection with curve C
+! output:
+!     x      intersection point
+!     tau    relative coordinate from first node
+!=======================================================================
+  function t_curve_intersect_curve(this, C, x, tau)
+  class(t_curve)            :: this
+  type(t_curve), intent(in) :: C
+  real(real64), intent(out) :: x(2), tau
+  logical                   :: t_curve_intersect_curve
+
+  real(real64) :: x1(2), x2(2)
+  integer :: is
+
+
+  t_curve_intersect_curve = .false.
+  x   =  0.d0
+  tau =  0.d0
+  do is=1,this%n_seg
+     x1 = this%x(is-1, :)
+     x2 = this%x(is  , :)
+     if (intersect_curve(x1, x2, C, x)) then
+        tau = tau + dsqrt(sum((x-x1)**2))
+        tau = tau / this%length()
+        t_curve_intersect_curve = .true.
+        exit
+     endif
+
+     tau = tau + sqrt(sum((x2-x1)**2))
+  enddo
+
+
+  end function t_curve_intersect_curve
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine plot(this, iu, filename, append)
   class(t_curve) :: this
   integer,          intent(in), optional :: iu
@@ -380,7 +423,11 @@ module curve2D
 
   ! write data
   do i=0,this%n_seg
-     write (iu0, *) this%x(i,:)
+     if (associated(this%w)) then
+        write (iu0, *) this%x(i,:), this%w(i)
+     else
+        write (iu0, *) this%x(i,:)
+     endif
   enddo
 
 
@@ -412,13 +459,13 @@ module curve2D
   if (present(method)) sort_method = method
 
 
-  select case (method)
+  select case (sort_method)
   case(ANGLE)
      call C%sort_by_angle(xc, d)
   case(DISTANCE)
      call C%sort_by_distance(xc)
   case default
-     write (6, *) 'error in t_curve%sort_loop: method ', method, ' undefined!'
+     write (6, *) 'error in t_curve%sort_loop: method ', sort_method, ' undefined!'
      stop
   end select
 
@@ -513,7 +560,7 @@ module curve2D
      endif
   endif
   C%closed = .true.
-  call C%setup_angular_sampling()
+  call C%setup_angular_sampling(xc)
 
   end subroutine sort_by_angle
 !=======================================================================
@@ -634,7 +681,7 @@ module curve2D
      x = C%x(j,:)
      theta = atan2(x(2)-xr(2), x(1)-xr(1))
      if (abs(theta-theta0) < dtheta  .and.  theta > 0) then
-        dtheta = theta-theta0
+        dtheta = abs(theta-theta0)
         i0     = j
      endif
   enddo
@@ -713,7 +760,7 @@ module curve2D
   real(real64), dimension(:,:,:), allocatable :: x_new
   real(real64), dimension(:,:),   allocatable :: ts_new, x_tmp
   type(t_curve) :: Ctmp
-  real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s
+  real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s, d
   integer       :: k, n, k2, kmax, n2, i_remove
 
 
@@ -737,7 +784,12 @@ module curve2D
   do k=0,n-1
      ! direction of line segment
      el = Ctmp%x(k+1,:) - Ctmp%x(k,:)
-     el = el / dsqrt(sum(el**2))
+     d  = dsqrt(sum(el**2))
+     if (d == 0.d0) then
+        write (6, *) 'error in t_curve%left_hand_shift: duplicate nodes!'
+        stop
+     endif
+     el = el / d
 
      ! left-hand normal vector
      en(1) = - el(2)
@@ -995,11 +1047,20 @@ module curve2D
 !=======================================================================
 ! prepare sampling along L using the segment lengths as weight factor
 !=======================================================================
-  subroutine setup_length_sampling(L)
+  subroutine setup_length_sampling(L, raw_weights)
   class(t_curve) :: L
 
-  real(real64) :: w_tot, s, dx(L%n_dim)
+  logical, intent(in), optional :: raw_weights
+
+  logical      :: integrated_weights
+  real(real64) :: s, dx(L%n_dim)
   integer      :: i, n
+
+
+  integrated_weights = .true.
+  if (present(raw_weights)) then
+     integrated_weights = .not.raw_weights
+  endif
 
 
   ! allocate memory for weight array
@@ -1010,20 +1071,32 @@ module curve2D
   allocate (L%w(0:n))
 
   ! setup weight array
-  w_tot = 0.d0
+  !w_tot = 0.d0
+  L%l = 0.d0
   L%w = 0.d0
   do i=1,n
      dx    = L%x(i,:) - L%x(i-1,:)
      s     = dsqrt(sum(dx**2))
 
+     L%l   = L%l + s
+     if (integrated_weights) then
+        L%w(i) = L%l
+     else
+        L%w(i) = s
+     endif
+
+
      !L%w_seg(i) = s
-     L%w(i) = L%w(i-1) + s
-     w_tot      = w_tot + s
+     !L%w(i) = L%w(i-1) + s
+     !w_tot      = w_tot + s
   enddo
   !L%w_seg  = L%w_seg / w_tot
   !L%l      = w_tot
-  L%l      = L%w(n)
-  L%w  = L%w / L%w(n)
+  !L%l      = L%w(n)
+  ! normalize weights
+  if (integrated_weights) then
+     L%w  = L%w / L%w(n)
+  endif
 
   end subroutine setup_length_sampling
 !=======================================================================
@@ -1319,6 +1392,103 @@ module curve2D
   endif
 
   end function outside
+!=======================================================================
+
+
+
+!=======================================================================
+  function connect(C1, C2) result(C)
+  type(t_curve), intent(in) :: C1, C2
+  type(t_curve)             :: C
+
+  real(real64) :: x1(C1%n_dim), x2(C2%n_dim), dl
+  integer :: i2, n, n1, n2
+
+
+  if (C1%n_dim .ne. C2%n_dim) then
+     write (6, *) 'error in module curve2D, connect:'
+     write (6, *) 'cannot connect curves with unequal dimension!'
+     stop
+  endif
+
+
+  ! check if end node of C1 matches first node of C2
+  n1 = C1%n_seg
+  n2 = C2%n_seg
+  x1 = C1%x(n1,:)
+  x2 = C1%x(0,:)
+  dl = sqrt(sum((x1-x2)**2))
+  i2 = 0
+  n  = n1 + n2 + 1
+  if (dl < epsilon(real(1.0,real64))) then
+     i2 = 1
+     n  = n - 1
+  endif
+
+
+  call C%new(n)
+  C%x(0:n1,:)   = C1%x(0:n1,:)
+  C%x(n1+1:n,:) = C2%x(i2:n2,:)
+
+  end function connect
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_length_sampling_curvature_weighted(this)
+  class(t_curve) :: this
+
+  integer, parameter :: iu = 31
+
+  type(t_dataset) :: kappa
+  real(real64) :: dx, dy, ddx, ddy, x(2), x1(2), x2(2), L, t
+  integer :: i, i1, i2, n
+
+
+  n = this%n_seg
+  if (associated(this%w)) deallocate(this%w)
+  allocate (this%w(0:n))
+  call kappa%new(n+1, 2, -1)
+
+
+!  open  (iu, file=filename)
+  L = 0.d0
+  do i=0,n
+     x = this%x(i,:)
+
+     i1 = i+1; if (i == n) i1 = 1
+     i2 = i-1; if (i == 0) i2 = n-1
+     x1 = this%x(i1,:)
+     x2 = this%x(i2,:)
+     t  = sqrt(sum((x2-x1)**2))
+     dx = x1(1) - x2(1)
+     dy = x1(2) - x2(2)
+     ddx = x1(1) - 2.d0*x(1) + x2(1)
+     ddy = x1(2) - 2.d0*x(2) + x2(2)
+
+     kappa%x(i,1) = (dx*ddy - dy*ddx) / (dx**2 + dy**2)**1.5d0
+     kappa%x(i,2) = t
+!     write (iu, *) L, kappa
+!!     L = L + t
+
+!!     this%w(i) = t * (1.d-2 + kappa)
+  enddo
+!  close (iu)
+  call kappa%plot(filename='kappa0.plt')
+  call kappa%smooth(2,1)
+  call kappa%plot(filename='kappa2.plt')
+
+
+  ! integrate and normalize weights
+  this%w(0) = 0.d0
+  do i=1,n
+     t = kappa%x(i,2)
+     this%w(i) = this%w(i-1) + t * (1.d-2 + kappa%x(i,1))
+  enddo
+  this%w = this%w / this%w(n)
+
+  end subroutine setup_length_sampling_curvature_weighted
 !=======================================================================
 
 end module curve2D

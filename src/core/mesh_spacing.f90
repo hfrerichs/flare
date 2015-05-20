@@ -11,6 +11,7 @@ module mesh_spacing
 
   integer, parameter :: &
      EXPONENTIAL = 1, &
+     SPLINE_X1   = 2, &
      USER_DEF    = -1
 
 
@@ -23,6 +24,7 @@ module mesh_spacing
 
      contains
      procedure init, node, plot
+     procedure init_spline_x1
   end type t_spacing
   
   type(t_spacing), public, parameter :: Equidistant = t_spacing(0,0,null(),Empty_curve)
@@ -55,6 +57,11 @@ module mesh_spacing
      allocate(this%c(this%nc))
      read (mode(5:iB), *, err=5000) this%c(1)
 
+  ! spline with reference node
+!  elseif (mode(1:3) == 'X1:') then
+     !this%mode = SPLINE_X1
+     !call this%init_spline_x1()
+
   ! user defined (external) spacing function
   elseif (mode(1:5) == 'file:') then
      this%mode = USER_DEF
@@ -72,6 +79,24 @@ module mesh_spacing
  5000 write (6, *) 'error in t_spacing%init: could not read value from string ', this%mode
   stop
   end subroutine init
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine init_spline_x1(this, eta1, xi1)
+  class(t_spacing)         :: this
+  real(real64), intent(in) :: eta1, xi1
+
+
+  this%mode = SPLINE_X1
+  this%nc   = 2
+  if (allocated(this%c)) deallocate(this%c)
+  allocate(this%c(this%nc))
+  this%c(1) = eta1
+  this%c(2) = xi1
+
+  end subroutine init_spline_x1
 !=======================================================================
 
 
@@ -151,6 +176,10 @@ module mesh_spacing
   case(EXPONENTIAL)
      xi = sample_exp(i, n, this%c(1))
 
+  ! spline with reference node
+  case(SPLINE_X1)
+     xi = sample_spline_X1(t, this%c(1), this%c(2))
+
   ! user defined spacings
   case(USER_DEF)
      call this%D%sample_at(t, x)
@@ -176,6 +205,34 @@ module mesh_spacing
   xi = (exp(t/lambda) - 1.d0)/S
 
   end function sample_exp
+!=======================================================================
+
+
+
+!=======================================================================
+  function sample_spline_X1(eta, eta1, xi1) result(xi)
+  real(real64), intent(in) :: eta, eta1, xi1
+  real(real64)             :: xi
+
+  real(real64), parameter  :: beta = 2.d0 ! dxi/deta (eta1) = 0.5
+
+  real(real64) :: a1, a2, b1, b2, c2
+
+
+  a2 = (1.d0 - xi1) / (1.d0 - eta1)**2 - 1.d0 / beta / (1.d0 - eta1)
+  b2 = 1.d0 / beta - 2.d0 * eta1 * a2
+  c2 = 1.d0 - a2 - b2
+
+  b1 = 2.d0 * xi1 / eta1 - 1.d0 / beta
+  a1 = (xi1 - eta1 * b1) / eta1**2
+
+  if (eta .lt. eta1) then
+     xi = a1 * eta**2.d0  +  b1 * eta
+  else
+     xi = a2 * eta**2.d0  +  b2 * eta  +  c2
+  endif
+
+  end function sample_spline_X1
 !=======================================================================
 
 

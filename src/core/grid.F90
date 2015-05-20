@@ -9,7 +9,7 @@
 !
   ! grid id = IJK
   ! I: select internal coordinate system
-  ! J: unstructured (1), semi-structured (2), structured (3)
+  ! J: unstructured (1), semi-structured (2), structured (3), 2D mesh (4)
   ! K: select fixed or dominant coordinate
 
 ! Heinke Frerichs (hfrerichs at wisc.edu)
@@ -17,8 +17,14 @@
 module grid
   use iso_fortran_env
   use math
+#ifdef MPI
   use parallel
   implicit none
+#else
+  implicit none
+
+  logical, parameter :: firstP = .true.
+#endif
   private
 
 
@@ -31,7 +37,7 @@ module grid
      UNSTRUCTURED    = 1, &
      SEMI_STRUCTURED = 2, &
      STRUCTURED      = 3, &
-     UNSTRUCTURED_MESH = 4
+     MESH_2D         = 4
 
 
   type, public :: t_grid
@@ -40,7 +46,7 @@ module grid
 
      ! internal grid nodes
      real(real64), dimension(:),   allocatable :: x1, x2, x3
-     real(real64), dimension(:,:,:), allocatable :: mesh
+     real(real64), dimension(:,:,:), pointer :: mesh => null()
 
      ! number of nodes
      integer :: n, n1, n2, n3
@@ -83,8 +89,8 @@ module grid
      this%n2     = n2
      this%n      = this%n * n2
      !if (present(mesh) .and. mesh) then
-     if (layout == UNSTRUCTURED_MESH) then
-        if (allocated(this%mesh)) deallocate(this%mesh)
+     if (layout == MESH_2D) then
+        if (associated(this%mesh)) deallocate(this%mesh)
         if (fixed_coord > 0) then
            allocate (this%mesh(0:n1-1, 0:n2-1, 2))
         else
@@ -121,7 +127,7 @@ module grid
   if (allocated(this%x)) deallocate(this%x)
   allocate (this%x(this%n,3))
   this%x = 0.d0
-  this%x(:,fixed_coord) = this%fixed_coord_value
+  if (fixed_coord > 0) this%x(:,fixed_coord) = this%fixed_coord_value
 
 !  select case (layout)
 !  case(UNSTRUCTURED_3D)
@@ -325,7 +331,7 @@ module grid
 
   !.....................................................................
   ! 3.4. unstructured mesh, n1*n2: total number of grid nodes
-  elseif (layout == UNSTRUCTURED_MESH  .and.  fixed_coord > 0) then
+  elseif (layout == MESH_2D  .and.  fixed_coord > 0) then
      call iscrape (iu, n1)
      call iscrape (iu, n2)
      !call this%new(coordinates, layout, fixed_coord, n1, n2, mesh=.true.)
@@ -400,6 +406,7 @@ module grid
 !-----------------------------------------------------------------------
   subroutine broadcast_grid
 
+#ifdef MPI
   call wait_pe()
   call broadcast_inte_s(this%n)
   call broadcast_inte_s(this%coordinates)
@@ -409,6 +416,7 @@ module grid
      allocate (this%x(this%n, 3))
   endif
   call broadcast_real  (this%x, this%n*3)
+#endif
 
   end subroutine broadcast_grid
 !-----------------------------------------------------------------------
@@ -451,7 +459,7 @@ module grid
   integer :: i, j, ig
 
 
-  if (.not.allocated(this%mesh)) then
+  if (.not.associated(this%mesh)) then
      write (6, *) 'error in subroutine t_grid%setup_mesh: mesh undefined!'
      stop
   endif
@@ -535,16 +543,16 @@ module grid
   elseif (layout == UNSTRUCTURED  .and.  this%fixed_coord > 0) then
      write (iu, 2001) this%n
      !write (iu, 2002) this%x(1, this%fixed_coord)
-     write (iu, 2002) fixed_coord_value_out
+     write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
      do i=1,this%n
         write (iu, 3002) this%x(i, this%coord1), this%x(i, this%coord2)
      enddo
 
   ! 4 unstructured meshs, one coordinate fixed
-  elseif (layout == UNSTRUCTURED_MESH  .and.  this%fixed_coord > 0) then
+  elseif (layout == MESH_2D  .and.  this%fixed_coord > 0) then
      write (iu, 2003) this%n1
      write (iu, 2004) this%n2
-     write (iu, 2002) fixed_coord_value_out
+     write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
      do j=0,this%n2-1
      do i=0,this%n1-1
         write (iu, 3002) this%mesh(i,j,1), this%mesh(i,j,2)
@@ -562,7 +570,7 @@ module grid
 
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
- 2002 format ('# fixed coordinate:             ',f10.5)
+ 2002 format ('# ',a12,' =                ',f10.5)
  2003 format ('# grid resolution:   n1      =  ',i10)
  2004 format ('#                    n2      =  ',i10)
  3001 format (1e18.10)
@@ -582,7 +590,7 @@ module grid
   if (allocated(this%x1)) deallocate(this%x1)
   if (allocated(this%x2)) deallocate(this%x2)
   if (allocated(this%x3)) deallocate(this%x3)
-  if (allocated(this%mesh)) deallocate(this%mesh)
+  if (associated(this%mesh)) deallocate(this%mesh)
 
   end subroutine destroy
 !=======================================================================

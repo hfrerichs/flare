@@ -62,8 +62,8 @@ subroutine get_equi_info_2D
   fout = 'equi_info.data'
   r(3) = 0.d0
   open  (iu, file=fout)
-  do i=0,nR-1
   do j=0,nZ-1
+  do i=0,nR-1
      r(1) = Rbox(1) + (Rbox(2)-Rbox(1)) * i / (nR-1)
      r(2) = Zbox(1) + (Zbox(2)-Zbox(1)) * j / (nZ-1)
      Psi = get_Psi(r)

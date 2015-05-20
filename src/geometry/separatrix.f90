@@ -38,12 +38,12 @@ module separatrix
 ! theta_cut   =  poloidal cut-off angle (-> split core separatrix into left and right segments)
 !===============================================================================
 
-  subroutine generate (this, Px, orientation, theta_cut, AltSurf)
+  subroutine generate (this, Px, orientation, theta_cut, C_cutl, C_cutr)
   class(t_separatrix)       :: this
   real(real64), intent(in)  :: Px(2)
   integer,      intent(in)  :: orientation
   real(real64), intent(in)  :: theta_cut
-  type(t_curve), intent(in), optional :: AltSurf
+  type(t_curve), intent(in), optional :: C_cutl, C_cutr
 
   real(real64) :: v1(2), v2(2), x0(2), ds, ds0
 
@@ -57,19 +57,23 @@ module separatrix
 
   ! right core segment
   x0 = Px + v1 + v2
-  call this%M1%generate(x0, -1, ds, AltSurf=AltSurf, theta_cut=theta_cut)
+  call this%M1%generate(x0,  1, ds, theta_cut=theta_cut)
+  this%M1%x(0,:) = Px
 
   ! left core segment
   x0 = Px - v1 + v2
-  call this%M2%generate(x0,  1, ds, AltSurf=AltSurf, theta_cut=theta_cut)
+  call this%M2%generate(x0, -1, ds, theta_cut=theta_cut)
+  this%M2%x(this%M2%n_seg,:) = Px
 
   ! right divertor leg
   x0 = Px + v1 - v2
-  call this%M3%generate(x0,  1, ds, AltSurf=AltSurf)
+  call this%M3%generate(x0, -1, ds, AltSurf=C_cutr)
+  this%M3%x(this%M3%n_seg,:) = Px
 
   ! left divertor leg
   x0 = Px - v1 - v2
-  call this%M4%generate(x0, -1, ds, AltSurf=AltSurf)
+  call this%M4%generate(x0,  1, ds, AltSurf=C_cutl)
+  this%M4%x(0,:) = Px
 
   end subroutine generate
 !=======================================================================

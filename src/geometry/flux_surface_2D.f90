@@ -5,13 +5,20 @@ module flux_surface_2D
   use iso_fortran_env
   use curve2D
   implicit none
-
   private
+
+  integer, parameter, public :: &
+     RIGHT_HANDED =  1, &
+     LEFT_HANDED  = -1
+
   type, extends(t_curve) :: t_flux_surface_2D
      real(real64) :: PsiN
 
      contains
      procedure :: generate => generate_flux_surface_2D
+     procedure :: generate_closed
+     procedure :: generate_open
+     procedure :: setup_sampling
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -29,8 +36,10 @@ module flux_surface_2D
 !
 ! An alternate limiting surface can be given by the optional parameter AltSurf.
 ! An optional cut-off poloidal angle theta_cut can be given.
+! Re-tracing of half-open surfaces is optional
 !=======================================================================
-  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
+  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, &
+      Trace_Method, AltSurf, theta_cut, retrace, sampling)
   use equilibrium
   use ode_solver
   use boundary
@@ -41,18 +50,22 @@ module flux_surface_2D
   integer, intent(in), optional       :: direction, N_steps, Trace_Method
   real(real64), intent(in), optional  :: Trace_Step, theta_cut
   type(t_curve), intent(in), optional :: AltSurf
+  logical, intent(in), optional       :: retrace
+  integer, intent(in), optional       :: sampling
 
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
   real*8  :: yl(3), yc(3), thetal, thetac, dtheta, X(3), ds, r3(3)
   integer :: idir, i, nmax, imethod, id, n(-1:1)
+  logical :: retrace_from_boundary = .false.
 
 
   ! determine trace step
   if (present(Trace_Step)) then
      ds = Trace_Step
   else
-     ds = length_scale() / 200.d0
+     ! TODO: get PsiN from equilibrium and use small trace step close to the separatrix
+     ds = length_scale() / 800.d0
   endif
 
 
@@ -81,6 +94,10 @@ module flux_surface_2D
      endif
      n(-direction) = 0
   endif
+
+
+  ! re-trace from boundary if flux surface is half-open?
+  if (present(retrace)) retrace_from_boundary = retrace
 
 
   ! initialize variables
@@ -146,8 +163,8 @@ module flux_surface_2D
 
 ! save data
   ! either closed flux surface, or flux surface is limited on both side
-  if ((n(-1)  < nmax  .and.  n(1)  < nmax)  .or.  &
-      (n(-1) == nmax  .and.  n(1) == nmax)) then
+  if (((n(-1)  < nmax  .and.  n(1)  < nmax)  .or.  &
+      (n(-1) == nmax  .and.  n(1) == nmax)) .or. .not.retrace_from_boundary) then
      call this%new(n(-1) + n(1))
      this%x = tmp(-n(-1):n(1),:)
      deallocate (tmp)
@@ -160,7 +177,81 @@ module flux_surface_2D
      call this%generate (r3(1:2), direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
   endif
 
+
+  ! setup sampling array
+  if (present(sampling)) then
+     select case(sampling)
+     case(ANGLE)
+        r3 = get_magnetic_axis(0.d0)
+        call this%setup_angular_sampling(r3(1:2))
+     case(DISTANCE)
+        call this%setup_length_sampling()
+     case default
+        write (6, *) 'warning: invalid option for sampling in t_flux_surface%generate!'
+     end select
+  endif
+
   end subroutine generate_flux_surface_2D
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_closed(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, retrace)
+  use equilibrium
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: r(2)
+  integer, intent(in)      :: direction
+
+  integer, intent(in), optional       :: N_steps, Trace_Method
+  real(real64), intent(in), optional  :: Trace_Step
+  type(t_curve), intent(in), optional :: AltSurf
+  logical, intent(in), optional       :: retrace
+
+  real(real64) :: theta_cut, r3(3), x1(2), x2(2), dl, dl0
+
+
+  r3(1:2) = r
+  r3(3)   = 0.d0
+  theta_cut = get_poloidal_angle(r3)
+  call this%generate(r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut, retrace)
+
+  ! retrieve step size
+  x1  = this%x(0,:)
+  x2  = this%x(1,:)
+  dl0 = sqrt(sum((x1-x2)**2))
+
+  ! close flux surface
+  x1 = this%x(0,:)
+  x2 = this%x(this%n_seg,:)
+  dl = sqrt(sum((x1-x2)**2))
+  this%closed          = .true.
+  this%x(this%n_seg,:) = x1
+  if (dl > 1.d-2*dl0) then
+     write (6, *) 'warning: deviation in closed flux surface > 0.01 * Trace_Step!'
+  endif
+
+  end subroutine generate_closed
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_open(this, r, cut_fw, cut_bw, extend_fw, extend_bw)
+  class(t_flux_surface_2D)            :: this
+  real(real64), intent(in)            :: r(2)
+  type(t_curve), intent(in), optional :: cut_fw, cut_bw
+  real(real64), intent(in), optional  :: extend_fw, extend_bw
+
+  type(t_flux_surface_2D) :: f_fw, f_bw
+
+
+  call f_fw%generate(r,  1, AltSurf=cut_fw)
+  call f_bw%generate(r, -1, AltSurf=cut_bw)
+  this%t_curve = connect(f_bw%t_curve, f_fw%t_curve)
+  call this%setup_length_sampling()
+
+  end subroutine generate_open
 !=======================================================================
 
 
@@ -182,7 +273,7 @@ module flux_surface_2D
   y3(3)   = 0.d0
   Bf      = get_Bf_eq2D(y3)
   Bpol    = sqrt(Bf(1)**2 + Bf(2)**2)
-  f       = Bf(1:2)/Bpol / Ip_sign
+  f       = - Bf(1:2)/Bpol / Ip_sign
 
   end subroutine Bpol_sub
 !=======================================================================
@@ -209,6 +300,118 @@ module flux_surface_2D
   N  = int(dl)
 
   end function N_steps_guess
+!===============================================================================
+
+
+
+!===============================================================================
+! Prepare flux surface for sampling using length weights for the parts near the
+! X-points while angular weights are used for the intermediate part.
+! The line X-point (x1,x2) to magnetic axis (xc) is used as reference. The transition
+! between angle-weighted sampling and length-weighted sampling occurs at an
+! angle of (r1,r2) * phi_trunc.
+! dphi0: reference angular weight (pi2 for full loop)
+!===============================================================================
+  subroutine setup_sampling(this, x1, x2, xc, r1, r2, dphi0)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: x1(2), x2(2), xc(2), r1, r2, dphi0
+
+  real(real64), parameter :: phi_trunc = pi2 / 9.d0
+
+  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w
+  integer      :: i, n, iseg1, iseg2
+
+
+  !.....................................................................
+  ! 0. use angular weights in the limit r = 0
+  if (r1.eq.0.0d0 .and. r2.eq.0.d0) then
+     call this%setup_angular_sampling(xc)
+     return
+  endif
+
+  ! otherwise setup sampling by segment lengths
+  n  = this%n_seg
+  call this%setup_length_sampling(raw_weights=.true.)
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 1. find first and last segment number for angle-weighted domain
+
+  phi1  = datan2(x1(2)-xc(2), x1(1)-xc(1))
+  ! find first segment on L
+  do i=1,n
+     ! upper node of segment
+     x     = this%x(i,:)
+     phi   = datan2(x(2)-xc(2), x(1)-xc(1))
+     dphi1 = phi - phi1
+     iseg1 = i
+     if (dabs(dphi1) .gt. phi_trunc*r1) exit
+  enddo
+
+  phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
+  ! find last segment on L
+  do i=n,1,-1
+     ! lower node of segment
+     x     = this%x(i-1,:)
+     phi   = datan2(x(2)-xc(2), x(1)-xc(1))
+     dphi2 = phi - phi2
+     iseg2 = i
+     if (dabs(dphi2) .gt. phi_trunc*r2) exit
+  enddo
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 2. set new (angle) weights in middle part
+  x    = this%x(iseg1,:)
+  phi1 = datan2(x(2)-xc(2), x(1)-xc(1))
+  w    = 0.d0
+  do i=iseg1+1,iseg2-1
+     x    = this%x(i,:)
+     phi2 = datan2(x(2)-xc(2), x(1)-xc(1))
+
+     dphi = phi2 - phi1
+     if (dabs(dphi) .gt. pi) dphi = dphi - dsign(pi2,dphi)
+
+     this%w(i) = dphi / dphi0
+     w         = w + dphi / dphi0
+     phi1      = phi2
+  enddo
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 3. update length weights in first and last parts
+
+  ! first part
+  s     = sum(this%w(1:iseg1))
+  dphi1 = dabs(dphi1) / dphi0
+  this%w(1:iseg1) = this%w(1:iseg1) / s * dphi1
+
+  !  last part
+  s     = sum(this%w(iseg2:n))
+  dphi2 = dabs(dphi2) / dphi0
+  this%w(iseg2:n) = this%w(iseg2:n) / s * dphi2
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 4. check normalization
+  w = sum(this%w)
+  if (w < 1.d0 - 1.d-7) then
+     write (6, *) 'error: unexpected sum of weights!'
+     stop
+  else
+     do i=1,n
+        this%w(i) = this%w(i-1) + this%w(i)
+     enddo
+     this%w = this%w / this%w(n)
+  endif
+  !.....................................................................
+
+  end subroutine setup_sampling
 !===============================================================================
 
 

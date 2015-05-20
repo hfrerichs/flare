@@ -27,9 +27,14 @@ module boundary
 
   character*120 :: boundary_file(N_BNDRY_MAX) = ''
   integer       :: boundary_type(N_BNDRY_MAX) = 0
+
+  ! type 1 and 4 surfaces can be used to model a limiter. Then boundary_side = -1 defines
+  ! the outside of this volume (MUST BE A CLOSED CONTOUR IN R-Z PLANE) as inside the
+  ! plasma domain
+  integer       :: boundary_side(N_BNDRY_MAX) = 1
   integer       :: n_boundary = 0
 
-  namelist /Boundary_Input/ n_boundary, boundary_file, boundary_type
+  namelist /Boundary_Input/ n_boundary, boundary_file, boundary_type, boundary_side
 
   type(t_curve), dimension(:), allocatable :: S_axi
   type(t_quad_ele), dimension(:), allocatable :: S_quad
@@ -328,15 +333,18 @@ module boundary
 ! check intersection (X) of trajectory r1->r2 with boundaries
 !=======================================================================
 ! optional output:
-!    id: boundary number
-!    ielem: element number on boundary
+!    X:      coordinates of intersection with boundary
+!    id:     boundary number
+!    ielem:  element number on boundary
+!    tau:    relative coordinate along trajectory r1->r2
 !=======================================================================
-  function intersect_boundary(r1, r2, X, id, ielem) result(l)
+  function intersect_boundary(r1, r2, X, id, ielem, tau) result(l)
   use math
   real*8, intent(in)   :: r1(3), r2(3)
   real*8, intent(out)  :: X(3)
   integer, intent(out) :: id
   integer, intent(out), optional :: ielem
+  real(real64), intent(out), optional :: tau
   logical :: l
 
   real*8  :: phih, rz(2), t, x1(3), x2(3), lambda_min
@@ -356,6 +364,7 @@ module boundary
         X(3)   = r1(3) + t*(r2(3)-r1(3))
         id     = i
         if (present(ielem)) ielem  = ish
+        if (present(tau))   tau    = t
         return
      endif
   enddo
@@ -370,6 +379,7 @@ module boundary
         call coord_trans (x1, CARTESIAN, X, CYLINDRICAL)
         l  = .true.
         id = n_axi + i
+        if (present(tau))   tau    = lambda_min
         return
      endif
   enddo
@@ -377,7 +387,7 @@ module boundary
 
   ! check intersection with mesh of quadrilateral elements
   do i=1,n_quad
-     if (S_quad(i)%intersect(r1, r2, X, ish)) then
+     if (S_quad(i)%intersect(r1, r2, X, ish, tau)) then
         l  = .true.
         id = n_axi + n_block + i
         if (present(ielem)) ielem  = ish

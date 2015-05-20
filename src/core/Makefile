@@ -2,6 +2,8 @@ include ../../include.mk
 
 
 OBJECTS =  \
+               system.o\
+               string.o\
                quicksort.o\
                math.o\
                grid.o\
@@ -14,8 +16,7 @@ OBJECTS =  \
                interpolate3D.o\
                ode_solver.o\
                quad_ele.o\
-               usr_grid.o\
-               string.o
+               usr_grid.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR)
 
