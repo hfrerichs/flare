@@ -213,9 +213,8 @@ module fieldline
      call this%trace_1step()
 
      ! check intersection with boundary
-     if (stop_at_boundary  .and.  this%intersect_boundary()) then
+     if (stop_at_boundary  .and.  this%intersect_boundary(yout)) then
         ierr = 1
-        yout = this%rc
         return
      endif
 

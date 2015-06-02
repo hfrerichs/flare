@@ -40,6 +40,7 @@ subroutine homoclinic_tangle
   
 
   call D%new(G%nodes() * N_mult, 3)
+  open  (iu, file='strike_point_'//trim(Output_File)//'.dat')
   grid_loop: do i=1,G%nodes()
      y = G%node(i)
      write (6, *) y(3) / pi * 180.d0
@@ -56,13 +57,27 @@ subroutine homoclinic_tangle
      ! trace to symmetry planes
      Dphi = pi2 / N_sym
      do j=1,N_mult-1
-        call F%trace_Dphi(Dphi, .false., yh, ierr)
+        call F%trace_Dphi(Dphi, .true., yh, ierr)
+        if (ierr > 0) then
+           write (iu, *) yh
+           exit
+        endif
 
         ind = i + j*G%nodes()
         D%x(ind,:) = yh
      enddo
   enddo grid_loop
-  call D%plot(filename=Output_File)
+  close (iu)
 
-  return
+
+  ! write RZ-cut of manifold
+  open  (iu, file='manifold_'//trim(Output_File)//'.dat')
+  do j=0,N_mult-1
+     do i=1,G%nodes()
+        ind = i + j*G%nodes()
+        if (D%x(ind,1) > 0.d0) write (iu, *) D%x(ind,1:2)
+     enddo
+  enddo
+  close (iu)
+
 end subroutine homoclinic_tangle
