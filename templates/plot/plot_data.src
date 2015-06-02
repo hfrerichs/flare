@@ -489,6 +489,7 @@ pro plot_data, grid_file, data_file, idata, zrange=zrange, ps_plot=ps_plot, poin
 	if (keyword_set(clevels))	then begin
 		contour, z_data, x_data, y_data, irregular=irr, xstyle=5, ystyle=5, $
 			 xmargin=[XL_Margin,XR_Margin], levels=clevels, /noerase, color=0, c_thick=2.0, $
+		 xrange=xrange, yrange=yrange, $
 			 charsize=char_size, charthick=char_thick, c_labels=c_labels
 ;		contour, z_data, x_data, y_data, irregular=irr, xstyle=5, ystyle=5, $
 ;			 xmargin=[XL_Margin,XR_Margin], levels=clevels, /noerase, color=255, c_thick=2.0, $
