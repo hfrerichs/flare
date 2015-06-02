@@ -191,6 +191,40 @@ module emc3_grid
 
 
 !=======================================================================
+! WRITE_EMC3_GRID (write 3D field aligned grid to file "grid3D.dat")
+!=======================================================================
+  subroutine write_emc3_grid
+  use math
+  implicit none
+
+  integer, parameter :: iu = 24
+
+  integer :: iz, nt, i, j, k, l
+
+
+  ! write data to file
+  open  (iu, file='grid3D.dat')
+  do iz=0,NZONET-1
+     nt = SRF_TORO(iz)
+     write (iu, *) SRF_RADI(iz), SRF_POLO(iz), SRF_TORO(iz)
+     do k=0,nt-1
+        ! write toroidal position of slices in deg
+        write (iu, *) PHI_PLANE(k+PHI_PL_OS(iz)) / pi * 180.d0
+
+        i = k*SRF_POLO(iz)*SRF_RADI(iz) + GRID_P_OS(iz)
+        j = i + SRF_POLO(iz)*SRF_RADI(iz) - 1
+        write (iu, '(6f12.6)') (RG(l), l=i,j)
+        write (iu, '(6f12.6)') (ZG(l), l=i,j)
+     enddo
+  enddo
+  close (iu)
+
+  end subroutine write_emc3_grid
+!=======================================================================
+
+
+
+!=======================================================================
 #ifdef FLARE
   function export_flux_tube(iz, ir, ip) result(flux_tube)
   use flux_tube
