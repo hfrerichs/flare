@@ -288,15 +288,15 @@ module flux_surface_2D
 !===============================================================================
   function N_steps_guess (Trace_Step) result(N)
   use equilibrium
+  use math
   real*8, intent(in) :: Trace_Step
   integer :: N
 
-  real*8  :: dl, Rbox(2), Zbox(2)
+  real*8  :: dl, r3(3)
 
 
-  call get_domain (Rbox, Zbox)
-  dl = 2.0d0 * ((Zbox(2)-Zbox(1)) + (Rbox(2)-Rbox(1)))
-  dl = dl / dabs(Trace_Step)
+  r3 = get_magnetic_axis(0.d0)
+  dl = pi2 * r3(1) / dabs(Trace_Step)
   N  = int(dl)
 
   end function N_steps_guess
