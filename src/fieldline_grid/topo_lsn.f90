@@ -141,7 +141,7 @@ module topo_lsn
   if (guiding_surface .ne. '') then
      write (6, 1000)
      call C_guide%load(guiding_surface)
-  else if (n_axi > 1) then
+  else if (n_axi > 0) then
      write (6, 1001)
      call C_guide%copy(S_axi(1))
   else
@@ -168,10 +168,14 @@ module topo_lsn
   tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
 
   ! 2.b setup X-point (Px, theta0) --------------------------------------
-  call get_domain(Rbox, Zbox)
-  Px0(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
-  Px0(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
-  Px     = find_X(Px0)
+  if (Xp(1)%R_estimate > 0.d0) then
+     Px = Xp(1)%X
+  else
+     call get_domain(Rbox, Zbox)
+     Px0(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
+     Px0(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
+     Px     = find_X(Px0)
+  endif
   write (6, 2000) Px
 
   theta0 = atan2(Px(2) - Pmag(2), Px(1) - Pmag(1))
@@ -249,10 +253,13 @@ module topo_lsn
 
   !=====================================================================
   subroutine make_base_grids_lsn
+  use run_control, only: Debug
   use math
   use inner_boundary
   use flux_surface_2D
   use mesh_spacing
+
+  integer, parameter      :: iu = 72
 
   type(t_flux_surface_2D) :: FS, FSL, FSR, C0
   type(t_curve)           :: CL, CR
@@ -271,6 +278,9 @@ module topo_lsn
 
 
   write (6, 1000)
+  if (Debug) then
+     open  (iu, file='base_grid_debug.txt')
+  endif
   !.....................................................................
   ! 0. initialize geometry
   call setup_domain()
@@ -376,6 +386,7 @@ module topo_lsn
      call write_base_grid(G_PFR(iblock), iz2)
      write (6, 1002) iblock
   enddo
+  if (Debug) close (iu)
 
  1000 format(//3x,'- Setup for base grids:')
  1001 format(//1x,'Start generation of base grids for block ',i0,' ',32('.'))
@@ -435,6 +446,7 @@ module topo_lsn
      eta = 1.d0 - Zone(iz)%Sr%node(i-1,nr0-1)
 
      x = Px + eta * d_HPR
+     if (Debug) write (iu, *) x
      call FS%generate_closed(x, RIGHT_HANDED)
      call FS%setup_angular_sampling(Pmag)
 
