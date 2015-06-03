@@ -442,6 +442,50 @@ module equilibrium
 
   end function get_ePsi
 !=======================================================================
+  function get_H(x) result(H)
+  real(real64), intent(in) :: x(2)
+  real(real64)             :: H(2,2)
+
+
+  H(1,1) = get_DPsi(x, 2, 0)
+  H(1,2) = get_DPsi(x, 1, 1)
+  H(2,2) = get_DPsi(x, 0, 2)
+  H(2,1) = H(1,2)
+  if (H(1,1) == 0  .and.  H(1,2) == 0  .and.  H(2,2) == 0) then
+     H = approximate_H(x)
+  endif
+
+  return
+  contains
+!.......................................................................
+  function approximate_H(x) result(H)
+  real(real64), intent(in) :: x(2)
+  real(real64) :: H(2,2)
+
+  real(real64), parameter :: gamma_1 = 1.d-1
+  real(real64) :: xi(2), dxi(2), dfdx, dfdy, dfdxi(2), dfdyi(2), tmp, dxy2
+
+  integer :: i, j
+
+
+  do j=1,2
+     do i=1,2
+        xi       = x
+        xi(3-j)  = x(3-j) + (-1.d0)**i * gamma_1
+
+        dfdxi(i) = get_DPsi(xi, 1, 0)
+        dfdyi(i) = get_DPsi(xi, 0, 1)
+     enddo
+     H(1,j) = (dfdxi(2) - dfdxi(1)) / 2.d0 / gamma_1
+     H(2,j) = (dfdyi(2) - dfdyi(1)) / 2.d0 / gamma_1
+  enddo
+  H(1,2) = 0.5d0 * (H(1,2) + H(2,1))
+  H(2,1) = H(1,2)
+
+  end function approximate_H
+!.......................................................................
+  end function get_H
+!=======================================================================
 
 
 
@@ -632,13 +676,8 @@ module equilibrium
      H(2,1) = H(1,2)
      Hdisc  = H(1,1) * H(2,2) - H(1,2)*H(2,1)
      if (Hdisc.eq.0) then
-        if (ipanic == 0) then
-           return
-        else
-           write (6, *) 'zero discriminant of Hessian matrix'
-           write (6, *) 'in subroutine find_X'
-           stop
-        endif
+        X = find_X_BFGS(xn, Hout)
+        return
      endif
 
      ! calculate increment
@@ -657,6 +696,73 @@ module equilibrium
   X = xn
   if (present(Hout)) Hout = H
   end function find_X
+!=======================================================================
+  function find_X_BFGS(X0, Hout) result(X)
+  real(real64), intent(in)            :: X0(2)
+  real(real64)                        :: X(2)
+  real(real64), intent(out), optional :: Hout(2,2)
+
+  real(real64), parameter :: &
+      gamma_1 = 1.d0, &
+      delta   = 1.d-13
+  integer, parameter :: &
+      nmax = 1000000
+
+  real(real64) :: dxmod, P(2), S(2), B(2,2), Bdisc, dfdx, dfdy, dfdx1, dfdy1
+  real(real64) :: DB(2,2), Y(2), ys, sBs
+  integer :: i, j, k
+
+
+  open  (90, file='X_BFGS.tmp')
+  X = X0
+  B = get_H(X) ! this should call approximate_H to get an initial approximate
+  Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
+  if (Bdisc == 0.d0) then
+     write (6, *) 'error: initial estimate of Hessian matrix has determinan = 0!'
+     stop
+  endif
+  ! calculate the gradient
+  dfdx = get_DPsi(X, 1, 0)
+  dfdy = get_DPsi(X, 0, 1)
+  write (90, *) 0, X, dfdx, dfdy
+
+
+  approximation_loop: do k=1,nmax
+     ! 1. obtain direction
+     P(1)  =   B(2,2)*dfdx - B(1,2)*dfdy
+     P(2)  = - B(2,1)*dfdx + B(1,1)*dfdy
+
+     ! 2. use constant gamma_1
+
+     ! 3. calculate increment
+     S     = gamma_1 * P
+     X     = X - S
+     dxmod = sqrt(sum(S**2))
+     write (90, *) k, X, S, dxmod
+     if (dxmod < delta) exit
+
+     ! 4. calculate local gradient
+     dfdx1 = get_DPsi(X, 1, 0)
+     dfdy1 = get_DPsi(X, 0, 1)
+     Y(1)  = dfdx1 - dfdx
+     Y(2)  = dfdy1 - dfdy
+     dfdx  = dfdx1
+     dfdy  = dfdy1
+
+     ! 5. update Hessian approximation
+     ys = sum(Y*S)
+     sBs = B(1,1)*S(1)**2 + (B(1,2)+B(2,1))*S(1)*S(2) + B(2,2)*S(2)**2
+     do i=1,2
+     do j=1,2
+        DB(i,j) = Y(i)*Y(j) / ys - (B(i,1)*S(1)+B(i,2)*S(2)) * (S(1)*B(1,j)+S(2)*B(2,j)) / sBs
+     enddo
+     enddo
+     B = B + DB
+     if (present(Hout)) Hout = B
+  enddo approximation_loop
+  close (90)
+
+  end function find_X_BFGS
 !=======================================================================
   function find_lX() result(X)
   real(real64) :: X(2)
