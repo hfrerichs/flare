@@ -8,6 +8,15 @@ module equilibrium
   implicit none
 
 
+  integer, parameter :: nX_max = 10
+
+
+  type t_Xpoint
+     real(real64) :: R_estimate = 0.d0, Z_estimate = 0.d0
+     real(real64) :: X(2), Psi, H(2,2)
+  end type t_Xpoint
+
+
 !...............................................................................
 ! user defined parameters (to be set via configuration file)                   .
 
@@ -17,13 +26,16 @@ module equilibrium
      Data_Format      = ''
   character(len=256) :: Magnetic_Axis_File = ''
 
-  real*8 :: &
+  real(real64) :: &
      R_axis       = 0.d0, &        ! user defined position of magnetic axis
      Z_axis       = 0.d0, &
      R_sepx       = 0.d0, &        ! user defined position of separatrix
      Z_sepx       = 0.d0, &
      Bt, R0, &   ! reference toroidal magnetic field [T] and radial position [cm]
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
+
+
+  type(t_Xpoint) :: Xp(nX_max)
 
 
   logical :: &
@@ -35,7 +47,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, &
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, &
      Magnetic_Axis_File
 !...............................................................................
 
@@ -141,7 +153,8 @@ module equilibrium
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
-  real(real64)         :: r(3)
+  integer              :: ix
+  real(real64)         :: r(3), x0(2)
 
 
 ! 1. read user configuration
@@ -182,7 +195,23 @@ module equilibrium
   endif
 
 
-! 4. set dependent variables ...........................................
+! 4. set up X-points ...................................................
+  write (6, 5000)
+  do ix=1,nx_max
+     if (Xp(ix)%R_estimate <= 0.d0) cycle
+
+     x0(1)      = Xp(ix)%R_estimate
+     x0(2)      = Xp(ix)%Z_estimate
+     Xp(ix)%X   = find_x(x0, Hout=Xp(ix)%H)
+
+     r(1:2)     = Xp(ix)%X; r(3) = 0.d0
+     Xp(ix)%Psi = get_Psi(r)
+
+     write (6, 5001) Xp(ix)%X, Xp(ix)%Psi
+  enddo
+
+
+! 5. set dependent variables ...........................................
   ! pol. magn. flux at separatrix
   if (R_sepx > 0.d0) then
      r(1) = R_sepx
@@ -195,6 +224,8 @@ module equilibrium
   return
  1000 iconfig = 0
  1001 format ('   - Equilibrium configuration:')
+ 5000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
+ 5001 format (8x,2f12.4,2x,e12.4)
   end subroutine load_equilibrium_config
 !=======================================================================
 
@@ -505,10 +536,13 @@ module equilibrium
 ! Return boundaries [cm] of equilibrium domain
 !=======================================================================
   subroutine default_get_domain (Rbox, Zbox)
-  real*8, intent(out) :: Rbox(2), Zbox(2)
+  real(real64), intent(out) :: Rbox(2), Zbox(2)
 
-  Rbox = 0.d0
-  Zbox = 0.d0
+
+  Rbox(1) = 0.d0
+  Rbox(2) = huge(0.d0)
+  Zbox(1) = -huge(0.d0)/2.d0
+  Zbox(2) = huge(0.d0)
   if (ipanic > 0) then
      write (6, *) 'error: equilibrium domain not defined!'
      stop
@@ -547,13 +581,14 @@ module equilibrium
 ! This subroutine applies the Newton-method for the iterative approximation of
 ! a critical point
 !=======================================================================
-  function find_X (X0, verbose) result(X)
+  function find_X (X0, verbose, Hout) result(X)
   use bspline
   implicit none
 
-  real(real64), intent(in)      :: X0(2)
-  real(real64)                  :: X(2)
-  logical, intent(in), optional :: verbose
+  real(real64), intent(in)            :: X0(2)
+  real(real64)                        :: X(2)
+  logical,      intent(in),  optional :: verbose
+  real(real64), intent(out), optional :: Hout(2,2)
 
 
   real(real64), parameter :: &
@@ -620,7 +655,7 @@ module equilibrium
   enddo approximation_loop
 
   X = xn
-  return
+  if (present(Hout)) Hout = H
   end function find_X
 !=======================================================================
   function find_lX() result(X)
