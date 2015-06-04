@@ -29,6 +29,9 @@ module equilibrium
   type t_Xpoint
      real(real64) :: R_estimate = 0.d0, Z_estimate = 0.d0
      real(real64) :: X(2), Psi, H(2,2)
+
+     contains
+     procedure analysis
   end type t_Xpoint
 
 
@@ -165,6 +168,7 @@ module equilibrium
 
   integer              :: ix
   real(real64)         :: r(3), x0(2)
+  real(real64)         :: Rbox(2), Zbox(2)
 
 
 ! 1. read user configuration
@@ -224,7 +228,15 @@ module equilibrium
 ! 4. set up X-points ...................................................
   write (6, 5000)
   do ix=1,nx_max
-     if (Xp(ix)%R_estimate <= 0.d0) cycle
+     if (Xp(ix)%R_estimate <= 0.d0) then
+        if (ix == 1) then
+           call get_domain (Rbox, Zbox)
+           Xp(ix)%R_estimate = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
+           Xp(ix)%Z_estimate = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
+        else
+           cycle
+        endif
+     endif
 
      x0(1)      = Xp(ix)%R_estimate
      x0(2)      = Xp(ix)%Z_estimate
@@ -832,6 +844,38 @@ module equilibrium
 
 
 
+!=======================================================================
+  subroutine analysis(this, lambda1, lambda2, v1, v2)
+  use math
+  class(t_Xpoint) :: this
+  real(real64), intent(out) :: lambda1, lambda2, v1(2), v2(2)
+
+  real(real64) :: A(2,2), P, Q, phi(2)
+
+
+  A(1,1) = -this%H(1,2); A(2,1) = this%H(1,1)
+  A(1,2) = -this%H(2,2); A(2,2) = this%H(2,1)
+
+  P = 0.5d0 * (A(1,1) + A(2,2))
+  Q = P**2 - (A(1,1)*A(2,2) - A(1,2)*A(2,1))
+  if (Q < 0.d0) then
+     write (6, *) 'error: no real eigenvalues!'
+     write (6, *) 'failed to analyze X-point!'
+     return
+  endif
+  lambda1 = P + sqrt(Q)
+  lambda2 = P - sqrt(Q)
+
+  phi(1) = atan2(-A(1,1) + lambda1, A(1,2)); if (phi(1) < 0.d0) phi(1) = phi(1) + pi
+  phi(2) = atan2(-A(1,1) + lambda2, A(1,2)); if (phi(2) < 0.d0) phi(2) = phi(2) + pi
+
+  v1(1) = cos(phi(1))
+  v1(2) = sin(phi(1))
+  v2(1) = cos(phi(2))
+  v2(2) = sin(phi(2))
+
+  end subroutine analysis
+!=======================================================================
 
 
 
