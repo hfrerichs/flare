@@ -492,6 +492,7 @@ module grid
 
   integer, parameter :: iu = 32
 
+  real(real64), dimension(:,:), allocatable :: xout
   real(real64) :: phi, fixed_coord_value_out
   integer :: grid_id, i, j, layout, coord1, coord2
 
@@ -507,9 +508,6 @@ module grid
      write (iu, 1000) grid_id, 'Cartesian coordinates: x[cm], y[cm], z[cm]'
   case(CYLINDRICAL)
      write (iu, 1000) grid_id, 'cylindrical coordinates: R[cm], Z[cm], Phi[deg]'
-
-     ! rad -> deg
-     this%x(:,3) = this%x(:,3) * 180.d0 / pi
   case(LOCAL)
      if (present(header)) then
         write (iu, 1000) grid_id, trim(header)
@@ -518,15 +516,18 @@ module grid
      endif
   end select
  1000 format ('# grid_id = ', i4, 4x, '(', a, ')')
-  fixed_coord_value_out = this%fixed_coord_value
 
 
 ! convert output units
+  fixed_coord_value_out = this%fixed_coord_value
+  allocate (xout(this%n, 3))
+  xout = this%x
   if (this%coordinates == CYLINDRICAL) then
+     ! rad -> deg
      if (this%fixed_coord == 3) then
         fixed_coord_value_out = fixed_coord_value_out / pi * 180.d0 
      endif
-     ! TODO: convert x1, x2 if fixed_coord = 1,2
+     xout(:,3) = xout(:,3) * 180.d0 / pi
   endif
 
 
@@ -536,16 +537,26 @@ module grid
   if (layout == UNSTRUCTURED  .and.  this%fixed_coord == 0) then
      write (iu, 2001) this%n
      do i=1,this%n
-        write (iu, 3003) this%x(i,:)
+        write (iu, 3003) xout(i,:)
      enddo
 
   ! 1.b unstructured 2D grids, one coordinate fixed
   elseif (layout == UNSTRUCTURED  .and.  this%fixed_coord > 0) then
      write (iu, 2001) this%n
-     !write (iu, 2002) this%x(1, this%fixed_coord)
      write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
      do i=1,this%n
-        write (iu, 3002) this%x(i, this%coord1), this%x(i, this%coord2)
+        write (iu, 3002) xout(i, this%coord1), xout(i, this%coord2)
+     enddo
+
+  ! 2. semi-structured grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
+  elseif (layout == SEMI_STRUCTURED) then
+     write (iu, 2003) this%n1
+     write (iu, 2004) this%n2
+     do i=1,this%n1
+        write (iu, 3002) xout(i, this%coord1), xout(i, this%coord2)
+     enddo
+     do j=1,this%n2
+        write (iu, 3002) xout((j-1)*this%n1+1, this%fixed_coord)
      enddo
 
   ! 4 unstructured meshs, one coordinate fixed
@@ -567,6 +578,7 @@ module grid
 
 ! close output file ............................................
   close (iu)
+  deallocate (xout)
 
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
