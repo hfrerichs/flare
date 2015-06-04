@@ -4,11 +4,11 @@ include ../../include.mk
 OBJECTS =  \
                magnetic_axis.o\
                reconstruct.o\
+               m3dc1.o\
                geqdsk.o\
                divamhd.o\
                equilibrium.o\
                polygones.o\
-               m3dc1.o\
                splineB.o\
                interpolateB.o\
                bfield.o

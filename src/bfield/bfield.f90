@@ -49,6 +49,7 @@ module bfield
      write (6,1000)
      write (6, *) 'Magnetic field input: '
      call load_reconstruct_config (iu, iconfig(BF_RECONSTRUCT ))
+     call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
      call load_equilibrium_config (iu, iconfig(BF_EQ2D        ))
      ! supplemental equilibrium information
      ! direction of toroidal magnetic field and plasma current
@@ -75,7 +76,6 @@ module bfield
 
 
      call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
-     call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
      call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
      call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
      close (iu)

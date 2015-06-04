@@ -8,6 +8,21 @@ module equilibrium
   implicit none
 
 
+  character(len=*), parameter :: &
+     S_GEQDSK     = 'geqdsk', &
+     S_DIVAMHD    = 'divamhd', &
+     S_JETEQ      = 'jeteq', &
+     S_M3DC1      = 'm3dc1'
+
+  integer, parameter :: &
+     EQ_GUESS     = -1, &
+     EQ_UNDEFINED = 0, &
+     EQ_GEQDSK    = 1, &
+     EQ_DIVAMHD   = 2, &
+     EQ_JET       = 3, &
+     EQ_M3DC1     = 4
+
+
   integer, parameter :: nX_max = 10
 
 
@@ -74,7 +89,7 @@ module equilibrium
 
 
   ! equilibrium type
-  integer :: i_equi = -1
+  integer :: i_equi = EQ_UNDEFINED
 
 
   ! Position of magnetic axis, poloidal magnetic flux at separatrix and magnetic axis
@@ -133,11 +148,6 @@ module equilibrium
 !
 
 
-  integer, parameter :: &
-     EQ_GEQDSK  = 1, &
-     EQ_DIVAMHD = 2, &
-     EQ_JET     = 3
-
   integer :: ipanic = 0
 
   contains
@@ -164,13 +174,29 @@ module equilibrium
   write (6, *)
   write (6, 1001)
 
+! 1.b find equilibrium type
+  select case(Data_Format)
+  case (S_GEQDSK)
+     i_equi = EQ_GEQDSK
+  case (S_DIVAMHD)
+     i_equi = EQ_DIVAMHD
+  case (S_M3DC1)
+     i_equi = EQ_M3DC1
+  case ('')
+     i_equi = EQ_GUESS
+  case default
+     write (6, *) 'error: ', Data_Format, ' is not a valid equilibrium type!'
+     stop
+  end select
+
 
 ! set default values
   export_boundary => null()
 
 
 ! 2. load equilibrium data (if provided) ...............................
-  if (Data_File .ne. '') call load_equilibrium_data
+  if (Data_File .ne. '') call load_equilibrium_data()
+  call setup_equilibrium()
 
 
 ! 3. setup user defined magnetic axis (if provided) ....................
@@ -244,21 +270,8 @@ module equilibrium
 
   Data_File = trim(Prefix)//Data_File
 
-! determine equilibrium type ...........................................
-  ! check if Data_Format has been set
-  if (Data_Format .ne. '') then
-     select case(Data_Format)
-     case ('geqdsk')
-        i_equi = EQ_GEQDSK
-     case ('divamhd')
-        i_equi = EQ_DIVAMHD
-     case default
-        write (6, *) 'error: ', Data_Format, ' is not a valid equilibrium type!'
-        stop
-     end select
-
-  ! otherwise guess equilibrium type
-  else
+! determine equilibrium type (if not provided) .........................
+  if (i_equi == EQ_GUESS) then
      open  (iu_scan, file=Data_file)
      read  (iu_scan, '(a80)') s
      if (s(3:5) == 'TEQ'  .or.  s(3:6) == 'EFIT') then
@@ -270,7 +283,7 @@ module equilibrium
         if (s(4:9) == 'File: ') then
            i_equi = EQ_DIVAMHD
         else
-           i_equi = -1
+           i_equi = EQ_UNDEFINED
         endif
      endif
      close (iu_scan)
@@ -285,11 +298,14 @@ module equilibrium
      call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
   case (EQ_DIVAMHD)
      call divamhd_load (Data_File, Ip, Bt, R0)
+
+  case (EQ_M3DC1)
+     ! nothing to be done here
+
   case default
      write (6, *) 'error: cannot determine equilibrium type!'
      stop
   end select
-  call setup_equilibrium()
 
   end subroutine load_equilibrium_data
 !=======================================================================
@@ -302,6 +318,7 @@ module equilibrium
   subroutine setup_equilibrium()
   use geqdsk
   use divamhd
+  use m3dc1
 
   ! select case equilibrium
   select case (i_equi)
@@ -319,6 +336,9 @@ module equilibrium
      get_DPsi                      => divamhd_get_DPsi
      get_domain                    => divamhd_get_domain
      broadcast_equilibrium         => divamhd_broadcast
+  case (EQ_M3DC1)
+     get_DPsi                      => m3dc1_get_DPsi
+     get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
   end select
 
   end subroutine setup_equilibrium
@@ -451,7 +471,7 @@ module equilibrium
   H(1,2) = get_DPsi(x, 1, 1)
   H(2,2) = get_DPsi(x, 0, 2)
   H(2,1) = H(1,2)
-  if (H(1,1) == 0  .and.  H(1,2) == 0  .and.  H(2,2) == 0) then
+  if (H(1,1) == 0.d0  .and.  H(1,2) == 0.d0  .and.  H(2,2) == 0.d0) then
      H = approximate_H(x)
   endif
 
@@ -463,7 +483,7 @@ module equilibrium
   real(real64) :: H(2,2)
 
   real(real64), parameter :: gamma_1 = 1.d-1
-  real(real64) :: xi(2), dxi(2), dfdx, dfdy, dfdxi(2), dfdyi(2), tmp, dxy2
+  real(real64) :: xi(2), dfdxi(2), dfdyi(2)
 
   integer :: i, j
 
@@ -718,7 +738,7 @@ module equilibrium
   B = get_H(X) ! this should call approximate_H to get an initial approximate
   Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
   if (Bdisc == 0.d0) then
-     write (6, *) 'error: initial estimate of Hessian matrix has determinan = 0!'
+     write (6, *) 'error: initial estimate of Hessian matrix has determinant = 0!'
      stop
   endif
   ! calculate the gradient
