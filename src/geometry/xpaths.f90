@@ -43,22 +43,23 @@ module xpaths
 !             = 3: descent PsiN to core
 !             = 4: descent PsiN to PFR
 !=======================================================================
-  subroutine generate(this, Px, orientation, limit_type, limit_val)
+  subroutine generate(this, iPx, orientation, limit_type, limit_val)
   use ode_solver
   use equilibrium
   use run_control, only: Trace_Method, N_steps
   class(t_xpath)           :: this
-  real(real64), intent(in) :: Px(2)
-  integer,      intent(in) :: orientation, limit_type
+  integer,      intent(in) :: iPx, orientation, limit_type
   real(real64), intent(in) :: limit_val
 
   type(t_ODE)  :: Path
-  real(real64) :: v1(2), v2(2), x0(2), y(3), ds, dl, t, Psi0, PsiN, L
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), y(3), ds, dl, t, Psi0, PsiN, L
   integer      :: n_seg, is
 
 
   ! 0. initialize
-  call H_eigenvectors(Px, v1, v2)
+  Px = Xp(iPx)%X
+  H  = Xp(iPx)%H
+  call H_eigenvectors(H, v1, v2)
   ! offset from X-point for tracing
   dl    = Px(1) / 1.d2
   ! step size

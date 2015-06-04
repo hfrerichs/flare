@@ -9,8 +9,10 @@ subroutine generate_separatrix
   use parallel
   implicit none
 
+  character(len=1)   :: c
   type(t_separatrix) :: S
   real(real64) :: X(2)
+  integer      :: i
 
 
   if (firstP) then
@@ -21,20 +23,13 @@ subroutine generate_separatrix
   endif
 
 
-  ! find X-point
-  X = find_lX()
-  write (6, 1000) X
-  ! generate separatrix
-  call S%generate(X, 1, 2.d0)
-  call S%plot('separatrix_lX', parts=.true.)
+  do i=1,nx_max
+     if (Xp(i)%R_estimate <= 0.d0) cycle
 
+     write (6, *) i, Xp(i)%X
+     write (c, '(i0)') i
+     call S%generate(i, 1, 2.d0)
+     call S%plot('separatrix_X'//trim(c), parts=.true.)
+  enddo
 
-  ! now find upper X-point
-  X = find_uX()
-  write (6, 1000) X
-  ! generate separatrix
-  call S%generate(X, -1, -2.d0)
-  call S%plot('separatrix_uX', parts=.true.)
-
- 1000 format('Found X-point at: (',f8.3,', ',f8.3,')')
 end subroutine generate_separatrix

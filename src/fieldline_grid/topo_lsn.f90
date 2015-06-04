@@ -182,7 +182,7 @@ module topo_lsn
   write (6, 2001) theta0/pi*180.d0
 
   ! 2.c separatrix (S, S0) ---------------------------------------------
-  call S%generate(Px, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
+  call S%generate(1, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
   call S%plot('S', parts=.true.)
 
   ! connect core segments of separatrix

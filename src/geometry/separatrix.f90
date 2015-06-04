@@ -32,23 +32,25 @@ module separatrix
 ! and left central (i.e. core) parts, respectively, while sections 3 and 4 will
 ! be the right and left divertor parts.
 ! Required input:
-! Px          =  Coordinates of X-point (R[cm], Z[cm])
+! iPx         =  Number of X-point (must have been set up in module equilibrium)
+!                -> Xp(iPx)%X: Coordinates of X-point (R[cm], Z[cm])
 ! orientation =  1: lower null
 !             = -1: upper null
 ! theta_cut   =  poloidal cut-off angle (-> split core separatrix into left and right segments)
 !===============================================================================
 
-  subroutine generate (this, Px, orientation, theta_cut, C_cutl, C_cutr)
-  class(t_separatrix)       :: this
-  real(real64), intent(in)  :: Px(2)
-  integer,      intent(in)  :: orientation
-  real(real64), intent(in)  :: theta_cut
+  subroutine generate (this, iPx, orientation, theta_cut, C_cutl, C_cutr)
+  class(t_separatrix)                 :: this
+  integer,       intent(in)           :: iPx, orientation
+  real(real64),  intent(in)           :: theta_cut
   type(t_curve), intent(in), optional :: C_cutl, C_cutr
 
-  real(real64) :: v1(2), v2(2), x0(2), ds, ds0
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0
 
 
-  call H_eigenvectors(Px, v1, v2)
+  Px = Xp(iPx)%X ! Coordinates of X-point (R[cm], Z[cm])
+  H  = Xp(iPx)%H ! Hessian matrix at X-point
+  call H_eigenvectors(H, v1, v2)
   ds0     = 0.1d0
   v1      = ds0*v1; v2 = ds0*v2
   this%Px = Px
@@ -83,19 +85,16 @@ module separatrix
 !=======================================================================
 ! calculate eigenvectors v1,v2 of Hessian matrix of pol. magn. flux at x
 !=======================================================================
-  subroutine H_eigenvectors (x, v1, v2)
-  real(real64), intent(in)  :: x(2)
+  subroutine H_eigenvectors (H, v1, v2)
+  real(real64), intent(in)  :: H(2,2)
   real(real64), intent(out) :: v1(2), v2(2)
 
   real(real64) :: r(3), psi_xx, psi_xy, psi_yy, l1, l2, ac2, ac4, b2
 
 
-  ! evaluate Hessian at x
-  r(1:2) = x
-  r(3)   = 0.d0
-  psi_xx = get_DPsiN(r, 2, 0)
-  psi_xy = get_DPsiN(r, 1, 1)
-  psi_yy = get_DPsiN(r, 0, 2)
+  psi_xx = H(1,1) / (Psi_sepx-Psi_axis)
+  psi_xy = H(1,2) / (Psi_sepx-Psi_axis)
+  psi_yy = H(2,2) / (Psi_sepx-Psi_axis)
 
 
   ! get eigenvalues l1,l2 of Hessian at X-point
