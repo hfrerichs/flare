@@ -847,6 +847,7 @@ module equilibrium
 !=======================================================================
   subroutine analysis(this, lambda1, lambda2, v1, v2)
   use math
+  use run_control, only: Debug
   class(t_Xpoint) :: this
   real(real64), intent(out) :: lambda1, lambda2, v1(2), v2(2)
 
@@ -873,6 +874,18 @@ module equilibrium
   v1(2) = sin(phi(1))
   v2(1) = cos(phi(2))
   v2(2) = sin(phi(2))
+
+
+  if (Debug) then
+     open  (97, file='unstable.tmp')
+     write (97, *) this%X
+     write (97, *) this%X + v1
+     close (97)
+     open  (96, file='stable.tmp')
+     write (96, *) this%X
+     write (96, *) this%X + v2
+     close (96)
+  endif
 
   end subroutine analysis
 !=======================================================================
