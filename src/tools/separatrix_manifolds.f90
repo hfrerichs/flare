@@ -1,5 +1,55 @@
 !===============================================================================
-! Generate homoclinic tangle for hyperbolic fixed point
+! Generate invariant manifolds for hyperbolic fixed point
+!===============================================================================
+subroutine separatrix_manifolds
+  use iso_fortran_env
+  use run_control, only: N_sym, N_phi, N_psi, Grid_File, Output_File, Trace_Step
+  use equilibrium
+  use grid
+  use math
+  implicit none
+
+  type(t_grid)       :: G
+  real(real64)       :: y(3), yh(3), Dphi, lambda1, lambda2, v1(2), v2(2), v(2)
+  integer            :: iPx, orientation, i, idir
+
+  iPx = N_psi
+  call Xp(iPx)%analysis(lambda1, lambda2, v1, v2)
+
+  orientation = 1
+  if (Xp(iPx)%x(2) > 0.d0) orientation = -1
+
+  ! setup sample point (toroidal discretization)
+  call G%new(CYLINDRICAL, SEMI_STRUCTURED, 3, 1, N_phi)
+
+
+  ! idir = -1: forward stable, backward unstable
+  !         1: forward unstable
+  v = v2
+  Grid_File = 'grid_stable.dat'
+  Output_File = 'stable'
+  do idir=-1,1,2
+     do i=1,N_phi
+        G%x(i,1:2) = Xp(iPx)%X + 0.1d0 * v
+        G%x(i,  3) = -idir * Bt_sign * pi2/N_sym * (i-1) / N_phi
+     enddo
+     call G%store(Grid_File)
+
+     Trace_Step = -1.d0 * Trace_Step
+     call separatrix_manifolds_manual()
+
+     v = v1
+     Grid_File = 'grid_unstable.dat'
+     Output_File = 'unstable'
+  enddo
+
+end subroutine separatrix_manifolds
+
+
+
+
+!===============================================================================
+! Generate invariant manifolds for hyperbolic fixed point
 !
 ! Input (taken from run control file):
 ! Grid_File             toroidal discretization of X-point (+ small offset for tracing)
@@ -10,7 +60,7 @@
 ! Trace_Step, Trace_Method
 ! Output_File
 !===============================================================================
-subroutine homoclinic_tangle
+subroutine separatrix_manifolds_manual
   use iso_fortran_env
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Phi_Output, N_sym, N_mult
   use grid
@@ -32,7 +82,7 @@ subroutine homoclinic_tangle
 
   ! initialize
   if (firstP) then
-     write (6, *) 'Generate homoclinic tangle for hyperbolic fixed point'
+     write (6, *) 'Generate invariant manifolds for hyperbolic fixed point'
      write (6, *)
   endif
   call G%load(Grid_File)
@@ -80,4 +130,4 @@ subroutine homoclinic_tangle
   enddo
   close (iu)
 
-end subroutine homoclinic_tangle
+end subroutine separatrix_manifolds_manual

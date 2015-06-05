@@ -189,8 +189,8 @@ module run_control
      call setup_distance_to_surface
   case ('evaluate_distance_to_surface')
      call evaluate_distance_to_surface
-  case ('homoclinic_tangle')
-     call homoclinic_tangle
+  case ('separatrix_manifolds')
+     call separatrix_manifolds()
   case ('generate_flux_tube')
      call generate_flux_tube
   case ('FLR_analysis')

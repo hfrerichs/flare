@@ -20,7 +20,7 @@ OBJECTS =  \
                generate_separatrix.o\
                footprint_grid.o\
                distance_to_surface.o\
-               homoclinic_tangle.o\
+               separatrix_manifolds.o\
                generate_flux_tube.o\
                FLR_analysis.o\
                melnikov_function.o
