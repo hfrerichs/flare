@@ -363,7 +363,8 @@ module equilibrium
 !=======================================================================
   subroutine broadcast_mod_equilibrium()
   use parallel
-  use geqdsk
+
+  integer :: i
 
 
   if (nprs == 1) return
@@ -371,7 +372,14 @@ module equilibrium
   call broadcast_real_s (Psi_axis)
   call broadcast_real_s (Psi_sepx)
   call broadcast_inte_s (i_equi)
-  call broadcast_magnetic_axis
+  do i=1,nX_max
+     call broadcast_real_s (Xp(i)%R_estimate)
+     call broadcast_real_s (Xp(i)%Z_estimate)
+     call broadcast_real_s (Xp(i)%Psi)
+     call broadcast_real   (Xp(i)%X, 2)
+     call broadcast_real   (Xp(i)%H, 4)
+  enddo
+  call broadcast_magnetic_axis()
   call wait_pe()
 
 
