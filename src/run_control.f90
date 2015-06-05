@@ -10,10 +10,11 @@ module run_control
      IDONTPANIC = 42
 
   ! user defined variables
-  character*120 :: &
+  character(len=120) :: &
      Machine        = ' ', &        ! select input directory (1st part)
      Configuration  = ' ', &        ! select input directory (2nd part)
      Run_Type       = ' ', &        ! select sub-program to execute
+     Label          = '', &
      Output_File    = 'output.txt', &
      Grid_File      = 'grid.dat'
 
@@ -45,6 +46,7 @@ module run_control
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
      Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
+     Spline_Order   = 5, &
      Panic_Level    = IMODERATE
 
 
@@ -60,10 +62,11 @@ module run_control
 
   namelist /RunControl/ &
      Machine, Configuration, &
-     Run_Type, Output_File, Grid_File, Input_Format, Output_Format, Panic_Level, &
+     Run_Type, Output_File, Label, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, &
+     Spline_Order, &
      Debug
 
   contains

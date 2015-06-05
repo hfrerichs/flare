@@ -22,7 +22,7 @@
      .         G_file, use_wall, CurrentFix, DiagnosticLevel
 
       ! set spline interpolation order
-      integer, parameter :: nord = 5
+      integer :: nord = 5
 
 
       real*8, dimension(:,:), allocatable :: psirz, Psicoeff
@@ -65,6 +65,7 @@
 !===============================================================================
       subroutine geqdsk_load (Data_File, use_PFC_, CurrentFix_, DL_,
      .                        psi_axis, psi_sepx)
+      use run_control, only: Spline_Order
       use bspline
       character*120, intent(in) :: Data_File
       logical, intent(in), optional  :: use_PFC_, CurrentFix_
@@ -84,6 +85,7 @@
       if (present(use_PFC_)) use_wall = use_PFC_
       if (present(CurrentFix_)) CurrentFix = CurrentFix_
       if (present(DL_)) DiagnosticLevel = DL_
+      nord = Spline_Order
 
       open  (iu, file=Data_File)
 
