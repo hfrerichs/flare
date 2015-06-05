@@ -3,21 +3,27 @@
 !===============================================================================
 subroutine separatrix_manifolds
   use iso_fortran_env
-  use run_control, only: N_sym, N_phi, N_psi, Grid_File, Output_File, Trace_Step
+  use run_control, only: N_sym, N_phi, N_psi, Label, Trace_Step, Grid_File
   use equilibrium
   use grid
   use math
   implicit none
 
   type(t_grid)       :: G
+  character(len=120) :: Label0
   real(real64)       :: y(3), yh(3), Dphi, lambda1, lambda2, v1(2), v2(2), v(2)
   integer            :: iPx, orientation, i, idir
+
 
   iPx = N_psi
   call Xp(iPx)%analysis(lambda1, lambda2, v1, v2)
 
+
   orientation = 1
   if (Xp(iPx)%x(2) > 0.d0) orientation = -1
+  Label0 = ''
+  if (Label .ne. '') Label0 = '_'//trim(Label)
+
 
   ! setup sample point (toroidal discretization)
   call G%new(CYLINDRICAL, SEMI_STRUCTURED, 3, 1, N_phi)
@@ -26,21 +32,20 @@ subroutine separatrix_manifolds
   ! idir = -1: forward stable, backward unstable
   !         1: forward unstable
   v = v2
-  Grid_File = 'grid_stable.dat'
-  Output_File = 'stable'
+  Label = 'stable'//trim(Label0)
   do idir=-1,1,2
      do i=1,N_phi
         G%x(i,1:2) = Xp(iPx)%X + 0.1d0 * v
         G%x(i,  3) = -idir * Bt_sign * pi2/N_sym * (i-1) / N_phi
      enddo
+     Grid_File = 'grid_'//trim(label)//'.dat'
      call G%store(Grid_File)
 
      Trace_Step = -1.d0 * Trace_Step
      call separatrix_manifolds_manual()
 
      v = v1
-     Grid_File = 'grid_unstable.dat'
-     Output_File = 'unstable'
+     Label = 'unstable'//trim(Label0)
   enddo
 
 end subroutine separatrix_manifolds
@@ -62,7 +67,7 @@ end subroutine separatrix_manifolds
 !===============================================================================
 subroutine separatrix_manifolds_manual
   use iso_fortran_env
-  use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Phi_Output, N_sym, N_mult
+  use run_control, only: Grid_File, Label, Trace_Step, Trace_Method, Phi_Output, N_sym, N_mult
   use grid
   use fieldline
   use boundary
@@ -90,7 +95,7 @@ subroutine separatrix_manifolds_manual
   
 
   call D%new(G%nodes() * N_mult, 3)
-  open  (iu, file='strike_point_'//trim(Output_File)//'.dat')
+  open  (iu, file='strike_point_'//trim(Label)//'.dat')
   grid_loop: do i=1,G%nodes()
      y = G%node(i)
      write (6, *) y(3) / pi * 180.d0
@@ -121,7 +126,7 @@ subroutine separatrix_manifolds_manual
 
 
   ! write RZ-cut of manifold
-  open  (iu, file='manifold_'//trim(Output_File)//'.dat')
+  open  (iu, file='manifold_'//trim(Label)//'.dat')
   do j=0,N_mult-1
      do i=1,G%nodes()
         ind = i + j*G%nodes()
