@@ -853,23 +853,32 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine analysis(this, lambda1, lambda2, v1, v2)
+  subroutine analysis(this, lambda1, lambda2, v1, v2, ierr)
   use math
   use run_control, only: Debug
   class(t_Xpoint) :: this
   real(real64), intent(out) :: lambda1, lambda2, v1(2), v2(2)
+  integer,      intent(out) :: ierr
 
   real(real64) :: A(2,2), P, Q, phi(2)
 
 
+  ierr = 0
   A(1,1) = -this%H(1,2); A(2,1) = this%H(1,1)
   A(1,2) = -this%H(2,2); A(2,2) = this%H(2,1)
 
   P = 0.5d0 * (A(1,1) + A(2,2))
   Q = P**2 - (A(1,1)*A(2,2) - A(1,2)*A(2,1))
   if (Q < 0.d0) then
-     write (6, *) 'error: no real eigenvalues!'
-     write (6, *) 'failed to analyze X-point!'
+     if (Debug) then
+        write (6, *) 'error: no real eigenvalues!'
+        write (6, *) 'failed to analyze X-point!'
+        write (6, *) 'A ='
+        write (6, *) A(1,1), A(1,2)
+        write (6, *) A(2,1), A(2,2)
+        write (6, *) 'P, Q = ', P, Q
+     endif
+     ierr = 1
      return
   endif
   lambda1 = P + sqrt(Q)
