@@ -48,6 +48,7 @@ module curve2D
      contains
 
      procedure :: load
+     procedure :: closed_check
      procedure :: new
      procedure :: destroy
      procedure :: copy
@@ -97,6 +98,18 @@ module curve2D
   this%n_seg =  this%nodes%nrow-1
   this%n_dim =  2
   this%x     => this%nodes%x
+  call this%closed_check()
+
+  end subroutine load
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine closed_check(this)
+  class (t_curve),  intent(inout)         :: this
+
+  real(real64) :: dl, x1(2), x2(2)
 
 
   ! check if curve is closed
@@ -109,7 +122,7 @@ module curve2D
      this%x(this%n_seg,:) = 0.5d0 * (x1+x2)
   endif
 
-  end subroutine load
+  end subroutine closed_check
 !=======================================================================
 
 
