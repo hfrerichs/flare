@@ -12,11 +12,11 @@ subroutine separatrix_manifolds
   type(t_grid)       :: G
   character(len=120) :: Label0
   real(real64)       :: y(3), yh(3), Dphi, lambda1, lambda2, v1(2), v2(2), v(2)
-  integer            :: iPx, orientation, i, idir
+  integer            :: iPx, orientation, i, idir, ierr
 
 
   iPx = N_psi
-  call Xp(iPx)%analysis(lambda1, lambda2, v1, v2)
+  call Xp(iPx)%analysis(lambda1, lambda2, v1, v2, ierr)
 
 
   orientation = 1
@@ -67,7 +67,7 @@ end subroutine separatrix_manifolds
 !===============================================================================
 subroutine separatrix_manifolds_manual
   use iso_fortran_env
-  use run_control, only: Grid_File, Label, Trace_Step, Trace_Method, Phi_Output, N_sym, N_mult
+  use run_control, only: Grid_File, Label, Trace_Step, Trace_Method, Phi_Output, N_sym, N_mult, Output_Format
   use grid
   use fieldline
   use boundary
@@ -81,7 +81,7 @@ subroutine separatrix_manifolds_manual
   type(t_fieldline)  :: F
   type(t_grid)       :: G
   type(t_dataset)    :: D
-  real(real64)       :: y(3), yh(3), Dphi
+  real(real64)       :: y(3), yh(3), Dphi, x1(2), l
   integer            :: i, j, k, ind, ierr
 
 
@@ -126,11 +126,26 @@ subroutine separatrix_manifolds_manual
 
 
   ! write RZ-cut of manifold
+  l = huge(1.d0)
   open  (iu, file='manifold_'//trim(Label)//'.dat')
   do j=0,N_mult-1
      do i=1,G%nodes()
         ind = i + j*G%nodes()
-        if (D%x(ind,1) > 0.d0) write (iu, *) D%x(ind,1:2)
+        if (D%x(ind,1) > 0.d0) then
+           select case(Output_Format)
+           case(1,2)
+              write (iu, *) D%x(ind,1:2)
+           case(3)
+              if (l < huge(1.d0)) l = sqrt(sum((D%x(ind,1:2)-x1)**2))
+              if (l > 0.1d0) then
+                 x1 = D%x(ind,1:2)
+                 write (iu, *) x1, ind
+                 l  = 0.d0
+              endif
+           end select
+        else
+           if (Output_Format == 2) write (iu, *) 'NaN'
+        endif
      enddo
   enddo
   close (iu)
