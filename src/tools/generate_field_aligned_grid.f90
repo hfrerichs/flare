@@ -37,7 +37,7 @@ subroutine generate_field_aligend_grid (run_level)
   ! select run level
   level = .false.
   if (run_level == 0) then
-     level = .true.
+     level(1:6) = .true.
   elseif (run_level > 0  .and.  run_level <=9) then
      level(run_level) = .true.
   else
@@ -70,7 +70,7 @@ subroutine generate_field_aligend_grid (run_level)
 
   ! Level 4: generate vacuum domain (used by EIRENE only)
   if (level(4)) then
-     call load_emc3_grid()
+     if (run_level > 0) call load_emc3_grid()
      call vacuum_and_core_domain_for_EIRENE()
      call write_emc3_grid()
   endif
@@ -78,14 +78,14 @@ subroutine generate_field_aligend_grid (run_level)
 
   ! Level 5: sample magnetic field strength on grid
   if (level(5)) then
-     call load_emc3_grid()
+     if (run_level > 0) call load_emc3_grid()
      call sample_bfield_on_emc3_grid()
   endif
 
 
   ! Level 6: generate plate surfaces for EMC3
   if (level(6)) then
-     call load_emc3_grid()
+     if (run_level > 0) call load_emc3_grid()
      call generate_plates()
   endif
 
