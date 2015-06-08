@@ -73,7 +73,6 @@ module inner_boundary
   integer      :: i
 
 
-
   if (d_HPR(1) > 0) then
      get_d_HPR = d_HPR
      return
@@ -89,6 +88,7 @@ module inner_boundary
   r3(3)   = 0.d0
   theta   = get_poloidal_angle(r3)
   xi      = (-theta0 + theta)/pi2
+  if (xi < 0) xi = xi + 1.d0
 
   call F%sample_at(xi, dx)
   d_HPR     = dx-Px
