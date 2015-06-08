@@ -297,7 +297,7 @@ module flux_surface_2D
 
   r3 = get_magnetic_axis(0.d0)
   dl = pi2 * r3(1) / dabs(Trace_Step)
-  N  = int(dl)
+  N  = 2 * int(dl)
 
   end function N_steps_guess
 !===============================================================================
