@@ -440,7 +440,10 @@ module topo_lsn
   d_HPR = get_d_HPR(Px, Pmag)
 
   ! 2. generate flux surfaces
-  if (nr0-1 .ge. 2+n_interpolate) write (6, 1000) nr0-1, 2+n_interpolate
+  if (nr0-1 .ge. 2+n_interpolate) then
+     write (6, 1010) nr0-1, 2+n_interpolate
+     write (6, 1011) Px, Px + d_HPR
+  endif
   do i=nr0-1, 2+n_interpolate, -1
      write (6, *) i
      eta = 1.d0 - Zone(iz)%Sr%node(i-1,nr0-1)
@@ -457,7 +460,8 @@ module topo_lsn
      enddo
   enddo
 
- 1000 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
+ 1010 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
+ 1011 format (8x,'from (',f8.3,', ',f8.3,') to (',f8.3,', ',f8.3,')')
   end subroutine make_flux_surfaces_HPR
   !.....................................................................
 
@@ -496,11 +500,13 @@ module topo_lsn
   dx(1) = Px(2) - Pmag(2)
   dx(2) = Pmag(1) - Px(1)
   dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
-  write (6, 1002) nr1
+  write (6, 1020) nr1
+  write (6, 1021) d_SOL(1)
   do i=1,nr1
      write (6, *) i
      eta = Zone(iz1)%Sr%node(i,nr1)
      x0  = Px + eta * dx
+     if (Debug) write (iu, *) x0
      call FS%generate_open(x0, C_cutL, C_cutR)
      call divide_SOL(FS, eta, CL, C0, CR)
 
@@ -530,7 +536,8 @@ module topo_lsn
      enddo
   enddo
 
- 1002 format (8x,'generating scrape-off layer: 1 -> ', i0)
+ 1020 format (8x,'generating scrape-off layer: 1 -> ', i0)
+ 1021 format (8x,'d_SOL = ',f8.3)
   end subroutine make_flux_surfaces_SOL
   !.....................................................................
 
@@ -540,7 +547,8 @@ module topo_lsn
 
   dx = Px - Pmag
   dx = dx / sqrt(sum(dx**2)) * d_PFR(1)
-  write (6, 1003) nr2-1
+  write (6, 1030) nr2-1
+  write (6, 1031) d_PFR(1)
   do i=0,nr2-1
      write (6, *) i
      eta = Zone(iz2)%Sr%node(i,nr2)
@@ -567,7 +575,8 @@ module topo_lsn
      enddo
   enddo
 
- 1003 format (8x,'generating private flux region: 0 -> ', i0)
+ 1030 format (8x,'generating private flux region: 0 -> ', i0)
+ 1031 format (8x,'d_PFR = ',f8.3)
   end subroutine make_flux_surfaces_PFR
   !.....................................................................
 
