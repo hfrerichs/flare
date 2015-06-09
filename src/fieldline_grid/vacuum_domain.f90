@@ -35,13 +35,18 @@ subroutine setup_core_domain(iz, nr_core)
   use iso_fortran_env
   use emc3_grid
   use fieldline_grid
-  use equilibrium
   implicit none
 
   integer, intent(in) :: iz, nr_core
 
-  real(real64) :: phi, r3(3), x(2), dx(2)
-  integer :: i, j, k, ig
+
+  integer, parameter :: &
+     MAGNETIC_AXIS    = 1, &
+     GEOMETRIC_CENTER = 2
+
+
+  real(real64) :: phi, r0(2), x(2), dx(2)
+  integer :: i, j, k, ig, method = GEOMETRIC_CENTER
 
 
   write (6, 1000) iz, nr_core
@@ -49,19 +54,52 @@ subroutine setup_core_domain(iz, nr_core)
 
   do k=0,SRF_TORO(iz)-1
      phi = PHI_PLANE(k+PHI_PL_OS(iz))
-     r3  = get_magnetic_axis(phi)
+     r0  = get_r0(phi)
 
      do j=0,SRF_POLO(iz)-1
-        ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
-        dx(1) = RG(ig+1) - r3(1)
-        dx(2) = ZG(ig+1) - r3(2)
+        ig = (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+        dx(1)  = RG(ig+nr_core) - r0(1)
+        dx(2)  = ZG(ig+nr_core) - r0(2)
 
-        x     = r3(1:2) + 0.5d0 * dx
-        RG(ig) = x(1)
-        ZG(ig) = x(2)
+        do i=0,nr_core-1
+           x        = r0 + 0.5d0 * dx * (1.d0 + 1.d0 * i / nr_core)
+           RG(ig+i) = x(1)
+           ZG(ig+i) = x(2)
+        enddo
      enddo
   enddo
 
+  return
+  contains
+  !---------------------------------------------------------------------
+  function get_r0(phi)
+  use equilibrium
+  real(real64), intent(in) :: phi
+  real(real64)             :: get_r0(2)
+
+  real(real64) :: r3(3)
+  integer      :: j
+
+
+  r0 = 0.d0
+
+  select case(method)
+  case(MAGNETIC_AXIS)
+     r3     = get_magnetic_axis(phi)
+     get_r0 = r3(1:2)
+
+  case(GEOMETRIC_CENTER)
+     get_r0 = 0.d0
+     do j=0,SRF_POLO(iz)-1
+        ig = nr_core + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+        get_r0(1) = get_r0(1) + RG(ig)
+        get_r0(2) = get_r0(2) + ZG(ig)
+     enddo
+     get_r0 = get_r0 / SRF_POLO(iz)
+  end select
+
+  end function get_r0
+  !---------------------------------------------------------------------
 end subroutine setup_core_domain
 !===============================================================================
 
@@ -72,6 +110,7 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary, dl, Method)
   use iso_fortran_env
   implicit none
 
+  character(len=*), parameter :: s_boundary(2) = (/ 'lower', 'upper' /)
   integer, intent(in) :: iz, nr_vac, boundary, Method
   real(real64), intent(in) :: dl
 
@@ -79,8 +118,8 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary, dl, Method)
      UPSCALE = 1
 
 
-  write (6, 1000) iz, nr_vac
- 1000 format(8x,'zone ',i0,': ',i0,' vacuum cell(s)')
+  write (6, 1000) iz, nr_vac, s_boundary(boundary), dl
+ 1000 format(8x,'zone ',i0,': ',i0,' vacuum cell(s) at ',a,' boundary, D = ',f8.3)
 
   select case (Method)
   case (UPSCALE)
@@ -103,6 +142,8 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
 
   integer, intent(in)      :: iz, nrvac, boundary
   real(real64), intent(in) :: dl
+
+  logical :: resample = .true.
 
   real(real64), dimension(:), allocatable :: xi
   type(t_curve) :: C
@@ -133,13 +174,13 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
   ! loop over all toroidal slices
   do it=0,SRF_TORO(iz)-1
      call C%new(ZON_POLO(iz))
-     !TODO: !C%closed = .true.
      ! poloidal loop (setup nodes for curve blowup)
      do ip=0,SRF_POLO(iz)-1
         ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
         C%x(ip,1) = RG(ig)
         C%x(ip,2) = ZG(ig)
      enddo
+     call C%closed_check()
      if (Debug) then
         call C%plot(filename='debug/VacuumBoundary_'//trim(str(iz))//'_'//trim(str(it))//'.raw')
      endif
@@ -158,6 +199,11 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
      if (Debug) then
         call C%plot(filename='debug/VacuumBoundary_'//trim(str(iz))//'_'//trim(str(it))//'.plt')
      endif
+     if (resample.eqv..false.  .and.  ZON_POLO(iz).ne.C%n_seg) then
+        write (6, *) 'error: nodes were dropped in subroutine left_hand_shift!'
+        write (6, *) 'iz, it = ', iz, it
+        stop
+     endif
      call C%setup_length_sampling()
 
      ! poloidal loop (set new grid nodes)
@@ -165,7 +211,11 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
      do ir=ir0+idir,irend,idir
         ig = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
 
-        call C%sample_at(xi(ip), x)
+        if (resample) then
+           call C%sample_at(xi(ip), x)
+        else
+           x = C%x(ip,1:2)
+        endif
         RG(ig) = x(1)
         ZG(ig) = x(2)
      enddo
