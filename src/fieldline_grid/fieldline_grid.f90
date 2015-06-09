@@ -189,6 +189,7 @@ module fieldline_grid
   this%r_surf_pl_trans_range(2) = this%nr - nr_EIRENE_vac
   this%p_surf_pl_trans_range(1) = 0
   this%p_surf_pl_trans_range(2) = this%np
+  this%d_N0                     = d_N0(1)
 
   end subroutine setup_default_boundaries
 !=======================================================================
