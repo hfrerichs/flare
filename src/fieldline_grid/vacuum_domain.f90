@@ -73,7 +73,7 @@ subroutine setup_core_domain(iz, nr_core)
   contains
   !---------------------------------------------------------------------
   function get_r0(phi)
-  use equilibrium
+  use equilibrium, only: get_magnetic_axis
   real(real64), intent(in) :: phi
   real(real64)             :: get_r0(2)
 
