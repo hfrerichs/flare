@@ -349,8 +349,9 @@ module equilibrium
      get_domain                    => divamhd_get_domain
      broadcast_equilibrium         => divamhd_broadcast
   case (EQ_M3DC1)
-     get_DPsi                      => m3dc1_get_DPsi
      get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
+     get_Psi                       => m3dc1_get_Psi
+     get_DPsi                      => m3dc1_get_DPsi
   end select
 
   end subroutine setup_equilibrium

@@ -32,13 +32,14 @@ module m3dc1
            timeslice, factor, &
            n_sets, filename, amplitude, phase
 
-  integer :: isrcA(n_sets_max), imagA(n_sets_max), iEQ
+  integer :: isrcA(n_sets_max), imagA(n_sets_max), iEQ, iPsi
 
   public :: &
      m3dc1_load, &
      m3dc1_broadcast, &
      m3dc1_get_Bf, &
      m3dc1_get_Bf_eq2D, &
+     m3dc1_get_Psi, &
      m3dc1_get_DPsi, &
      m3dc1_close
 
@@ -80,9 +81,13 @@ module m3dc1
 
 
      ! Read equilibrium field
-     call fio_set_int_option_f(FIO_PART, FIO_EQUILIBRIUM_ONLY, ierr)
-     if (i == 1) &
-     call fio_get_field_f(isrcA(i),FIO_MAGNETIC_FIELD,iEQ,ierr)
+     if (i == 1) then
+        call fio_set_int_option_f(FIO_PART, FIO_EQUILIBRIUM_ONLY, ierr)
+        call fio_get_field_f(isrcA(i),FIO_VECTOR_POTENTIAL,iPsi,ierr)
+
+        call fio_set_int_option_f(FIO_PART, FIO_EQUILIBRIUM_ONLY, ierr)
+        call fio_get_field_f(isrcA(i),FIO_MAGNETIC_FIELD,iEQ,ierr)
+     endif
 
 
      ! Read perturbation field
@@ -190,6 +195,27 @@ end subroutine m3dc1_load
 
   end function m3dc1_get_Bf_eq2D
 !===============================================================================
+  function m3dc1_get_Psi(r) result(Psi)
+  real(real64), intent(in) :: r(3)
+  real(real64) :: Psi
+
+  real(real64) :: r3(3), B3(3)
+  integer      :: ierr
+
+
+  Psi     = 0.d0
+#ifdef M3DC1
+  ! convert cm -> m
+  R3(1)   = r(1) /1.d2
+  R3(3)   = r(2) /1.d2
+  R3(2)   = r(3)
+
+  call fio_eval_field_f(iPsi, R3, B3, ierr)
+  Psi     = B3(2) * R3(1)
+#endif
+
+  end function m3dc1_get_Psi
+!===============================================================================
   function m3dc1_get_DPsi(r, nR, nZ) result(DPsi)
   real(real64), intent(in) :: r(2)
   integer,      intent(in) :: nR, nZ
@@ -205,9 +231,9 @@ end subroutine m3dc1_load
   B3      = m3dc1_get_Bf_eq2D(r3) / 1.d6 ! -> back to T*m
 
   if (nR == 1  .and.  nZ == 0) then
-     DPsi =  B3(2) * r3(1)
+     DPsi =  B3(2) * (r3(1) / 1.d2)
   elseif (nR == 0  .and.  nZ == 1) then
-     DPsi = -B3(1) * r3(1)
+     DPsi = -B3(1) * (r3(1) / 1.d2)
   endif
 
   end function m3dc1_get_DPsi
