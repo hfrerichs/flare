@@ -747,7 +747,8 @@ module equilibrium
      H(2,1) = H(1,2)
      Hdisc  = H(1,1) * H(2,2) - H(1,2)*H(2,1)
      if (Hdisc.eq.0) then
-        X = find_X_BFGS(xn, Hout)
+        !X = find_X_BFGS(xn, Hout)
+        X = find_X_SR1(xn, Hout)
         return
      endif
 
@@ -836,6 +837,85 @@ module equilibrium
   close (90)
 
   end function find_X_BFGS
+!=======================================================================
+  function find_X_SR1(X0, Bout) result(X)
+  use run_control, only: Debug
+  real(real64), intent(in)            :: X0(2)
+  real(real64)                        :: X(2)
+  real(real64), intent(out), optional :: Bout(2,2)
+
+  real(real64), parameter :: &
+      gamma_1 = 1.d0, &
+      delta   = 1.d-13
+  integer, parameter :: &
+      nmax = 1000000
+
+  real(real64) :: dxmod, P(2), S(2), B(2,2), Bdisc, dfdx, dfdy, dfdx1, dfdy1
+  real(real64) :: DB(2,2), Y(2), v(2), vs, smod, vmod
+  integer :: i, j, k
+
+
+  if (Debug) open  (90, file='X_SR1.tmp')
+  X = X0
+
+  ! calculate initial approximation of Hessian (B)
+  B = get_H(X) ! this should call approximate_H to get an initial approximate
+  Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
+  if (Bdisc == 0.d0) then
+     write (6, *) 'error: initial estimate of Hessian matrix has determinant = 0!'
+     stop
+  endif
+  ! calculate the gradient
+  dfdx = get_DPsi(X, 1, 0)
+  dfdy = get_DPsi(X, 0, 1)
+  if (Debug) write (90, *) 0, X, dfdx, dfdy
+
+  approximation_loop: do k=1,nmax
+     ! 1. obtain direction (solve B * p = - grad f)
+     P(1)  =   B(2,2)*dfdx - B(1,2)*dfdy
+     P(2)  = - B(2,1)*dfdx + B(1,1)*dfdy
+     P     = - P / Bdisc
+
+     ! 2. use constant gamma_1
+
+     ! 3. calculate increment
+     S     = gamma_1 * P
+     X     = X + S
+     dxmod = sqrt(sum(S**2))
+     if (Debug) write (90, *) k, X, S, dxmod
+     if (dxmod < delta) exit
+
+     ! 4. calculate local gradient
+     dfdx1 = get_DPsi(X, 1, 0)
+     dfdy1 = get_DPsi(X, 0, 1)
+     Y(1)  = dfdx1 - dfdx
+     Y(2)  = dfdy1 - dfdy
+     dfdx  = dfdx1
+     dfdy  = dfdy1
+
+     ! 5. update Hessian approximation
+     ! v = Y - B*S
+     do i=1,2
+        v(i)  = Y(i) - (B(i,1)*S(1) + B(i,2)*S(2))
+     enddo
+     vs = sum(v*S)
+
+     smod = sqrt(sum(s**2))
+     vmod = sqrt(sum(v**2))
+     if (abs(vs) > 1.d-8*smod*vmod) then
+     do i=1,2
+     do j=1,2
+        DB(i,j) = v(i)*v(j) / vs
+     enddo
+     enddo
+     B = B + DB
+     Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
+     endif
+     if (present(Bout)) Bout = B
+  enddo approximation_loop
+  if (Debug) close (90)
+
+  end function find_X_SR1
 !=======================================================================
   function find_lX() result(X)
   real(real64) :: X(2)
