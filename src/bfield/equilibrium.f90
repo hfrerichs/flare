@@ -519,9 +519,8 @@ module equilibrium
      H = approximate_H(x)
   endif
 
-  return
-  contains
-!.......................................................................
+  end function get_H
+!=======================================================================
   function approximate_H(x) result(H)
   use run_control, only: Debug
   real(real64), intent(in) :: x(2)
@@ -554,8 +553,6 @@ module equilibrium
   endif
 
   end function approximate_H
-!.......................................................................
-  end function get_H
 !=======================================================================
 
 
@@ -770,6 +767,7 @@ module equilibrium
   end function find_X
 !=======================================================================
   function find_X_BFGS(X0, Hout) result(X)
+  use run_control, only: Debug
   real(real64), intent(in)            :: X0(2)
   real(real64)                        :: X(2)
   real(real64), intent(out), optional :: Hout(2,2)
@@ -785,9 +783,9 @@ module equilibrium
   integer :: i, j, k
 
 
-  open  (90, file='X_BFGS.tmp')
+  if (Debug) open  (90, file='X_BFGS.tmp')
   X = X0
-  B = get_H(X) ! this should call approximate_H to get an initial approximate
+  B = approximate_H(X) ! get an initial approximate
   Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
   if (Bdisc == 0.d0) then
      write (6, *) 'error: initial estimate of Hessian matrix has determinant = 0!'
@@ -796,7 +794,7 @@ module equilibrium
   ! calculate the gradient
   dfdx = get_DPsi(X, 1, 0)
   dfdy = get_DPsi(X, 0, 1)
-  write (90, *) 0, X, dfdx, dfdy
+  if (Debug) write (90, *) 0, X, dfdx, dfdy
 
 
   approximation_loop: do k=1,nmax
@@ -811,7 +809,7 @@ module equilibrium
      S     = gamma_1 * P
      X     = X + S
      dxmod = sqrt(sum(S**2))
-     write (90, *) k, X, S, dxmod
+     if (Debug) write (90, *) k, X, S, dxmod
      if (dxmod < delta) exit
 
      ! 4. calculate local gradient
@@ -834,7 +832,7 @@ module equilibrium
      Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
      if (present(Hout)) Hout = B
   enddo approximation_loop
-  close (90)
+  if (Debug) close (90)
 
   end function find_X_BFGS
 !=======================================================================
@@ -859,7 +857,7 @@ module equilibrium
   X = X0
 
   ! calculate initial approximation of Hessian (B)
-  B = get_H(X) ! this should call approximate_H to get an initial approximate
+  B = approximate_H(X) ! get an initial approximate
   Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
   if (Bdisc == 0.d0) then
      write (6, *) 'error: initial estimate of Hessian matrix has determinant = 0!'
