@@ -390,6 +390,13 @@ c-----------------------------------------------------------------------
       ! convert cm -> m
       rr   = r(1) / 100.d0
       zz   = r(2) / 100.d0
+
+      ! force limits of computational box
+      if (rr.lt.Rleft)          rr = Rleft
+      if (rr.gt.Rleft+Rdim)     rr = Rleft+Rdim
+      if (zz.lt.Zmid-Zdim/2.d0) zz = Zmid-Zdim/2.d0
+      if (zz.gt.Zmid+Zdim/2.d0) zz = Zmid+Zdim/2.d0
+
       DPsi = dbs2dr(mR,mZ,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
       DPsi = DPsi / 100.d0**(mR+mZ)
 
