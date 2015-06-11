@@ -53,7 +53,7 @@ module equilibrium
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
 
 
-  type(t_Xpoint) :: Xp(nX_max)
+  type(t_Xpoint) :: Xp(nX_max), Magnetic_Axis
 
 
   logical :: &
@@ -65,7 +65,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, &
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, Magnetic_Axis, &
      Magnetic_Axis_File
 !...............................................................................
 
@@ -162,7 +162,7 @@ module equilibrium
 ! Load equilibrium configuration
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
-  use run_control, only: Prefix
+  use run_control, only: Prefix, Debug
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
@@ -203,8 +203,21 @@ module equilibrium
   call setup_equilibrium()
 
 
-! 3. setup user defined magnetic axis (if provided) ....................
-  ! 3.1. axisymmetric configuration
+! 3. setup magnetic axis ...............................................
+  ! 3.1 find magnetic axis from estimated position
+  if (Magnetic_Axis%R_estimate > 0.d0) then
+     x0(1)             = Magnetic_Axis%R_estimate
+     x0(2)             = Magnetic_Axis%Z_estimate
+     Magnetic_Axis%X   = find_x(x0)
+
+     r(1:2)            = Magnetic_Axis%X; r(3) = 0.d0
+     Magnetic_Axis%Psi = get_Psi(r)
+     Psi_Axis          = Magnetic_Axis%Psi
+     call setup_magnetic_axis_2D (r(1), r(2))
+  endif
+
+  ! setup user defined magnetic axis (if provided) .....................
+  ! 3.2. axisymmetric configuration
   if (R_axis > 0.d0) then
      call setup_magnetic_axis_2D (R_axis, Z_axis)
 
@@ -215,7 +228,7 @@ module equilibrium
      Psi_axis = get_Psi(r)
   endif
 
-  ! 3.2. non-axisymmetric configuration
+  ! 3.3. non-axisymmetric configuration
   if (Magnetic_Axis_File .ne. '') then
      Data_File = trim(Prefix)//Magnetic_Axis_File
      call load_magnetic_axis_3D (Data_File)
@@ -223,10 +236,11 @@ module equilibrium
      ! pol. magn. flux not supported for non-axisymmetric configurations
      Psi_axis = 0.d0
   endif
+  write (6, 3000) Psi_axis
 
 
 ! 4. set up X-points ...................................................
-  write (6, 5000)
+  write (6, 4000)
   do ix=1,nx_max
      if (Xp(ix)%R_estimate <= 0.d0) then
         if (ix == 1) then
@@ -244,8 +258,13 @@ module equilibrium
 
      r(1:2)     = Xp(ix)%X; r(3) = 0.d0
      Xp(ix)%Psi = get_Psi(r)
+     if (ix == 1) Psi_sepx = Xp(ix)%Psi
 
-     write (6, 5001) Xp(ix)%X, Xp(ix)%Psi
+     write (6, 4001) Xp(ix)%X, Xp(ix)%Psi
+     if (Debug) then
+        write (6, 4002) Xp(ix)%H(1,1), Xp(ix)%H(1,2)
+        write (6, 4002) Xp(ix)%H(2,1), Xp(ix)%H(2,2)
+     endif
   enddo
 
 
@@ -257,13 +276,17 @@ module equilibrium
      r(3) = 0.d0
      Psi_sepx = get_Psi(r)
   endif
+  write (6, 5000) Psi_sepx
 
 
   return
  1000 iconfig = 0
  1001 format ('   - Equilibrium configuration:')
- 5000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
- 5001 format (8x,2f12.4,2x,e12.4)
+ 3000 format (8x,'Psi_axis = ', e12.4)
+ 4000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
+ 4001 format (8x,2f12.4,2x,e12.4)
+ 4002 format (8x,2e12.4)
+ 5000 format (8x,'Psi_sepx = ', e12.4)
   end subroutine load_equilibrium_config
 !=======================================================================
 
