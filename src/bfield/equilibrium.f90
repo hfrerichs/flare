@@ -947,6 +947,77 @@ module equilibrium
 
 
 !=======================================================================
+  subroutine find_hyperbolic_points()
+  real(real64)         :: Rbox(2), Zbox(2)
+
+  integer, parameter :: nR = 20, nZ = 20, iu = 54
+
+  type(t_Xpoint) :: Xp
+  real(real64)   :: x(2), H(2,2), xk(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
+  real(real64)   :: DPsi, DPsi1, r3(3)
+  integer        :: i, j, k, ind, ierr, iPsi
+
+
+  call get_domain (Rbox, Zbox)
+  write (6, 1000)
+  write (6, 1001) Rbox
+  write (6, 1001) Zbox
+
+  ind = 0
+  open  (iu, file='hyperbolic_points.dat')
+  loop2: do i=0, nR
+  loop1: do j=0, nZ
+     x(1) = Rbox(1) + (Rbox(2)-Rbox(1)) * i / nR
+     x(2) = Zbox(1) + (Zbox(2)-Zbox(1)) * j / nZ
+     x = find_X(x, Hout=H)
+
+     if (x(1) < 0.d0) cycle ! not a valid critical point
+
+     ! check if present critical point is identical to previous ones
+     do k=1,ind
+        r = sqrt(sum((xk(k,:)-x)**2))
+        if (r < 1.d-8) cycle loop1
+     enddo
+
+     ! so this is a new critical point, run analysis
+     Xp%X = x; Xp%H = H
+     call Xp%analysis(lambda1, lambda2, v1, v2, ierr)
+     if (ierr .ne. 0) cycle ! this is not a hyperbolic point
+
+     ! add present point to list
+     ind = ind + 1
+     xk(ind,:) = x
+     write (6, 1002) ind, x, lambda1, lambda2
+     write (iu, *) x, lambda1, lambda2
+  enddo loop1
+  enddo loop2
+  close (iu)
+
+
+!  ! find primary X-point
+!  DPsi1 = huge(1.d0)
+!  iPsi  = 0
+!  r3(3) = 0.d0
+!  do k=1,ind
+!     r3(1:2) = xk(k,:)
+!     DPsi = abs(get_Psi(r3)-Psi_axis)
+!     if (DPsi < DPsi1) then
+!        DPsi1 = DPsi
+!        iPsi  = k
+!     endif
+!  enddo
+!  write (6, *) 'primary X-point is: ', xk(iPsi,:)
+  write (6, *)
+
+ 1000 format(3x,'- Running search for hyperbolic points in domain:')
+ 1001 format(8x,2f12.4)
+ 1002 format(8x,i0,4x,'(',f10.4,', ',f10.4,')',4x,'l1 = ',e12.4,',',4x,'l2 = ',e12.4)
+  end subroutine find_hyperbolic_points
+!=======================================================================
+
+
+
+!=======================================================================
   function length_scale () result(L)
   real(real64) :: L
 

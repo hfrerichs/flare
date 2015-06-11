@@ -2,6 +2,7 @@
 ! Write equilibrium information
 !===============================================================================
 subroutine get_equi_info_2D
+  use iso_fortran_env
   use equilibrium
   use boundary
   use parallel
@@ -10,10 +11,10 @@ subroutine get_equi_info_2D
   integer, parameter :: iu = 42
 
 
-  character*120 :: fout, sboundary
-  character*8   :: cid
-  real*8  :: Rbox(2), Zbox(2), Px(2), r(3), Psi
-  integer :: i, j, nR, nZ
+  character(len=120) :: fout, sboundary
+  character(len=8)   :: cid
+  real(real64)       :: Rbox(2), Zbox(2), r(3), Psi
+  integer            :: i, j, nR, nZ
 
 
   if (firstP) then
@@ -25,9 +26,8 @@ subroutine get_equi_info_2D
 
 
   call get_domain (Rbox, Zbox)
-  ! get X-point
-  Px = find_lX()
-  write (6, 9000) Px
+
+  call find_hyperbolic_points()
 
   ! magnetic axis
   r(3) = 0.d0
@@ -107,8 +107,7 @@ subroutine get_equi_info_2D
   close (iu)
 
 
- 9000 format (3x,'- found X-point at: ',2f10.3)
- 9001 format (3x,'- magnetic axis is at: ',2f10.3)
+ 9001 format (3x,'- Magnetic axis is at: ',2f10.3)
  1000 format ('# grid_id = 233     (regular RZ grid)')
  1001 format ('# R resolution:      n_R     =  ',i8)
  1002 format ('# Z resolution:      n_Z     =  ',i8)
