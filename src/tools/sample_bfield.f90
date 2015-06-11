@@ -10,6 +10,7 @@
 !                       = 3: (Output_Format 2), Bpol/Btor
 !                       = 4: |grad PsiN|, e_Psi * e_B
 !                       = 5: divB
+!                       = 6: Psi, PsiN, dPsi_dR, dPsi_dZ
 !===============================================================================
 subroutine sample_bfield
   use iso_fortran_env
@@ -26,7 +27,7 @@ subroutine sample_bfield
 
   type(t_grid)    :: G
   type(t_dataset) :: D
-  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Bpol, rpol, divB
+  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Psi, Bpol, rpol, divB
   real(real64)    :: DPsiDR, DPsiDZ
   integer         :: ig, n
 
@@ -35,7 +36,7 @@ subroutine sample_bfield
      write (6, *) 'Sample magnetic field, output in: ', adjustl(trim(Output_File))
      write (6, *)
 
-     if (Output_Format < 1 .or. Output_Format > 5) then
+     if (Output_Format < 1 .or. Output_Format > 6) then
         write (6, *) 'undefined output format ', Output_Format
         stop
      endif
@@ -54,6 +55,7 @@ subroutine sample_bfield
   if (Output_Format == 3) n = 6
   if (Output_Format == 4) n = 2
   if (Output_Format == 5) n = 4
+  if (Output_Format == 6) n = 4
   call D%new(G%nodes(), n)
 
 
@@ -65,7 +67,7 @@ subroutine sample_bfield
      select case (Output_Format)
      case (1)
         Bf = get_Bf_Cart (xvec)
-     case (2,3,4,5)
+     case (2,3,4,5,6)
         Bf = get_Bf_Cyl (xvec)
      end select
      Bf   = Bf/1.d4	! Gauss -> Tesla
@@ -100,6 +102,15 @@ subroutine sample_bfield
         D%x(ig,2)   = r(2)
         D%x(ig,3)   = divB / 1.d4 ! Gauss/cm -> Tesla/cm
         D%x(ig,4)   = D%x(ig,3) / Bmod
+     endif
+     if (Output_Format == 6) then
+        Psi         = get_Psi(r)
+        DPsiDR      = get_DPsi(r, 1, 0)
+        DPsiDZ      = get_DPsi(r, 0, 1)
+        D%x(ig,1)   = Psi
+        D%x(ig,2)   = PsiN
+        D%x(ig,3)   = DPsiDR
+        D%x(ig,4)   = DPsiDZ
      endif
   enddo grid_loop
   call D%mpi_allreduce()
