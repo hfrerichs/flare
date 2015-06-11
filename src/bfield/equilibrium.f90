@@ -523,6 +523,7 @@ module equilibrium
   contains
 !.......................................................................
   function approximate_H(x) result(H)
+  use run_control, only: Debug
   real(real64), intent(in) :: x(2)
   real(real64) :: H(2,2)
 
@@ -540,11 +541,17 @@ module equilibrium
         dfdxi(i) = get_DPsi(xi, 1, 0)
         dfdyi(i) = get_DPsi(xi, 0, 1)
      enddo
-     H(1,j) = (dfdxi(2) - dfdxi(1)) / 2.d0 / gamma_1
-     H(2,j) = (dfdyi(2) - dfdyi(1)) / 2.d0 / gamma_1
+     H(1,3-j) = (dfdxi(2) - dfdxi(1)) / 2.d0 / gamma_1
+     H(2,3-j) = (dfdyi(2) - dfdyi(1)) / 2.d0 / gamma_1
   enddo
   H(1,2) = 0.5d0 * (H(1,2) + H(2,1))
   H(2,1) = H(1,2)
+
+  if (Debug) then
+     write (6, *) 'H_approximate = '
+     write (6, *) H(1,1), H(1,2)
+     write (6, *) H(2,1), H(2,2)
+  endif
 
   end function approximate_H
 !.......................................................................
@@ -792,15 +799,16 @@ module equilibrium
 
 
   approximation_loop: do k=1,nmax
-     ! 1. obtain direction
+     ! 1. obtain direction (solve B * p = - grad f)
      P(1)  =   B(2,2)*dfdx - B(1,2)*dfdy
      P(2)  = - B(2,1)*dfdx + B(1,1)*dfdy
+     P     = - P / Bdisc
 
      ! 2. use constant gamma_1
 
      ! 3. calculate increment
      S     = gamma_1 * P
-     X     = X - S
+     X     = X + S
      dxmod = sqrt(sum(S**2))
      write (90, *) k, X, S, dxmod
      if (dxmod < delta) exit
@@ -822,6 +830,7 @@ module equilibrium
      enddo
      enddo
      B = B + DB
+     Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
      if (present(Hout)) Hout = B
   enddo approximation_loop
   close (90)
@@ -918,6 +927,10 @@ module equilibrium
 
 
   if (Debug) then
+     open  (98, file='A.tmp')
+     write (98, *) A(1,1), A(1,2)
+     write (98, *) A(2,1), A(2,2)
+     close (98)
      open  (97, file='unstable.tmp')
      write (97, *) this%X
      write (97, *) this%X + v1
