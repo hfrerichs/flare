@@ -77,11 +77,11 @@ subroutine setup_core_domain(iz, nr_core)
   real(real64), intent(in) :: phi
   real(real64)             :: get_r0(2)
 
-  real(real64) :: r3(3)
-  integer      :: j
+  real(real64) :: r3(3), w, w_tot
+  integer      :: j, ig2
 
 
-  r0 = 0.d0
+  get_r0 = 0.d0
 
   select case(method)
   case(MAGNETIC_AXIS)
@@ -90,12 +90,17 @@ subroutine setup_core_domain(iz, nr_core)
 
   case(GEOMETRIC_CENTER)
      get_r0 = 0.d0
-     do j=0,SRF_POLO(iz)-1
-        ig = nr_core + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
-        get_r0(1) = get_r0(1) + RG(ig)
-        get_r0(2) = get_r0(2) + ZG(ig)
+     w_tot  = 0.d0
+     do j=0,ZON_POLO(iz)-1
+        ig  = nr_core + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+        ig2 = ig + SRF_RADI(iz)
+        w   = sqrt((RG(ig)-RG(ig2))**2 + (ZG(ig)-ZG(ig2))**2)
+
+        get_r0(1) = get_r0(1) + w*RG(ig)
+        get_r0(2) = get_r0(2) + w*ZG(ig)
+        w_tot     = w_tot     + w
      enddo
-     get_r0 = get_r0 / SRF_POLO(iz)
+     get_r0 = get_r0 / w_tot
   end select
 
   end function get_r0
