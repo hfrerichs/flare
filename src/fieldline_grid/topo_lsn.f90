@@ -525,7 +525,7 @@ module topo_lsn
 
      ! main SOL
      do j=0,np0
-        xi = Zone(iz)%Sp%node(j,np0)
+        xi = Zone(iz0)%Sp%node(j,np0)
         call C0%sample_at(xi, x)
         M_SOL(i,np1r+j,:) = x
      enddo
