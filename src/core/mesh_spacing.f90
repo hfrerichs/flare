@@ -12,6 +12,7 @@ module mesh_spacing
   integer, parameter :: &
      EXPONENTIAL = 1, &
      SPLINE_X1   = 2, &
+     DELTA_R_SYM = 3, &
      USER_DEF    = -1
 
 
@@ -36,14 +37,17 @@ module mesh_spacing
 
 !=======================================================================
   subroutine init(this, mode)
+  use string
   class(t_spacing) :: this
   character(len=*) :: mode
 
+  character(len=256) :: s1, s2
   integer :: iB
 
 
   if (allocated(this%c)) deallocate(this%c)
   iB = len_trim(mode)
+  if (iB > 256) iB = 256
 
 
   ! equidistant spacing
@@ -61,6 +65,17 @@ module mesh_spacing
 !  elseif (mode(1:3) == 'X1:') then
      !this%mode = SPLINE_X1
      !call this%init_spline_x1()
+
+  ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
+  elseif (mode(1:8) == 'Delta-R:') then
+     this%mode = DELTA_R_SYM
+     this%nc   = 2
+     allocate (this%c(this%nc))
+     s1        = parse_string(mode(9:iB),1)
+     s2        = parse_string(mode(9:iB),2)
+     read (s1, *, err=5000) this%c(1)
+     read (s2, *, err=5000) this%c(2)
+
 
   ! user defined (external) spacing function
   elseif (mode(1:5) == 'file:') then
@@ -180,6 +195,10 @@ module mesh_spacing
   case(SPLINE_X1)
      xi = sample_spline_X1(t, this%c(1), this%c(2))
 
+  ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
+  case(DELTA_R_SYM)
+     xi = sample_Delta_R_sym(t, this%c(1), this%c(2))
+
   ! user defined spacings
   case(USER_DEF)
      call this%D%sample_at(t, x)
@@ -233,6 +252,29 @@ module mesh_spacing
   endif
 
   end function sample_spline_X1
+!=======================================================================
+
+
+
+!=======================================================================
+  function sample_Delta_R_sym(eta, Delta, R) result(xi)
+  real(real64), intent(in) :: eta, Delta, R
+  real(real64)             :: xi
+
+  real(real64) :: eta1
+
+
+  eta1 = 2.d0 * Delta / (1.d0 + (R-1.d0) * 2.d0 * Delta)
+
+  if (eta < eta1) then
+     xi = eta * Delta / eta1
+  elseif (eta > 1.d0-eta1) then
+     xi = eta * Delta / eta1 + 1.d0 - Delta / eta1
+  else
+     xi = Delta + (eta-eta1) * (1.d0 - 2.d0*Delta) / (1.d0 - 2.d0*eta1)
+  endif
+
+  end function sample_Delta_R_sym
 !=======================================================================
 
 
