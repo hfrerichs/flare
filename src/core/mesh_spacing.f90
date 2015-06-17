@@ -75,6 +75,7 @@ module mesh_spacing
      s2        = parse_string(mode(9:iB),2)
      read (s1, *, err=5000) this%c(1)
      read (s2, *, err=5000) this%c(2)
+     write (6, *) 'Delta-R: ', this%c
 
 
   ! user defined (external) spacing function
@@ -264,7 +265,7 @@ module mesh_spacing
   real(real64) :: eta1
 
 
-  eta1 = 2.d0 * Delta / (1.d0 + (R-1.d0) * 2.d0 * Delta)
+  eta1 = R * Delta / (1.d0 + (R-1.d0) * 2.d0 * Delta)
 
   if (eta < eta1) then
      xi = eta * Delta / eta1
