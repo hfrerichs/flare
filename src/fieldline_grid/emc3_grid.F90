@@ -255,4 +255,51 @@ module emc3_grid
 #endif
 !=======================================================================
 
+
+
+!=======================================================================
+! fix nodes at interface between zone izA and izB
+! toroidal cell range:  itA0 -> itA0 + nt (in zone izA)
+!                       itB0 -> itB0 + nt (in zone izB)
+! poloidal cell range:  ipA0 -> ipA0 + np (in zone izA)
+!                       ipB0 -> ipB0 + np (in zone izB)
+! radial surface index: irA (in zone izA)
+!                       irB (in zone izB)
+! OUTPUT: dmax = updated maximum displacement between nodes
+!=======================================================================
+  subroutine fix_interface(izA, izB, itA0, itB0, nt, ipA0, ipB0, np, irA, irB, dmax)
+  use iso_fortran_env
+  integer,      intent(in)    :: izA, izB, itA0, itB0, nt, ipA0, ipB0, np, irA, irB
+  real(real64), intent(inout) :: dmax
+
+  real(real64) :: d, R, Z
+  integer :: it, itA, itB, ip, ipA, ipB, igA, igB
+
+
+  do ip=0,np
+     ipA = ipA0 + ip
+     ipB = ipB0 + ip
+     do it=0,nt
+        itA = itA0 + it
+        itB = itB0 + it
+
+        igA = irA + (ipA + itA*SRF_POLO(izA))*SRF_RADI(izA)  +  GRID_P_OS(izA)
+        igB = irB + (ipB + itB*SRF_POLO(izB))*SRF_RADI(izB)  +  GRID_P_OS(izB)
+
+
+        ! distance between nodes, save max. distance
+        d = sqrt((RG(igA)-RG(igB))**2 - (ZG(igA)-ZG(igB))**2)
+        if (d.gt.dmax) dmax = d
+
+        ! replace nodes by mean value
+        R = 0.5d0 * (RG(igA) + RG(igB))
+        RG(igA) = R; RG(igB) = R
+        Z = 0.5d0 * (ZG(igA) + ZG(igB))
+        ZG(igA) = Z; ZG(igB) = Z
+     enddo
+  enddo
+
+  end subroutine fix_interface
+!=======================================================================
+
 end module emc3_grid

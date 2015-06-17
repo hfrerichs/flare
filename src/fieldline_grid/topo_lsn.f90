@@ -338,6 +338,7 @@ module topo_lsn
 
      ! cell spacings
      call Zone(iz1)%Sr%init(radial_spacing(1))
+     call Zone(iz2)%Sr%init(radial_spacing(2))
 
 
      ! initialize base grids in present block
@@ -585,6 +586,50 @@ module topo_lsn
 
 
 
+!===============================================================================
+! FIX GRID for M3D-C1 configuration (connect block boundaries)
+! This is necessary because a small deviation between field lines starting from
+! the exact same location can occur. This effect is related to the order in
+! which the FIO library checks the mesh elements and which depends on the
+! results of previous searches.
+!===============================================================================
+  subroutine fix_interfaces_for_m3dc1 ()
+  use emc3_grid
+  implicit none
+
+  real(real64) :: R, Z, dmax
+  integer      :: ib, iz0, iz1, iz2, nt, npL1, np, npR1
+
+
+  write (6, 1000)
+ 1000 format(8x,'fixing interfaces between blocks for M3D-C1 configurations...')
+  dmax = 0.d0
+  do ib=0,blocks-1
+     iz0  = 3*ib
+     iz1  = iz0  +  1
+     iz2  = iz0  +  2
+     nt   = ZON_TORO(iz0)
+
+     npL1 = Block(ib)%npL(1)
+     np   = Block(ib)%np(0)
+     npR1 = Block(ib)%npR(1)
+
+     ! connect right divertor leg
+     call fix_interface(iz1, iz2, 0, 0, nt, 0, 0, npR1, 0, ZON_RADI(iz2), dmax)
+
+     ! connect core
+     call fix_interface(iz0, iz1, 0, 0, nt, 0, npR1, np, ZON_RADI(iz0), 0, dmax)
+
+     ! connect left divertor leg
+     call fix_interface(iz1, iz2, 0, 0, nt, npR1+np, npR1, npL1, 0, ZON_RADI(iz2), dmax)
+  enddo
+
+  write (6, *) 'max. deviation: ', dmax
+  end subroutine fix_interfaces_for_m3dc1
+  !=============================================================================
+
+
+
   !=============================================================================
   subroutine post_process_grid_lsn()
   use divertor
@@ -604,6 +649,8 @@ module topo_lsn
         call close_grid_domain(iz)
      enddo
   enddo
+
+  call fix_interfaces_for_m3dc1 ()
 
   end subroutine post_process_grid_lsn
   !=============================================================================
