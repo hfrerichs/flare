@@ -268,7 +268,7 @@ module topo_lsn
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL, M_PFR
 
   real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
-  integer :: i, j, iz, iz1, iz2, nr0, nr1, nr2, np0, np1, np1l, np1r, np2
+  integer :: i, j, iz, iz0, iz1, iz2, nr0, nr1, nr2, np0, np1, np1l, np1r, np2
 
   logical :: generate_flux_surfaces_HPR
   logical :: generate_flux_surfaces_SOL
@@ -309,9 +309,9 @@ module topo_lsn
      write (6, 1001) iblock
 
      ! set zone indices
-     iz  = iblock*3
-     iz1 = iz + 1
-     iz2 = iz + 2
+     iz0 = iblock*3
+     iz1 = iz0 + 1
+     iz2 = iz0 + 2
 
      ! set local variables for resolution
      nr0 = Block(iblock)%nr(0); np0 = Block(iblock)%np(0)
@@ -337,8 +337,11 @@ module topo_lsn
 
 
      ! cell spacings
-     call Zone(iz1)%Sr%init(radial_spacing(1))
-     call Zone(iz2)%Sr%init(radial_spacing(2))
+     do i=0,2
+        iz = iz0 + i
+        call Zone(iz)%Sr%init(radial_spacing(i))
+        call Zone(iz)%Sp%init(poloidal_spacing(i))
+     enddo
 
 
      ! initialize base grids in present block
@@ -382,7 +385,7 @@ module topo_lsn
 
 
      ! output
-     call write_base_grid(G_HPR(iblock), iz)
+     call write_base_grid(G_HPR(iblock), iz0)
      call write_base_grid(G_SOL(iblock), iz1)
      call write_base_grid(G_PFR(iblock), iz2)
      write (6, 1002) iblock
@@ -398,7 +401,7 @@ module topo_lsn
 
   ! 1. discretization of main part of separatrix
   do j=0,np0
-     xi = Zone(iz)%Sp%node(j,np0)
+     xi = Zone(iz0)%Sp%node(j,np0)
 
      call S0%sample_at(xi, x)
      M_HPR(nr0,      j, :) = x
@@ -447,7 +450,7 @@ module topo_lsn
   endif
   do i=nr0-1, 2+n_interpolate, -1
      write (6, *) i
-     eta = 1.d0 - Zone(iz)%Sr%node(i-1,nr0-1)
+     eta = 1.d0 - Zone(iz0)%Sr%node(i-1,nr0-1)
 
      x = Px + eta * d_HPR
      if (Debug) write (iu, *) x
@@ -455,7 +458,7 @@ module topo_lsn
      call FS%setup_angular_sampling(Pmag)
 
      do j=0,np0
-        xi = Zone(iz)%Sp%node(j,np0)
+        xi = Zone(iz0)%Sp%node(j,np0)
         call FS%sample_at(xi, x)
         M_HPR(i,j,:) = x
      enddo
@@ -472,7 +475,7 @@ module topo_lsn
 
   write (6, 1001) 2, 1+n_interpolate
   do j=0,np0
-     xi = Zone(iz)%Sp%node(j,np0)
+     xi = Zone(iz0)%Sp%node(j,np0)
      ! innermost surfaces
      do i=0,1
         call C_in(iblock,i)%sample_at(xi, x)
@@ -483,7 +486,7 @@ module topo_lsn
      x1 = M_HPR(1,              j,:)
      x2 = M_HPR(2+n_interpolate,j,:)
      do i=2,1+n_interpolate
-        eta = Zone(iz)%Sr%node(    i-1,nr0-1) / Zone(iz)%Sr%node(1+n_interpolate,nr0-1)
+        eta = Zone(iz0)%Sr%node(    i-1,nr0-1) / Zone(iz0)%Sr%node(1+n_interpolate,nr0-1)
 
         M_HPR(i,j,:) = x1 + eta * (x2-x1)
      enddo
