@@ -1,0 +1,453 @@
+!===============================================================================
+! Disconnected Double Null configuration: block-structured decomposition with zones for
+! high pressure region (HPR), inner and outer scrape-off layer (SOL) and
+! upper and lower private flux regions (PFR)
+!===============================================================================
+module topo_ddn
+  use iso_fortran_env
+  use grid
+  use separatrix
+  use curve2D
+  use fieldline_grid, unused => TOPO_DDN
+  implicit none
+  private
+
+  integer, parameter :: DEFAULT = 0
+
+
+  character(len=*), parameter :: ZONE_LABEL(0:5) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFRl ', 'PFRu ' /)
+
+
+  ! discretization method
+  integer :: method = DEFAULT
+
+
+  ! base grid in high pressure region (HPR), scrape-off layer (SOL) and private flux region (PFR)
+  type(t_grid), dimension(:,:), allocatable :: G ! (0:blocks-1,0:layers-1)
+
+  ! magnetic separatrix
+  type(t_separatrix) :: Si, So
+  type(t_curve)      :: S0
+
+  ! guiding_surface
+  type(t_curve)      :: C_guide, C_cutL, C_cutR
+
+
+  public :: &
+     setup_topo_ddn, &
+     make_base_grids_ddn, &
+     post_process_grid_ddn
+
+  contains
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine setup_topo_ddn()
+  use emc3_grid, only: NZONET
+  implicit none
+
+  integer :: iz, iz0, ib
+
+
+  ! 0. setup number of zones for lower single null topology
+  layers = 6
+  NZONET = blocks * layers
+
+
+  write (6, 1000)
+  write (6, 1001)
+  do ib=0,blocks-1
+     ! 1. setup resolution for each zone
+     ! set derived parameters
+     Block(ib)%np(0) = Block(ib)%npR(0) + Block(ib)%npL(0)
+     Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%np(0)  + Block(ib)%npL(1)
+     Block(ib)%np(2) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
+     Block(ib)%np(3) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
+     Block(ib)%np(4) = Block(ib)%npR(1)                    + Block(ib)%npL(1)
+     Block(ib)%np(5) = Block(ib)%npR(2)                    + Block(ib)%npL(2)
+
+
+     ! high pressure region (HPR)
+     iz0 = ib * layers
+     Zone(iz0)%nr    = Block(ib)%nr(0) + nr_EIRENE_core
+     Zone(iz0)%np    = Block(ib)%np(0)
+
+     ! inner scrape-off layer (SOL)
+     Zone(iz0+1)%nr  = Block(ib)%nr(1)
+     Zone(iz0+1)%np  = Block(ib)%np(1)
+
+     ! outer scrape-off layer (SOL)
+     Zone(iz0+2)%nr  = Block(ib)%nr(2) + nr_EIRENE_vac
+     Zone(iz0+2)%np  = Block(ib)%np(2)
+     Zone(iz0+3)%nr  = Block(ib)%nr(3) + nr_EIRENE_vac
+     Zone(iz0+3)%np  = Block(ib)%np(3)
+
+     ! private flux region (PFR)
+     Zone(iz0+4)%nr  = Block(ib)%nr(4) + nr_EIRENE_vac
+     Zone(iz0+4)%np  = Block(ib)%np(4)
+     Zone(iz0+5)%nr  = Block(ib)%nr(5) + nr_EIRENE_vac
+     Zone(iz0+5)%np  = Block(ib)%np(5)
+
+     do iz=iz0,iz0+layers-1
+        ! setup toroidal discretization
+        call Zone(iz)%setup_default_toroidal_discretization(ib)
+     enddo
+
+
+     ! 2. setup boundaries and connectivity between zones
+     do iz=iz0,iz0+layers-1
+        call Zone(iz)%setup_default_boundaries()
+     enddo
+
+     ! 2.a high pressure region (HPR)
+     Zone(iz0)%isfr(2) = SF_MAPPING
+     Zone(iz0)%r_surf_pl_trans_range(2) = Zone(iz0)%nr
+
+     ! 2.b inner scrape-off layer (SOL)
+     Zone(iz0+1)%isfr(1) = SF_MAPPING
+     Zone(iz0+1)%isfr(2) = SF_MAPPING
+     Zone(iz0+1)%isfp(1) = SF_VACUUM
+     Zone(iz0+1)%isfp(2) = SF_VACUUM
+     Zone(iz0+1)%r_surf_pl_trans_range(1) = 0
+     Zone(iz0+1)%r_surf_pl_trans_range(2) = Zone(iz0+1)%nr
+     ! outer scrape-off layer
+     do iz=iz0+2,iz0+3
+        Zone(iz)%isfr(1) = SF_MAPPING
+        Zone(iz)%isfp(1) = SF_VACUUM
+        Zone(iz)%isfp(2) = SF_VACUUM
+        Zone(iz)%r_surf_pl_trans_range(1) = 0
+        Zone(iz)%d_N0    = d_N0(1)
+     enddo
+
+     ! 2.c private flux region (PFR)
+     do iz=iz0+4,iz0+5
+        Zone(iz)%isfr(1) = SF_VACUUM
+        Zone(iz)%isfr(2) = SF_MAPPING
+        Zone(iz)%isfp(1) = SF_VACUUM
+        Zone(iz)%isfp(2) = SF_VACUUM
+        Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
+        Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
+        Zone(iz)%d_N0    = d_N0(2)
+     enddo
+
+     write (6, 1002) ib, ZONE_LABEL(0),      Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt
+     do iz=iz0+1,iz0+layers-1
+        write (6, 1003)  ZONE_LABEL(iz-iz0), Zone(iz )%nr, Zone(iz )%np, Zone(iz )%nt
+     enddo
+  enddo
+
+ 1000 format(8x,'Grid resolution in')
+ 1001 format(8x,'block #, zone #, (radial x poloidal x toroidal):')
+ 1002 format(12x,i3,3x,a6,3x'(',i0,' x ',i0,' x ',i0,')')
+ 1003 format(12x,   6x,a6,3x'(',i0,' x ',i0,' x ',i0,')')
+  end subroutine setup_topo_ddn
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine setup_domain
+  use boundary
+  use run_control, only: Debug
+  use math
+  use flux_surface_2D, only: RIGHT_HANDED
+  use equilibrium
+  use inner_boundary
+
+  real(real64) :: tmp(3), Px0(2)
+  integer      :: ix
+
+
+  ! 1.a setup guiding surface for divertor legs (C_guide) ------------------
+  if (guiding_surface .ne. '') then
+     write (6, 1000)
+     call C_guide%load(guiding_surface)
+  else if (n_axi > 0) then
+     write (6, 1001)
+     call C_guide%copy(S_axi(1))
+  else
+     write (6, *) 'error: cannot determine divertor geometry!'
+     write (6, *) 'neither guiding_surface is set, nor is an axisymmetric surface defined.'
+     stop
+  endif
+ 1000 format(8x,'User defined guiding surface for divertor strike points')
+ 1001 format(8x,'First axisymmetric surface used for divertor strike points')
+
+  ! 1.b setup extended guiding surfaces for divertor leg discretization ----
+  ! C_cutL, C_cutR
+  call C_cutL%copy(C_guide)
+  call C_cutL%left_hand_shift(d_cutL(1))
+  call C_cutR%copy(C_guide)
+  call C_cutR%left_hand_shift(d_cutR(1))
+  if (Debug) then
+     call C_cutL%plot(filename='C_cutL.plt')
+     call C_cutR%plot(filename='C_cutR.plt')
+  endif
+
+
+  ! 2.a setup magnetic axis (Pmag) --------------------------------------
+  !tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+  tmp = get_magnetic_axis(0.d0)
+
+  ! 2.b setup X-point (Px, theta0) --------------------------------------
+  do ix=1,2
+     write (6, 2000) Xp(ix)%load()
+     write (6, 2001) Xp(ix)%theta/pi*180.d0
+  enddo
+
+
+  ! 2.c separatrix (S, S0) ---------------------------------------------
+  call Si%generate(1, 1,  Xp(2)%theta, C_cutL, C_cutR)
+  call Si%plot('Si', parts=.true.)
+  call So%generate(2, -1, Xp(1)%theta, C_cutL, C_cutR)
+  call So%plot('So', parts=.true.)
+
+  ! connect core segments of separatrix
+  S0 = connect(Si%M1%t_curve, Si%M2%t_curve)
+  call S0%plot(filename='S0.plt')
+  !call S0%setup_angular_sampling(Pmag)
+  call S0%setup_angular_sampling(tmp(1:2))
+  call Si%M3%setup_length_sampling()
+  call Si%M4%setup_length_sampling()
+ 2000 format(8x,'found magnetic X-point at: ',2f10.4)
+ 2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
+
+
+  ! 3. inner boundaries for EMC3 grid
+  call load_inner_boundaries(Xp(1)%theta)
+
+  end subroutine setup_domain
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine make_base_grids_ddn
+  use run_control, only: Debug
+  use math
+  use inner_boundary
+  use flux_surface_2D
+  use mesh_spacing
+
+  integer, parameter      :: iu = 72
+
+  type(t_flux_surface_2D) :: FS, FSL, FSR, C0
+  type(t_curve)           :: CL, CR
+  type(t_spacing)         :: Sl, Sr
+
+  real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL, M_PFR
+
+  real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
+  integer :: i, j, iz, iz0, iz1, iz2, nr0, nr1, nr2, np0, np1, np1l, np1r, np2
+
+  logical :: generate_flux_surfaces_HPR
+  logical :: generate_flux_surfaces_SOL
+  logical :: generate_flux_surfaces_PFR
+  real(real64) :: xiL, xiR
+  integer :: iblock
+
+
+  write (6, 1000)
+  if (Debug) then
+     open  (iu, file='base_grid_debug.txt')
+  endif
+  !.....................................................................
+  ! 0. initialize geometry
+  call setup_domain()
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 1. check input
+  if (n_interpolate < 0) then
+     write (6, *) 'error: n_interpolate must not be negative!'; stop
+  endif
+  if (n_interpolate > nr(0)-2) then
+     write (6, *) 'error: n_interpolate > nr0 - 2!'; stop
+  endif
+  !.....................................................................
+
+
+  !.....................................................................
+  ! 2. setup working arrays for base grid
+  allocate (G(0:blocks-1, 0:layers-1))
+  !.....................................................................
+
+
+
+  do iblock=0,blocks-1
+     write (6, 1001) iblock
+
+     ! set zone indices
+     iz0 = iblock*layers
+     iz1 = iz0 + 1
+     iz2 = iz0 + 2
+
+     ! set local variables for resolution
+     call load_local_resolution(iblock)
+     !nr0 = Block(iblock)%nr(0); np0 = Block(iblock)%np(0)
+     !nr1 = Block(iblock)%nr(1); np1 = Block(iblock)%np(1)
+     !np1l = Block(iblock)%npL(1); np1r = Block(iblock)%npR(1)
+     !nr2 = Block(iblock)%nr(2); np2 = Block(iblock)%np(2)
+
+     ! check if radial-poloidal resolution is different from last block
+     generate_flux_surfaces_HPR = .true.
+     generate_flux_surfaces_SOL = .true.
+     generate_flux_surfaces_PFR = .true.
+!     if (iblock > 0) then
+!        ! copy unperturbed flux surface discretization if resolution is the same
+!        if (nr0 == Block(iblock-1)%nr(0)  .and.  np0 == Block(iblock-1)%np(0)) then
+!           generate_flux_surfaces_HPR = .false.
+!        endif
+!
+!        if (np1l == Block(iblock-1)%npL(1) .and. np1r == Block(iblock-1)%npR(1)) then
+!           if (nr1 == Block(iblock-1)%nr(1)) generate_flux_surfaces_SOL = .false.
+!           if (nr2 == Block(iblock-1)%nr(2)) generate_flux_surfaces_PFR = .false.
+!        endif
+!     endif
+
+
+
+     ! setup cell spacings
+     do i=0,layers-1
+        iz = iz0 + i
+        call Zone(iz)%Sr%init(radial_spacing(i))
+        call Zone(iz)%Sp%init(poloidal_spacing(i))
+     enddo
+
+
+     ! initialize base grids in present block
+     phi = Block(iblock)%phi_base / 180.d0 * pi
+!     call G_HPR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr0+1, np0+1, fixed_coord_value=phi)
+!     call G_SOL(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr1+1, np1+1, fixed_coord_value=phi)
+!     call G_PFR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr2+1, np2+1, fixed_coord_value=phi)
+!     M_HPR => G_HPR(iblock)%mesh
+!     M_SOL => G_SOL(iblock)%mesh
+!     M_PFR => G_PFR(iblock)%mesh
+     do i=0,layers-1
+        call G(iblock,i)%new(CYLINDRICAL, MESH_2D, 3, nr(i)+1, np(i)+1, fixed_coord_value=phi)
+     enddo
+     M_HPR => G(iblock,0)%mesh
+     M_SOL => G(iblock,1)%mesh
+     M_PFR => G(iblock,4)%mesh
+
+
+     ! start grid generation
+     ! 1. unperturbed separatrix
+     !!!call make_separatrix()
+
+     ! 2. unperturbed FLUX SURFACES
+     ! 2.a high pressure region (HPR)
+     if (generate_flux_surfaces_HPR) then
+        !!!call make_flux_surfaces_HPR()
+     else
+        !G_HPR(iblock)%mesh = G_HPR(iblock-1)%mesh
+     endif
+
+     ! 2.b scrape-off layer (SOL)
+     if (generate_flux_surfaces_SOL) then
+        !!!call make_flux_surfaces_SOL()
+     else
+        !G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
+     endif
+
+     ! 2.c private flux region (PFR)
+     if (generate_flux_surfaces_PFR) then
+        !!!call make_flux_surfaces_PFR()
+     else
+        !G_PFR(iblock)%mesh = G_PFR(iblock-1)%mesh
+     endif
+
+     ! 3. interpolated surfaces
+     !!!call make_interpolated_surfaces()
+
+
+     ! output
+     do i=0,layers-1
+        iz = iz0 + i
+        call write_base_grid(G(iblock,i), iz)
+     enddo
+     write (6, 1002) iblock
+  enddo
+  if (Debug) close (iu)
+
+ 1000 format(//3x,'- Setup for base grids:')
+ 1001 format(//1x,'Start generation of base grids for block ',i0,' ',32('.'))
+ 1002 format(1x,'Finished generation of base grids for block ',i0,' ',32('.'),//)
+  end subroutine make_base_grids_ddn
+  !=============================================================================
+
+
+
+!===============================================================================
+! FIX GRID for M3D-C1 configuration (connect block boundaries)
+! This is necessary because a small deviation between field lines starting from
+! the exact same location can occur. This effect is related to the order in
+! which the FIO library checks the mesh elements and which depends on the
+! results of previous searches.
+!===============================================================================
+  subroutine fix_interfaces_for_m3dc1 ()
+  use emc3_grid
+  implicit none
+
+  real(real64) :: R, Z, dmax
+  integer      :: ib, iz0, iz1, iz2, nt, npL1, np, npR1
+
+
+  write (6, 1000)
+ 1000 format(8x,'fixing interfaces between blocks for M3D-C1 configurations...')
+  dmax = 0.d0
+  do ib=0,blocks-1
+     iz0  = 3*ib
+     iz1  = iz0  +  1
+     iz2  = iz0  +  2
+     nt   = ZON_TORO(iz0)
+
+     npL1 = Block(ib)%npL(1)
+     np   = Block(ib)%np(0)
+     npR1 = Block(ib)%npR(1)
+
+     ! connect right divertor leg
+     call fix_interface(iz1, iz2, 0, 0, nt, 0, 0, npR1, 0, ZON_RADI(iz2), dmax)
+
+     ! connect core
+     call fix_interface(iz0, iz1, 0, 0, nt, 0, npR1, np, ZON_RADI(iz0), 0, dmax)
+
+     ! connect left divertor leg
+     call fix_interface(iz1, iz2, 0, 0, nt, npR1+np, npR1, npL1, 0, ZON_RADI(iz2), dmax)
+  enddo
+
+  write (6, *) 'max. deviation: ', dmax
+  end subroutine fix_interfaces_for_m3dc1
+  !=============================================================================
+
+
+
+  !=============================================================================
+  subroutine post_process_grid_ddn()
+  use divertor
+
+  integer :: iblock, iz, iz1, iz2
+
+
+  write (6, 1000)
+ 1000 format(3x,'- Post processing fieldline grid')
+
+  write (6, 1001)
+ 1001 format(8x,'closing grid at last divertor cells')
+  do iblock=0,blocks-1
+     iz1 = iblock*layers + 1
+     iz2 = iblock*layers + layers
+     do iz=iz1,iz2
+        call close_grid_domain(iz)
+     enddo
+  enddo
+
+  call fix_interfaces_for_m3dc1 ()
+
+  end subroutine post_process_grid_ddn
+  !=============================================================================
+
+end module topo_ddn

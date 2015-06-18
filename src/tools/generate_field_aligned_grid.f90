@@ -4,6 +4,7 @@ subroutine generate_field_aligend_grid (run_level)
   use emc3_grid
   use topo_sc
   use topo_lsn
+  use topo_ddn
   implicit none
 
   integer, intent(in) :: run_level
@@ -28,6 +29,10 @@ subroutine generate_field_aligend_grid (run_level)
      call setup_topo_lsn()
      make_base_grids   => make_base_grids_lsn
      post_process_grid => post_process_grid_lsn
+  case(TOPO_DDN, TOPO_DDN1)
+     call setup_topo_ddn()
+     make_base_grids   => make_base_grids_ddn
+     post_process_grid => post_process_grid_ddn
   case default
      write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
      stop

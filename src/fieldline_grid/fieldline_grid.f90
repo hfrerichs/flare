@@ -11,7 +11,8 @@ module fieldline_grid
      TOPO_SC1    = 'sc', &
      TOPO_LSN    = 'lower_single_null', &
      TOPO_LSN1   = 'lsn', &
-     TOPO_DDN    = 'DDN'
+     TOPO_DDN    = 'disconnected_double_null', &
+     TOPO_DDN1   = 'ddn'
 
 
   ! surface type definitions

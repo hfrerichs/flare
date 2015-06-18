@@ -8,6 +8,7 @@ OBJECTS =  \
                inner_boundary.o\
                topo_sc.o\
                topo_lsn.o\
+               topo_ddn.o\
                vacuum_domain.o\
                trace_nodes.o\
                check.o
