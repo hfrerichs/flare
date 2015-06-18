@@ -96,6 +96,7 @@ module grid
         else
            allocate (this%mesh(0:n1-1, 0:n2-1, 3))
         endif
+        this%mesh = 0.d0
      endif
   endif
   if (present(n3)) then
