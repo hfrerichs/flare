@@ -134,7 +134,7 @@ module topo_lsn
   use equilibrium
   use inner_boundary
 
-  real(real64) :: tmp(3), Rbox(2), Zbox(2), Px0(2), theta0
+  real(real64) :: tmp(3), Rbox(2), Zbox(2), Px0(2)
 
 
   ! 1.a setup guiding surface for divertor legs (C_guide) ------------------
@@ -168,18 +168,9 @@ module topo_lsn
   tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
 
   ! 2.b setup X-point (Px, theta0) --------------------------------------
-  if (Xp(1)%R_estimate > 0.d0) then
-     Px = Xp(1)%X
-  else
-     call get_domain(Rbox, Zbox)
-     Px0(1) = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
-     Px0(2) = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
-     Px     = find_X(Px0)
-  endif
+  Px = Xp(1)%load()
   write (6, 2000) Px
-
-  theta0 = atan2(Px(2) - Pmag(2), Px(1) - Pmag(1))
-  write (6, 2001) theta0/pi*180.d0
+  write (6, 2001) Xp(1)%theta
 
   ! 2.c separatrix (S, S0) ---------------------------------------------
   call S%generate(1, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
@@ -196,7 +187,7 @@ module topo_lsn
 
 
   ! 3. inner boundaries for EMC3 grid
-  call load_inner_boundaries(theta0)
+  call load_inner_boundaries(Xp(1)%theta)
 
   end subroutine setup_domain
   !=====================================================================

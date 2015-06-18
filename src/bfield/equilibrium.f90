@@ -28,10 +28,11 @@ module equilibrium
 
   type t_Xpoint
      real(real64) :: R_estimate = 0.d0, Z_estimate = 0.d0
-     real(real64) :: X(2), Psi, H(2,2)
+     real(real64) :: X(2) = -1.d0, Psi, H(2,2), theta
 
      contains
      procedure analysis
+     procedure load
   end type t_Xpoint
 
 
@@ -252,12 +253,13 @@ module equilibrium
         endif
      endif
 
-     x0(1)      = Xp(ix)%R_estimate
-     x0(2)      = Xp(ix)%Z_estimate
-     Xp(ix)%X   = find_x(x0, Hout=Xp(ix)%H)
+     x0(1)        = Xp(ix)%R_estimate
+     x0(2)        = Xp(ix)%Z_estimate
+     Xp(ix)%X     = find_x(x0, Hout=Xp(ix)%H)
 
-     r(1:2)     = Xp(ix)%X; r(3) = 0.d0
-     Xp(ix)%Psi = get_Psi(r)
+     r(1:2)       = Xp(ix)%X; r(3) = 0.d0
+     Xp(ix)%Psi   = get_Psi(r)
+     Xp(ix)%theta = get_poloidal_angle(r)
      if (ix == 1) Psi_sepx = Xp(ix)%Psi
 
      write (6, 4001) Xp(ix)%X, Xp(ix)%Psi
@@ -1093,6 +1095,24 @@ module equilibrium
   end subroutine analysis
 !=======================================================================
 
+
+
+!=======================================================================
+  function load(this) result(X)
+  class(t_Xpoint) :: this
+  real(real64)    :: X(2)
+
+
+  if (this%X(1) > 0.d0) then
+     X = this%X
+  else
+     X = -1.d0
+     write (6, *) 'error: X-point is not defined!'
+     stop
+  endif
+
+  end function load
+!=======================================================================
 
 
 
