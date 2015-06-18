@@ -53,7 +53,8 @@ module topo_lsn
 
 
   ! 0. setup number of zones for lower single null topology
-  NZONET = blocks * 3
+  layers = 3
+  NZONET = blocks * layers
 
 
   write (6, 1000)

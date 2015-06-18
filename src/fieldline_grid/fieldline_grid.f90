@@ -144,6 +144,7 @@ module fieldline_grid
 
   logical      :: default_decomposition
   real(real64) :: Delta_phi_sim
+  integer      :: layers
 !.......................................................................
 
   contains
@@ -367,6 +368,25 @@ module fieldline_grid
   end subroutine set_value
 !.......................................................................
   end subroutine setup_toroidal_blocks
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine load_local_resolution(iblock)
+  integer, intent(in) :: iblock
+
+  integer :: ilayer
+
+
+  do ilayer=0,max_layers-1
+     nr(ilayer)  = Block(iblock)%nr(ilayer)
+     np(ilayer)  = Block(iblock)%np(ilayer)
+     npL(ilayer) = Block(iblock)%npL(ilayer)
+     npR(ilayer) = Block(iblock)%npR(ilayer)
+  enddo
+
+  end subroutine load_local_resolution
 !=======================================================================
 
 
