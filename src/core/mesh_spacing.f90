@@ -13,6 +13,7 @@ module mesh_spacing
      EXPONENTIAL = 1, &
      SPLINE_X1   = 2, &
      DELTA_R_SYM = 3, &
+     X1          = 4, &
      USER_DEF    = -1
 
 
@@ -26,6 +27,7 @@ module mesh_spacing
      contains
      procedure init, node, plot
      procedure init_spline_x1
+     procedure init_X1
   end type t_spacing
   
   type(t_spacing), public, parameter :: Equidistant = t_spacing(0,0,null(),Empty_curve)
@@ -78,6 +80,18 @@ module mesh_spacing
      write (6, *) 'Delta-R: ', this%c
 
 
+  ! 1 additional node
+  elseif (mode(1:3) == 'X1:') then
+     this%mode = X1
+     this%nc   = 2
+     allocate (this%c(this%nc))
+     s1        = parse_string(mode(4:iB),1)
+     s2        = parse_string(mode(4:iB),2)
+     read (s1, *, err=5000) this%c(1)
+     read (s2, *, err=5000) this%c(2)
+     write (6, *) 'X1: ', this%c
+
+
   ! user defined (external) spacing function
   elseif (mode(1:5) == 'file:') then
      this%mode = USER_DEF
@@ -113,6 +127,24 @@ module mesh_spacing
   this%c(2) = xi1
 
   end subroutine init_spline_x1
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine init_X1(this, eta1, xi1)
+  class(t_spacing)         :: this
+  real(real64), intent(in) :: eta1, xi1
+
+
+  this%mode = X1
+  this%nc   = 2
+  if (allocated(this%c)) deallocate(this%c)
+  allocate(this%c(this%nc))
+  this%c(1) = eta1
+  this%c(2) = xi1
+
+  end subroutine init_X1
 !=======================================================================
 
 
@@ -200,6 +232,10 @@ module mesh_spacing
   case(DELTA_R_SYM)
      xi = sample_Delta_R_sym(t, this%c(1), this%c(2))
 
+  ! 1 additional node
+  case(X1)
+     xi = sample_X1(t, this%c(1), this%c(2))
+
   ! user defined spacings
   case(USER_DEF)
      call this%D%sample_at(t, x)
@@ -276,6 +312,23 @@ module mesh_spacing
   endif
 
   end function sample_Delta_R_sym
+!=======================================================================
+
+
+
+!=======================================================================
+  function sample_X1(eta, eta1, r1) result(xi)
+  real(real64), intent(in) :: eta, eta1, r1
+  real(real64)             :: xi
+
+
+  if (eta < eta1) then
+     xi = eta * r1 / eta1
+  else
+     xi = r1 + (eta-eta1) * (1.d0-r1) / (1.d0-eta1)
+  endif
+
+  end function sample_X1
 !=======================================================================
 
 
