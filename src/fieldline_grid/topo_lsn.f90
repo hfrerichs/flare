@@ -40,7 +40,8 @@ module topo_lsn
   public :: &
      setup_topo_lsn, &
      make_base_grids_lsn, &
-     post_process_grid_lsn
+     post_process_grid_lsn, &
+     make_interpolated_surfaces
 
   contains
   !=====================================================================
@@ -358,7 +359,7 @@ module topo_lsn
      endif
 
      ! 3. interpolated surfaces
-     call make_interpolated_surfaces()
+     call make_interpolated_surfaces(M_HPR, nr0, np0, 1, 2+n_interpolate, Zone(iz0)%Sr, Zone(iz0)%Sp, C_in(iblock,:))
 
 
      ! output
@@ -405,34 +406,6 @@ module topo_lsn
      M_PFR(nr2,np1r       + j,:) = x
   enddo
   end subroutine make_separatrix
-  !.....................................................................
-
-  !.....................................................................
-  subroutine make_interpolated_surfaces()
-  ! inner boundaries and interpolated surfaces (2 -> 1+n_interpolate) (high pressure region)
-
-  write (6, 1001) 2, 1+n_interpolate
-  do j=0,np0
-     xi = Zone(iz0)%Sp%node(j,np0)
-     ! innermost surfaces
-     do i=0,1
-        call C_in(iblock,i)%sample_at(xi, x)
-        M_HPR(i, j, :) = x
-     enddo
-
-     ! interpolated surfaces
-     x1 = M_HPR(1,              j,:)
-     x2 = M_HPR(2+n_interpolate,j,:)
-     do i=2,1+n_interpolate
-        eta = Zone(iz0)%Sr%node(    i-1,nr0-1) / Zone(iz0)%Sr%node(1+n_interpolate,nr0-1)
-
-        M_HPR(i,j,:) = x1 + eta * (x2-x1)
-     enddo
-  enddo
-
- 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
-              i0, ' -> ', i0)
-  end subroutine make_interpolated_surfaces
   !.....................................................................
 
   !.....................................................................
@@ -571,6 +544,46 @@ module topo_lsn
  1010 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
  1011 format (8x,'from (',f8.3,', ',f8.3,') to (',f8.3,', ',f8.3,')')
   end subroutine make_flux_surfaces_HPR
+  !=============================================================================
+
+  !=============================================================================
+  ! inner boundaries and interpolated surfaces (2 -> 1+n_interpolate) (high pressure region)
+  !=============================================================================
+  subroutine make_interpolated_surfaces(M, nr, np, ir1, ir2, Sr, Sp, C)
+  use run_control, only: Debug
+  use flux_surface_2D
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer, intent(in) :: nr, np, ir1, ir2
+  type(t_spacing), intent(in) :: Sr, Sp
+  type(t_curve), intent(in)   :: C(0:1)
+
+  real(real64) :: eta, xi, x(2), x1(2), x2(2)
+  integer      :: i, j
+
+
+  write (6, 1001) 2, 1+n_interpolate
+  do j=0,np
+     xi = Sp%node(j,np)
+     ! innermost surfaces
+     do i=0,1
+        call C(i)%sample_at(xi, x)
+        M(i, j, :) = x
+     enddo
+
+     ! interpolated surfaces
+     x1 = M(ir1, j, :)
+     x2 = M(ir2, j, :)
+     do i=ir1+1,ir2-1
+        eta = Sr%node(i-1, nr-1) / Sr%node(ir2-1, nr-1)
+
+        M(i,j,:) = x1 + eta * (x2-x1)
+     enddo
+  enddo
+
+ 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
+              i0, ' -> ', i0)
+  end subroutine make_interpolated_surfaces
   !=============================================================================
 
 
