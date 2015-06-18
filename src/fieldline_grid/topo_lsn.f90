@@ -5,13 +5,16 @@
 module topo_lsn
   use iso_fortran_env
   use grid
+  use equilibrium
   use separatrix
   use curve2D
   use fieldline_grid, unused => TOPO_LSN
+  use inner_boundary
   implicit none
   private
 
   integer, parameter :: DEFAULT = 0
+  integer, parameter :: iud     = 72
 
 
 
@@ -335,7 +338,7 @@ module topo_lsn
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
      if (generate_flux_surfaces_HPR) then
-        call make_flux_surfaces_HPR()
+        call make_flux_surfaces_HPR(M_HPR, nr0, np0, 2+n_interpolate, nr0-1, iz0)
      else
         G_HPR(iblock)%mesh = G_HPR(iblock-1)%mesh
      endif
@@ -405,45 +408,6 @@ module topo_lsn
   !.....................................................................
 
   !.....................................................................
-  subroutine make_flux_surfaces_HPR()
-  ! unperturbed FLUX SURFACES (high pressure region)
-
-  ! 1. get radial width at poloidal angle of X-point
-!  d_HPR = 0.d0
-!  do i=0,blocks-1
-!     call C_in(i,1)%sample_at(0.d0, x)
-!     d_HPR = d_HPR + x / blocks
-!  enddo
-!  d_HPR = d_HPR - Px
-  d_HPR = get_d_HPR(Px, Pmag)
-
-  ! 2. generate flux surfaces
-  if (nr0-1 .ge. 2+n_interpolate) then
-     write (6, 1010) nr0-1, 2+n_interpolate
-     write (6, 1011) Px, Px + d_HPR
-  endif
-  do i=nr0-1, 2+n_interpolate, -1
-     write (6, *) i
-     eta = 1.d0 - Zone(iz0)%Sr%node(i-1,nr0-1)
-
-     x = Px + eta * d_HPR
-     if (Debug) write (iu, *) x
-     call FS%generate_closed(x, RIGHT_HANDED)
-     call FS%setup_angular_sampling(Pmag)
-
-     do j=0,np0
-        xi = Zone(iz0)%Sp%node(j,np0)
-        call FS%sample_at(xi, x)
-        M_HPR(i,j,:) = x
-     enddo
-  enddo
-
- 1010 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
- 1011 format (8x,'from (',f8.3,', ',f8.3,') to (',f8.3,', ',f8.3,')')
-  end subroutine make_flux_surfaces_HPR
-  !.....................................................................
-
-  !.....................................................................
   subroutine make_interpolated_surfaces()
   ! inner boundaries and interpolated surfaces (2 -> 1+n_interpolate) (high pressure region)
 
@@ -466,7 +430,7 @@ module topo_lsn
      enddo
   enddo
 
- 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface:, ', &
+ 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
               i0, ' -> ', i0)
   end subroutine make_interpolated_surfaces
   !.....................................................................
@@ -560,6 +524,56 @@ module topo_lsn
 
   end subroutine make_base_grids_lsn
   !=============================================================================
+
+
+  !=============================================================================
+  ! unperturbed FLUX SURFACES (high pressure region)
+  !=============================================================================
+  subroutine make_flux_surfaces_HPR(M, nr, np, ir1, ir2, iz0)
+  use run_control, only: Debug
+  use flux_surface_2D
+  !use mesh_spacing
+  !use divertor
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer, intent(in) :: nr, np, ir1, ir2, iz0
+
+  type(t_flux_surface_2D) :: F
+  real(real64) :: d_HPR(2)
+  real(real64) :: eta, x(2), xi
+  integer      :: i, j
+
+
+  ! 1. get radial width at poloidal angle of X-point
+  d_HPR = get_d_HPR(Px, Pmag)
+
+  ! 2. generate flux surfaces
+  if (ir2 .ge. ir1) then
+     write (6, 1010) ir2, ir1
+     write (6, 1011) Px, Px + d_HPR
+  endif
+  do i=ir2, ir1, -1
+     write (6, *) i
+     eta = 1.d0 - Zone(iz0)%Sr%node(i-1,nr-1)
+
+     x = Px + eta * d_HPR
+     if (Debug) write (iud, *) x
+     call F%generate_closed(x, RIGHT_HANDED)
+     call F%setup_angular_sampling(Pmag)
+
+     do j=0,np
+        xi = Zone(iz0)%Sp%node(j,np)
+        call F%sample_at(xi, x)
+        M(i,j,:) = x
+     enddo
+  enddo
+
+ 1010 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
+ 1011 format (8x,'from (',f8.3,', ',f8.3,') to (',f8.3,', ',f8.3,')')
+  end subroutine make_flux_surfaces_HPR
+  !=============================================================================
+
+
 
 
 
