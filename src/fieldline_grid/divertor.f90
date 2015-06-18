@@ -7,6 +7,30 @@ module divertor
 !=======================================================================
 
 
+  !=====================================================================
+  ! Calculate intersection between divertor leg (of flux surface) and
+  ! target surface.
+  ! Return relative coordinate (eta) of intersection on divertor leg.
+  !=====================================================================
+  subroutine divertor_leg_interface(C_leg, C_cut, eta)
+  use curve2D
+  type(t_curve), intent(in) :: C_leg, C_cut
+  real(real64), intent(out) :: eta
+
+  real(real64) :: x(2)
+
+
+  if (.not.C_leg%intersect_curve(C_cut, x, eta)) then
+     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     call C_leg%plot(filename='divertor_leg.plt')
+     stop
+  endif
+
+  end subroutine divertor_leg_interface
+  !=====================================================================
+
+
+
 !=======================================================================
 ! CLOSE_GRID_DOMAIN
 !

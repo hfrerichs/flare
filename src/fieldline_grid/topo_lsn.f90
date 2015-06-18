@@ -196,25 +196,6 @@ module topo_lsn
 
 
   !=====================================================================
-  subroutine divertor_leg_interface(C_leg, C_cut, eta)
-  type(t_curve), intent(in) :: C_leg, C_cut
-  real(real64), intent(out) :: eta
-
-  real(real64) :: x(2)
-
-
-  if (.not.C_leg%intersect_curve(C_cut, x, eta)) then
-     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
-     call C_leg%plot(filename='divertor_leg.plt')
-     stop
-  endif
-
-  end subroutine divertor_leg_interface
-  !=====================================================================
-
-
-
-  !=====================================================================
   subroutine divide_SOL(F, eta, CL, C0, CR)
   use flux_surface_2D
   use math
@@ -250,6 +231,7 @@ module topo_lsn
   use inner_boundary
   use flux_surface_2D
   use mesh_spacing
+  use divertor
 
   integer, parameter      :: iu = 72
 
