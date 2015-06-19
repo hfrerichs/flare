@@ -8,14 +8,23 @@ module topo_ddn
   use grid
   use separatrix
   use curve2D
+  use equilibrium
   use fieldline_grid, unused => TOPO_DDN
+  use inner_boundary
+  use topo_lsn
   implicit none
   private
 
   integer, parameter :: DEFAULT = 0
+  integer, parameter :: iud = 72
 
 
-  character(len=*), parameter :: ZONE_LABEL(0:5) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFRl ', 'PFRu ' /)
+  character(len=*), parameter :: ZONE_LABEL(0:5) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFR1 ', 'PFR2 ' /)
+
+
+  ! coordinates of X-point and magnetic axis
+  real(real64) :: Px1(2), Px2(2), Pmag(2), dtheta
+
 
 
   ! discretization method
@@ -26,11 +35,12 @@ module topo_ddn
   type(t_grid), dimension(:,:), allocatable :: G ! (0:blocks-1,0:layers-1)
 
   ! magnetic separatrix
-  type(t_separatrix) :: Si, So
-  type(t_curve)      :: S0
+  !type(t_separatrix) :: Si, So
+  type(t_separatrix) :: S2
+  !type(t_curve)      :: S0
 
   ! guiding_surface
-  type(t_curve)      :: C_guide, C_cutL, C_cutR
+  !type(t_curve)      :: C_guide, C_cutL, C_cutR
 
 
   public :: &
@@ -153,7 +163,6 @@ module topo_ddn
   use run_control, only: Debug
   use math
   use flux_surface_2D, only: RIGHT_HANDED
-  use equilibrium
   use inner_boundary
 
   real(real64) :: tmp(3), Px0(2)
@@ -188,29 +197,34 @@ module topo_ddn
 
 
   ! 2.a setup magnetic axis (Pmag) --------------------------------------
-  !tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
-  tmp = get_magnetic_axis(0.d0)
+  tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+  Magnetic_Axis%X = Pmag
 
   ! 2.b setup X-point (Px, theta0) --------------------------------------
   do ix=1,2
      write (6, 2000) Xp(ix)%load()
      write (6, 2001) Xp(ix)%theta/pi*180.d0
   enddo
+  Px1 = Xp(1)%X
+  Px2 = Xp(2)%X
+  dtheta = Xp(2)%theta - Xp(1)%theta
 
 
   ! 2.c separatrix (S, S0) ---------------------------------------------
-  call Si%generate(1, 1,  Xp(2)%theta, C_cutL, C_cutR)
-  call Si%plot('Si', parts=.true.)
-  call So%generate(2, -1, Xp(1)%theta, C_cutL, C_cutR)
-  call So%plot('So', parts=.true.)
+  call S%generate(1, 1,  Xp(2)%theta, C_cutL, C_cutR)
+  call S%plot('Si', parts=.true.)
+  call S2%generate(2, -1, Xp(1)%theta, C_cutL, C_cutR)
+  call S2%plot('So', parts=.true.)
 
   ! connect core segments of separatrix
-  S0 = connect(Si%M1%t_curve, Si%M2%t_curve)
-  call S0%plot(filename='S0.plt')
-  !call S0%setup_angular_sampling(Pmag)
-  call S0%setup_angular_sampling(tmp(1:2))
-  call Si%M3%setup_length_sampling()
-  call Si%M4%setup_length_sampling()
+  !S0 = connect(Si%M1%t_curve, Si%M2%t_curve)
+  !call S0%plot(filename='S0.plt')
+  !!call S0%setup_angular_sampling(Pmag)
+  !call S0%setup_angular_sampling(tmp(1:2))
+  call S%M1%setup_angular_sampling(Pmag)
+  call S%M2%setup_angular_sampling(Pmag)
+  call S%M3%setup_length_sampling()
+  call S%M4%setup_length_sampling()
  2000 format(8x,'found magnetic X-point at: ',2f10.4)
  2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
 
@@ -218,6 +232,7 @@ module topo_ddn
   ! 3. inner boundaries for EMC3 grid
   call load_inner_boundaries(Xp(1)%theta)
 
+  ! 4. setup paths for discretization in radial direction
   end subroutine setup_domain
   !=====================================================================
 
@@ -227,20 +242,23 @@ module topo_ddn
   subroutine make_base_grids_ddn
   use run_control, only: Debug
   use math
-  use inner_boundary
   use flux_surface_2D
   use mesh_spacing
+  use divertor
+  use topo_lsn, only: make_flux_surfaces_PFR, make_interpolated_surfaces
 
   integer, parameter      :: iu = 72
 
   type(t_flux_surface_2D) :: FS, FSL, FSR, C0
   type(t_curve)           :: CL, CR
-  type(t_spacing)         :: Sl, Sr
+  type(t_spacing)         :: Sl, Sr, Sp12
 
-  real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL, M_PFR
+  real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2a, M_SOL2b, M_PFR1, M_PFR2
 
-  real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
-  integer :: i, j, iz, iz0, iz1, iz2, nr0, nr1, nr2, np0, np1, np1l, np1r, np2
+  !real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
+  !integer :: i, j, iz, iz0, iz1, iz2, nr0, nr1, nr2, np0, np1, np1l, np1r, np2
+  real(real64) :: phi, xi, x(2)
+  integer :: i, j, iz, iz0
 
   logical :: generate_flux_surfaces_HPR
   logical :: generate_flux_surfaces_SOL
@@ -282,8 +300,6 @@ module topo_ddn
 
      ! set zone indices
      iz0 = iblock*layers
-     iz1 = iz0 + 1
-     iz2 = iz0 + 2
 
      ! set local variables for resolution
      call load_local_resolution(iblock)
@@ -329,39 +345,44 @@ module topo_ddn
      do i=0,layers-1
         call G(iblock,i)%new(CYLINDRICAL, MESH_2D, 3, nr(i)+1, np(i)+1, fixed_coord_value=phi)
      enddo
-     M_HPR => G(iblock,0)%mesh
-     M_SOL => G(iblock,1)%mesh
-     M_PFR => G(iblock,4)%mesh
+     M_HPR   => G(iblock,0)%mesh
+     M_SOL1  => G(iblock,1)%mesh
+     M_SOL2a => G(iblock,2)%mesh
+     M_SOL2b => G(iblock,3)%mesh
+     M_PFR1  => G(iblock,4)%mesh
+     M_PFR2  => G(iblock,5)%mesh
 
 
      ! start grid generation
+     call Sp12%init_X1(1.d0 * npR(0)/np(0), dtheta/pi2)
+
      ! 1. unperturbed separatrix
-     !!!call make_separatrix()
+     call make_separatrix()
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
      if (generate_flux_surfaces_HPR) then
-        !!!call make_flux_surfaces_HPR()
+        call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, Zone(iz0)%Sr, Sp12)
      else
         !G_HPR(iblock)%mesh = G_HPR(iblock-1)%mesh
      endif
 
      ! 2.b scrape-off layer (SOL)
      if (generate_flux_surfaces_SOL) then
-        !!!call make_flux_surfaces_SOL()
+        call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1), Zone(iz0+1)%Sr, Sp12)
      else
         !G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
      endif
 
      ! 2.c private flux region (PFR)
      if (generate_flux_surfaces_PFR) then
-        !!!call make_flux_surfaces_PFR()
+        call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npL(1), 1, nr(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
      else
         !G_PFR(iblock)%mesh = G_PFR(iblock-1)%mesh
      endif
 
      ! 3. interpolated surfaces
-     !!!call make_interpolated_surfaces()
+     call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp12, C_in(iblock,:))
 
 
      ! output
@@ -376,7 +397,100 @@ module topo_ddn
  1000 format(//3x,'- Setup for base grids:')
  1001 format(//1x,'Start generation of base grids for block ',i0,' ',32('.'))
  1002 format(1x,'Finished generation of base grids for block ',i0,' ',32('.'),//)
+  contains
+  !.....................................................................
+  subroutine make_separatrix()
+
+  ! 1. discretization of main part of 1st separatrix
+  ! 1.a right segment
+  do j=0,npR(0)
+     xi = Zone(iz0)%Sp%node(j,npR(0))
+
+     call S%M1%sample_at(xi, x)
+     M_HPR (nr(0),                   j, :) = x
+     M_SOL1(   0 ,          npR(1) + j, :) = x
+  enddo
+  ! 1.b left segment
+  do j=0,npL(0)
+     xi = Zone(iz0)%Sp%node(j,npL(0))
+
+     call S%M2%sample_at(xi, x)
+     M_HPR (nr(0), npR(0) +          j, :) = x
+     M_SOL1(   0 , npR(0) + npR(1) + j, :) = x
+  enddo
+
+  ! 2. discretization of right separatrix leg
+  call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
+  call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
+  do j=0,npR(1)
+     xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
+     call S%M3%sample_at(xi, x)
+     M_SOL1(    0,                   j,:) = x
+     M_PFR1(nr(4),                   j,:) = x
+  enddo
+
+  ! 3. discretization of left separatrix leg
+  call divertor_leg_interface(S%M4%t_curve, C_guide, xiL)
+  call Sl%init_spline_X1(etaL(1), xiL)
+  do j=1,npL(1)
+     xi = Sl%node(j,npL(1))
+     call S%M4%sample_at(xi, x)
+     M_SOL1(    0, npR(1) + np(0)  + j,:) = x
+     M_PFR1(nr(4), npR(1)          + j,:) = x
+  enddo
+  end subroutine make_separatrix
+  !.....................................................................
   end subroutine make_base_grids_ddn
+  !=============================================================================
+
+
+
+  !=============================================================================
+  ! unperturbed FLUX SURFACES (high pressure region)
+  !=============================================================================
+  subroutine make_flux_surfaces_HPR(M, nr, np, ir1, ir2, Sr, Sp)
+  use run_control, only: Debug
+  use flux_surface_2D
+  use mesh_spacing
+  !use divertor
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer, intent(in) :: nr, np, ir1, ir2
+  type(t_spacing), intent(in) :: Sr, Sp
+
+  type(t_flux_surface_2D) :: F
+  real(real64) :: d_HPR(2)
+  real(real64) :: eta, x(2), xi
+  integer      :: i, j
+
+
+  ! 1. get radial width at poloidal angle of X-point
+  d_HPR = get_d_HPR(Px1, Pmag)
+
+  ! 2. generate flux surfaces
+  if (ir2 .ge. ir1) then
+     write (6, 1010) ir2, ir1
+     write (6, 1011) Px1, Px1 + d_HPR
+  endif
+  do i=ir2, ir1, -1
+     write (6, *) i
+     eta = 1.d0 - Sr%node(i-1,nr-1)
+
+     x = Px1 + eta * d_HPR
+     if (Debug) write (iud, *) x
+     call F%generate_closed(x, RIGHT_HANDED)
+     call F%setup_angular_sampling(Pmag)
+
+     do j=0,np
+        xi = Sp%node(j,np)
+        call F%sample_at(xi, x)
+        M(i,j,:) = x
+     enddo
+  enddo
+
+ 1010 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
+ 1011 format (8x,'from (',f8.3,', ',f8.3,') to (',f8.3,', ',f8.3,')')
+  end subroutine make_flux_surfaces_HPR
   !=============================================================================
 
 
