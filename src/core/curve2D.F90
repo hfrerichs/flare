@@ -67,8 +67,8 @@ module curve2D
      procedure :: setup_segment_sampling
      procedure :: setup_coordinate_sampling
      procedure :: sample_at
-     procedure :: split3
-     procedure :: split3seg
+     procedure :: split3, splitn
+     procedure :: split3seg, splitnseg
      procedure :: length
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve
@@ -1342,6 +1342,94 @@ module curve2D
 
   end subroutine split3seg
 !=======================================================================
+
+
+
+!=======================================================================
+! split curve into n elements              |---C1---|-......-|---Cn---|
+! at intrinsic coordinates xiA,xiB    xi = 0        xi1      xin-1    1
+!=======================================================================
+  subroutine splitn(this, n, xi, C)
+  use search
+  class(t_curve)             :: this
+  integer,       intent(in)  :: n
+  real(real64),  intent(in)  :: xi(n-1)
+  type(t_curve), intent(out) :: C(n)
+
+  real(real64) :: xxi(0:n), tsplit(n-1)
+  integer :: i, ierr, n_seg, isplit(n-1)
+
+
+  ! 0. initialize
+  xxi(0)     = 0.d0
+  xxi(1:n-1) = xi
+  xxi(n)     = 1.d0
+
+
+  ! 1. check input
+  do i=1,n
+     if (xxi(i) < xxi(i-1)) then
+        write (6, *) 'error in t_curve%splitn: elements of xi must be in [0,1] and monotonically increasing!'
+        write (6, *) 'xi = ', xi
+        stop
+     endif
+  enddo
+
+
+  ! 2. find segment to split
+  n_seg  = this%n_seg
+  do i=1,n-1
+     isplit(i) = binary_interval_search(0, n_seg, this%w, xi(i), ierr)
+     tsplit(i) = (this%w(isplit(i)+1) - xi(i)) / (this%w(isplit(i)+1) - this%w(isplit(i)))
+  enddo
+
+
+  ! 3. generate new curves
+  call this%splitnseg(n, isplit, tsplit, C)
+
+  end subroutine splitn
+!=======================================================================
+
+
+!=======================================================================
+! split at position tsplit within segment isplit
+  !  |     |     |  x   |     |     |  x   |     |     |
+  !  0           iA tA  iA+1        iB tB  iB+1        n
+!=======================================================================
+  subroutine splitnseg(this, n, isplit, tsplit, C)
+  class(t_curve)             :: this
+  integer,       intent(in)  :: n, isplit(n-1)
+  real(real64),  intent(in)  :: tsplit(n-1)
+  type(t_curve), intent(out) :: C(n)
+
+  real(real64) :: x(this%n_dim), tsplit1(0:n), tA, tB
+  integer      :: i, isplit1(0:n), iA, iB, m
+
+
+  isplit1(0)     = 0
+  isplit1(1:n-1) = isplit
+  isplit1(n)     = this%n_seg-1
+  tsplit1(0)     = 0.d0
+  tsplit1(1:n-1) = tsplit
+  tsplit1(n)     = 1.d0
+
+  do i=1,n
+     iA     = isplit1(i-1)
+     iB     = isplit1(i)
+     m      = iB - iA + 1
+     call C(i)%new(m)
+     C(i)%x = this%x(iA:iB+1,:)
+
+     ! adapt first and last node
+     tA     = tsplit1(i-1)
+     tB     = tsplit1(i)
+     C(i)%x(0,:) = this%x(iA,:) * tA + this%x(iA+1,:) * (1.d0 - tA)
+     C(i)%x(m,:) = this%x(iB,:) * tB + this%x(iB+1,:) * (1.d0 - tB)
+  enddo
+
+  end subroutine splitnseg
+!=======================================================================
+
 
 
 
