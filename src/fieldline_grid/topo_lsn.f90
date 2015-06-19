@@ -366,7 +366,7 @@ module topo_lsn
 
      ! 2.c private flux region (PFR)
      if (generate_flux_surfaces_PFR) then
-        call make_flux_surfaces_PFR(M_PFR, nr2, np1l, np1r, 1, nr2, Zone(iz2)%Sr, Zone(iz2)%Sp)
+        call make_flux_surfaces_PFR(M_PFR, nr2, np1l, np1r, 1, nr2, rpath(2), Zone(iz2)%Sr, Zone(iz2)%Sp)
      else
         G_PFR(iblock)%mesh = G_PFR(iblock-1)%mesh
      endif
@@ -574,13 +574,14 @@ module topo_lsn
   !=============================================================================
   ! private flux region
   !=============================================================================
-  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ir1, ir2, Sr, Sp)
+  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ir1, ir2, rpath, Sr, Sp)
   use run_control, only: Debug
   use flux_surface_2D
   use divertor
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
   integer, intent(in) :: nr, npL, npR, ir1, ir2
+  type(t_xpath),   intent(in) :: rpath
   type(t_spacing), intent(in) :: Sr, Sp
 
   type(t_flux_surface_2D) :: F
@@ -593,7 +594,7 @@ module topo_lsn
   do i=0,nr-1
      write (6, *) i
      eta = Sr%node(i,nr)
-     call rpath(2)%sample_at(1.d0 - eta, x0)
+     call rpath%sample_at(1.d0 - eta, x0)
      if (Debug) write (iud, *) x0
 
      ! right divertor leg
