@@ -31,8 +31,9 @@ module equilibrium
      real(real64) :: X(2) = -1.d0, Psi, H(2,2), theta
 
      contains
-     procedure analysis
-     procedure load
+     procedure :: analysis
+     procedure :: load
+     procedure :: PsiN => t_Xpoint__PsiN
   end type t_Xpoint
 
 
@@ -1112,6 +1113,19 @@ module equilibrium
   endif
 
   end function load
+!=======================================================================
+
+
+
+!=======================================================================
+  function t_Xpoint__PsiN(this) result(PsiN)
+  class(t_Xpoint) :: this
+  real(real64)    :: PsiN
+
+
+  PsiN = (this%Psi - Psi_axis) / (Psi_sepx - Psi_axis)
+
+  end function t_Xpoint__PsiN
 !=======================================================================
 
 
