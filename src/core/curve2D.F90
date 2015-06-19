@@ -1409,9 +1409,9 @@ module curve2D
   isplit1(0)     = 0
   isplit1(1:n-1) = isplit
   isplit1(n)     = this%n_seg-1
-  tsplit1(0)     = 0.d0
+  tsplit1(0)     = 1.d0
   tsplit1(1:n-1) = tsplit
-  tsplit1(n)     = 1.d0
+  tsplit1(n)     = 0.d0
 
   do i=1,n
      iA     = isplit1(i-1)
