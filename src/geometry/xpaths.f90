@@ -132,6 +132,10 @@ module xpaths
   if (limit_type == LIMIT_LENGTH) t = (L-dl+abs(ds))/abs(ds)
   this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
 
+
+  ! 5. setup sampling
+  call this%setup_length_sampling()
+
   end subroutine generate
 !=======================================================================
 

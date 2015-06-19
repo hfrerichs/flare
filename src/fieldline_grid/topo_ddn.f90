@@ -165,7 +165,7 @@ module topo_ddn
   use flux_surface_2D, only: RIGHT_HANDED
   use inner_boundary
 
-  real(real64) :: tmp(3), Px0(2)
+  real(real64) :: tmp(3), dx(2)
   integer      :: ix
 
 
@@ -225,6 +225,8 @@ module topo_ddn
   call S%M2%setup_angular_sampling(Pmag)
   call S%M3%setup_length_sampling()
   call S%M4%setup_length_sampling()
+  call S2%M1%setup_length_sampling()
+  call S2%M2%setup_length_sampling()
  2000 format(8x,'found magnetic X-point at: ',2f10.4)
  2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
 
@@ -233,7 +235,55 @@ module topo_ddn
   call load_inner_boundaries(Xp(1)%theta)
 
   ! 4. setup paths for discretization in radial direction
+  ! 4.1 SOL
+  !dx(1) = Px1(2) - Pmag(2)
+  !dx(2) = Pmag(1) - Px1(1)
+  !dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
+  !call rpath(1)%setup_linear(Px1, dx)
+  call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
+  call rpath(1)%plot(filename='rpath_1.plt')
+  ! 4.2 PFR
+  dx    = Px1 - Pmag
+  dx    = dx / sqrt(sum(dx**2)) * d_PFR(1)
+  call rpath(2)%setup_linear(Px1, dx)
+
   end subroutine setup_domain
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine divide_SOL2(F, eta, side, alpha, r, C)
+  use flux_surface_2D
+  use math
+  type(t_flux_surface_2D), intent(in)  :: F
+  real(real64),            intent(in)  :: eta, alpha, r
+  integer,                 intent(in)  :: side
+  type(t_curve),           intent(out) :: C(2)
+
+  real(real64) :: l, alpha1, xi(1)
+
+
+  l = F%length()
+
+  alpha1 = 1.d0 + eta * (alpha - 1.d0)
+  select case(side)
+  case(1)
+     xi  = alpha1 * r / l
+  case(-1)
+     xi  = 1.d0 - alpha1 * r / l
+  case default
+     write (6, *) 'error in subroutine divide_SOL2: side = 1 or -1 required!'
+     stop
+  end select
+  !write (6, *) '(xi, eta, alpha, r, l) = ', xi, eta, alpha, r, l
+
+  call F%splitn(2, xi, C)
+  !call CR%setup_length_sampling()
+  !call C0%setup_sampling(Xp(1)%X, Xp(1)%X, Magnetic_Axis%X, eta, eta, pi2, Dtheta_sampling)
+  !call CL%setup_length_sampling()
+
+  end subroutine divide_SOL2
   !=====================================================================
 
 
@@ -358,6 +408,7 @@ module topo_ddn
 
      ! 1. unperturbed separatrix
      call make_separatrix()
+     call make_separatrix2()
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
@@ -369,7 +420,7 @@ module topo_ddn
 
      ! 2.b scrape-off layer (SOL)
      if (generate_flux_surfaces_SOL) then
-        call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1), Zone(iz0+1)%Sr, Sp12)
+        call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, Zone(iz0+1)%Sr, Sp12)
      else
         !G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
      endif
@@ -438,8 +489,78 @@ module topo_ddn
      M_SOL1(    0, npR(1) + np(0)  + j,:) = x
      M_PFR1(nr(4), npR(1)          + j,:) = x
   enddo
+
   end subroutine make_separatrix
   !.....................................................................
+
+  !.....................................................................
+  subroutine make_separatrix2()
+
+  type(t_flux_surface_2D) :: CR(2), CL(2)
+  real(real64) :: x(2), xi, xiR, xiL
+  integer :: j
+
+
+  ! 1. right segments
+  call divide_SOL2(S2%M1, 1.d0, -1, alphaR(1), S%M3%length(), CR%t_curve)
+  call CR(1)%flip()
+  call CR(1)%setup_sampling(Xp(1)%X, Xp(2)%X, Magnetic_Axis%X, 1.d0, 0.d0, dtheta, Dtheta_sampling)
+  call CR(2)%flip()
+  call CR(2)%setup_length_sampling()
+  !call CR(1)%plot(filename='CR1.plt')
+  !call CR(2)%plot(filename='CR2.plt')
+
+  ! 1.1 core segment
+  do j=0,npR(0)
+     xi = Zone(iz0)%Sp%node(j,npR(0))
+
+     call CR(1)%sample_at(xi, x)
+     M_SOL1 (nr(1),          npR(1) + j, :) = x
+     M_SOL2b(   0 ,          npR(1) + j, :) = x
+  enddo
+
+  ! 1.2 divertor segment
+  call divertor_leg_interface(CR(2)%t_curve, C_guide, xiR)
+  call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
+  do j=0,npR(1)
+     xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
+     call CR(2)%sample_at(xi, x)
+     M_SOL1 (nr(1),                   j,:) = x
+     M_SOL2b(   0 ,                   j,:) = x
+  enddo
+
+
+  ! 2. left segments
+  call divide_SOL2(S2%M2, 1.d0,  1, alphaL(1), S%M4%length(), CL%t_curve)
+  call CL(1)%flip()
+  call CL(1)%setup_length_sampling()
+  call CL(2)%flip()
+  call CL(2)%setup_sampling(Xp(2)%X, Xp(1)%X, Magnetic_Axis%X, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
+  call CL(1)%plot(filename='CL1.plt')
+  call CL(2)%plot(filename='CL2.plt')
+
+  ! 2.1 core segment
+  do j=0,npL(0)
+     xi = Zone(iz0)%Sp%node(j,npL(0))
+
+     call CL(2)%sample_at(xi, x)
+     M_SOL1 (nr(1), npR(1) + npR(0) + j, :) = x
+     M_SOL2a(   0 ,          npL(2) + j, :) = x
+  enddo
+
+  ! 2.2 divertor segment
+  call divertor_leg_interface(CL(1)%t_curve, C_guide, xiL)
+  call Sl%init_spline_X1(etaL(1), xiL)
+  do j=0,npL(1)
+     xi = Sl%node(j,npL(1))
+     call CL(1)%sample_at(xi, x)
+     M_SOL1 (nr(1), npR(1) + npR(0) + npL(0) + j,:) = x
+     M_SOL2b(   0 ,          npL(2) + npL(0) + j,:) = x
+  enddo
+
+  end subroutine make_separatrix2
+  !.....................................................................
+
   end subroutine make_base_grids_ddn
   !=============================================================================
 
