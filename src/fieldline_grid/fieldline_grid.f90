@@ -1,8 +1,9 @@
 module fieldline_grid
   use iso_fortran_env
   use system
-  use mesh_spacing
   use math
+  use mesh_spacing
+  use xpaths
   implicit none
 
 !.......................................................................
@@ -145,6 +146,7 @@ module fieldline_grid
   type(t_zone) :: Zone(0:max_zones-1)
 
 
+  type(t_xpath) :: rpath(0:max_layers-1)
   logical      :: default_decomposition
   real(real64) :: Delta_phi_sim
   integer      :: layers

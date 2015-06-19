@@ -23,6 +23,7 @@ module xpaths
   type, public, extends(t_curve) :: t_xpath
      contains
      procedure :: generate
+     procedure :: setup_linear
   end type t_xpath
 
   !type(t_radial_path), dimension(:), allocatable :: radial_path
@@ -132,6 +133,22 @@ module xpaths
   this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
 
   end subroutine generate
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_linear(this, x0, d)
+  class(t_xpath)           :: this
+  real(real64), intent(in) :: x0(2), d(2)
+
+
+  call this%new(1)
+  this%x(0,:) = x0
+  this%x(1,:) = x0 + d
+  call this%setup_length_sampling()
+
+  end subroutine setup_linear
 !=======================================================================
 
 

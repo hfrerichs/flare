@@ -141,7 +141,7 @@ module topo_lsn
   use equilibrium
   use inner_boundary
 
-  real(real64) :: tmp(3), Rbox(2), Zbox(2), Px0(2)
+  real(real64) :: tmp(3), dx(2)
 
 
   ! 1.a setup guiding surface for divertor legs (C_guide) ------------------
@@ -196,6 +196,17 @@ module topo_lsn
 
   ! 3. inner boundaries for EMC3 grid
   call load_inner_boundaries(Xp(1)%theta)
+
+  ! 4. setup paths for discretization in radial direction
+  ! 4.1 SOL
+  dx(1) = Px(2) - Pmag(2)
+  dx(2) = Pmag(1) - Px(1)
+  dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
+  call rpath(1)%setup_linear(Px, dx)
+  ! 4.2 PFR
+  dx    = Px - Pmag
+  dx    = dx / sqrt(sum(dx**2)) * d_PFR(1)
+  call rpath(2)%setup_linear(Px, dx)
 
   end subroutine setup_domain
   !=====================================================================
@@ -515,19 +526,16 @@ module topo_lsn
   type(t_flux_surface_2D) :: F, C0
   type(t_curve)           :: CL, CR
   type(t_spacing) :: Sdr, Sdl
-  real(real64)  :: dx(2), x0(2), x(2), eta, xi, xiR, xiL
+  real(real64)  :: x0(2), x(2), eta, xi, xiR, xiL
   integer       :: i, j
 
 
-  dx(1) = Xp(1)%X(2) - Magnetic_Axis%X(2)
-  dx(2) = Magnetic_Axis%X(1) - Xp(1)%X(1)
-  dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
   write (6, 1020) nr
   write (6, 1021) d_SOL(1)
   do i=ir1,ir2
      write (6, *) i
      eta = Sr%node(i,nr)
-     x0  = Xp(1)%X + eta * dx
+     call rpath(1)%sample_at(eta, x0)
      if (Debug) write (iud, *) x0
      call F%generate_open(x0, C_cutL, C_cutR)
      call divide_SOL(F, eta, CL, C0, CR)
@@ -577,19 +585,17 @@ module topo_lsn
 
   type(t_flux_surface_2D) :: F
   type(t_spacing) :: Sdr, Sdl
-  real(real64) :: eta, xi, xiL, xiR, x0(2), x(2), dx(2)
+  real(real64) :: eta, xi, xiL, xiR, x0(2), x(2)
   integer      :: i, j
 
-  dx = Xp(1)%X - Magnetic_Axis%X
-  dx = dx / sqrt(sum(dx**2)) * d_PFR(1)
   write (6, 1030) nr-1
   write (6, 1031) d_PFR(1)
   do i=0,nr-1
      write (6, *) i
      eta = Sr%node(i,nr)
-
-     x0 = Xp(1)%X + (1.d0-eta) * dx
+     call rpath(2)%sample_at(1.d0 - eta, x0)
      if (Debug) write (iud, *) x0
+
      ! right divertor leg
      call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
      call divertor_leg_interface(F%t_curve, C_guide, xiR)
