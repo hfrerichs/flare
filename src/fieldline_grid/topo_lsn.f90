@@ -34,13 +34,14 @@ module topo_lsn
   type(t_curve)      :: S0
 
   ! guiding_surface
-  type(t_curve)      :: C_guide, C_cutL, C_cutR
+  type(t_curve), public      :: C_guide, C_cutL, C_cutR
 
 
   public :: &
      setup_topo_lsn, &
      make_base_grids_lsn, &
      post_process_grid_lsn, &
+     make_flux_surfaces_PFR, &
      make_interpolated_surfaces
 
   contains
@@ -353,7 +354,7 @@ module topo_lsn
 
      ! 2.c private flux region (PFR)
      if (generate_flux_surfaces_PFR) then
-        call make_flux_surfaces_PFR()
+        call make_flux_surfaces_PFR(M_PFR, nr2, np1l, np1r, 1, nr2, Zone(iz2)%Sr, Zone(iz2)%Sp)
      else
         G_PFR(iblock)%mesh = G_PFR(iblock-1)%mesh
      endif
@@ -456,45 +457,6 @@ module topo_lsn
   end subroutine make_flux_surfaces_SOL
   !.....................................................................
 
-  !.....................................................................
-  subroutine make_flux_surfaces_PFR
-  ! private flux region
-
-  dx = Px - Pmag
-  dx = dx / sqrt(sum(dx**2)) * d_PFR(1)
-  write (6, 1030) nr2-1
-  write (6, 1031) d_PFR(1)
-  do i=0,nr2-1
-     write (6, *) i
-     eta = Zone(iz2)%Sr%node(i,nr2)
-
-     x0 = Px + (1.d0-eta) * dx
-     ! right divertor leg
-     call FSR%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
-     call divertor_leg_interface(FSR%t_curve, C_guide, xiR)
-     call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,np1r
-        xi = 1.d0 - Sr%node(np1r-j,np1r)
-        call FSR%sample_at(xi, x)
-        M_PFR(i,j,:) = x
-     enddo
-
-     ! left divertor leg
-     call FSL%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
-     call divertor_leg_interface(FSL%t_curve, C_guide, xiL)
-     call Sl%init_spline_X1(etaL(1), xiL)
-     do j=1,np1l
-        xi = Sl%node(j,np1l)
-        call FSL%sample_at(xi, x)
-        M_PFR(i,np1r + j,:) = x
-     enddo
-  enddo
-
- 1030 format (8x,'generating private flux region: 0 -> ', i0)
- 1031 format (8x,'d_PFR = ',f8.3)
-  end subroutine make_flux_surfaces_PFR
-  !.....................................................................
-
   end subroutine make_base_grids_lsn
   !=============================================================================
 
@@ -584,6 +546,59 @@ module topo_lsn
  1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
               i0, ' -> ', i0)
   end subroutine make_interpolated_surfaces
+  !=============================================================================
+
+  !=============================================================================
+  ! private flux region
+  !=============================================================================
+  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ir1, ir2, Sr, Sp)
+  use run_control, only: Debug
+  use flux_surface_2D
+  use divertor
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer, intent(in) :: nr, npL, npR, ir1, ir2
+  type(t_spacing), intent(in) :: Sr, Sp
+
+  type(t_flux_surface_2D) :: F
+  type(t_spacing) :: Sdr, Sdl
+  real(real64) :: eta, xi, xiL, xiR, x0(2), x(2), dx(2)
+  integer      :: i, j
+
+  dx = Xp(1)%X - Magnetic_Axis%X
+  dx = dx / sqrt(sum(dx**2)) * d_PFR(1)
+  write (6, 1030) nr-1
+  write (6, 1031) d_PFR(1)
+  do i=0,nr-1
+     write (6, *) i
+     eta = Sr%node(i,nr)
+
+     x0 = Xp(1)%X + (1.d0-eta) * dx
+     if (Debug) write (iud, *) x0
+     ! right divertor leg
+     call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
+     call divertor_leg_interface(F%t_curve, C_guide, xiR)
+     call Sdr%init_spline_X1(etaR(1), 1.d0-xiR)
+     do j=0,npR
+        xi = 1.d0 - Sdr%node(npR-j,npR)
+        call F%sample_at(xi, x)
+        M(i,j,:) = x
+     enddo
+
+     ! left divertor leg
+     call F%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
+     call divertor_leg_interface(F%t_curve, C_guide, xiL)
+     call Sdl%init_spline_X1(etaL(1), xiL)
+     do j=1,npL
+        xi = Sdl%node(j,npL)
+        call F%sample_at(xi, x)
+        M(i,npR + j,:) = x
+     enddo
+  enddo
+
+ 1030 format (8x,'generating private flux region: 0 -> ', i0)
+ 1031 format (8x,'d_PFR = ',f8.3)
+  end subroutine make_flux_surfaces_PFR
   !=============================================================================
 
 
