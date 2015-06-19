@@ -30,7 +30,7 @@ module topo_lsn
   type(t_grid), dimension(:), allocatable :: G_HPR, G_SOL, G_PFR ! (0:blocks-1)
 
   ! magnetic separatrix
-  type(t_separatrix) :: S
+  type(t_separatrix), public :: S
   type(t_curve)      :: S0
 
   ! guiding_surface
@@ -41,6 +41,7 @@ module topo_lsn
      setup_topo_lsn, &
      make_base_grids_lsn, &
      post_process_grid_lsn, &
+     make_flux_surfaces_SOL, &
      make_flux_surfaces_PFR, &
      make_interpolated_surfaces
 
@@ -172,6 +173,7 @@ module topo_lsn
 
   ! 2.a setup magnetic axis (Pmag) --------------------------------------
   tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+  Magnetic_Axis%X = Pmag
 
   ! 2.b setup X-point (Px, theta0) --------------------------------------
   Px = Xp(1)%load()
@@ -220,8 +222,7 @@ module topo_lsn
   xiL   = 1.d0 - alpha * S%M4%l / l
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
   call CR%setup_length_sampling()
-  !call C0%setup_angular_sampling(Pmag)
-  call C0%setup_sampling(Px, Px, Pmag, eta, eta, pi2)
+  call C0%setup_sampling(Xp(1)%X, Xp(1)%X, Magnetic_Axis%X, eta, eta, pi2)
   call CL%setup_length_sampling()
 
   end subroutine divide_SOL
@@ -347,7 +348,7 @@ module topo_lsn
 
      ! 2.b scrape-off layer (SOL)
      if (generate_flux_surfaces_SOL) then
-        call make_flux_surfaces_SOL()
+        call make_flux_surfaces_SOL(M_SOL, nr1, np1l, np0, np1r, 1, nr1, Zone(iz1)%Sr, Zone(iz0)%Sp)
      else
         G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
      endif
@@ -408,55 +409,6 @@ module topo_lsn
   enddo
   end subroutine make_separatrix
   !.....................................................................
-
-  !.....................................................................
-  subroutine make_flux_surfaces_SOL
-  ! scrape-off layer
-
-  dx(1) = Px(2) - Pmag(2)
-  dx(2) = Pmag(1) - Px(1)
-  dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
-  write (6, 1020) nr1
-  write (6, 1021) d_SOL(1)
-  do i=1,nr1
-     write (6, *) i
-     eta = Zone(iz1)%Sr%node(i,nr1)
-     x0  = Px + eta * dx
-     if (Debug) write (iu, *) x0
-     call FS%generate_open(x0, C_cutL, C_cutR)
-     call divide_SOL(FS, eta, CL, C0, CR)
-
-     ! right divertor leg
-     call divertor_leg_interface(CR, C_guide, xiR)
-     call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,np1r
-        xi = 1.d0 - Sr%node(np1r-j,np1r)
-        call CR%sample_at(xi, x)
-        M_SOL(i,j,:) = x
-     enddo
-
-     ! main SOL
-     do j=0,np0
-        xi = Zone(iz0)%Sp%node(j,np0)
-        call C0%sample_at(xi, x)
-        M_SOL(i,np1r+j,:) = x
-     enddo
-
-     ! left divertor leg
-     call divertor_leg_interface(CL, C_guide, xiL)
-     call Sl%init_spline_X1(etaL(1), xiL)
-     do j=1,np1l
-        xi = Sl%node(j,np1l)
-        call CL%sample_at(xi, x)
-        M_SOL(i,np1r+np0+j,:) = x
-     enddo
-  enddo
-
- 1020 format (8x,'generating scrape-off layer: 1 -> ', i0)
- 1021 format (8x,'d_SOL = ',f8.3)
-  end subroutine make_flux_surfaces_SOL
-  !.....................................................................
-
   end subroutine make_base_grids_lsn
   !=============================================================================
 
@@ -546,6 +498,69 @@ module topo_lsn
  1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
               i0, ' -> ', i0)
   end subroutine make_interpolated_surfaces
+  !=============================================================================
+
+  !=============================================================================
+  ! scrape-off layer
+  !=============================================================================
+  subroutine make_flux_surfaces_SOL(M, nr, npL, np0, npR, ir1, ir2, Sr, Sp)
+  use run_control, only: Debug
+  use flux_surface_2D
+  use divertor
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer, intent(in) :: nr, npL, np0, npR, ir1, ir2
+  type(t_spacing), intent(in) :: Sr, Sp
+
+  type(t_flux_surface_2D) :: F, C0
+  type(t_curve)           :: CL, CR
+  type(t_spacing) :: Sdr, Sdl
+  real(real64)  :: dx(2), x0(2), x(2), eta, xi, xiR, xiL
+  integer       :: i, j
+
+
+  dx(1) = Xp(1)%X(2) - Magnetic_Axis%X(2)
+  dx(2) = Magnetic_Axis%X(1) - Xp(1)%X(1)
+  dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
+  write (6, 1020) nr
+  write (6, 1021) d_SOL(1)
+  do i=ir1,ir2
+     write (6, *) i
+     eta = Sr%node(i,nr)
+     x0  = Xp(1)%X + eta * dx
+     if (Debug) write (iud, *) x0
+     call F%generate_open(x0, C_cutL, C_cutR)
+     call divide_SOL(F, eta, CL, C0, CR)
+
+     ! right divertor leg
+     call divertor_leg_interface(CR, C_guide, xiR)
+     call Sdr%init_spline_X1(etaR(1), 1.d0-xiR)
+     do j=0,npR
+        xi = 1.d0 - Sdr%node(npR-j,npR)
+        call CR%sample_at(xi, x)
+        M(i,j,:) = x
+     enddo
+
+     ! main SOL
+     do j=0,np0
+        xi = Sp%node(j,np0)
+        call C0%sample_at(xi, x)
+        M(i,npR+j,:) = x
+     enddo
+
+     ! left divertor leg
+     call divertor_leg_interface(CL, C_guide, xiL)
+     call Sdl%init_spline_X1(etaL(1), xiL)
+     do j=1,npL
+        xi = Sdl%node(j,npL)
+        call CL%sample_at(xi, x)
+        M(i,npR+np0+j,:) = x
+     enddo
+  enddo
+
+ 1020 format (8x,'generating scrape-off layer: 1 -> ', i0)
+ 1021 format (8x,'d_SOL = ',f8.3)
+  end subroutine make_flux_surfaces_SOL
   !=============================================================================
 
   !=============================================================================
