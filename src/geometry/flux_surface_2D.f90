@@ -309,17 +309,18 @@ module flux_surface_2D
 ! X-points while angular weights are used for the intermediate part.
 ! The line X-point (x1,x2) to magnetic axis (xc) is used as reference. The transition
 ! between angle-weighted sampling and length-weighted sampling occurs at an
-! angle of (r1,r2) * phi_trunc.
+! angle of (r1,r2) * phi_transition.
 ! dphi0: reference angular weight (pi2 for full loop)
 !===============================================================================
-  subroutine setup_sampling(this, x1, x2, xc, r1, r2, dphi0)
+  subroutine setup_sampling(this, x1, x2, xc, r1, r2, dphi0, phi_transition)
   use math
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: x1(2), x2(2), xc(2), r1, r2, dphi0
+  real(real64), intent(in), optional :: phi_transition
 
-  real(real64), parameter :: phi_trunc = pi2 / 9.d0
+  real(real64), parameter :: phi_transition_default = pi2 / 9.d0
 
-  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w
+  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, phiT, s, f0, g0, w
   integer      :: i, n, iseg1, iseg2
 
 
@@ -333,6 +334,8 @@ module flux_surface_2D
   ! otherwise setup sampling by segment lengths
   n  = this%n_seg
   call this%setup_length_sampling(raw_weights=.true.)
+  phiT = phi_transition_default
+  if (present(phi_transition)) phiT = phi_transition
   !.....................................................................
 
 
@@ -347,7 +350,7 @@ module flux_surface_2D
      phi   = datan2(x(2)-xc(2), x(1)-xc(1))
      dphi1 = phi - phi1
      iseg1 = i
-     if (dabs(dphi1) .gt. phi_trunc*r1) exit
+     if (dabs(dphi1) .gt. phiT*r1) exit
   enddo
 
   phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
@@ -358,7 +361,7 @@ module flux_surface_2D
      phi   = datan2(x(2)-xc(2), x(1)-xc(1))
      dphi2 = phi - phi2
      iseg2 = i
-     if (dabs(dphi2) .gt. phi_trunc*r2) exit
+     if (dabs(dphi2) .gt. phiT*r2) exit
   enddo
   !.....................................................................
 

@@ -222,7 +222,7 @@ module topo_lsn
   xiL   = 1.d0 - alpha * S%M4%l / l
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
   call CR%setup_length_sampling()
-  call C0%setup_sampling(Xp(1)%X, Xp(1)%X, Magnetic_Axis%X, eta, eta, pi2)
+  call C0%setup_sampling(Xp(1)%X, Xp(1)%X, Magnetic_Axis%X, eta, eta, pi2, Dtheta_sampling)
   call CL%setup_length_sampling()
 
   end subroutine divide_SOL

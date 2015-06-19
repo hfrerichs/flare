@@ -2,6 +2,7 @@ module fieldline_grid
   use iso_fortran_env
   use system
   use mesh_spacing
+  use math
   implicit none
 
 !.......................................................................
@@ -74,7 +75,8 @@ module fieldline_grid
      alphaL(2)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
      alphaR(2)           =    1.0d0, &     !    (L)eft and (R)ight segments
      etaL(2)             =    0.8d0, &     ! fraction of cells in front of the target
-     etaR(2)             =    0.8d0        !    (L)eft and (R)ight segments
+     etaR(2)             =    0.8d0, &     !    (L)eft and (R)ight segments
+     Dtheta_sampling     =   pi2 / 9.d0    ! Transition between angular and length weighted sampling of flux surfaces
 
 
 
@@ -212,6 +214,7 @@ module fieldline_grid
      n_interpolate, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
+     Dtheta_sampling, &
      guiding_surface
 
 
