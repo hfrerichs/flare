@@ -223,7 +223,7 @@ module topo_lsn
   type(t_flux_surface_2D), intent(out) :: C0
   integer,                 intent(in)  :: ix1, ix2
 
-  real(real64) :: l, alpha, xiR, xiL, dthetaX
+  real(real64) :: l, alpha, xiR, xiL, dthetaX, eta1, eta2
 
 
   l = F%length()
@@ -238,7 +238,15 @@ module topo_lsn
 
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
   call CR%setup_length_sampling()
-  call C0%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Magnetic_Axis%X, eta, eta, dthetaX, Dtheta_sampling)
+  ! in outer SOL set eta=1 for divertor legs from inner SOL
+  if (ix1 > ix2) then
+     eta1 = eta; eta2 = 1.d0
+  elseif (ix1 < ix2) then
+     eta1 = 1.d0; eta2 = eta
+  else
+     eta1 = eta; eta2 = eta
+  endif
+  call C0%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Magnetic_Axis%X, eta1, eta2, dthetaX, Dtheta_sampling)
   call CL%setup_length_sampling()
 
 !  call CL%plot(filename='CL.plt', append=.true.)
