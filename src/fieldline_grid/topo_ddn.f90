@@ -36,7 +36,7 @@ module topo_ddn
 
   ! magnetic separatrix
   !type(t_separatrix) :: Si, So
-  type(t_separatrix) :: S2
+  !type(t_separatrix) :: S2
   !type(t_curve)      :: S0
 
   ! guiding_surface
@@ -211,24 +211,24 @@ module topo_ddn
 
 
   ! 2.c separatrix (S, S0) ---------------------------------------------
-  call S%generate(1, 1,  Xp(2)%theta, C_cutL, C_cutR)
-  call S%plot('Si', parts=.true.)
-  call S2%generate(2, -1, Xp(1)%theta, C_cutR, C_cutL)
-  call S2%plot('So', parts=.true.)
+  call S(1)%generate(1, 1,  Xp(2)%theta, C_cutL, C_cutR)
+  call S(1)%plot('Si', parts=.true.)
+  call S(2)%generate(2, -1, Xp(1)%theta, C_cutL, C_cutR)
+  call S(2)%plot('So', parts=.true.)
 
   ! connect core segments of separatrix
   !S0 = connect(Si%M1%t_curve, Si%M2%t_curve)
   !call S0%plot(filename='S0.plt')
   !!call S0%setup_angular_sampling(Pmag)
   !call S0%setup_angular_sampling(tmp(1:2))
-  call S%M1%setup_angular_sampling(Pmag)
-  call S%M2%setup_angular_sampling(Pmag)
-  call S%M3%setup_length_sampling()
-  call S%M4%setup_length_sampling()
-  call S2%M1%setup_length_sampling()
-  call S2%M2%setup_length_sampling()
-  call S2%M3%setup_length_sampling()
-  call S2%M4%setup_length_sampling()
+  call S(1)%M1%setup_angular_sampling(Pmag)
+  call S(1)%M2%setup_angular_sampling(Pmag)
+  call S(1)%M3%setup_length_sampling()
+  call S(1)%M4%setup_length_sampling()
+  call S(2)%M1%setup_length_sampling()
+  call S(2)%M2%setup_length_sampling()
+  call S(2)%M3%setup_length_sampling()
+  call S(2)%M4%setup_length_sampling()
  2000 format(8x,'found magnetic X-point at: ',2f10.4)
  2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
 
@@ -238,16 +238,17 @@ module topo_ddn
 
   ! 4. setup paths for discretization in radial direction
   ! 4.1 SOL
-  !dx(1) = Px1(2) - Pmag(2)
-  !dx(2) = Pmag(1) - Px1(1)
-  !dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
-  !call rpath(1)%setup_linear(Px1, dx)
   call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
   call rpath(1)%plot(filename='rpath_1.plt')
+  ! 4.2 left outer SOL
+  call rpath(2)%generate(2, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
+  call rpath(2)%plot(filename='rpath_2.plt')
+  ! 4.3 right outer SOL
+  call rpath(3)%generate(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(2))
+  call rpath(3)%plot(filename='rpath_3.plt')
   ! 4.4 PFR1
-  dx    = Px1 - Pmag
-  dx    = dx / sqrt(sum(dx**2)) * d_PFR(1)
-  call rpath(4)%setup_linear(Px1, dx)
+  call rpath(4)%generate(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
+  call rpath(4)%plot(filename='rpath_4.plt')
   ! 4.5 PFR2
   call rpath(5)%generate(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
   call rpath(5)%plot(filename='rpath_5.plt')
@@ -425,10 +426,12 @@ module topo_ddn
 
      ! 2.b scrape-off layer (SOL)
      if (generate_flux_surfaces_SOL) then
-        call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, Zone(iz0+1)%Sr, Sp12)
+        call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp12)
      else
         !G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
      endif
+     call make_flux_surfaces_SOL(M_SOL2a,nr(2), npL(1), npL(0), npL(2), 1, nr(2), rpath(2), 2, 1, Zone(iz0+2)%Sr, Zone(iz0+2)%Sp)
+     call make_flux_surfaces_SOL(M_SOL2b,nr(3), npR(2), npR(0), npR(1), 1, nr(3), rpath(3), 1, 2, Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
 
      ! 2.c private flux region (PFR)
      if (generate_flux_surfaces_PFR) then
@@ -463,7 +466,7 @@ module topo_ddn
   do j=0,npR(0)
      xi = Zone(iz0)%Sp%node(j,npR(0))
 
-     call S%M1%sample_at(xi, x)
+     call S(1)%M1%sample_at(xi, x)
      M_HPR (nr(0),                   j, :) = x
      M_SOL1(   0 ,          npR(1) + j, :) = x
   enddo
@@ -471,27 +474,27 @@ module topo_ddn
   do j=0,npL(0)
      xi = Zone(iz0)%Sp%node(j,npL(0))
 
-     call S%M2%sample_at(xi, x)
+     call S(1)%M2%sample_at(xi, x)
      M_HPR (nr(0), npR(0) +          j, :) = x
      M_SOL1(   0 , npR(0) + npR(1) + j, :) = x
   enddo
 
   ! 2. discretization of right separatrix leg
-  call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
+  call divertor_leg_interface(S(1)%M3%t_curve, C_guide, xiR)
   call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
   do j=0,npR(1)
      xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
-     call S%M3%sample_at(xi, x)
+     call S(1)%M3%sample_at(xi, x)
      M_SOL1(    0,                   j,:) = x
      M_PFR1(nr(4),                   j,:) = x
   enddo
 
   ! 3. discretization of left separatrix leg
-  call divertor_leg_interface(S%M4%t_curve, C_guide, xiL)
+  call divertor_leg_interface(S(1)%M4%t_curve, C_guide, xiL)
   call Sl%init_spline_X1(etaL(1), xiL)
   do j=1,npL(1)
      xi = Sl%node(j,npL(1))
-     call S%M4%sample_at(xi, x)
+     call S(1)%M4%sample_at(xi, x)
      M_SOL1(    0, npR(1) + np(0)  + j,:) = x
      M_PFR1(nr(4), npR(1)          + j,:) = x
   enddo
@@ -508,11 +511,11 @@ module topo_ddn
 
 
   ! 1. right segments
-  call divide_SOL2(S2%M1, 1.d0, -1, alphaR(1), S%M3%length(), CR%t_curve)
-  call CR(1)%flip()
-  call CR(1)%setup_sampling(Xp(1)%X, Xp(2)%X, Magnetic_Axis%X, 1.d0, 0.d0, dtheta, Dtheta_sampling)
-  call CR(2)%flip()
-  call CR(2)%setup_length_sampling()
+  call divide_SOL2(S(2)%M2, 1.d0,  1, alphaR(1), S(1)%M3%length(), CR%t_curve)
+  !call CR(2)%flip()
+  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Magnetic_Axis%X, 1.d0, 0.d0, dtheta, Dtheta_sampling)
+  !call CR(1)%flip()
+  call CR(1)%setup_length_sampling()
   !call CR(1)%plot(filename='CR1.plt')
   !call CR(2)%plot(filename='CR2.plt')
 
@@ -520,66 +523,66 @@ module topo_ddn
   do j=0,npR(0)
      xi = Zone(iz0)%Sp%node(j,npR(0))
 
-     call CR(1)%sample_at(xi, x)
+     call CR(2)%sample_at(xi, x)
      M_SOL1 (nr(1),          npR(1) + j, :) = x
      M_SOL2b(   0 ,          npR(1) + j, :) = x
   enddo
 
   ! 1.2 primary divertor segment
-  call divertor_leg_interface(CR(2)%t_curve, C_guide, xiR)
+  call divertor_leg_interface(CR(1)%t_curve, C_guide, xiR)
   call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
   do j=0,npR(1)
      xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
-     call CR(2)%sample_at(xi, x)
+     call CR(1)%sample_at(xi, x)
      M_SOL1 (nr(1),                   j,:) = x
      M_SOL2b(   0 ,                   j,:) = x
   enddo
 
   ! 1.3 secondary divertor segment
-  call divertor_leg_interface(S2%M3%t_curve, C_guide, xiR)
-  call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
+  call divertor_leg_interface(S(2)%M4%t_curve, C_guide, xiR)
+  call Sr%init_spline_X1(etaR(1), xiR)
   do j=0,npR(2)
-     xi = 1.d0 - Sr%node(j,npR(2))
-     call S2%M3%sample_at(xi, x)
+     xi = Sr%node(j,npR(2))
+     call S(2)%M4%sample_at(xi, x)
      M_PFR2 (nr(5), npL(2)          + j,:) = x
      M_SOL2b(   0 , npR(1) + npR(0) + j,:) = x
   enddo
 
 
   ! 2. left segments
-  call divide_SOL2(S2%M2, 1.d0,  1, alphaL(1), S%M4%length(), CL%t_curve)
-  call CL(1)%flip()
-  call CL(1)%setup_length_sampling()
-  call CL(2)%flip()
-  call CL(2)%setup_sampling(Xp(2)%X, Xp(1)%X, Magnetic_Axis%X, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
-  call CL(1)%plot(filename='CL1.plt')
-  call CL(2)%plot(filename='CL2.plt')
+  call divide_SOL2(S(2)%M1, 1.d0, -1, alphaL(1), S(1)%M4%length(), CL%t_curve)
+  !call CL(2)%flip()
+  call CL(2)%setup_length_sampling()
+  !call CL(1)%flip()
+  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Magnetic_Axis%X, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
+  !call CL(1)%plot(filename='CL1.plt')
+  !call CL(2)%plot(filename='CL2.plt')
 
   ! 2.1 core segment
   do j=0,npL(0)
      xi = Zone(iz0)%Sp%node(j,npL(0))
 
-     call CL(2)%sample_at(xi, x)
+     call CL(1)%sample_at(xi, x)
      M_SOL1 (nr(1), npR(1) + npR(0) + j, :) = x
      M_SOL2a(   0 ,          npL(2) + j, :) = x
   enddo
 
   ! 2.2 primary divertor segment
-  call divertor_leg_interface(CL(1)%t_curve, C_guide, xiL)
+  call divertor_leg_interface(CL(2)%t_curve, C_guide, xiL)
   call Sl%init_spline_X1(etaL(1), xiL)
   do j=0,npL(1)
      xi = Sl%node(j,npL(1))
-     call CL(1)%sample_at(xi, x)
+     call CL(2)%sample_at(xi, x)
      M_SOL1 (nr(1), npR(1) + npR(0) + npL(0) + j,:) = x
      M_SOL2a(   0 ,          npL(2) + npL(0) + j,:) = x
   enddo
 
   ! 2.3 secondary divertor segment
-  call divertor_leg_interface(S2%M4%t_curve, C_guide, xiL)
-  call Sl%init_spline_X1(etaL(1), xiL)
+  call divertor_leg_interface(S(2)%M3%t_curve, C_guide, xiL)
+  call Sl%init_spline_X1(etaL(1), 1.d0-xiL)
   do j=0,npL(2)
-     xi = Sl%node(npL(2)-j,npL(2))
-     call S2%M4%sample_at(xi, x)
+     xi = 1.d0 - Sl%node(npL(2)-j,npL(2))
+     call S(2)%M3%sample_at(xi, x)
      M_PFR2 (nr(5),                   j,:) = x
      M_SOL2a(   0 ,                   j,:) = x
   enddo
