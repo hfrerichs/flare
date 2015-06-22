@@ -226,32 +226,41 @@ module topo_lsn
   real(real64) :: l, alpha, xiR, xiL, dthetaX, eta1, eta2
 
 
+  ! set reference length
   l = F%length()
 
-  alpha = 1.d0 + eta * (alphaR(ix1) - 1.d0)
-  xiR   = alpha * S(ix1)%M3%l / l
-  alpha = 1.d0 + eta * (alphaL(ix2) - 1.d0)
-  xiL   = 1.d0 - alpha * S(ix2)%M4%l / l
 
-  dthetaX = Xp(ix2)%theta - Xp(ix1)%theta
-  if (dthetaX .le. 0.d0) dthetaX = dthetaX + pi2
-
-  call F%split3(xiR, xiL, CR, C0%t_curve, CL)
-  call CR%setup_length_sampling()
-  ! in outer SOL set eta=1 for divertor legs from inner SOL
+  ! in outer SOL set eta'=1+eta for divertor legs from inner SOL
   if (ix1 > ix2) then
-     eta1 = eta; eta2 = 1.d0
+     eta1 = eta; eta2 = 1.d0+eta
   elseif (ix1 < ix2) then
-     eta1 = 1.d0; eta2 = eta
+     eta1 = 1.d0+eta; eta2 = eta
   else
      eta1 = eta; eta2 = eta
   endif
+
+
+  ! setup relative coordinates xiL, xiR for divertor legs
+  alpha = 1.d0 + eta1 * (alphaR(ix1) - 1.d0)
+  xiR   = alpha * S(ix1)%M3%l / l
+  alpha = 1.d0 + eta2 * (alphaL(ix2) - 1.d0)
+  xiL   = 1.d0 - alpha * S(ix2)%M4%l / l
+
+
+  ! setup reference weight for angular sampling
+  dthetaX = Xp(ix2)%theta - Xp(ix1)%theta
+  if (dthetaX .le. 0.d0) dthetaX = dthetaX + pi2
+
+
+  ! split flux surface in main part and divertor segments
+  call F%split3(xiR, xiL, CR, C0%t_curve, CL)
+  call CR%setup_length_sampling()
   call C0%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Magnetic_Axis%X, eta1, eta2, dthetaX, Dtheta_sampling)
   call CL%setup_length_sampling()
 
-!  call CL%plot(filename='CL.plt', append=.true.)
-!  call C0%plot(filename='C0.plt', append=.true.)
-!  call CR%plot(filename='CR.plt', append=.true.)
+  !call CL%plot(filename='CL.plt', append=.true.)
+  !call C0%plot(filename='C0.plt', append=.true.)
+  !call CR%plot(filename='CR.plt', append=.true.)
 
   end subroutine divide_SOL
   !=====================================================================
