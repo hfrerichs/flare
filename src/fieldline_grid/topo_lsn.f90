@@ -30,7 +30,7 @@ module topo_lsn
   type(t_grid), dimension(:), allocatable :: G_HPR, G_SOL, G_PFR ! (0:blocks-1)
 
   ! magnetic separatrix
-  type(t_separatrix), public :: S
+  type(t_separatrix), public :: S(max_layers)
   type(t_curve)      :: S0
 
   ! guiding_surface
@@ -181,15 +181,15 @@ module topo_lsn
   write (6, 2001) Xp(1)%theta
 
   ! 2.c separatrix (S, S0) ---------------------------------------------
-  call S%generate(1, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
-  call S%plot('S', parts=.true.)
+  call S(1)%generate(1, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
+  call S(1)%plot('S', parts=.true.)
 
   ! connect core segments of separatrix
-  S0 = connect(S%M1%t_curve, S%M2%t_curve)
+  S0 = connect(S(1)%M1%t_curve, S(1)%M2%t_curve)
   call S0%plot(filename='S0.plt')
   call S0%setup_angular_sampling(Pmag)
-  call S%M3%setup_length_sampling()
-  call S%M4%setup_length_sampling()
+  call S(1)%M3%setup_length_sampling()
+  call S(1)%M4%setup_length_sampling()
  2000 format(8x,'found magnetic X-point at: ',2f10.4)
  2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
 
@@ -214,27 +214,36 @@ module topo_lsn
 
 
   !=====================================================================
-  subroutine divide_SOL(F, eta, CL, C0, CR)
+  subroutine divide_SOL(F, eta, CL, C0, CR, ix1, ix2)
   use flux_surface_2D
   use math
   type(t_flux_surface_2D), intent(in)  :: F
   real(real64),            intent(in)  :: eta
   type(t_curve),           intent(out) :: CL, CR
   type(t_flux_surface_2D), intent(out) :: C0
+  integer,                 intent(in)  :: ix1, ix2
 
-  real(real64) :: l, alpha, xiR, xiL
+  real(real64) :: l, alpha, xiR, xiL, dthetaX
 
 
   l = F%length()
 
-  alpha = 1.d0 + eta * (alphaR(1) - 1.d0)
-  xiR   = alpha * S%M3%l / l
-  alpha = 1.d0 + eta * (alphaL(1) - 1.d0)
-  xiL   = 1.d0 - alpha * S%M4%l / l
+  alpha = 1.d0 + eta * (alphaR(ix1) - 1.d0)
+  xiR   = alpha * S(ix1)%M3%l / l
+  alpha = 1.d0 + eta * (alphaL(ix2) - 1.d0)
+  xiL   = 1.d0 - alpha * S(ix2)%M4%l / l
+
+  dthetaX = Xp(ix2)%theta - Xp(ix1)%theta
+  if (dthetaX .le. 0.d0) dthetaX = dthetaX + pi2
+
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
   call CR%setup_length_sampling()
-  call C0%setup_sampling(Xp(1)%X, Xp(1)%X, Magnetic_Axis%X, eta, eta, pi2, Dtheta_sampling)
+  call C0%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Magnetic_Axis%X, eta, eta, dthetaX, Dtheta_sampling)
   call CL%setup_length_sampling()
+
+!  call CL%plot(filename='CL.plt', append=.true.)
+!  call C0%plot(filename='C0.plt', append=.true.)
+!  call CR%plot(filename='CR.plt', append=.true.)
 
   end subroutine divide_SOL
   !=====================================================================
@@ -359,7 +368,7 @@ module topo_lsn
 
      ! 2.b scrape-off layer (SOL)
      if (generate_flux_surfaces_SOL) then
-        call make_flux_surfaces_SOL(M_SOL, nr1, np1l, np0, np1r, 1, nr1, Zone(iz1)%Sr, Zone(iz0)%Sp)
+        call make_flux_surfaces_SOL(M_SOL, nr1, np1l, np0, np1r, 1, nr1, rpath(1), 1, 1, Zone(iz1)%Sr, Zone(iz0)%Sp)
      else
         G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
      endif
@@ -400,21 +409,21 @@ module topo_lsn
   enddo
 
   ! 2. discretization of right separatrix leg
-  call divertor_leg_interface(S%M3%t_curve, C_guide, xiR)
+  call divertor_leg_interface(S(1)%M3%t_curve, C_guide, xiR)
   call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
   do j=0,np1r
      xi = 1.d0 - Sr%node(np1r-j,np1r)
-     call S%M3%sample_at(xi, x)
+     call S(1)%M3%sample_at(xi, x)
      M_SOL(  0,j,:) = x
      M_PFR(nr2,j,:) = x
   enddo
 
   ! 3. discretization of left separatrix leg
-  call divertor_leg_interface(S%M4%t_curve, C_guide, xiL)
+  call divertor_leg_interface(S(1)%M4%t_curve, C_guide, xiL)
   call Sl%init_spline_X1(etaL(1), xiL)
   do j=1,np1l
      xi = Sl%node(j,np1l)
-     call S%M4%sample_at(xi, x)
+     call S(1)%M4%sample_at(xi, x)
      M_SOL(  0,np1r + np0 + j,:) = x
      M_PFR(nr2,np1r       + j,:) = x
   enddo
@@ -514,13 +523,14 @@ module topo_lsn
   !=============================================================================
   ! scrape-off layer
   !=============================================================================
-  subroutine make_flux_surfaces_SOL(M, nr, npL, np0, npR, ir1, ir2, Sr, Sp)
+  subroutine make_flux_surfaces_SOL(M, nr, npL, np0, npR, ir1, ir2, rpath, ix1, ix2, Sr, Sp)
   use run_control, only: Debug
   use flux_surface_2D
   use divertor
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
-  integer, intent(in) :: nr, npL, np0, npR, ir1, ir2
+  integer, intent(in) :: nr, npL, np0, npR, ir1, ir2, ix1, ix2
+  type(t_xpath),   intent(in) :: rpath
   type(t_spacing), intent(in) :: Sr, Sp
 
   type(t_flux_surface_2D) :: F, C0
@@ -530,15 +540,15 @@ module topo_lsn
   integer       :: i, j
 
 
-  write (6, 1020) nr
-  write (6, 1021) d_SOL(1)
+  write (6, 1020) ir1, ir2
+  write (6, 1021) rpath%length()
   do i=ir1,ir2
      write (6, *) i
      eta = Sr%node(i,nr)
-     call rpath(1)%sample_at(eta, x0)
+     call rpath%sample_at(eta, x0)
      if (Debug) write (iud, *) x0
      call F%generate_open(x0, C_cutL, C_cutR)
-     call divide_SOL(F, eta, CL, C0, CR)
+     call divide_SOL(F, eta, CL, C0, CR, ix1, ix2)
 
      ! right divertor leg
      call divertor_leg_interface(CR, C_guide, xiR)
@@ -566,7 +576,7 @@ module topo_lsn
      enddo
   enddo
 
- 1020 format (8x,'generating scrape-off layer: 1 -> ', i0)
+ 1020 format (8x,'generating scrape-off layer: ',i0,' -> ', i0)
  1021 format (8x,'d_SOL = ',f8.3)
   end subroutine make_flux_surfaces_SOL
   !=============================================================================
@@ -590,7 +600,7 @@ module topo_lsn
   integer      :: i, j
 
   write (6, 1030) nr-1
-  write (6, 1031) d_PFR(1)
+  write (6, 1031) rpath%length()
   do i=0,nr-1
      write (6, *) i
      eta = Sr%node(i,nr)
