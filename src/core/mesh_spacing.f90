@@ -281,6 +281,11 @@ module mesh_spacing
 
   b1 = 2.d0 * xi1 / eta1 - 1.d0 / beta
   a1 = (xi1 - eta1 * b1) / eta1**2
+  if (xi1 < eta1 / 2.d0 / beta) then
+     write (6, *) 'error: spacing function is ill-defined!'
+     write (6, *) 'eta1, xi1, b1 = ', eta1, xi1, b1
+     stop
+  endif
 
   if (eta .lt. eta1) then
      xi = a1 * eta**2.d0  +  b1 * eta
