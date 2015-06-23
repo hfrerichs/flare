@@ -666,7 +666,7 @@ module topo_ddn
   do ib=0,blocks-1
      iz0  = 3*ib
      iz1  = iz0  +  1
-     iz2  = iz0  +  2
+     iz2  = iz0  +  4
      nt   = ZON_TORO(iz0)
 
      npL1 = Block(ib)%npL(1)
