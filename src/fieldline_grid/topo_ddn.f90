@@ -703,7 +703,7 @@ module topo_ddn
  1001 format(8x,'closing grid at last divertor cells')
   do iblock=0,blocks-1
      iz1 = iblock*layers + 1
-     iz2 = iblock*layers + layers
+     iz2 = iblock*layers + layers-1
      do iz=iz1,iz2
         call close_grid_domain(iz)
      enddo
