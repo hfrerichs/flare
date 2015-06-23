@@ -128,7 +128,7 @@ module topo_ddn
         Zone(iz)%isfp(1) = SF_VACUUM
         Zone(iz)%isfp(2) = SF_VACUUM
         Zone(iz)%r_surf_pl_trans_range(1) = 0
-        Zone(iz)%d_N0    = d_N0(1)
+        Zone(iz)%d_N0    = d_N0(iz-iz0)
      enddo
 
      ! 2.c private flux region (PFR)
@@ -139,7 +139,7 @@ module topo_ddn
         Zone(iz)%isfp(2) = SF_VACUUM
         Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
         Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
-        Zone(iz)%d_N0    = d_N0(2)
+        Zone(iz)%d_N0    = d_N0(iz-iz0)
      enddo
 
      write (6, 1002) ib, ZONE_LABEL(0),      Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt
