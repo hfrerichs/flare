@@ -42,6 +42,7 @@ module run_control
      N_phi          = 1, &          ! Resolution in toroidal direction
      N_R            = 1, &          ! Resolution in R direction
      N_Z            = 1, &          ! Resolution in Z direction
+     Run_Level(2)   = 0, &
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
      Input_Format   = 1, &
@@ -66,7 +67,7 @@ module run_control
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, &
-     Spline_Order, &
+     Spline_Order, Run_Level, &
      Debug
 
   contains
@@ -200,13 +201,15 @@ module run_control
      call FLR_analysis
   case ('melnikov_function')
      call melnikov_function()
+  case ('generate_field_aligned_grid')
+     call generate_field_aligend_grid(Run_Level(1), Run_Level(2))
   case default
-     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
-        read (Run_Type(40:42), *) i
-        call generate_field_aligend_grid (i)
-     else
+!     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
+!        read (Run_Type(40:42), *) i
+!        call generate_field_aligend_grid (i)
+!     else
         call run_control_development(Run_Type)
-     endif
+!     endif
   end select
 
  1000 format (/ '========================================================================')

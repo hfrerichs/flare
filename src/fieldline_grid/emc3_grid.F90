@@ -20,6 +20,8 @@ module emc3_grid
      RG,                  ZG,                PHI_PLANE, &
      BFSTREN,        PSI_POLOIDAL
 
+  logical, private, save :: already_loaded = .false.
+
 
   contains
 !=======================================================================
@@ -168,6 +170,8 @@ module emc3_grid
   integer :: iz, i, i1, i2, k, nr, np, nt
 
 
+  if (already_loaded) return
+
   call load_grid_layout()
   open  (iu, file='grid3D.dat')
   do iz=0,NZONET-1
@@ -184,6 +188,7 @@ module emc3_grid
      enddo
   enddo
   close (iu)
+  already_loaded = .true.
 
   end subroutine load_emc3_grid
 !=======================================================================
@@ -218,6 +223,7 @@ module emc3_grid
      enddo
   enddo
   close (iu)
+  already_loaded = .true.
 
   end subroutine write_emc3_grid
 !=======================================================================

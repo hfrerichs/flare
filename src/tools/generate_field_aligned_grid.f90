@@ -1,4 +1,4 @@
-subroutine generate_field_aligend_grid (run_level)
+subroutine generate_field_aligend_grid (run_level, run_level_end)
   use parallel
   use fieldline_grid
   use emc3_grid
@@ -7,18 +7,33 @@ subroutine generate_field_aligend_grid (run_level)
   use topo_ddn
   implicit none
 
-  integer, intent(in) :: run_level
+  integer, intent(inout) :: run_level, run_level_end
 
   procedure(), pointer :: make_base_grids, post_process_grid
+  integer :: ilevel
   logical :: level(9)
 
 
+  ! select run level
+  level = .false.
+  if (run_level == 0) then
+     level(1:6) = .true.
+  elseif (run_level > 0  .and.  run_level <=9) then
+     if (run_level_end == 0 .and. run_level <=6) run_level_end = 6
+     do ilevel=run_level,run_level_end
+        level(ilevel) = .true.
+     enddo
+  else
+     write (6, *) 'error: run level ', run_level, ' not implemented!'
+     stop
+  endif
   if (firstP) then
      write (6, *) 'Generating fieldline grid ...'
-     write (6, *) '... executing run level ', run_level
+     write (6, *) '... executing run level ', run_level, ' -> ', run_level_end
   endif
 
 
+  ! initialize grid configuration
   call setup_grid_configuration()
   select case(topology)
   case(TOPO_SC, TOPO_SC1)
@@ -37,18 +52,6 @@ subroutine generate_field_aligend_grid (run_level)
      write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
      stop
   end select
-
-
-  ! select run level
-  level = .false.
-  if (run_level == 0) then
-     level(1:6) = .true.
-  elseif (run_level > 0  .and.  run_level <=9) then
-     level(run_level) = .true.
-  else
-     write (6, *) 'error: run level ', run_level, ' not implemented!'
-     stop
-  endif
 
 
   ! Level 1: generate pair of innermost boundaries
@@ -75,7 +78,7 @@ subroutine generate_field_aligend_grid (run_level)
 
   ! Level 4: generate vacuum domain (used by EIRENE only)
   if (level(4)) then
-     if (run_level > 0) call load_emc3_grid()
+     call load_emc3_grid()
      call vacuum_and_core_domain_for_EIRENE()
      call write_emc3_grid()
   endif
@@ -83,14 +86,14 @@ subroutine generate_field_aligend_grid (run_level)
 
   ! Level 5: sample magnetic field strength on grid
   if (level(5)) then
-     if (run_level > 0) call load_emc3_grid()
+     call load_emc3_grid()
      call sample_bfield_on_emc3_grid()
   endif
 
 
   ! Level 6: generate plate surfaces for EMC3
   if (level(6)) then
-     if (run_level > 0) call load_emc3_grid()
+     call load_emc3_grid()
      call generate_plates()
   endif
 
