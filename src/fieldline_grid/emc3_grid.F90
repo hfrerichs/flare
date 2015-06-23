@@ -252,6 +252,32 @@ module emc3_grid
   enddo
 
   end function export_flux_tube
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine export_slice(iz, it, ir1, ir2, G)
+  use grid
+
+  integer,      intent(in)  :: iz, it, ir1, ir2
+  type(t_grid), intent(out) :: G
+
+  integer :: nr, np, ir, ip, ig
+
+
+  nr = ir2 - ir1 + 1
+  np = SRF_POLO(iz)
+  call G%new(2, MESH_2D, 3, nr, np, fixed_coord_value=PHI_PLANE(it+PHI_PL_OS(iz)))
+  do ir=ir1,ir2
+  do ip=0,SRF_POLO(iz)-1
+     ig = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     G%mesh(ir-ir1,ip,1) = RG(ig)
+     G%mesh(ir-ir1,ip,2) = ZG(ig)
+  enddo
+  enddo
+
+  end subroutine export_slice
 #endif
 !=======================================================================
 
