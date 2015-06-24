@@ -77,7 +77,7 @@ module fieldline_grid
      alphaR(2)           =    1.0d0, &     !    (L)eft and (R)ight segments
      etaL(2)             =    0.8d0, &     ! fraction of cells in front of the target
      etaR(2)             =    0.8d0, &     !    (L)eft and (R)ight segments
-     Dtheta_sampling     =   pi2 / 9.d0    ! Transition between angular and length weighted sampling of flux surfaces
+     Dtheta_sampling     =    20.d0        ! Transition between angular and length weighted sampling of flux surfaces
 
 
 
@@ -229,6 +229,7 @@ module fieldline_grid
      write (6, *) blocks, ' > ', max_blocks
      stop
   endif
+  Dtheta_sampling = Dtheta_sampling / 180.d0 * pi
 
 
   ! 2. setup size and position of toroidal blocks
