@@ -201,12 +201,12 @@ module topo_ddn
   Magnetic_Axis%X = Pmag
 
   ! 2.b setup X-point (Px, theta0) --------------------------------------
-  do ix=1,2
-     write (6, 2000) Xp(ix)%load()
-     write (6, 2001) Xp(ix)%theta/pi*180.d0
-  enddo
-  Px1 = Xp(1)%X
-  Px2 = Xp(2)%X
+  Px1 = Xp(1)%load()
+  write (6, 2000) Px1
+  write (6, 2001) Xp(1)%theta/pi*180.d0
+  Px2 = Xp(2)%load()
+  write (6, 2000) Px1
+  write (6, 2001) Xp(2)%theta/pi*180.d0
   dtheta = Xp(2)%theta - Xp(1)%theta
 
 
