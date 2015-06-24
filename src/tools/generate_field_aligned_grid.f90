@@ -19,7 +19,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   if (run_level == 0) then
      level(1:6) = .true.
   elseif (run_level > 0  .and.  run_level <=9) then
-     if (run_level_end == 0 .and. run_level <=6) run_level_end = 6
+     if (run_level_end == 0 .and. run_level <=6) run_level_end = run_level
      do ilevel=run_level,run_level_end
         level(ilevel) = .true.
      enddo
