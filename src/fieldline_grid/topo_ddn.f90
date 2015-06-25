@@ -23,7 +23,7 @@ module topo_ddn
 
 
   ! coordinates of X-point and magnetic axis
-  real(real64) :: Px1(2), Px2(2), Pmag(2), dtheta
+  real(real64) :: Px1(2), Px2(2), dtheta
 
 
 
@@ -239,6 +239,10 @@ module topo_ddn
   call load_inner_boundaries(Xp(1)%theta)
 
   ! 4. setup paths for discretization in radial direction
+  ! 4.0 HPR
+  dx    = get_d_HPR(Px1, Pmag)
+  call rpath(0)%setup_linear(Px1, dx)
+  call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 SOL
   call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
   call rpath(1)%plot(filename='rpath_1.plt')
@@ -421,7 +425,7 @@ module topo_ddn
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
      if (generate_flux_surfaces_HPR) then
-        call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, Zone(iz0)%Sr, Sp12)
+        call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp12)
      else
         !G_HPR(iblock)%mesh = G_HPR(iblock-1)%mesh
      endif
@@ -593,56 +597,6 @@ module topo_ddn
   !.....................................................................
 
   end subroutine make_base_grids_ddn
-  !=============================================================================
-
-
-
-  !=============================================================================
-  ! unperturbed FLUX SURFACES (high pressure region)
-  !=============================================================================
-  subroutine make_flux_surfaces_HPR(M, nr, np, ir1, ir2, Sr, Sp)
-  use run_control, only: Debug
-  use flux_surface_2D
-  use mesh_spacing
-  !use divertor
-
-  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
-  integer, intent(in) :: nr, np, ir1, ir2
-  type(t_spacing), intent(in) :: Sr, Sp
-
-  type(t_flux_surface_2D) :: F
-  real(real64) :: d_HPR(2)
-  real(real64) :: eta, x(2), xi
-  integer      :: i, j
-
-
-  ! 1. get radial width at poloidal angle of X-point
-  d_HPR = get_d_HPR(Px1, Pmag)
-
-  ! 2. generate flux surfaces
-  if (ir2 .ge. ir1) then
-     write (6, 1010) ir2, ir1
-     write (6, 1011) Px1, Px1 + d_HPR
-  endif
-  do i=ir2, ir1, -1
-     write (6, *) i
-     eta = 1.d0 - Sr%node(i-1,nr-1)
-
-     x = Px1 + eta * d_HPR
-     if (Debug) write (iud, *) x
-     call F%generate_closed(x, RIGHT_HANDED)
-     call F%setup_angular_sampling(Pmag)
-
-     do j=0,np
-        xi = Sp%node(j,np)
-        call F%sample_at(xi, x)
-        M(i,j,:) = x
-     enddo
-  enddo
-
- 1010 format (8x,'generating high pressure region: ', i0, ' -> ', i0)
- 1011 format (8x,'from (',f8.3,', ',f8.3,') to (',f8.3,', ',f8.3,')')
-  end subroutine make_flux_surfaces_HPR
   !=============================================================================
 
 
