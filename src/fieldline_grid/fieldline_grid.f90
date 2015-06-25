@@ -17,6 +17,15 @@ module fieldline_grid
      TOPO_DDN1   = 'ddn'
 
 
+  ! zone type definitions
+  integer, parameter :: &
+     TYPE_SINGLE_LAYER = -1, &
+     TYPE_HPR          =  0, &
+     TYPE_SOL          =  1, &
+     TYPE_SOLMAP       = 11, &
+     TYPE_PFR          =  2
+
+
   ! surface type definitions
   integer, parameter :: &
      SF_PERIODIC =  1, &
@@ -49,7 +58,7 @@ module fieldline_grid
      poloidal_spacing(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface                  = '', &
-     N0_file(max_layers)              = ''
+     N0_file(0:max_layers-1)          = ''
 
 
   integer :: &
@@ -71,7 +80,7 @@ module fieldline_grid
      x_in2(3)            = (/119.d0, 0.d0, 0.d0/), &  ! ... on 1st and 2nd innermost flux surfaces
      d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
      d_PFR(2)            =   15.d0, &      ! radial width of private flux region
-     d_N0(max_layers)    =   10.d0, &      ! radial width of vacuum region
+     d_N0(0:max_layers-1)=   10.d0, &      ! radial width of vacuum region
      d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
      alphaL(2)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
@@ -142,8 +151,7 @@ module fieldline_grid
      character(len=80) :: N0_file
 
      contains
-     procedure :: setup_default_toroidal_discretization
-     procedure :: setup_default_boundaries
+     procedure :: setup
   end type t_zone
   type(t_zone) :: Zone(0:max_zones-1)
 
@@ -160,47 +168,117 @@ module fieldline_grid
 
 
 !=======================================================================
-! t_zone: default discretization in toroidal direction
-!=======================================================================
-  subroutine setup_default_toroidal_discretization(this, ib)
+  subroutine setup(this, iblock, ilayer, itype)
   class(t_zone)       :: this
-  integer, intent(in) :: ib
+  integer, intent(in) :: iblock, ilayer, itype
+
+  integer :: add1 = 0, add2 = 0
 
 
-  this%nt      = Block(ib)%nt
+  ! 1. grid resolution
+  call setup_resolution()
+
+
+  ! 2. default toroidal discretization
   allocate (this%phi(0:this%nt))
-  this%phi     = Block(ib)%phi
-  this%it_base = Block(ib)%it_base
-
-  end subroutine setup_default_toroidal_discretization
-!=======================================================================
+  this%phi     = Block(iblock)%phi
+  this%it_base = Block(iblock)%it_base
 
 
+  ! 3.1 plamsa transport domain
+  this%r_surf_pl_trans_range(1) = add1
+  this%r_surf_pl_trans_range(2) = this%nr - add2
+  this%p_surf_pl_trans_range(1) = 0
+  this%p_surf_pl_trans_range(2) = this%np
 
-!=======================================================================
-! t_zone: default setup of boundaries
-!=======================================================================
-  subroutine setup_default_boundaries(this)
-  class(t_zone) :: this
+  ! 3.2 set parameters for additional neutral domain
+  this%d_N0    = d_N0(ilayer)
+  this%N0_file = N0_file(ilayer)
 
 
-  ! set up boundary types
-  this%isfr(1) = SF_CORE
-  this%isfr(2) = SF_VACUUM
-  this%isfp(1) = SF_PERIODIC
-  this%isfp(2) = SF_PERIODIC
+  ! 4. boundaries
+  call setup_boundaries()
+
+  contains
+  !---------------------------------------------------------------------
+  subroutine setup_resolution()
+
+
+  ! toroidal resolution
+  this%nt      = Block(iblock)%nt
+
+
+  ! radial and poloidal resolution (depends on type of zone)
+  add1 = 0; add2 = 0
+  select case(itype)
+  ! single layer: add core domain on lower and vaccum domain on upper radial boundary
+  case(TYPE_SINGLE_LAYER)
+     add1 = nr_EIRENE_core
+     add2 = nr_EIRENE_vac
+
+  ! high pressure region (HPR): add core domain on lower radial boundary
+  case(TYPE_HPR)
+     add1 = nr_EIRENE_core
+
+  ! scrape-off layer (SOL): add vacuum domain on upper radial boundary
+  case(TYPE_SOL)
+     add2 = nr_EIRENE_vac
+
+  ! private flux region (PFR): add vacuum domain on lower radial boundary
+  case(TYPE_PFR)
+     add1 = nr_EIRENE_vac
+  end select
+  this%nr = Block(iblock)%nr(ilayer) + add1 + add2
+  this%np = Block(iblock)%np(ilayer)
+
+  end subroutine setup_resolution
+  !---------------------------------------------------------------------
+  subroutine setup_boundaries()
+
+
+  ! 1. radial boundaries
+  select case(itype)
+  case(TYPE_SINGLE_LAYER)
+     this%isfr(1) = SF_CORE
+     this%isfr(2) = SF_VACUUM
+
+  case(TYPE_HPR)
+     this%isfr(1) = SF_CORE
+     this%isfr(2) = SF_MAPPING
+
+  case(TYPE_SOL)
+     this%isfr(1) = SF_MAPPING
+     this%isfr(2) = SF_VACUUM
+
+  case(TYPE_SOLMAP)
+     this%isfr(1) = SF_MAPPING
+     this%isfr(2) = SF_MAPPING
+
+  case(TYPE_PFR)
+     this%isfr(1) = SF_VACUUM
+     this%isfr(2) = SF_MAPPING
+  end select
+
+
+  ! 2. poloidal boundaries
+  select case(itype)
+  case(TYPE_SINGLE_LAYER,TYPE_HPR)
+     this%isfp(1) = SF_PERIODIC
+     this%isfp(2) = SF_PERIODIC
+
+  case(TYPE_SOL,TYPE_SOLMAP,TYPE_PFR)
+     this%isfp(1) = SF_VACUUM
+     this%isfp(2) = SF_VACUUM
+  end select
+
+
+  ! 3. toroidal boundaries
   this%isft(1) = SF_MAPPING
   this%isft(2) = SF_MAPPING
 
-  ! set up plasma transport range
-  this%r_surf_pl_trans_range(1) = nr_EIRENE_core
-  this%r_surf_pl_trans_range(2) = this%nr - nr_EIRENE_vac
-  this%p_surf_pl_trans_range(1) = 0
-  this%p_surf_pl_trans_range(2) = this%np
-  this%d_N0                     = d_N0(1)
-  this%N0_file                  = N0_file(1)
-
-  end subroutine setup_default_boundaries
+  end subroutine setup_boundaries
+  !---------------------------------------------------------------------
+  end subroutine setup
 !=======================================================================
 
 

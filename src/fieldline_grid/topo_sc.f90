@@ -31,17 +31,17 @@ module topo_sc
 
   write (6, 1000)
   do ib=0,blocks-1
-     ! 1. setup resolution for each zone
+     ! 1. set up derived parameters
      iz = ib
      Zone(iz)%nr = Block(ib)%nr(0) + nr_EIRENE_core + nr_EIRENE_vac
      Zone(iz)%np = Block(ib)%np(0)
-     call Zone(iz)%setup_default_toroidal_discretization(ib)
 
 
-     ! 2. setup boundaries
-     call Zone(iz)%setup_default_boundaries()
+     ! 2. set up zones
+     call Zone(iz)%setup(ib, 0, TYPE_SINGLE_LAYER)
 
 
+     ! 3. show zone information
      write (6, 1002) iz, Zone(iz)%nr, Zone(iz)%np, Zone(iz)%nt
   enddo
  1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')

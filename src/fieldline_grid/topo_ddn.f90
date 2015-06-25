@@ -15,6 +15,7 @@ module topo_ddn
   implicit none
   private
 
+  integer, parameter :: layers_ddn = 6
   integer, parameter :: DEFAULT = 0
   integer, parameter :: iud = 72
 
@@ -58,19 +59,18 @@ module topo_ddn
   use emc3_grid, only: NZONET
   implicit none
 
-  integer :: iz, iz0, ib
+  integer :: iz, iz0, ib, ilayer
 
 
-  ! 0. setup number of zones for lower single null topology
-  layers = 6
+  ! 0. setup number of zones for disconnected double null topology
+  layers = layers_ddn
   NZONET = blocks * layers
 
 
   write (6, 1000)
   write (6, 1001)
   do ib=0,blocks-1
-     ! 1. setup resolution for each zone
-     ! set derived parameters
+     ! 1. set up derived parameters
      Block(ib)%np(0) = Block(ib)%npR(0) + Block(ib)%npL(0)
      Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%np(0)  + Block(ib)%npL(1)
      Block(ib)%np(2) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
@@ -79,71 +79,14 @@ module topo_ddn
      Block(ib)%np(5) = Block(ib)%npR(2)                    + Block(ib)%npL(2)
 
 
-     ! high pressure region (HPR)
-     iz0 = ib * layers
-     Zone(iz0)%nr    = Block(ib)%nr(0) + nr_EIRENE_core
-     Zone(iz0)%np    = Block(ib)%np(0)
-
-     ! inner scrape-off layer (SOL)
-     Zone(iz0+1)%nr  = Block(ib)%nr(1)
-     Zone(iz0+1)%np  = Block(ib)%np(1)
-
-     ! outer scrape-off layer (SOL)
-     Zone(iz0+2)%nr  = Block(ib)%nr(2) + nr_EIRENE_vac
-     Zone(iz0+2)%np  = Block(ib)%np(2)
-     Zone(iz0+3)%nr  = Block(ib)%nr(3) + nr_EIRENE_vac
-     Zone(iz0+3)%np  = Block(ib)%np(3)
-
-     ! private flux region (PFR)
-     Zone(iz0+4)%nr  = Block(ib)%nr(4) + nr_EIRENE_vac
-     Zone(iz0+4)%np  = Block(ib)%np(4)
-     Zone(iz0+5)%nr  = Block(ib)%nr(5) + nr_EIRENE_vac
-     Zone(iz0+5)%np  = Block(ib)%np(5)
-
-     do iz=iz0,iz0+layers-1
-        ! setup toroidal discretization
-        call Zone(iz)%setup_default_toroidal_discretization(ib)
-     enddo
+     ! 2. set up zones
+     call Zone(iz0+0)%setup(ib, 0, TYPE_HPR)
+     call Zone(iz0+1)%setup(ib, 1, TYPE_SOLMAP)
+     do ilayer=2,3; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_SOL); enddo
+     do ilayer=4,5; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_PFR); enddo
 
 
-     ! 2. setup boundaries and connectivity between zones
-     do iz=iz0,iz0+layers-1
-        call Zone(iz)%setup_default_boundaries()
-     enddo
-
-     ! 2.a high pressure region (HPR)
-     Zone(iz0)%isfr(2) = SF_MAPPING
-     Zone(iz0)%r_surf_pl_trans_range(2) = Zone(iz0)%nr
-
-     ! 2.b inner scrape-off layer (SOL)
-     Zone(iz0+1)%isfr(1) = SF_MAPPING
-     Zone(iz0+1)%isfr(2) = SF_MAPPING
-     Zone(iz0+1)%isfp(1) = SF_VACUUM
-     Zone(iz0+1)%isfp(2) = SF_VACUUM
-     Zone(iz0+1)%r_surf_pl_trans_range(1) = 0
-     Zone(iz0+1)%r_surf_pl_trans_range(2) = Zone(iz0+1)%nr
-     ! outer scrape-off layer
-     do iz=iz0+2,iz0+3
-        Zone(iz)%isfr(1) = SF_MAPPING
-        Zone(iz)%isfp(1) = SF_VACUUM
-        Zone(iz)%isfp(2) = SF_VACUUM
-        Zone(iz)%r_surf_pl_trans_range(1) = 0
-        Zone(iz)%d_N0    = d_N0(iz-iz0)
-        Zone(iz)%N0_file = N0_file(iz-iz0)
-     enddo
-
-     ! 2.c private flux region (PFR)
-     do iz=iz0+4,iz0+5
-        Zone(iz)%isfr(1) = SF_VACUUM
-        Zone(iz)%isfr(2) = SF_MAPPING
-        Zone(iz)%isfp(1) = SF_VACUUM
-        Zone(iz)%isfp(2) = SF_VACUUM
-        Zone(iz)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
-        Zone(iz)%r_surf_pl_trans_range(2) = Zone(iz)%nr
-        Zone(iz)%d_N0    = d_N0(iz-iz0)
-        Zone(iz)%N0_file = N0_file(iz-iz0)
-     enddo
-
+     ! 3. show zone information
      write (6, 1002) ib, ZONE_LABEL(0),      Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt
      do iz=iz0+1,iz0+layers-1
         write (6, 1003)  ZONE_LABEL(iz-iz0), Zone(iz )%nr, Zone(iz )%np, Zone(iz )%nt
