@@ -48,7 +48,8 @@ module fieldline_grid
      radial_spacing(0:max_layers-1)   = '', &
      poloidal_spacing(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
-     guiding_surface                  = ''
+     guiding_surface                  = '', &
+     N0_file(max_layers)              = ''
 
 
   integer :: &
@@ -138,6 +139,7 @@ module fieldline_grid
 
      ! additional domain for neutral particles
      real(real64) :: d_N0 = 0.d0
+     character(len=80) :: N0_file
 
      contains
      procedure :: setup_default_toroidal_discretization
@@ -196,6 +198,7 @@ module fieldline_grid
   this%p_surf_pl_trans_range(1) = 0
   this%p_surf_pl_trans_range(2) = this%np
   this%d_N0                     = d_N0(1)
+  this%N0_file                  = N0_file(1)
 
   end subroutine setup_default_boundaries
 !=======================================================================
@@ -211,7 +214,7 @@ module fieldline_grid
 
   namelist /Grid_Layout/ &
      topology, symmetry, blocks, Block, &
-     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, &
+     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      n_interpolate, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &

@@ -18,10 +18,10 @@ subroutine vacuum_and_core_domain_for_EIRENE
      endif
 
      if (Zone(iz)%isfr(1) == SF_VACUUM) then
-        call setup_vacuum_domain(iz, nr_EIRENE_vac, 1, Zone(iz)%d_N0, 1)
+        call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
      endif
      if (Zone(iz)%isfr(2) == SF_VACUUM) then
-        call setup_vacuum_domain(iz, nr_EIRENE_vac, 2, Zone(iz)%d_N0, 1)
+        call setup_vacuum_domain(iz, nr_EIRENE_vac, 2)
      endif
   enddo
 
@@ -111,16 +111,50 @@ end subroutine setup_core_domain
 
 
 !===============================================================================
-subroutine setup_vacuum_domain(iz, nr_vac, boundary, dl, Method)
+subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   use iso_fortran_env
+  use fieldline_grid
   implicit none
 
   character(len=*), parameter :: s_boundary(2) = (/ 'lower', 'upper' /)
-  integer, intent(in) :: iz, nr_vac, boundary, Method
-  real(real64), intent(in) :: dl
+  integer, intent(in) :: iz, nr_vac, boundary
 
   integer, parameter :: &
-     UPSCALE = 1
+     UPSCALE = 1, &
+     MANUAL  = -1
+
+  real(real64) :: dl
+  integer      :: Method, ir0, idir, ir2
+
+
+  Method = UPSCALE
+  dl     = Zone(iz)%d_N0
+  if (Zone(iz)%N0_file .ne. '') then
+     Method = MANUAL
+  endif
+
+
+  ! set surface indices and increment
+  ! ir0:  surface index for EMC3 boundary
+  ! idir: index direction for EIRENE-only domain
+  ! ir2:  surface index for EIRENE boundary
+  select case(boundary)
+  ! lower boundary
+  case(1)
+     ir0  = nr_vac
+     idir = -1
+     ir2  = 0
+
+  ! upper boundary
+  case(2)
+     ir0  = Zone(iz)%nr - nr_vac
+     idir = 1
+     ir2  = Zone(iz)%nr
+
+  case default
+     write (6, *) 'error: invalid argument boundary = ', boundary
+  end select
+
 
 
   write (6, 1000) iz, nr_vac, s_boundary(boundary), dl
@@ -128,7 +162,9 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary, dl, Method)
 
   select case (Method)
   case (UPSCALE)
-      call vacuum_domain_by_upscale(iz, nr_vac, boundary, dl)
+      call vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
+  case (MANUAL)
+      call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   end select
 
 
@@ -137,7 +173,7 @@ end subroutine setup_vacuum_domain
 
 
 !===============================================================================
-subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
+subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
   use iso_fortran_env
   use emc3_grid
   use curve2D
@@ -145,38 +181,24 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
   use string
   implicit none
 
-  integer, intent(in)      :: iz, nrvac, boundary
+  integer, intent(in)      :: iz, ir0, idir, ir2
   real(real64), intent(in) :: dl
 
   logical :: resample = .true.
 
   real(real64), dimension(:), allocatable :: xi
+  real(real64), dimension(:,:), allocatable :: en
   type(t_curve) :: C
-  real(real64)  :: DR, DZ, w, x(2)
-  integer :: it, ip, ir0, ir, ig, idir, irend
+  real(real64)  :: DR, DZ, w, x(2), rho
+  integer       :: it, ip, ir, ir1, ig, ig0
 
 
-  ! initialize internal parameters
-  select case(boundary)
-  ! lower boundary
-  case(1)
-    ir0  = nrvac
-    idir = -1
-    irend = 0
-
-  ! upper boundary
-  case(2)
-     ir0 = SRF_RADI(iz)-1 - nrvac
-    idir = 1
-    irend = SRF_RADI(iz)-1
-
-  case default
-     write (6, *) 'error: invalid argument boundary = ', boundary
-  end select
   allocate (xi(0:SRF_POLO(iz)-1))
+  ir1 = ir0 + idir
 
 
   ! loop over all toroidal slices
+  allocate (en(0:SRF_POLO(iz)-1,2))
   do it=0,SRF_TORO(iz)-1
      call C%new(ZON_POLO(iz))
      ! poloidal loop (setup nodes for curve blowup)
@@ -184,6 +206,8 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
         ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
         C%x(ip,1) = RG(ig)
         C%x(ip,2) = ZG(ig)
+        en(ip,1)  = RG(ig) - RG(ig-idir)
+        en(ip,2)  = ZG(ig) - ZG(ig-idir)
      enddo
      call C%closed_check()
      if (Debug) then
@@ -213,22 +237,82 @@ subroutine vacuum_domain_by_upscale(iz, nrvac, boundary, dl)
 
      ! poloidal loop (set new grid nodes)
      do ip=0,SRF_POLO(iz)-1
-     do ir=ir0+idir,irend,idir
-        ig = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
-
+        ig0 = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
         if (resample) then
            call C%sample_at(xi(ip), x)
         else
            x = C%x(ip,1:2)
         endif
-        RG(ig) = x(1)
-        ZG(ig) = x(2)
-     enddo
+
+        do ir=ir1,ir2,idir
+           rho = 1.d0 * (ir-ir0) / (ir2-ir1+idir)
+           ig  = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+           RG(ig) = RG(ig0) + rho * (x(1) - RG(ig0))
+           ZG(ig) = ZG(ig0) + rho * (x(2) - ZG(ig0))
+        enddo
      enddo
 
      ! cleanup
      call C%destroy()
   enddo
+  deallocate (en)
 
 end subroutine vacuum_domain_by_upscale
 !===============================================================================
+
+
+
+!===============================================================================
+subroutine vacuum_domain_manual(iz, ir0, idir, ir2, boundary_file)
+  use iso_fortran_env
+  use emc3_grid
+  use curve2D
+  use run_control, only: Debug
+  use string
+  implicit none
+
+  integer, intent(in)      :: iz, ir0, idir, ir2
+  character(len=*), intent(in) :: boundary_file
+
+  type(t_curve) :: C
+  real(real64), dimension(:), allocatable :: eta
+  real(real64)  :: DR, DZ, x(2), rho
+  integer       :: ig, ig0, it, ip, ir, ir1
+
+
+  call C%load(boundary_file)
+  call C%setup_length_sampling()
+  allocate (eta(0:SRF_POLO(iz)-1))
+  ir1 = ir0 + idir
+
+
+  do it=0,SRF_TORO(iz)-1
+     ! poloidal loop (setup segment weights)
+     eta(0) = 0.d0
+     do ip=1,SRF_POLO(iz)-1
+        ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        DR = RG(ig) - RG(ig - SRF_RADI(iz))
+        DZ = ZG(ig) - ZG(ig - SRF_RADI(iz))
+        eta(ip) = eta(ip-1) + sqrt(DR**2 + DZ**2)
+     enddo
+     eta = eta / eta(SRF_POLO(iz)-1)
+
+
+     ! poloidal loop (set new grid nodes)
+     do ip=0,SRF_POLO(iz)-1
+        ig0 = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        call C%sample_at(eta(ip), x)
+
+        do ir=ir1,ir2,idir
+           rho = 1.d0 * (ir-ir0) / (ir2-ir1+idir)
+           ig  = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+           RG(ig) = RG(ig0) + rho * (x(1) - RG(ig0))
+           ZG(ig) = ZG(ig0) + rho * (x(2) - ZG(ig0))
+        enddo
+     enddo
+  enddo
+
+  deallocate (eta)
+end subroutine vacuum_domain_manual

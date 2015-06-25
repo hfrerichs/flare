@@ -108,6 +108,7 @@ module topo_lsn
      Zone(iz1)%isfp(2) = SF_VACUUM
      Zone(iz1)%r_surf_pl_trans_range(1) = 0
      Zone(iz1)%d_N0    = d_N0(1)
+     Zone(iz1)%N0_file = N0_file(1)
 
      ! 2.c private flux region (PFR)
      Zone(iz2)%isfr(1) = SF_VACUUM
@@ -117,6 +118,7 @@ module topo_lsn
      Zone(iz2)%r_surf_pl_trans_range(1) = nr_EIRENE_vac
      Zone(iz2)%r_surf_pl_trans_range(2) = Zone(iz2)%nr
      Zone(iz2)%d_N0    = d_N0(2)
+     Zone(iz2)%N0_file = N0_file(2)
 
 
      write (6, 1002) ib, Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt, &
