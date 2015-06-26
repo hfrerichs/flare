@@ -25,7 +25,7 @@ subroutine generate_separatrix
 
   if (Label .ne. '') Label = trim(Label)//'_'
   do i=1,nx_max
-     if (Xp(i)%R_estimate <= 0.d0) cycle
+     if (Xp(i)%undefined) cycle
 
      write (6, *) i, Xp(i)%X
      write (c, '(i0)') i

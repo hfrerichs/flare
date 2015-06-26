@@ -29,6 +29,7 @@ module equilibrium
   type t_Xpoint
      real(real64) :: R_estimate = 0.d0, Z_estimate = 0.d0
      real(real64) :: X(2) = -1.d0, Psi, H(2,2), theta
+     logical      :: undefined = .true.
 
      contains
      procedure :: analysis
@@ -257,6 +258,7 @@ module equilibrium
      x0(1)        = Xp(ix)%R_estimate
      x0(2)        = Xp(ix)%Z_estimate
      Xp(ix)%X     = find_x(x0, Hout=Xp(ix)%H)
+     if (Xp(ix)%X(1) > 0.d0) Xp(ix)%undefined = .false.
 
      r(1:2)       = Xp(ix)%X; r(3) = 0.d0
      Xp(ix)%Psi   = get_Psi(r)
@@ -1104,12 +1106,12 @@ module equilibrium
   real(real64)    :: X(2)
 
 
-  if (this%X(1) > 0.d0) then
-     X = this%X
-  else
+  if (this%undefined) then
      X = -1.d0
      write (6, *) 'error: X-point is not defined!'
      stop
+  else
+     X = this%X
   endif
 
   end function load
