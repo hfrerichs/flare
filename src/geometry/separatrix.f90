@@ -37,19 +37,46 @@ module separatrix
 ! orientation =  1: lower null
 !             = -1: upper null
 ! theta_cut   =  poloidal cut-off angle (-> split core separatrix into left and right segments)
+! iconnect    =  number of X-point to which separatrix connects
+!                (-> used to set poloidal cut-off angle)
 !===============================================================================
 
-  subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr)
+  subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr, iconnect)
+  use math
   class(t_separatrix)                 :: this
   integer,       intent(in)           :: iPx
-  real(real64),  intent(in)           :: theta_cut
+  real(real64),  intent(in), optional :: theta_cut
   type(t_curve), intent(in), optional :: C_cutl, C_cutr
+  integer,       intent(in), optional :: iconnect
 
-  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0, theta_cutL, theta_cutR
   integer      :: orientation
 
 
+  ! set orientation (lower null vs. upper null)
   orientation = 1; if (Xp(iPx)%X(2) > 0.d0) orientation = -1
+
+
+  ! set cut-off poloidal angles
+  theta_cutL = 0.d0; theta_cutR = 0.d0
+  if (present(iconnect)) then
+     if (Xp(iconnect)%undefined) then
+        write (6, *) 'error: cannot connect to undefined X-point!'
+        stop
+     endif
+
+     if (iconnect == iPx) then
+        theta_cutR = Xp(iPx)%theta + pi
+        theta_cutL = Xp(iPx)%theta + pi
+     else
+        theta_cutR = 0.5d0 * (Xp(iconnect)%theta + Xp(iPx)%theta)
+        theta_cutL = theta_cutR + pi
+     endif
+  endif
+  if (present(theta_cut)) then
+     theta_cutL = theta_cut
+     theta_cutR = theta_cut
+  endif
 
 
   Px = Xp(iPx)%X ! Coordinates of X-point (R[cm], Z[cm])
@@ -63,12 +90,12 @@ module separatrix
 
   ! right core segment
   x0 = Px + v1*orientation + v2
-  call this%M1%generate(x0,  1, ds, AltSurf=C_cutl, theta_cut=theta_cut)
+  call this%M1%generate(x0,  1, ds, AltSurf=C_cutl, theta_cut=theta_cutR)
   this%M1%x(0,:) = Px
 
   ! left core segment
   x0 = Px - v1*orientation + v2
-  call this%M2%generate(x0, -1, ds, AltSurf=C_cutr, theta_cut=theta_cut)
+  call this%M2%generate(x0, -1, ds, AltSurf=C_cutr, theta_cut=theta_cutL)
   this%M2%x(this%M2%n_seg,:) = Px
 
   ! right divertor leg
