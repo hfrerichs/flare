@@ -404,7 +404,16 @@ module flux_surface_2D
   ! 4. check normalization
   w = sum(this%w)
   if (w < 1.d0 - 1.d-7) then
-     write (6, *) 'error: unexpected sum of weights!'
+     write (6, *) 'error in t_flux_surface_2D%setup_sampling: unexpected sum of weights!'
+     write (6, *) 'parameters are:'
+     write (6, *) 'x1    = ', x1
+     write (6, *) 'x2    = ', x2
+     write (6, *) 'xc    = ', xc
+     write (6, *) 'r1    = ', r1
+     write (6, *) 'r2    = ', r2
+     write (6, *) 'dphi0 = ', dphi0
+     write (6, *) 'phiT  = ', phiT
+     call this%plot(filename='error.plt')
      stop
   else
      do i=1,n
