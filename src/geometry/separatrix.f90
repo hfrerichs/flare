@@ -49,12 +49,18 @@ module separatrix
   type(t_curve), intent(in), optional :: C_cutl, C_cutr
   integer,       intent(in), optional :: iconnect
 
-  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0, theta_cutL, theta_cutR
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0, &
+                  theta_cutL, theta_cutR, theta_cut_offset
   integer      :: orientation
 
 
   ! set orientation (lower null vs. upper null)
-  orientation = 1; if (Xp(iPx)%X(2) > 0.d0) orientation = -1
+  orientation = 1
+  theta_cut_offset = 0.d0 ! used to connect upper null to lower null
+  if (Xp(iPx)%X(2) > 0.d0) then
+     orientation = -1
+     theta_cut_offset = pi
+  endif
 
 
   ! set cut-off poloidal angles
@@ -69,8 +75,8 @@ module separatrix
         theta_cutR = Xp(iPx)%theta + pi
         theta_cutL = Xp(iPx)%theta + pi
      else
-        theta_cutR = 0.5d0 * (Xp(iconnect)%theta + Xp(iPx)%theta)
-        theta_cutL = theta_cutR + pi
+        theta_cutR = 0.5d0 * (Xp(iconnect)%theta + Xp(iPx)%theta) + theta_cut_offset
+        theta_cutL = theta_cutR + pi; if (theta_cutL > pi) theta_cutL = theta_cutL - pi2
      endif
   endif
   if (present(theta_cut)) then
