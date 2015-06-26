@@ -156,7 +156,7 @@ module topo_ddn
   use mesh_spacing
   use divertor
 
-  integer, parameter      :: iu = 72, nx = 2
+  integer, parameter      :: nx = 2
 
   type(t_flux_surface_2D) :: FS, FSL, FSR, C0
   type(t_curve)           :: CL, CR
@@ -178,7 +178,7 @@ module topo_ddn
 
   write (6, 1000)
   if (Debug) then
-     open  (iu, file='base_grid_debug.txt')
+     open  (iud, file='base_grid_debug.txt')
   endif
   !.....................................................................
   ! 0. initialize geometry
@@ -308,7 +308,7 @@ module topo_ddn
      enddo
      write (6, 1002) iblock
   enddo
-  if (Debug) close (iu)
+  if (Debug) close (iud)
 
  1000 format(//3x,'- Setup for base grids:')
  1001 format(//1x,'Start generation of base grids for block ',i0,' ',32('.'))
@@ -487,6 +487,8 @@ module topo_ddn
 
      ! connect left divertor leg
      call fix_interface(iz1, iz2, 0, 0, nt, npR1+np, npR1, npL1, 0, ZON_RADI(iz2), dmax)
+
+     ! TODO: connect secondary separatrix
   enddo
 
   write (6, *) 'max. deviation: ', dmax

@@ -140,7 +140,7 @@ module topo_lsn
   use mesh_spacing
   use divertor
 
-  integer, parameter      :: iu = 72, nx = 1
+  integer, parameter      :: nx = 1
 
   type(t_flux_surface_2D) :: FS, FSL, FSR, C0
   type(t_curve)           :: CL, CR
@@ -160,7 +160,7 @@ module topo_lsn
 
   write (6, 1000)
   if (Debug) then
-     open  (iu, file='base_grid_debug.txt')
+     open  (iud, file='base_grid_debug.txt')
   endif
   !.....................................................................
   ! 0. initialize geometry
@@ -273,7 +273,7 @@ module topo_lsn
      call write_base_grid(G_PFR(iblock), iz2)
      write (6, 1002) iblock
   enddo
-  if (Debug) close (iu)
+  if (Debug) close (iud)
 
  1000 format(//3x,'- Setup for base grids:')
  1001 format(//1x,'Start generation of base grids for block ',i0,' ',32('.'))
