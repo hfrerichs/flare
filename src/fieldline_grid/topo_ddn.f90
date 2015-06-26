@@ -24,7 +24,8 @@ module topo_ddn
 
 
   ! coordinates of X-point and magnetic axis
-  real(real64) :: Px1(2), Px2(2), dtheta
+!  real(real64) :: Px1(2), Px2(2), dtheta
+  real(real64) :: dtheta
 
 
 
@@ -109,82 +110,22 @@ module topo_ddn
   use math
   use flux_surface_2D, only: RIGHT_HANDED
   use inner_boundary
+  use divertor
 
-  real(real64) :: tmp(3), dx(2)
-  integer      :: ix
-
-
-  ! 1.a setup guiding surface for divertor legs (C_guide) ------------------
-  if (guiding_surface .ne. '') then
-     write (6, 1000)
-     call C_guide%load(guiding_surface)
-  else if (n_axi > 0) then
-     write (6, 1001)
-     call C_guide%copy(S_axi(1))
-  else
-     write (6, *) 'error: cannot determine divertor geometry!'
-     write (6, *) 'neither guiding_surface is set, nor is an axisymmetric surface defined.'
-     stop
-  endif
- 1000 format(8x,'User defined guiding surface for divertor strike points')
- 1001 format(8x,'First axisymmetric surface used for divertor strike points')
-
-  ! 1.b setup extended guiding surfaces for divertor leg discretization ----
-  ! C_cutL, C_cutR
-  call C_cutL%copy(C_guide)
-  call C_cutL%left_hand_shift(d_cutL(1))
-  call C_cutR%copy(C_guide)
-  call C_cutR%left_hand_shift(d_cutR(1))
-  if (Debug) then
-     call C_cutL%plot(filename='C_cutL.plt')
-     call C_cutR%plot(filename='C_cutR.plt')
-  endif
+  real(real64) :: dx(2)
 
 
-  ! 2.a setup magnetic axis (Pmag) --------------------------------------
-  tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
-  Magnetic_Axis%X = Pmag
-
-  ! 2.b setup X-point (Px, theta0) --------------------------------------
-  Px1 = Xp(1)%load()
-  write (6, 2000) Px1
-  write (6, 2001) Xp(1)%theta/pi*180.d0
-  Px2 = Xp(2)%load()
-  write (6, 2000) Px1
-  write (6, 2001) Xp(2)%theta/pi*180.d0
   dtheta = Xp(2)%theta - Xp(1)%theta
 
 
-  ! 2.c separatrix (S, S0) ---------------------------------------------
-  call S(1)%generate(1, Xp(2)%theta, C_cutL, C_cutR)
-  call S(1)%plot('Si', parts=.true.)
-  call S(2)%generate(2, Xp(1)%theta, C_cutL, C_cutR)
-  call S(2)%plot('So', parts=.true.)
-
-  ! connect core segments of separatrix
-  !S0 = connect(Si%M1%t_curve, Si%M2%t_curve)
-  !call S0%plot(filename='S0.plt')
-  !!call S0%setup_angular_sampling(Pmag)
-  !call S0%setup_angular_sampling(tmp(1:2))
   call S(1)%M1%setup_angular_sampling(Pmag)
   call S(1)%M2%setup_angular_sampling(Pmag)
-  call S(1)%M3%setup_length_sampling()
-  call S(1)%M4%setup_length_sampling()
-  call S(2)%M1%setup_length_sampling()
-  call S(2)%M2%setup_length_sampling()
-  call S(2)%M3%setup_length_sampling()
-  call S(2)%M4%setup_length_sampling()
- 2000 format(8x,'found magnetic X-point at: ',2f10.4)
- 2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
 
-
-  ! 3. inner boundaries for EMC3 grid
-  call load_inner_boundaries(Xp(1)%theta)
 
   ! 4. setup paths for discretization in radial direction
   ! 4.0 HPR
-  dx    = get_d_HPR(Px1, Pmag)
-  call rpath(0)%setup_linear(Px1, dx)
+  dx    = get_d_HPR(Xp(1)%X, Pmag)
+  call rpath(0)%setup_linear(Xp(1)%X, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 SOL
   call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
@@ -208,42 +149,6 @@ module topo_ddn
 
 
   !=====================================================================
-  subroutine divide_SOL2(F, eta, side, alpha, r, C)
-  use flux_surface_2D
-  use math
-  type(t_flux_surface_2D), intent(in)  :: F
-  real(real64),            intent(in)  :: eta, alpha, r
-  integer,                 intent(in)  :: side
-  type(t_curve),           intent(out) :: C(2)
-
-  real(real64) :: l, alpha1, xi(1)
-
-
-  l = F%length()
-
-  alpha1 = 1.d0 + eta * (alpha - 1.d0)
-  select case(side)
-  case(1)
-     xi  = alpha1 * r / l
-  case(-1)
-     xi  = 1.d0 - alpha1 * r / l
-  case default
-     write (6, *) 'error in subroutine divide_SOL2: side = 1 or -1 required!'
-     stop
-  end select
-  !write (6, *) '(xi, eta, alpha, r, l) = ', xi, eta, alpha, r, l
-
-  call F%splitn(2, xi, C)
-  !call CR%setup_length_sampling()
-  !call C0%setup_sampling(Xp(1)%X, Xp(1)%X, Magnetic_Axis%X, eta, eta, pi2, Dtheta_sampling)
-  !call CL%setup_length_sampling()
-
-  end subroutine divide_SOL2
-  !=====================================================================
-
-
-
-  !=====================================================================
   subroutine make_base_grids_ddn
   use run_control, only: Debug
   use math
@@ -252,7 +157,7 @@ module topo_ddn
   use divertor
   use topo_lsn, only: make_flux_surfaces_PFR, make_interpolated_surfaces
 
-  integer, parameter      :: iu = 72
+  integer, parameter      :: iu = 72, nx = 2
 
   type(t_flux_surface_2D) :: FS, FSL, FSR, C0
   type(t_curve)           :: CL, CR
@@ -269,7 +174,7 @@ module topo_ddn
   logical :: generate_flux_surfaces_SOL
   logical :: generate_flux_surfaces_PFR
   real(real64) :: xiL, xiR
-  integer :: iblock
+  integer :: iblock, connectX(nx)
 
 
   write (6, 1000)
@@ -278,6 +183,9 @@ module topo_ddn
   endif
   !.....................................................................
   ! 0. initialize geometry
+  connectX(1) = -2 ! primary X-point connects to itself, but poloidal angle
+  connectX(2) = -2 ! from secondary X-point is used to split segments
+  call setup_geometry(nx, connectX)
   call setup_domain()
   !.....................................................................
 
@@ -462,7 +370,7 @@ module topo_ddn
   ! 1. right segments
   call divide_SOL2(S(2)%M2, 1.d0,  1, alphaR(1), S(1)%M3%length(), CR%t_curve)
   !call CR(2)%flip()
-  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Magnetic_Axis%X, 1.d0, 0.d0, dtheta, Dtheta_sampling)
+  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Pmag, 1.d0, 0.d0, dtheta, Dtheta_sampling)
   !call CR(1)%flip()
   call CR(1)%setup_length_sampling()
   !call CR(1)%plot(filename='CR1.plt')
@@ -503,7 +411,7 @@ module topo_ddn
   !call CL(2)%flip()
   call CL(2)%setup_length_sampling()
   !call CL(1)%flip()
-  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Magnetic_Axis%X, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
+  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Pmag, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
   !call CL(1)%plot(filename='CL1.plt')
   !call CL(2)%plot(filename='CL2.plt')
 

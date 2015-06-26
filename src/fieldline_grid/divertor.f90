@@ -1,7 +1,6 @@
 module divertor
   use iso_fortran_env
   use emc3_grid
-  use fieldline_grid, only: guiding_surface, d_cutL, d_cutR
   use curve2D
   use separatrix
   implicit none
@@ -14,6 +13,7 @@ module divertor
 
   ! store magnetic axis
   real(real64) :: Pmag(2)
+
 
   contains
 !=======================================================================
@@ -28,6 +28,7 @@ module divertor
   use math
   use equilibrium
   use boundary
+  use fieldline_grid, only: guiding_surface, d_cutL, d_cutR
   use inner_boundary
   integer, intent(in) :: nx, connectX(nx)
 
@@ -99,8 +100,101 @@ module divertor
 
 
   !=====================================================================
+  subroutine divide_SOL2(F, eta, side, alpha, r, C)
+  use math
+  use flux_surface_2D
+  type(t_flux_surface_2D), intent(in)  :: F
+  real(real64),            intent(in)  :: eta, alpha, r
+  integer,                 intent(in)  :: side
+  type(t_curve),           intent(out) :: C(2)
+
+  real(real64) :: l, alpha1, xi(1)
+
+
+  l = F%length()
+
+  alpha1 = 1.d0 + eta * (alpha - 1.d0)
+  select case(side)
+  case(1)
+     xi  = alpha1 * r / l
+  case(-1)
+     xi  = 1.d0 - alpha1 * r / l
+  case default
+     write (6, *) 'error in subroutine divide_SOL2: side = 1 or -1 required!'
+     stop
+  end select
+  !write (6, *) '(xi, eta, alpha, r, l) = ', xi, eta, alpha, r, l
+
+  call F%splitn(2, xi, C)
+  !call CR%setup_length_sampling()
+  !call C0%setup_sampling(Xp(1)%X, Xp(1)%X, Magnetic_Axis%X, eta, eta, pi2, Dtheta_sampling)
+  !call CL%setup_length_sampling()
+
+  end subroutine divide_SOL2
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine divide_SOL3(F, eta, CL, C0, CR, ix1, ix2)
+  use math
+  use flux_surface_2D
+  use equilibrium
+  use fieldline_grid, only: Dtheta_sampling, alphaL, alphaR
+  type(t_flux_surface_2D), intent(in)  :: F
+  real(real64),            intent(in)  :: eta
+  type(t_curve),           intent(out) :: CL, CR
+  type(t_flux_surface_2D), intent(out) :: C0
+  integer,                 intent(in)  :: ix1, ix2
+
+  real(real64) :: l, alpha, xiR, xiL, dthetaX, eta1, eta2
+
+
+  ! set reference length
+  l = F%length()
+
+
+  ! in outer SOL set eta'=1+eta for divertor legs from inner SOL
+  if (ix1 > ix2) then
+     eta1 = eta; eta2 = 1.d0+eta
+  elseif (ix1 < ix2) then
+     eta1 = 1.d0+eta; eta2 = eta
+  else
+     eta1 = eta; eta2 = eta
+  endif
+
+
+  ! setup relative coordinates xiL, xiR for divertor legs
+  alpha = 1.d0 + eta1 * (alphaR(ix1) - 1.d0)
+  xiR   = alpha * S(ix1)%M3%l / l
+  alpha = 1.d0 + eta2 * (alphaL(ix2) - 1.d0)
+  xiL   = 1.d0 - alpha * S(ix2)%M4%l / l
+
+
+  ! setup reference weight for angular sampling
+  dthetaX = Xp(ix2)%theta - Xp(ix1)%theta
+  if (dthetaX .le. 0.d0) dthetaX = dthetaX + pi2
+
+
+  ! split flux surface in main part and divertor segments
+  call F%split3(xiR, xiL, CR, C0%t_curve, CL)
+  call CR%setup_length_sampling()
+  call C0%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Pmag, eta1, eta2, dthetaX, Dtheta_sampling)
+  call CL%setup_length_sampling()
+
+  !call CL%plot(filename='CL.plt', append=.true.)
+  !call C0%plot(filename='C0.plt', append=.true.)
+  !call CR%plot(filename='CR.plt', append=.true.)
+
+  end subroutine divide_SOL3
+  !=====================================================================
+
+
+
+
+  !=====================================================================
   ! Calculate intersection between divertor leg (of flux surface) and
-  ! target surface.
+  ! target surface / guiding surface.
   ! Return relative coordinate (eta) of intersection on divertor leg.
   !=====================================================================
   subroutine divertor_leg_interface(C_leg, C_cut, eta)

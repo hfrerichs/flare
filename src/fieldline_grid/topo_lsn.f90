@@ -21,8 +21,8 @@ module topo_lsn
 
 
   ! coordinates of X-point and magnetic axis
-  real(real64) :: Px(2)
-  real(real64), public :: Pmag(2)
+!  real(real64) :: Px(2)
+!  real(real64), public :: Pmag(2)
 
   ! discretization method
   integer :: method = DEFAULT
@@ -32,11 +32,11 @@ module topo_lsn
   type(t_grid), dimension(:), allocatable :: G_HPR, G_SOL, G_PFR ! (0:blocks-1)
 
   ! magnetic separatrix
-  type(t_separatrix), public :: S(max_layers)
+!  type(t_separatrix), public :: S(max_layers)
   type(t_curve)      :: S0
 
   ! guiding_surface
-  type(t_curve), public      :: C_guide, C_cutL, C_cutR
+!  type(t_curve), public      :: C_guide, C_cutL, C_cutR
 
 
   public :: &
@@ -102,65 +102,20 @@ module topo_lsn
   use flux_surface_2D, only: RIGHT_HANDED
   use equilibrium
   use inner_boundary
+  use divertor
 
-  real(real64) :: tmp(3), dx(2)
+  real(real64) :: dx(2), Px(2)
 
-
-  ! 1.a setup guiding surface for divertor legs (C_guide) ------------------
-  if (guiding_surface .ne. '') then
-     write (6, 1000)
-     call C_guide%load(guiding_surface)
-  else if (n_axi > 0) then
-     write (6, 1001)
-     call C_guide%copy(S_axi(1))
-  else
-     write (6, *) 'error: cannot determine divertor geometry!'
-     write (6, *) 'neither guiding_surface is set, nor is an axisymmetric surface defined.'
-     stop
-  endif
- 1000 format(8x,'User defined guiding surface for divertor strike points')
- 1001 format(8x,'First axisymmetric surface used for divertor strike points')
-
-  ! 1.b setup extended guiding surfaces for divertor leg discretization ----
-  ! C_cutL, C_cutR
-  call C_cutL%copy(C_guide)
-  call C_cutL%left_hand_shift(d_cutL(1))
-  call C_cutR%copy(C_guide)
-  call C_cutR%left_hand_shift(d_cutR(1))
-  if (Debug) then
-     call C_cutL%plot(filename='C_cutL.plt')
-     call C_cutR%plot(filename='C_cutR.plt')
-  endif
-
-
-  ! 2.a setup magnetic axis (Pmag) --------------------------------------
-  tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
-  Magnetic_Axis%X = Pmag
-
-  ! 2.b setup X-point (Px, theta0) --------------------------------------
-  Px = Xp(1)%load()
-  write (6, 2000) Px
-  write (6, 2001) Xp(1)%theta
-
-  ! 2.c separatrix (S, S0) ---------------------------------------------
-  call S(1)%generate(1, pi/2.d0, C_cutL, C_cutR)
-  call S(1)%plot('S', parts=.true.)
 
   ! connect core segments of separatrix
   S0 = connect(S(1)%M1%t_curve, S(1)%M2%t_curve)
   call S0%plot(filename='S0.plt')
   call S0%setup_angular_sampling(Pmag)
-  call S(1)%M3%setup_length_sampling()
-  call S(1)%M4%setup_length_sampling()
- 2000 format(8x,'found magnetic X-point at: ',2f10.4)
- 2001 format(11x,'-> poloidal angle [deg]: ',f10.4)
 
-
-  ! 3. inner boundaries for EMC3 grid
-  call load_inner_boundaries(Xp(1)%theta)
 
   ! 4. setup paths for discretization in radial direction
   ! 4.0 HPR
+  Px    = Xp(1)%X
   dx    = get_d_HPR(Px, Pmag)
   call rpath(0)%setup_linear(Px, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
@@ -182,60 +137,6 @@ module topo_lsn
 
 
   !=====================================================================
-  subroutine divide_SOL(F, eta, CL, C0, CR, ix1, ix2)
-  use flux_surface_2D
-  use math
-  type(t_flux_surface_2D), intent(in)  :: F
-  real(real64),            intent(in)  :: eta
-  type(t_curve),           intent(out) :: CL, CR
-  type(t_flux_surface_2D), intent(out) :: C0
-  integer,                 intent(in)  :: ix1, ix2
-
-  real(real64) :: l, alpha, xiR, xiL, dthetaX, eta1, eta2
-
-
-  ! set reference length
-  l = F%length()
-
-
-  ! in outer SOL set eta'=1+eta for divertor legs from inner SOL
-  if (ix1 > ix2) then
-     eta1 = eta; eta2 = 1.d0+eta
-  elseif (ix1 < ix2) then
-     eta1 = 1.d0+eta; eta2 = eta
-  else
-     eta1 = eta; eta2 = eta
-  endif
-
-
-  ! setup relative coordinates xiL, xiR for divertor legs
-  alpha = 1.d0 + eta1 * (alphaR(ix1) - 1.d0)
-  xiR   = alpha * S(ix1)%M3%l / l
-  alpha = 1.d0 + eta2 * (alphaL(ix2) - 1.d0)
-  xiL   = 1.d0 - alpha * S(ix2)%M4%l / l
-
-
-  ! setup reference weight for angular sampling
-  dthetaX = Xp(ix2)%theta - Xp(ix1)%theta
-  if (dthetaX .le. 0.d0) dthetaX = dthetaX + pi2
-
-
-  ! split flux surface in main part and divertor segments
-  call F%split3(xiR, xiL, CR, C0%t_curve, CL)
-  call CR%setup_length_sampling()
-  call C0%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Magnetic_Axis%X, eta1, eta2, dthetaX, Dtheta_sampling)
-  call CL%setup_length_sampling()
-
-  !call CL%plot(filename='CL.plt', append=.true.)
-  !call C0%plot(filename='C0.plt', append=.true.)
-  !call CR%plot(filename='CR.plt', append=.true.)
-
-  end subroutine divide_SOL
-  !=====================================================================
-
-
-
-  !=====================================================================
   subroutine make_base_grids_lsn
   use run_control, only: Debug
   use math
@@ -244,7 +145,7 @@ module topo_lsn
   use mesh_spacing
   use divertor
 
-  integer, parameter      :: iu = 72
+  integer, parameter      :: iu = 72, nx = 1
 
   type(t_flux_surface_2D) :: FS, FSL, FSR, C0
   type(t_curve)           :: CL, CR
@@ -259,7 +160,7 @@ module topo_lsn
   logical :: generate_flux_surfaces_SOL
   logical :: generate_flux_surfaces_PFR
   real(real64) :: xiL, xiR
-  integer :: iblock
+  integer :: iblock, connectX(nx)
 
 
   write (6, 1000)
@@ -268,6 +169,8 @@ module topo_lsn
   endif
   !.....................................................................
   ! 0. initialize geometry
+  connectX(1) = 1 ! X-point connects to itself
+  call setup_geometry(nx, connectX)
   call setup_domain()
   !.....................................................................
 
@@ -425,6 +328,7 @@ module topo_lsn
   use run_control, only: Debug
   use flux_surface_2D
   use mesh_spacing
+  use divertor
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
   integer, intent(in) :: nr, np, ir1, ir2
@@ -528,7 +432,7 @@ module topo_lsn
      call rpath%sample_at(eta, x0)
      if (Debug) write (iud, *) x0
      call F%generate_open(x0, C_cutL, C_cutR)
-     call divide_SOL(F, eta, CL, C0, CR, ix1, ix2)
+     call divide_SOL3(F, eta, CL, C0, CR, ix1, ix2)
 
      ! right divertor leg
      call divertor_leg_interface(CR, C_guide, xiR)
