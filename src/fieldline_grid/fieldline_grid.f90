@@ -168,9 +168,13 @@ module fieldline_grid
 
 
 !=======================================================================
-  subroutine setup(this, iblock, ilayer, itype)
+! Set up zone for block "iblock" and layer "ilayer".
+! Zone layout itypeR = TYPE_SINGLE_LAYER, TYPE_HPR, TYPE_SOL, TYPE_PFR
+!             itypeP = SF_PERIODIC, SF_VACUUM
+!=======================================================================
+  subroutine setup(this, iblock, ilayer, itypeR, itypeP)
   class(t_zone)       :: this
-  integer, intent(in) :: iblock, ilayer, itype
+  integer, intent(in) :: iblock, ilayer, itypeR, itypeP
 
   integer :: add1 = 0, add2 = 0
 
@@ -210,7 +214,7 @@ module fieldline_grid
 
   ! radial and poloidal resolution (depends on type of zone)
   add1 = 0; add2 = 0
-  select case(itype)
+  select case(itypeR)
   ! single layer: add core domain on lower and vaccum domain on upper radial boundary
   case(TYPE_SINGLE_LAYER)
      add1 = nr_EIRENE_core
@@ -237,7 +241,7 @@ module fieldline_grid
 
 
   ! 1. radial boundaries
-  select case(itype)
+  select case(itypeR)
   case(TYPE_SINGLE_LAYER)
      this%isfr(1) = SF_CORE
      this%isfr(2) = SF_VACUUM
@@ -261,15 +265,7 @@ module fieldline_grid
 
 
   ! 2. poloidal boundaries
-  select case(itype)
-  case(TYPE_SINGLE_LAYER,TYPE_HPR)
-     this%isfp(1) = SF_PERIODIC
-     this%isfp(2) = SF_PERIODIC
-
-  case(TYPE_SOL,TYPE_SOLMAP,TYPE_PFR)
-     this%isfp(1) = SF_VACUUM
-     this%isfp(2) = SF_VACUUM
-  end select
+  this%isfp = itypeP
 
 
   ! 3. toroidal boundaries

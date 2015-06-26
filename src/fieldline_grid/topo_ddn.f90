@@ -20,7 +20,7 @@ module topo_ddn
   integer, parameter :: iud = 72
 
 
-  character(len=*), parameter :: ZONE_LABEL(0:5) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFR1 ', 'PFR2 ' /)
+  character(len=*), parameter :: ZONE_LABEL(0:layers_ddn-1) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFR1 ', 'PFR2 ' /)
 
 
   ! coordinates of X-point and magnetic axis
@@ -80,10 +80,10 @@ module topo_ddn
 
 
      ! 2. set up zones
-     call Zone(iz0+0)%setup(ib, 0, TYPE_HPR)
-     call Zone(iz0+1)%setup(ib, 1, TYPE_SOLMAP)
-     do ilayer=2,3; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_SOL); enddo
-     do ilayer=4,5; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_PFR); enddo
+     call Zone(iz0+0)%setup(ib, 0, TYPE_HPR,    SF_PERIODIC)
+     call Zone(iz0+1)%setup(ib, 1, TYPE_SOLMAP, SF_VACUUM)
+     do ilayer=2,3; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_SOL, SF_VACUUM); enddo
+     do ilayer=4,5; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_PFR, SF_VACUUM); enddo
 
 
      ! 3. show zone information

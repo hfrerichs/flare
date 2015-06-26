@@ -38,7 +38,7 @@ module topo_sc
 
 
      ! 2. set up zones
-     call Zone(iz)%setup(ib, 0, TYPE_SINGLE_LAYER)
+     call Zone(iz)%setup(ib, 0, TYPE_SINGLE_LAYER, SF_PERIODIC)
 
 
      ! 3. show zone information

@@ -75,9 +75,9 @@ module topo_lsn
 
 
      ! 2. set up zones
-     call Zone(iz0+0)%setup(ib, 0, TYPE_HPR)
-     call Zone(iz0+1)%setup(ib, 1, TYPE_SOL)
-     call Zone(iz0+2)%setup(ib, 2, TYPE_PFR)
+     call Zone(iz0+0)%setup(ib, 0, TYPE_HPR, SF_PERIODIC)
+     call Zone(iz0+1)%setup(ib, 1, TYPE_SOL, SF_VACUUM)
+     call Zone(iz0+2)%setup(ib, 2, TYPE_PFR, SF_VACUUM)
 
 
      ! 3. show zone information
