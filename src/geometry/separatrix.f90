@@ -63,26 +63,36 @@ module separatrix
   endif
 
 
-  ! set cut-off poloidal angles
+  ! set poloidal cut-off angles
   theta_cutL = 0.d0; theta_cutR = 0.d0
   if (present(iconnect)) then
-     if (Xp(iconnect)%undefined) then
+     if (Xp(abs(iconnect))%undefined) then
         write (6, *) 'error: cannot connect to undefined X-point!'
         stop
      endif
 
+     ! connect to itself (cut-off at +/- pi from X-point)
      if (iconnect == iPx) then
-        theta_cutR = Xp(iPx)%theta + pi
-        theta_cutL = Xp(iPx)%theta + pi
-     else
+        theta_cutR = Xp(iPx)%theta + pi; if (theta_cutR > pi) theta_cutR = theta_cutR - pi2
+        theta_cutL = theta_cutR
+
+     ! direct connection to another X-point
+     ! cut-off halfway between X-points
+     elseif (iconnect > 0) then
         theta_cutR = 0.5d0 * (Xp(iconnect)%theta + Xp(iPx)%theta) + theta_cut_offset
         theta_cutL = theta_cutR + pi; if (theta_cutL > pi) theta_cutL = theta_cutL - pi2
+
+     ! use position of another X-point as reference
+     else
+        theta_cutR = Xp(abs(iconnect))%theta
+        theta_cutL = Xp(abs(iconnect))%theta
      endif
   endif
   if (present(theta_cut)) then
      theta_cutL = theta_cut
      theta_cutR = theta_cut
   endif
+  !write (6, *) 'theta_cut = ', theta_cutL/pi*180.d0, theta_cutR/pi*180.d0
 
 
   Px = Xp(iPx)%X ! Coordinates of X-point (R[cm], Z[cm])
