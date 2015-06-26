@@ -155,7 +155,6 @@ module topo_ddn
   use flux_surface_2D
   use mesh_spacing
   use divertor
-  use topo_lsn, only: make_flux_surfaces_PFR, make_interpolated_surfaces
 
   integer, parameter      :: iu = 72, nx = 2
 
