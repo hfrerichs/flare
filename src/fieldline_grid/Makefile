@@ -4,8 +4,8 @@ include ../../include.mk
 OBJECTS =  \
                emc3_grid.o\
                fieldline_grid.o\
-               divertor.o\
                inner_boundary.o\
+               divertor.o\
                topo_sc.o\
                topo_lsn.o\
                topo_ddn.o\
