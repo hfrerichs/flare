@@ -112,6 +112,7 @@ module curve2D
   real(real64) :: dl, x1(2), x2(2)
 
 
+  if (this%n_seg < 0) return
   ! check if curve is closed
   x1 = this%x(0,:)
   x2 = this%x(this%n_seg,:)
@@ -497,6 +498,7 @@ module curve2D
 
 
   n = C%n_seg
+  if (n <= 0) return
 
 
   ! check if reference point x_c is given
