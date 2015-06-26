@@ -156,9 +156,9 @@ module topo_ddn
 
 
   ! 2.c separatrix (S, S0) ---------------------------------------------
-  call S(1)%generate(1, 1,  Xp(2)%theta, C_cutL, C_cutR)
+  call S(1)%generate(1, Xp(2)%theta, C_cutL, C_cutR)
   call S(1)%plot('Si', parts=.true.)
-  call S(2)%generate(2, -1, Xp(1)%theta, C_cutL, C_cutR)
+  call S(2)%generate(2, Xp(1)%theta, C_cutL, C_cutR)
   call S(2)%plot('So', parts=.true.)
 
   ! connect core segments of separatrix

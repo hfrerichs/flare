@@ -29,7 +29,7 @@ subroutine generate_separatrix
 
      write (6, *) i, Xp(i)%X
      write (c, '(i0)') i
-     call S%generate(i, 1, 2.d0)
+     call S%generate(i, 2.d0)
      call S%plot('separatrix_'//trim(Label)//'X'//trim(c), parts=.true.)
   enddo
 

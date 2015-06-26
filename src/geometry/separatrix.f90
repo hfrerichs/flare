@@ -39,13 +39,17 @@ module separatrix
 ! theta_cut   =  poloidal cut-off angle (-> split core separatrix into left and right segments)
 !===============================================================================
 
-  subroutine generate (this, iPx, orientation, theta_cut, C_cutl, C_cutr)
+  subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr)
   class(t_separatrix)                 :: this
-  integer,       intent(in)           :: iPx, orientation
+  integer,       intent(in)           :: iPx
   real(real64),  intent(in)           :: theta_cut
   type(t_curve), intent(in), optional :: C_cutl, C_cutr
 
   real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0
+  integer      :: orientation
+
+
+  orientation = 1; if (Xp(iPx)%X(2) > 0.d0) orientation = -1
 
 
   Px = Xp(iPx)%X ! Coordinates of X-point (R[cm], Z[cm])

@@ -143,7 +143,7 @@ module topo_lsn
   write (6, 2001) Xp(1)%theta
 
   ! 2.c separatrix (S, S0) ---------------------------------------------
-  call S(1)%generate(1, RIGHT_HANDED, pi/2.d0, C_cutL, C_cutR)
+  call S(1)%generate(1, pi/2.d0, C_cutL, C_cutR)
   call S(1)%plot('S', parts=.true.)
 
   ! connect core segments of separatrix
