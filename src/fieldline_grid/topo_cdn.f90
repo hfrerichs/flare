@@ -1,54 +1,39 @@
 !===============================================================================
-! Disconnected Double Null configuration: block-structured decomposition with zones for
+! Connected Double Null configuration: block-structured decomposition with zones for
 ! high pressure region (HPR), inner and outer scrape-off layer (SOL) and
 ! upper and lower private flux regions (PFR)
 !===============================================================================
-module topo_ddn
+module topo_cdn
   use iso_fortran_env
   use grid
   use separatrix
   use curve2D
   use equilibrium
-  use fieldline_grid, unused => TOPO_DDN
+  use fieldline_grid, unused => TOPO_CDN
   use inner_boundary
   use topo_lsn
   implicit none
   private
 
-  integer, parameter :: layers_ddn = 6
-  integer, parameter :: DEFAULT = 0
+  integer, parameter :: layers_cdn = 5
   integer, parameter :: iud = 72
 
 
-  character(len=*), parameter :: ZONE_LABEL(0:layers_ddn-1) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFR1 ', 'PFR2 ' /)
+  character(len=*), parameter :: ZONE_LABEL(0:layers_cdn-1) = (/ 'HPR ', 'SOL1', 'SOL2', 'PFR1', 'PFR2' /)
 
 
-  ! coordinates of X-point and magnetic axis
-!  real(real64) :: Px1(2), Px2(2), dtheta
   real(real64) :: dtheta
 
-
-
-  ! discretization method
-  integer :: method = DEFAULT
 
 
   ! base grid in high pressure region (HPR), scrape-off layer (SOL) and private flux region (PFR)
   type(t_grid), dimension(:,:), allocatable :: G ! (0:blocks-1,0:layers-1)
 
-  ! magnetic separatrix
-  !type(t_separatrix) :: Si, So
-  !type(t_separatrix) :: S2
-  !type(t_curve)      :: S0
-
-  ! guiding_surface
-  !type(t_curve)      :: C_guide, C_cutL, C_cutR
-
 
   public :: &
-     setup_topo_ddn, &
-     make_base_grids_ddn, &
-     post_process_grid_ddn
+     setup_topo_cdn, &
+     make_base_grids_cdn, &
+     post_process_grid_cdn
 
   contains
   !=====================================================================
@@ -56,7 +41,7 @@ module topo_ddn
 
 
   !=====================================================================
-  subroutine setup_topo_ddn()
+  subroutine setup_topo_cdn()
   use emc3_grid, only: NZONET
   implicit none
 
@@ -64,7 +49,7 @@ module topo_ddn
 
 
   ! 0. setup number of zones for disconnected double null topology
-  layers = layers_ddn
+  layers = layers_cdn
   NZONET = blocks * layers
 
 
@@ -73,18 +58,16 @@ module topo_ddn
   do ib=0,blocks-1
      ! 1. set up derived parameters
      Block(ib)%np(0) = Block(ib)%npR(0) + Block(ib)%npL(0)
-     Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%np(0)  + Block(ib)%npL(1)
-     Block(ib)%np(2) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
-     Block(ib)%np(3) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
-     Block(ib)%np(4) = Block(ib)%npR(1)                    + Block(ib)%npL(1)
-     Block(ib)%np(5) = Block(ib)%npR(2)                    + Block(ib)%npL(2)
+     Block(ib)%np(1) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
+     Block(ib)%np(2) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
+     Block(ib)%np(3) = Block(ib)%npR(1)                    + Block(ib)%npL(1)
+     Block(ib)%np(4) = Block(ib)%npR(2)                    + Block(ib)%npL(2)
 
 
      ! 2. set up zones
      call Zone(iz0+0)%setup(ib, 0, TYPE_HPR,    SF_PERIODIC)
-     call Zone(iz0+1)%setup(ib, 1, TYPE_SOLMAP, SF_VACUUM)
-     do ilayer=2,3; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_SOL, SF_VACUUM); enddo
-     do ilayer=4,5; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_PFR, SF_VACUUM); enddo
+     do ilayer=1,2; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_SOL, SF_VACUUM); enddo
+     do ilayer=3,4; call Zone(iz0+ilayer)%setup(ib, ilayer, TYPE_PFR, SF_VACUUM); enddo
 
 
      ! 3. show zone information
@@ -98,7 +81,7 @@ module topo_ddn
  1001 format(8x,'block #, zone #, (radial x poloidal x toroidal):')
  1002 format(12x,i3,3x,a6,3x'(',i0,' x ',i0,' x ',i0,')')
  1003 format(12x,   6x,a6,3x'(',i0,' x ',i0,' x ',i0,')')
-  end subroutine setup_topo_ddn
+  end subroutine setup_topo_cdn
   !=====================================================================
 
 
@@ -127,21 +110,18 @@ module topo_ddn
   dx    = get_d_HPR(Xp(1)%X, Pmag)
   call rpath(0)%setup_linear(Xp(1)%X, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
-  ! 4.1 SOL
-  call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
+  ! 4.1 left outer SOL
+  call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
   call rpath(1)%plot(filename='rpath_1.plt')
-  ! 4.2 left outer SOL
-  call rpath(2)%generate(2, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
+  ! 4.2 right outer SOL
+  call rpath(2)%generate(1, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(2))
   call rpath(2)%plot(filename='rpath_2.plt')
-  ! 4.3 right outer SOL
-  call rpath(3)%generate(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(2))
+  ! 4.3 PFR1
+  call rpath(3)%generate(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
   call rpath(3)%plot(filename='rpath_3.plt')
-  ! 4.4 PFR1
-  call rpath(4)%generate(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
+  ! 4.4 PFR2
+  call rpath(4)%generate(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
   call rpath(4)%plot(filename='rpath_4.plt')
-  ! 4.5 PFR2
-  call rpath(5)%generate(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
-  call rpath(5)%plot(filename='rpath_5.plt')
 
   end subroutine setup_domain
   !=====================================================================
@@ -149,7 +129,7 @@ module topo_ddn
 
 
   !=====================================================================
-  subroutine make_base_grids_ddn
+  subroutine make_base_grids_cdn
   use run_control, only: Debug
   use math
   use flux_surface_2D
@@ -158,7 +138,7 @@ module topo_ddn
 
   integer, parameter      :: nx = 2
 
-  real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2a, M_SOL2b, M_PFR1, M_PFR2
+  real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2, M_PFR1, M_PFR2
 
   type(t_spacing) :: Sp12
   real(real64)    :: phi
@@ -171,8 +151,8 @@ module topo_ddn
   endif
   !.....................................................................
   ! 0. initialize geometry
-  connectX(1) = -2 ! primary X-point connects to itself, but poloidal angle
-  connectX(2) = -2 ! from secondary X-point is used to split segments
+  connectX(1) = 2 ! lower X-point connects to upper X-point
+  connectX(2) = 1
   call setup_geometry(nx, connectX)
   call setup_domain()
   !.....................................................................
@@ -221,10 +201,9 @@ module topo_ddn
      enddo
      M_HPR   => G(iblock,0)%mesh
      M_SOL1  => G(iblock,1)%mesh
-     M_SOL2a => G(iblock,2)%mesh
-     M_SOL2b => G(iblock,3)%mesh
-     M_PFR1  => G(iblock,4)%mesh
-     M_PFR2  => G(iblock,5)%mesh
+     M_SOL2  => G(iblock,2)%mesh
+     M_PFR1  => G(iblock,3)%mesh
+     M_PFR2  => G(iblock,4)%mesh
 
 
      ! 0. set up poloidal spacing in core layer
@@ -232,21 +211,19 @@ module topo_ddn
 
      ! start grid generation
      ! 1. unperturbed separatrix
-     call make_separatrix()
-     call make_separatrix2()
+     call make_interface_cdn(iz0)
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
      call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp12)
 
      ! 2.b scrape-off layer (SOL)
-     call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp12)
-     call make_flux_surfaces_SOL(M_SOL2a,nr(2), npL(1), npL(0), npL(2), 1, nr(2), rpath(2), 2, -1, Zone(iz0+2)%Sr, Zone(iz0+2)%Sp)
-     call make_flux_surfaces_SOL(M_SOL2b,nr(3), npR(2), npR(0), npR(1), 1, nr(3), rpath(3), -1, 2, Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
+     call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), npL(0), npL(2), 1, nr(2), rpath(1), 2, 1, Zone(iz0+1)%Sr, Zone(iz0+1)%Sp)
+     call make_flux_surfaces_SOL(M_SOL2,nr(2), npR(2), npR(0), npR(1), 1, nr(3), rpath(2), 1, 2, Zone(iz0+2)%Sr, Zone(iz0+2)%Sp)
 
      ! 2.c private flux region (PFR)
-     call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
-     call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 1, nr(5), rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1, nr(3), npL(1), npR(1), 1, nr(4), rpath(3), Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
+     call make_flux_surfaces_PFR(M_PFR2, nr(4), npR(2), npL(2), 1, nr(5), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
 
      ! 3. interpolated surfaces
      call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp12, C_in(iblock,:))
@@ -266,106 +243,71 @@ module topo_ddn
  1002 format(1x,'Finished generation of base grids for block ',i0,' ',32('.'),//)
   contains
   !.....................................................................
-  subroutine make_separatrix()
+  subroutine make_interface_cdn(iz0)
+  use curve2D
 
-  real(real64) :: DL(0:npL(1), 2), DR(0:npR(1), 2)
-  real(real64) :: xi, x(2)
-  integer      :: j
-
-
-  ! 1. discretization of main part of 1st separatrix
-  ! 1.a right segment
-  do j=0,npR(0)
-     xi = Zone(iz0)%Sp%node(j,npR(0))
-
-     call S(1)%M1%sample_at(xi, x)
-     M_HPR (nr(0),                   j, :) = x
-     M_SOL1(   0 ,          npR(1) + j, :) = x
-  enddo
-  ! 1.b left segment
-  do j=0,npL(0)
-     xi = Zone(iz0)%Sp%node(j,npL(0))
-
-     call S(1)%M2%sample_at(xi, x)
-     M_HPR (nr(0), npR(0) +          j, :) = x
-     M_SOL1(   0 , npR(0) + npR(1) + j, :) = x
-  enddo
-
-  ! 2. discretization of right separatrix leg
-  call divertor_leg_discretization(S(1)%M3%t_curve, 1.d0-etaR(1), npR(1), DR)
-  M_SOL1(    0, 0:npR(1), :) = DR
-  M_PFR1(nr(4), 0:npR(1), :) = DR
-
-  ! 3. discretization of left separatrix leg
-  call divertor_leg_discretization(S(1)%M4%t_curve, etaL(1), npL(1), DL)
-  M_SOL1(    0, npR(1)+np(0):npR(1)+np(0)+npL(1), :) = DL
-  M_PFR1(nr(4), npR(1)      :npR(1)      +npL(1), :) = DL
-
-  end subroutine make_separatrix
-  !.....................................................................
-
-  !.....................................................................
-  subroutine make_separatrix2()
+  integer, intent(in)     :: iz0
 
   type(t_flux_surface_2D) :: CR(2), CL(2)
+  type(t_curve)           :: SL0, SR0
   real(real64) :: DL1(0:npL(1), 2), DR1(0:npR(1), 2), DL2(0:npL(2), 2), DR2(0:npR(2), 2)
   real(real64) :: x(2), xi, xiR, xiL
   integer :: j
 
 
-  ! 1. right segments
-  call divide_SOL2(S(2)%M2, 1.d0,  1, alphaR(1), S(1)%M3%length(), CR%t_curve)
-  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Pmag, 1.d0, 0.d0, dtheta, Dtheta_sampling)
-  call CR(1)%setup_length_sampling()
-
-  ! 1.1 core segment
+  ! 1. right core segment
+  SR0 = connect(S(1)%M1%t_curve, S(2)%M2%t_curve)
+  call SR0%plot(filename='SR0.plt')
+  call SR0%setup_angular_sampling(Pmag)
   do j=0,npR(0)
      xi = Zone(iz0)%Sp%node(j,npR(0))
 
-     call CR(2)%sample_at(xi, x)
-     M_SOL1 (nr(1),          npR(1) + j, :) = x
-     M_SOL2b(   0 ,          npR(1) + j, :) = x
+     call SR0%sample_at(xi, x)
+     M_HPR (nr(0),          j, :) = x
+     M_SOL2(   0 , npR(1) + j, :) = x
   enddo
 
-  ! 1.2 primary divertor segment
-  call divertor_leg_discretization(CR(1)%t_curve, 1.d0-etaR(1), npR(1), DR1)
-  M_SOL1 (nr(1), 0:npR(1), :) = DR1
-  M_SOL2b(   0 , 0:npR(1), :) = DR1
 
-  ! 1.3 secondary divertor segment
-  call divertor_leg_discretization(S(2)%M4%t_curve, etaR(1), npR(2), DR2)
-  M_PFR2 (nr(5), npL(2)       :npL(2)       +npR(2), :) = DR2
-  M_SOL2b(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
-
-
-  ! 2. left segments
-  call divide_SOL2(S(2)%M1, 1.d0, -1, alphaL(1), S(1)%M4%length(), CL%t_curve)
-  call CL(2)%setup_length_sampling()
-  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Pmag, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
-
-  ! 2.1 core segment
+  ! 2. left core segment
+  SL0 = connect(S(2)%M1%t_curve, S(1)%M2%t_curve)
+  call SL0%plot(filename='SL0.plt')
+  call SL0%setup_angular_sampling(Pmag)
   do j=0,npL(0)
      xi = Zone(iz0)%Sp%node(j,npL(0))
 
-     call CL(1)%sample_at(xi, x)
-     M_SOL1 (nr(1), npR(1) + npR(0) + j, :) = x
-     M_SOL2a(   0 ,          npL(2) + j, :) = x
+     call SL0%sample_at(xi, x)
+     M_HPR (nr(0), npR(0) + j, :) = x
+     M_SOL1(   0 , npL(2) + j, :) = x
   enddo
 
-  ! 2.2 primary divertor segment
-  call divertor_leg_discretization(CL(2)%t_curve, etaL(1), npL(1), DL1)
-  M_SOL1 (nr(1), npR(1)+npR(0)+npL(0):npR(1)+npR(0)+npL(0)+npL(1), :) = DL1
-  M_SOL2a(   0 ,        npL(2)+npL(0):       npL(2)+npL(0)+npL(1), :) = DL1
 
-  ! 2.3 secondary divertor segment
+  ! 3. lower divertor
+  ! 3.1 discretization of right separatrix leg
+  call divertor_leg_discretization(S(1)%M3%t_curve, 1.d0-etaR(1), npR(1), DR1)
+  M_SOL2(    0, 0:npR(1), :) = DR1
+  M_PFR1(nr(3), 0:npR(1), :) = DR1
+
+  ! 3.2 discretization of left separatrix leg
+  call divertor_leg_discretization(S(1)%M4%t_curve, etaL(1), npL(1), DL1)
+  M_SOL1(    0, npL(2)+npR(0):npL(2)+npR(0)+npL(1), :) = DL1
+  M_PFR1(nr(3), npR(1)       :npR(1)       +npL(1), :) = DL1
+
+
+  ! 4. upper divertor
+  ! 4.1 discretization of right separatrix leg
+  call divertor_leg_discretization(S(2)%M4%t_curve, etaR(1), npR(2), DR2)
+  M_PFR2(nr(4), npL(2)       :npL(2)       +npR(2), :) = DR2
+  M_SOL2(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
+
+  ! 4.2 discretization of left separatrix leg
   call divertor_leg_discretization(S(2)%M3%t_curve, 1.d0-etaL(1), npL(2), DL2)
-  M_PFR2 (nr(5), 0:npL(2), :) = DL2
-  M_SOL2a(   0 , 0:npL(2), :) = DL2
+  M_PFR2(nr(4), 0:npL(2), :) = DL2
+  M_SOL1(   0 , 0:npL(2), :) = DL2
 
-  end subroutine make_separatrix2
+  end subroutine make_interface_cdn
   !.....................................................................
 
-  end subroutine make_base_grids_ddn
+  end subroutine make_base_grids_cdn
   !=============================================================================
 
 
@@ -390,24 +332,7 @@ module topo_ddn
   dmax = 0.d0
   do ib=0,blocks-1
      iz0  = 3*ib
-     iz1  = iz0  +  1
-     iz2  = iz0  +  4
-     nt   = ZON_TORO(iz0)
-
-     npL1 = Block(ib)%npL(1)
-     np   = Block(ib)%np(0)
-     npR1 = Block(ib)%npR(1)
-
-     ! connect right divertor leg
-     call fix_interface(iz1, iz2, 0, 0, nt, 0, 0, npR1, 0, ZON_RADI(iz2), dmax)
-
-     ! connect core
-     call fix_interface(iz0, iz1, 0, 0, nt, 0, npR1, np, ZON_RADI(iz0), 0, dmax)
-
-     ! connect left divertor leg
-     call fix_interface(iz1, iz2, 0, 0, nt, npR1+np, npR1, npL1, 0, ZON_RADI(iz2), dmax)
-
-     ! TODO: connect secondary separatrix
+     write (6, *) '... not implemented yet!'
   enddo
 
   write (6, *) 'max. deviation: ', dmax
@@ -417,7 +342,7 @@ module topo_ddn
 
 
   !=============================================================================
-  subroutine post_process_grid_ddn()
+  subroutine post_process_grid_cdn()
   use divertor
 
   integer :: iblock, iz, iz1, iz2
@@ -438,7 +363,7 @@ module topo_ddn
 
   call fix_interfaces_for_m3dc1 ()
 
-  end subroutine post_process_grid_ddn
+  end subroutine post_process_grid_cdn
   !=============================================================================
 
-end module topo_ddn
+end module topo_cdn

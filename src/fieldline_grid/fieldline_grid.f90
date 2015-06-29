@@ -14,7 +14,9 @@ module fieldline_grid
      TOPO_LSN    = 'lower_single_null', &
      TOPO_LSN1   = 'lsn', &
      TOPO_DDN    = 'disconnected_double_null', &
-     TOPO_DDN1   = 'ddn'
+     TOPO_DDN1   = 'ddn', &
+     TOPO_CDN    = 'connected_double_null', &
+     TOPO_CDN1   = 'cdn'
 
 
   ! zone type definitions

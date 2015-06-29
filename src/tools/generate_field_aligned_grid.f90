@@ -5,6 +5,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   use topo_sc
   use topo_lsn
   use topo_ddn
+  use topo_cdn
   implicit none
 
   integer, intent(inout) :: run_level, run_level_end
@@ -48,6 +49,10 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
      call setup_topo_ddn()
      make_base_grids   => make_base_grids_ddn
      post_process_grid => post_process_grid_ddn
+  case(TOPO_CDN, TOPO_CDN1)
+     call setup_topo_cdn()
+     make_base_grids   => make_base_grids_cdn
+     post_process_grid => post_process_grid_cdn
   case default
      write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
      stop

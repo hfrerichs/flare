@@ -151,38 +151,37 @@ module divertor
   integer,                 intent(in)  :: ix1, ix2
 
   real(real64) :: l, alpha, xiR, xiL, dthetaX, eta1, eta2
+  integer      :: jx1, jx2
 
 
   ! set reference length
   l = F%length()
+  jx1 = abs(ix1)
+  jx2 = abs(ix2)
 
 
   ! in outer SOL set eta'=1+eta for divertor legs from inner SOL
-  if (ix1 > ix2) then
-     eta1 = eta; eta2 = 1.d0+eta
-  elseif (ix1 < ix2) then
-     eta1 = 1.d0+eta; eta2 = eta
-  else
-     eta1 = eta; eta2 = eta
-  endif
+  eta1 = eta; eta2 = eta
+  if (ix1 < 0) eta1 = eta1 + 1.d0
+  if (ix2 < 0) eta2 = eta2 + 1.d0
 
 
   ! setup relative coordinates xiL, xiR for divertor legs
-  alpha = 1.d0 + eta1 * (alphaR(ix1) - 1.d0)
-  xiR   = alpha * S(ix1)%M3%l / l
-  alpha = 1.d0 + eta2 * (alphaL(ix2) - 1.d0)
-  xiL   = 1.d0 - alpha * S(ix2)%M4%l / l
+  alpha = 1.d0 + eta1 * (alphaR(jx1) - 1.d0)
+  xiR   = alpha * S(jx1)%M3%l / l
+  alpha = 1.d0 + eta2 * (alphaL(jx2) - 1.d0)
+  xiL   = 1.d0 - alpha * S(jx2)%M4%l / l
 
 
   ! setup reference weight for angular sampling
-  dthetaX = Xp(ix2)%theta - Xp(ix1)%theta
+  dthetaX = Xp(jx2)%theta - Xp(jx1)%theta
   if (dthetaX .le. 0.d0) dthetaX = dthetaX + pi2
 
 
   ! split flux surface in main part and divertor segments
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
   call CR%setup_length_sampling()
-  call C0%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Pmag, eta1, eta2, dthetaX, Dtheta_sampling)
+  call C0%setup_sampling(Xp(jx1)%X, Xp(jx2)%X, Pmag, eta1, eta2, dthetaX, Dtheta_sampling)
   call CL%setup_length_sampling()
 
   !call CL%plot(filename='CL.plt', append=.true.)
