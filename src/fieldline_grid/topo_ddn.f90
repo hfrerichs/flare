@@ -158,22 +158,11 @@ module topo_ddn
 
   integer, parameter      :: nx = 2
 
-  type(t_flux_surface_2D) :: FS, FSL, FSR, C0
-  type(t_curve)           :: CL, CR
-  type(t_spacing)         :: Sl, Sr, Sp12
-
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2a, M_SOL2b, M_PFR1, M_PFR2
 
-  !real(real64) :: xi, eta, phi, x(2), x0(2), x1(2), x2(2), d_HPR(2), dx(2)
-  !integer :: i, j, iz, iz0, iz1, iz2, nr0, nr1, nr2, np0, np1, np1l, np1r, np2
-  real(real64) :: phi, xi, x(2)
-  integer :: i, j, iz, iz0
-
-  logical :: generate_flux_surfaces_HPR
-  logical :: generate_flux_surfaces_SOL
-  logical :: generate_flux_surfaces_PFR
-  real(real64) :: xiL, xiR
-  integer :: iblock, connectX(nx)
+  type(t_spacing) :: Sp12
+  real(real64)    :: phi
+  integer         :: i, iz, iz0, iblock, connectX(nx)
 
 
   write (6, 1000)
@@ -215,27 +204,6 @@ module topo_ddn
 
      ! set local variables for resolution
      call load_local_resolution(iblock)
-     !nr0 = Block(iblock)%nr(0); np0 = Block(iblock)%np(0)
-     !nr1 = Block(iblock)%nr(1); np1 = Block(iblock)%np(1)
-     !np1l = Block(iblock)%npL(1); np1r = Block(iblock)%npR(1)
-     !nr2 = Block(iblock)%nr(2); np2 = Block(iblock)%np(2)
-
-     ! check if radial-poloidal resolution is different from last block
-     generate_flux_surfaces_HPR = .true.
-     generate_flux_surfaces_SOL = .true.
-     generate_flux_surfaces_PFR = .true.
-!     if (iblock > 0) then
-!        ! copy unperturbed flux surface discretization if resolution is the same
-!        if (nr0 == Block(iblock-1)%nr(0)  .and.  np0 == Block(iblock-1)%np(0)) then
-!           generate_flux_surfaces_HPR = .false.
-!        endif
-!
-!        if (np1l == Block(iblock-1)%npL(1) .and. np1r == Block(iblock-1)%npR(1)) then
-!           if (nr1 == Block(iblock-1)%nr(1)) generate_flux_surfaces_SOL = .false.
-!           if (nr2 == Block(iblock-1)%nr(2)) generate_flux_surfaces_PFR = .false.
-!        endif
-!     endif
-
 
 
      ! setup cell spacings
@@ -248,12 +216,6 @@ module topo_ddn
 
      ! initialize base grids in present block
      phi = Block(iblock)%phi_base / 180.d0 * pi
-!     call G_HPR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr0+1, np0+1, fixed_coord_value=phi)
-!     call G_SOL(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr1+1, np1+1, fixed_coord_value=phi)
-!     call G_PFR(iblock)%new(CYLINDRICAL, MESH_2D, 3, nr2+1, np2+1, fixed_coord_value=phi)
-!     M_HPR => G_HPR(iblock)%mesh
-!     M_SOL => G_SOL(iblock)%mesh
-!     M_PFR => G_PFR(iblock)%mesh
      do i=0,layers-1
         call G(iblock,i)%new(CYLINDRICAL, MESH_2D, 3, nr(i)+1, np(i)+1, fixed_coord_value=phi)
      enddo
@@ -265,36 +227,25 @@ module topo_ddn
      M_PFR2  => G(iblock,5)%mesh
 
 
-     ! start grid generation
+     ! 0. set up poloidal spacing in core layer
      call Sp12%init_X1(1.d0 * npR(0)/np(0), dtheta/pi2)
 
+     ! start grid generation
      ! 1. unperturbed separatrix
      call make_separatrix()
      call make_separatrix2()
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
-     if (generate_flux_surfaces_HPR) then
-        call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp12)
-     else
-        !G_HPR(iblock)%mesh = G_HPR(iblock-1)%mesh
-     endif
+     call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp12)
 
      ! 2.b scrape-off layer (SOL)
-     if (generate_flux_surfaces_SOL) then
-        call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp12)
-     else
-        !G_SOL(iblock)%mesh = G_SOL(iblock-1)%mesh
-     endif
+     call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp12)
      call make_flux_surfaces_SOL(M_SOL2a,nr(2), npL(1), npL(0), npL(2), 1, nr(2), rpath(2), 2, 1, Zone(iz0+2)%Sr, Zone(iz0+2)%Sp)
      call make_flux_surfaces_SOL(M_SOL2b,nr(3), npR(2), npR(0), npR(1), 1, nr(3), rpath(3), 1, 2, Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
 
      ! 2.c private flux region (PFR)
-     if (generate_flux_surfaces_PFR) then
-        call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
-     else
-        !G_PFR(iblock)%mesh = G_PFR(iblock-1)%mesh
-     endif
+     call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
      call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 1, nr(5), rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
 
      ! 3. interpolated surfaces
@@ -318,6 +269,9 @@ module topo_ddn
   subroutine make_separatrix()
 
   real(real64) :: DL(0:npL(1), 2), DR(0:npR(1), 2)
+  real(real64) :: xi, x(2)
+  integer      :: j
+
 
   ! 1. discretization of main part of 1st separatrix
   ! 1.a right segment
