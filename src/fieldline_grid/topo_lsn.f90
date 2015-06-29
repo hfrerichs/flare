@@ -280,7 +280,9 @@ module topo_lsn
  1002 format(1x,'Finished generation of base grids for block ',i0,' ',32('.'),//)
   contains
   !.....................................................................
-  subroutine make_separatrix()
+  subroutine make_separatrix() ! make_interfaces
+
+  real(real64) :: DL(0:np1l, 2), DR(0:np1r, 2)
 
   ! 1. discretization of main part of separatrix
   do j=0,np0
@@ -292,24 +294,16 @@ module topo_lsn
   enddo
 
   ! 2. discretization of right separatrix leg
-  call divertor_leg_interface(S(1)%M3%t_curve, C_guide, xiR)
-  call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-  do j=0,np1r
-     xi = 1.d0 - Sr%node(np1r-j,np1r)
-     call S(1)%M3%sample_at(xi, x)
-     M_SOL(  0,j,:) = x
-     M_PFR(nr2,j,:) = x
-  enddo
+  call divertor_leg_discretization(S(1)%M3%t_curve, 1.d0-etaR(1), np1r, DR)
+  M_SOL(  0, 0:np1r, :) = DR
+  M_PFR(nr2, 0:np1r, :) = DR
+
 
   ! 3. discretization of left separatrix leg
-  call divertor_leg_interface(S(1)%M4%t_curve, C_guide, xiL)
-  call Sl%init_spline_X1(etaL(1), xiL)
-  do j=1,np1l
-     xi = Sl%node(j,np1l)
-     call S(1)%M4%sample_at(xi, x)
-     M_SOL(  0,np1r + np0 + j,:) = x
-     M_PFR(nr2,np1r       + j,:) = x
-  enddo
+  call divertor_leg_discretization(S(1)%M4%t_curve, etaL(1), np1l, DL)
+  M_SOL(  0, np1r+np0:np1r+np0+np1l, :) = DL
+  M_PFR(nr2, np1r    :np1r    +np1l, :) = DL
+
   end subroutine make_separatrix
   !.....................................................................
   end subroutine make_base_grids_lsn

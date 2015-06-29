@@ -216,6 +216,28 @@ module divertor
 
   end subroutine divertor_leg_interface
   !=====================================================================
+  subroutine divertor_leg_discretization(C, eta, np, D)
+  use mesh_spacing
+  type(t_curve), intent(in)  :: C
+  real(real64),  intent(in)  :: eta
+  integer,       intent(in)  :: np
+  real(real64),  intent(out) :: D(0:np,2)
+
+  type(t_spacing) :: Sguide
+  real(real64)    :: xi, xi0, x(2)
+  integer         :: j
+
+
+  call divertor_leg_interface(C, C_guide, xi0)
+  call Sguide%init_spline_X1(eta, xi0)
+  do j=0,np
+     xi     = Sguide%node(j,np)
+     call C%sample_at(xi, x)
+     D(j,:) = x
+  enddo
+
+  end subroutine divertor_leg_discretization
+  !=====================================================================
 
 
   !=============================================================================
@@ -320,7 +342,7 @@ module divertor
   type(t_flux_surface_2D) :: F, C0
   type(t_curve)           :: CL, CR
   type(t_spacing) :: Sdr, Sdl
-  real(real64)  :: x0(2), x(2), eta, xi, xiR, xiL
+  real(real64)  :: x0(2), x(2), eta, xi, xiR, xiL, DL(0:npL, 2), DR(0:npR, 2)
   integer       :: i, j
 
 
@@ -335,13 +357,9 @@ module divertor
      call divide_SOL3(F, eta, CL, C0, CR, ix1, ix2)
 
      ! right divertor leg
-     call divertor_leg_interface(CR, C_guide, xiR)
-     call Sdr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,npR
-        xi = 1.d0 - Sdr%node(npR-j,npR)
-        call CR%sample_at(xi, x)
-        M(i,j,:) = x
-     enddo
+     call divertor_leg_discretization(CR, 1.d0-etaR(1), npR, DR)
+     M(i,0:npR,:) = DR
+
 
      ! main SOL
      do j=0,np0
@@ -351,13 +369,8 @@ module divertor
      enddo
 
      ! left divertor leg
-     call divertor_leg_interface(CL, C_guide, xiL)
-     call Sdl%init_spline_X1(etaL(1), xiL)
-     do j=1,npL
-        xi = Sdl%node(j,npL)
-        call CL%sample_at(xi, x)
-        M(i,npR+np0+j,:) = x
-     enddo
+     call divertor_leg_discretization(CL, etaL(1), npL, DL)
+     M(i,npR+np0:npR+np0+npL,:) = DL
   enddo
 
  1020 format (8x,'generating scrape-off layer: ',i0,' -> ', i0)
@@ -382,7 +395,7 @@ module divertor
 
   type(t_flux_surface_2D) :: F
   type(t_spacing) :: Sdr, Sdl
-  real(real64) :: eta, xi, xiL, xiR, x0(2), x(2)
+  real(real64) :: eta, xi, xiL, xiR, x0(2), x(2), DL(0:npL, 2), DR(0:npR, 2)
   integer      :: i, j
 
   write (6, 1030) nr-1
@@ -395,23 +408,14 @@ module divertor
 
      ! right divertor leg
      call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
-     call divertor_leg_interface(F%t_curve, C_guide, xiR)
-     call Sdr%init_spline_X1(etaR(1), 1.d0-xiR)
-     do j=0,npR
-        xi = 1.d0 - Sdr%node(npR-j,npR)
-        call F%sample_at(xi, x)
-        M(i,j,:) = x
-     enddo
+     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(1), npR, DR)
+     M(i,:,:) = DR
+
 
      ! left divertor leg
      call F%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
-     call divertor_leg_interface(F%t_curve, C_guide, xiL)
-     call Sdl%init_spline_X1(etaL(1), xiL)
-     do j=1,npL
-        xi = Sdl%node(j,npL)
-        call F%sample_at(xi, x)
-        M(i,npR + j,:) = x
-     enddo
+     call divertor_leg_discretization(F%t_curve, etaL(1), npL, DL)
+     M(i,npR:npR+npL,:) = DL
   enddo
 
  1030 format (8x,'generating private flux region: 0 -> ', i0)

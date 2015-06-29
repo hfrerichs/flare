@@ -317,6 +317,8 @@ module topo_ddn
   !.....................................................................
   subroutine make_separatrix()
 
+  real(real64) :: DL(0:npL(1), 2), DR(0:npR(1), 2)
+
   ! 1. discretization of main part of 1st separatrix
   ! 1.a right segment
   do j=0,npR(0)
@@ -336,24 +338,14 @@ module topo_ddn
   enddo
 
   ! 2. discretization of right separatrix leg
-  call divertor_leg_interface(S(1)%M3%t_curve, C_guide, xiR)
-  call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-  do j=0,npR(1)
-     xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
-     call S(1)%M3%sample_at(xi, x)
-     M_SOL1(    0,                   j,:) = x
-     M_PFR1(nr(4),                   j,:) = x
-  enddo
+  call divertor_leg_discretization(S(1)%M3%t_curve, 1.d0-etaR(1), npR(1), DR)
+  M_SOL1(    0, 0:npR(1), :) = DR
+  M_PFR1(nr(4), 0:npR(1), :) = DR
 
   ! 3. discretization of left separatrix leg
-  call divertor_leg_interface(S(1)%M4%t_curve, C_guide, xiL)
-  call Sl%init_spline_X1(etaL(1), xiL)
-  do j=1,npL(1)
-     xi = Sl%node(j,npL(1))
-     call S(1)%M4%sample_at(xi, x)
-     M_SOL1(    0, npR(1) + np(0)  + j,:) = x
-     M_PFR1(nr(4), npR(1)          + j,:) = x
-  enddo
+  call divertor_leg_discretization(S(1)%M4%t_curve, etaL(1), npL(1), DL)
+  M_SOL1(    0, npR(1)+np(0):npR(1)+np(0)+npL(1), :) = DL
+  M_PFR1(nr(4), npR(1)      :npR(1)      +npL(1), :) = DL
 
   end subroutine make_separatrix
   !.....................................................................
@@ -362,18 +354,15 @@ module topo_ddn
   subroutine make_separatrix2()
 
   type(t_flux_surface_2D) :: CR(2), CL(2)
+  real(real64) :: DL1(0:npL(1), 2), DR1(0:npR(1), 2), DL2(0:npL(2), 2), DR2(0:npR(2), 2)
   real(real64) :: x(2), xi, xiR, xiL
   integer :: j
 
 
   ! 1. right segments
   call divide_SOL2(S(2)%M2, 1.d0,  1, alphaR(1), S(1)%M3%length(), CR%t_curve)
-  !call CR(2)%flip()
   call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Pmag, 1.d0, 0.d0, dtheta, Dtheta_sampling)
-  !call CR(1)%flip()
   call CR(1)%setup_length_sampling()
-  !call CR(1)%plot(filename='CR1.plt')
-  !call CR(2)%plot(filename='CR2.plt')
 
   ! 1.1 core segment
   do j=0,npR(0)
@@ -385,34 +374,20 @@ module topo_ddn
   enddo
 
   ! 1.2 primary divertor segment
-  call divertor_leg_interface(CR(1)%t_curve, C_guide, xiR)
-  call Sr%init_spline_X1(etaR(1), 1.d0-xiR)
-  do j=0,npR(1)
-     xi = 1.d0 - Sr%node(npR(1)-j,npR(1))
-     call CR(1)%sample_at(xi, x)
-     M_SOL1 (nr(1),                   j,:) = x
-     M_SOL2b(   0 ,                   j,:) = x
-  enddo
+  call divertor_leg_discretization(CR(1)%t_curve, 1.d0-etaR(1), npR(1), DR1)
+  M_SOL1 (nr(1), 0:npR(1), :) = DR1
+  M_SOL2b(   0 , 0:npR(1), :) = DR1
 
   ! 1.3 secondary divertor segment
-  call divertor_leg_interface(S(2)%M4%t_curve, C_guide, xiR)
-  call Sr%init_spline_X1(etaR(1), xiR)
-  do j=0,npR(2)
-     xi = Sr%node(j,npR(2))
-     call S(2)%M4%sample_at(xi, x)
-     M_PFR2 (nr(5), npL(2)          + j,:) = x
-     M_SOL2b(   0 , npR(1) + npR(0) + j,:) = x
-  enddo
+  call divertor_leg_discretization(S(2)%M4%t_curve, etaR(1), npR(2), DR2)
+  M_PFR2 (nr(5), npL(2)       :npL(2)       +npR(2), :) = DR2
+  M_SOL2b(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
 
 
   ! 2. left segments
   call divide_SOL2(S(2)%M1, 1.d0, -1, alphaL(1), S(1)%M4%length(), CL%t_curve)
-  !call CL(2)%flip()
   call CL(2)%setup_length_sampling()
-  !call CL(1)%flip()
   call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Pmag, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
-  !call CL(1)%plot(filename='CL1.plt')
-  !call CL(2)%plot(filename='CL2.plt')
 
   ! 2.1 core segment
   do j=0,npL(0)
@@ -424,24 +399,14 @@ module topo_ddn
   enddo
 
   ! 2.2 primary divertor segment
-  call divertor_leg_interface(CL(2)%t_curve, C_guide, xiL)
-  call Sl%init_spline_X1(etaL(1), xiL)
-  do j=0,npL(1)
-     xi = Sl%node(j,npL(1))
-     call CL(2)%sample_at(xi, x)
-     M_SOL1 (nr(1), npR(1) + npR(0) + npL(0) + j,:) = x
-     M_SOL2a(   0 ,          npL(2) + npL(0) + j,:) = x
-  enddo
+  call divertor_leg_discretization(CL(2)%t_curve, etaL(1), npL(1), DL1)
+  M_SOL1 (nr(1), npR(1)+npR(0)+npL(0):npR(1)+npR(0)+npL(0)+npL(1), :) = DL1
+  M_SOL2a(   0 ,        npL(2)+npL(0):       npL(2)+npL(0)+npL(1), :) = DL1
 
   ! 2.3 secondary divertor segment
-  call divertor_leg_interface(S(2)%M3%t_curve, C_guide, xiL)
-  call Sl%init_spline_X1(etaL(1), 1.d0-xiL)
-  do j=0,npL(2)
-     xi = 1.d0 - Sl%node(npL(2)-j,npL(2))
-     call S(2)%M3%sample_at(xi, x)
-     M_PFR2 (nr(5),                   j,:) = x
-     M_SOL2a(   0 ,                   j,:) = x
-  enddo
+  call divertor_leg_discretization(S(2)%M3%t_curve, 1.d0-etaL(1), npL(2), DL2)
+  M_PFR2 (nr(5), 0:npL(2), :) = DL2
+  M_SOL2a(   0 , 0:npL(2), :) = DL2
 
   end subroutine make_separatrix2
   !.....................................................................
