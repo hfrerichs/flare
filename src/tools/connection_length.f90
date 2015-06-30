@@ -183,9 +183,6 @@ subroutine connection_length
            endif
 
 
-           ! check if intersection with walls is possible
-           if ((Psi_sepx .ne. Psi_axis) .and. (PsiN < 1.d0)) cycle
-
            ! check intersection with walls
            if (F%intersect_boundary(id=id)) then
               id_limit(idir) = id
