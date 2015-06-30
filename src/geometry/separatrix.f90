@@ -51,16 +51,14 @@ module separatrix
   integer,       intent(in), optional :: iconnect
 
   real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0, &
-                  theta_cutL, theta_cutR, theta_cut_offset
+                  theta_cutL, theta_cutR, dtheta
   integer      :: orientation
 
 
   ! set orientation (lower null vs. upper null)
   orientation = 1
-  theta_cut_offset = 0.d0 ! used to connect upper null to lower null
   if (Xp(iPx)%X(2) > 0.d0) then
      orientation = -1
-     theta_cut_offset = pi
   endif
 
 
@@ -80,7 +78,15 @@ module separatrix
      ! direct connection to another X-point
      ! cut-off halfway between X-points
      elseif (iconnect > 0) then
-        theta_cutR = 0.5d0 * (Xp(iconnect)%theta + Xp(iPx)%theta) + theta_cut_offset
+        dtheta = Xp(iconnect)%theta - Xp(iPx)%theta; if (dtheta < 0.d0) dtheta = dtheta + pi2
+        if (Debug) then
+           write (6, *) 'theta1 = ', Xp(iPx)%theta/pi*180.d0
+           write (6, *) 'theta2 = ', Xp(iconnect)%theta/pi*180.d0
+           write (6, *) 'dtheta = ', dtheta/pi*180.d0
+           write (6, *)
+        endif
+
+        theta_cutR = Xp(iPx)%theta + 0.5d0*dtheta
         theta_cutL = theta_cutR + pi; if (theta_cutL > pi) theta_cutL = theta_cutL - pi2
 
      ! use position of another X-point as reference
@@ -93,7 +99,9 @@ module separatrix
      theta_cutL = theta_cut
      theta_cutR = theta_cut
   endif
-  !write (6, *) 'theta_cut = ', theta_cutL/pi*180.d0, theta_cutR/pi*180.d0
+  if (Debug) then
+     write (6, *) 'theta_cut = ', theta_cutL/pi*180.d0, theta_cutR/pi*180.d0
+  endif
 
 
   Px = Xp(iPx)%X ! Coordinates of X-point (R[cm], Z[cm])
