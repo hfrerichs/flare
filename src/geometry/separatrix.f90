@@ -43,6 +43,7 @@ module separatrix
 
   subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr, iconnect)
   use math
+  use run_control, only: Debug
   class(t_separatrix)                 :: this
   integer,       intent(in)           :: iPx
   real(real64),  intent(in), optional :: theta_cut
@@ -102,6 +103,26 @@ module separatrix
   v1      = ds0*v1; v2 = ds0*v2
   this%Px = Px
   ds      = ds0**2
+  if (Debug) then
+     open  (97, file='right.tmp', position='append')
+     write (97, *) Px
+     write (97, *) Px + v1*orientation + v2
+     close (97)
+     open  (96, file='left.tmp', position='append')
+     write (96, *) Px
+     write (96, *) Px - v1*orientation + v2
+     close (96)
+     open  (95, file='v1.tmp', position='append')
+     write (95, *) Px
+     write (95, *) Px + v1
+     write (95, *)
+     close (95)
+     open  (94, file='v2.tmp', position='append')
+     write (94, *) Px
+     write (94, *) Px + v2
+     write (94, *)
+     close (94)
+  endif
 
 
   ! right core segment
@@ -158,8 +179,9 @@ module separatrix
   v1(2) = - (psi_xx - l1) / psi_xy
   v1    = v1 / sqrt(sum(v1**2))
 
-  v2(1) = 1.d0
-  v2(2) = - (psi_xx - l2) / psi_xy
+! construct v2 so that it is pointing upwards
+  v2(2) = 1.d0
+  v2(1) = - psi_xy / (psi_xx - l2)
   v2    = v2 / sqrt(sum(v2**2))
 
   end subroutine H_eigenvectors
