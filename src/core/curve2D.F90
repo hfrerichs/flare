@@ -409,13 +409,14 @@ module curve2D
 
 
 !=======================================================================
-  subroutine plot(this, iu, filename, append)
+  subroutine plot(this, iu, filename, append, length)
   class(t_curve) :: this
   integer,          intent(in), optional :: iu
   character(len=*), intent(in), optional :: filename
-  logical,          intent(in), optional :: append
+  logical,          intent(in), optional :: append, length
 
-  integer :: i, iu0
+  real(real64) :: l
+  integer      :: i, iu0
 
 
   ! set default unit number for output
@@ -436,8 +437,12 @@ module curve2D
 
 
   ! write data
+  l = 0.d0
   do i=0,this%n_seg
-     if (associated(this%w)) then
+     if (present(length)  .and.  length) then
+        if (i>0) l = l + sqrt(sum((this%x(i,:)-this%x(i-1,:))**2))
+        write (iu0, *) this%x(i,:), l
+     elseif (associated(this%w)) then
         write (iu0, *) this%x(i,:), this%w(i)
      else
         write (iu0, *) this%x(i,:)
