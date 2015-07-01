@@ -64,6 +64,8 @@ module topo_lsn
   write (6, 1000)
   write (6, 1001)
   do ib=0,blocks-1
+     iz0 = ib * layers
+
      ! 1. set up derived parameters
      Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%np(0) + Block(ib)%npL(1)
      Block(ib)%np(2) = Block(ib)%npR(1)                   + Block(ib)%npL(1)
@@ -77,8 +79,8 @@ module topo_lsn
 
      ! 3. show zone information
      write (6, 1002) ib, Zone(iz0)%nr, Zone(iz0)%np, Zone(iz0)%nt, &
-                         Zone(iz1)%nr, Zone(iz1)%np, Zone(iz1)%nt, &
-                         Zone(iz2)%nr, Zone(iz2)%np, Zone(iz2)%nt
+                         Zone(iz0+1)%nr, Zone(iz0+1)%np, Zone(iz0+1)%nt, &
+                         Zone(iz0+2)%nr, Zone(iz0+2)%np, Zone(iz0+2)%nt
   enddo
  1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')
  1001 format(8x,'block #, high pressure region, scrape-off layer, private flux region')

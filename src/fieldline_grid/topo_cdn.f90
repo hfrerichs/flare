@@ -56,6 +56,8 @@ module topo_cdn
   write (6, 1000)
   write (6, 1001)
   do ib=0,blocks-1
+     iz0 = ib * layers
+
      ! 1. set up derived parameters
      Block(ib)%np(0) = Block(ib)%npR(0) + Block(ib)%npL(0)
      Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
