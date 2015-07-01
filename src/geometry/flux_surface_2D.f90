@@ -325,7 +325,13 @@ module flux_surface_2D
 
 
   !.....................................................................
-  ! 0. use angular weights in the limit r = 0
+  ! 0.a small segments
+  if (dphi0 < phi_transition) then
+     call this%setup_length_sampling()
+     return
+  endif
+
+  ! 0.b use angular weights in the limit r = 0
   if (r1.eq.0.0d0 .and. r2.eq.0.d0) then
      call this%setup_angular_sampling(xc)
      return
@@ -411,8 +417,8 @@ module flux_surface_2D
      write (6, *) 'xc    = ', xc
      write (6, *) 'r1    = ', r1
      write (6, *) 'r2    = ', r2
-     write (6, *) 'dphi0 = ', dphi0
-     write (6, *) 'phiT  = ', phiT
+     write (6, *) 'dphi0 = ', dphi0 / pi * 180.d0
+     write (6, *) 'phiT  = ', phiT / pi * 180.d0
      call this%plot(filename='error.plt')
      stop
   else
