@@ -221,12 +221,12 @@ module topo_cdn
      call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp_HPR)
 
      ! 2.b scrape-off layer (SOL)
-     call make_flux_surfaces_SOL(M_SOL1,nr(1), npR(2), npR(0), npR(1), 1, nr(2), rpath(1), 1, 2, Zone(iz0+1)%Sr, Sp1)
-     call make_flux_surfaces_SOL(M_SOL2,nr(2), npL(1), npL(0), npL(2), 1, nr(3), rpath(2), 2, 1, Zone(iz0+2)%Sr, Sp2)
+     call make_flux_surfaces_SOL(M_SOL1,nr(1), npR(2), npR(0), npR(1), 1, nr(1), rpath(1), 1, 2, Zone(iz0+1)%Sr, Sp1)
+     call make_flux_surfaces_SOL(M_SOL2,nr(2), npL(1), npL(0), npL(2), 1, nr(2), rpath(2), 2, 1, Zone(iz0+2)%Sr, Sp2)
 
      ! 2.c private flux region (PFR)
-     call make_flux_surfaces_PFR(M_PFR1, nr(3), npL(1), npR(1), 1, nr(4), rpath(3), Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
-     call make_flux_surfaces_PFR(M_PFR2, nr(4), npR(2), npL(2), 1, nr(5), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1, nr(3), npL(1), npR(1), 1, nr(3), rpath(3), Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
+     call make_flux_surfaces_PFR(M_PFR2, nr(4), npR(2), npL(2), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
 
      ! 3. interpolated surfaces
      call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
