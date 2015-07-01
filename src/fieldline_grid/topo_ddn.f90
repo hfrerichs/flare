@@ -74,8 +74,8 @@ module topo_ddn
      ! 1. set up derived parameters
      Block(ib)%np(0) = Block(ib)%npR(0) + Block(ib)%npL(0)
      Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%np(0)  + Block(ib)%npL(1)
-     Block(ib)%np(2) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
-     Block(ib)%np(3) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
+     Block(ib)%np(2) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
+     Block(ib)%np(3) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
      Block(ib)%np(4) = Block(ib)%npR(1)                    + Block(ib)%npL(1)
      Block(ib)%np(5) = Block(ib)%npR(2)                    + Block(ib)%npL(2)
 
@@ -130,10 +130,10 @@ module topo_ddn
   ! 4.1 SOL
   call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
   call rpath(1)%plot(filename='rpath_1.plt')
-  ! 4.2 left outer SOL
+  ! 4.2 right outer SOL
   call rpath(2)%generate(2, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
   call rpath(2)%plot(filename='rpath_2.plt')
-  ! 4.3 right outer SOL
+  ! 4.3 left outer SOL
   call rpath(3)%generate(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(2))
   call rpath(3)%plot(filename='rpath_3.plt')
   ! 4.4 PFR1
@@ -160,7 +160,7 @@ module topo_ddn
 
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2a, M_SOL2b, M_PFR1, M_PFR2
 
-  type(t_spacing) :: Sp12
+  type(t_spacing) :: Sp_HPR, Sp_a, Sp_b
   real(real64)    :: phi
   integer         :: i, iz, iz0, iblock, connectX(nx)
 
@@ -210,8 +210,11 @@ module topo_ddn
      do i=0,layers-1
         iz = iz0 + i
         call Zone(iz)%Sr%init(radial_spacing(i))
-        call Zone(iz)%Sp%init(poloidal_spacing(i))
      enddo
+     ! set up poloidal spacing in core layer
+     call Sp_a%init(poloidal_spacing(0))
+     call Sp_b%init(poloidal_spacing(1))
+     call Sp_HPR%init_recursive(Sp_a, Sp_b, 1.d0 * npR(0)/np(0), dtheta/pi2)
 
 
      ! initialize base grids in present block
@@ -227,9 +230,6 @@ module topo_ddn
      M_PFR2  => G(iblock,5)%mesh
 
 
-     ! 0. set up poloidal spacing in core layer
-     call Sp12%init_X1(1.d0 * npR(0)/np(0), dtheta/pi2)
-
      ! start grid generation
      ! 1. unperturbed separatrix
      call make_separatrix()
@@ -237,19 +237,19 @@ module topo_ddn
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
-     call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp12)
+     call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp_HPR)
 
      ! 2.b scrape-off layer (SOL)
-     call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp12)
-     call make_flux_surfaces_SOL(M_SOL2a,nr(2), npL(1), npL(0), npL(2), 1, nr(2), rpath(2), 2, -1, Zone(iz0+2)%Sr, Zone(iz0+2)%Sp)
-     call make_flux_surfaces_SOL(M_SOL2b,nr(3), npR(2), npR(0), npR(1), 1, nr(3), rpath(3), -1, 2, Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
+     call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp_HPR)
+     call make_flux_surfaces_SOL(M_SOL2a,nr(2), npR(2), npR(0), npR(1), 1, nr(2), rpath(2), -1, 2, Zone(iz0+2)%Sr, Sp_a)
+     call make_flux_surfaces_SOL(M_SOL2b,nr(3), npL(1), npL(0), npL(2), 1, nr(3), rpath(3), 2, -1, Zone(iz0+3)%Sr, Sp_b)
 
      ! 2.c private flux region (PFR)
      call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
      call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 1, nr(5), rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
 
      ! 3. interpolated surfaces
-     call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp12, C_in(iblock,:))
+     call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
 
 
      ! output
@@ -324,18 +324,18 @@ module topo_ddn
 
      call CR(2)%sample_at(xi, x)
      M_SOL1 (nr(1),          npR(1) + j, :) = x
-     M_SOL2b(   0 ,          npR(1) + j, :) = x
+     M_SOL2a(   0 ,          npR(1) + j, :) = x
   enddo
 
   ! 1.2 primary divertor segment
   call divertor_leg_discretization(CR(1)%t_curve, 1.d0-etaR(1), npR(1), DR1)
   M_SOL1 (nr(1), 0:npR(1), :) = DR1
-  M_SOL2b(   0 , 0:npR(1), :) = DR1
+  M_SOL2a(   0 , 0:npR(1), :) = DR1
 
   ! 1.3 secondary divertor segment
   call divertor_leg_discretization(S(2)%M4%t_curve, etaR(1), npR(2), DR2)
   M_PFR2 (nr(5), npL(2)       :npL(2)       +npR(2), :) = DR2
-  M_SOL2b(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
+  M_SOL2a(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
 
 
   ! 2. left segments
@@ -349,18 +349,18 @@ module topo_ddn
 
      call CL(1)%sample_at(xi, x)
      M_SOL1 (nr(1), npR(1) + npR(0) + j, :) = x
-     M_SOL2a(   0 ,          npL(2) + j, :) = x
+     M_SOL2b(   0 ,          npL(2) + j, :) = x
   enddo
 
   ! 2.2 primary divertor segment
   call divertor_leg_discretization(CL(2)%t_curve, etaL(1), npL(1), DL1)
   M_SOL1 (nr(1), npR(1)+npR(0)+npL(0):npR(1)+npR(0)+npL(0)+npL(1), :) = DL1
-  M_SOL2a(   0 ,        npL(2)+npL(0):       npL(2)+npL(0)+npL(1), :) = DL1
+  M_SOL2b(   0 ,        npL(2)+npL(0):       npL(2)+npL(0)+npL(1), :) = DL1
 
   ! 2.3 secondary divertor segment
   call divertor_leg_discretization(S(2)%M3%t_curve, 1.d0-etaL(1), npL(2), DL2)
   M_PFR2 (nr(5), 0:npL(2), :) = DL2
-  M_SOL2a(   0 , 0:npL(2), :) = DL2
+  M_SOL2b(   0 , 0:npL(2), :) = DL2
 
   end subroutine make_separatrix2
   !.....................................................................

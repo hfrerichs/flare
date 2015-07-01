@@ -58,8 +58,8 @@ module topo_cdn
   do ib=0,blocks-1
      ! 1. set up derived parameters
      Block(ib)%np(0) = Block(ib)%npR(0) + Block(ib)%npL(0)
-     Block(ib)%np(1) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
-     Block(ib)%np(2) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
+     Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
+     Block(ib)%np(2) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
      Block(ib)%np(3) = Block(ib)%npR(1)                    + Block(ib)%npL(1)
      Block(ib)%np(4) = Block(ib)%npR(2)                    + Block(ib)%npL(2)
 
@@ -111,10 +111,10 @@ module topo_cdn
   dx    = get_d_HPR(Xp(1)%X, Pmag)
   call rpath(0)%setup_linear(Xp(1)%X, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
-  ! 4.1 left outer SOL
+  ! 4.1 right outer SOL
   call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
   call rpath(1)%plot(filename='rpath_1.plt')
-  ! 4.2 right outer SOL
+  ! 4.2 left outer SOL
   call rpath(2)%generate(1, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(2))
   call rpath(2)%plot(filename='rpath_2.plt')
   ! 4.3 PFR1
@@ -141,7 +141,7 @@ module topo_cdn
 
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2, M_PFR1, M_PFR2
 
-  type(t_spacing) :: Sp12
+  type(t_spacing) :: Sp_HPR, Sp1, Sp2
   real(real64)    :: phi
   integer         :: i, iz, iz0, iblock, connectX(nx)
 
@@ -191,8 +191,11 @@ module topo_cdn
      do i=0,layers-1
         iz = iz0 + i
         call Zone(iz)%Sr%init(radial_spacing(i))
-        call Zone(iz)%Sp%init(poloidal_spacing(i))
      enddo
+     ! set up poloidal spacing in core layer
+     call Sp1%init(poloidal_spacing(0))
+     call Sp2%init(poloidal_spacing(1))
+     call Sp_HPR%init_recursive(Sp1, Sp2, 1.d0 * npR(0)/np(0), dtheta/pi2)
 
 
      ! initialize base grids in present block
@@ -207,27 +210,24 @@ module topo_cdn
      M_PFR2  => G(iblock,4)%mesh
 
 
-     ! 0. set up poloidal spacing in core layer
-     call Sp12%init_X1(1.d0 * npR(0)/np(0), dtheta/pi2)
-
      ! start grid generation
      ! 1. unperturbed separatrix
      call make_interface_cdn(iz0)
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
-     call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp12)
+     call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp_HPR)
 
      ! 2.b scrape-off layer (SOL)
-     call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), npL(0), npL(2), 1, nr(2), rpath(1), 2, 1, Zone(iz0+1)%Sr, Zone(iz0+1)%Sp)
-     call make_flux_surfaces_SOL(M_SOL2,nr(2), npR(2), npR(0), npR(1), 1, nr(3), rpath(2), 1, 2, Zone(iz0+2)%Sr, Zone(iz0+2)%Sp)
+     call make_flux_surfaces_SOL(M_SOL1,nr(1), npR(2), npR(0), npR(1), 1, nr(2), rpath(1), 1, 2, Zone(iz0+1)%Sr, Sp1)
+     call make_flux_surfaces_SOL(M_SOL2,nr(2), npL(1), npL(0), npL(2), 1, nr(3), rpath(2), 2, 1, Zone(iz0+2)%Sr, Sp2)
 
      ! 2.c private flux region (PFR)
      call make_flux_surfaces_PFR(M_PFR1, nr(3), npL(1), npR(1), 1, nr(4), rpath(3), Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
      call make_flux_surfaces_PFR(M_PFR2, nr(4), npR(2), npL(2), 1, nr(5), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
 
      ! 3. interpolated surfaces
-     call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp12, C_in(iblock,:))
+     call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
 
 
      ! output
@@ -265,7 +265,7 @@ module topo_cdn
 
      call SR0%sample_at(xi, x)
      M_HPR (nr(0),          j, :) = x
-     M_SOL2(   0 , npR(1) + j, :) = x
+     M_SOL1(   0 , npR(1) + j, :) = x
   enddo
 
 
@@ -278,19 +278,19 @@ module topo_cdn
 
      call SL0%sample_at(xi, x)
      M_HPR (nr(0), npR(0) + j, :) = x
-     M_SOL1(   0 , npL(2) + j, :) = x
+     M_SOL2(   0 , npL(2) + j, :) = x
   enddo
 
 
   ! 3. lower divertor
   ! 3.1 discretization of right separatrix leg
   call divertor_leg_discretization(S(1)%M3%t_curve, 1.d0-etaR(1), npR(1), DR1)
-  M_SOL2(    0, 0:npR(1), :) = DR1
+  M_SOL1(    0, 0:npR(1), :) = DR1
   M_PFR1(nr(3), 0:npR(1), :) = DR1
 
   ! 3.2 discretization of left separatrix leg
   call divertor_leg_discretization(S(1)%M4%t_curve, etaL(1), npL(1), DL1)
-  M_SOL1(    0, npL(2)+npL(0):npL(2)+npL(0)+npL(1), :) = DL1
+  M_SOL2(    0, npL(2)+npL(0):npL(2)+npL(0)+npL(1), :) = DL1
   M_PFR1(nr(3), npR(1)       :npR(1)       +npL(1), :) = DL1
 
 
@@ -298,12 +298,12 @@ module topo_cdn
   ! 4.1 discretization of right separatrix leg
   call divertor_leg_discretization(S(2)%M4%t_curve, etaR(1), npR(2), DR2)
   M_PFR2(nr(4), npL(2)       :npL(2)       +npR(2), :) = DR2
-  M_SOL2(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
+  M_SOL1(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
 
   ! 4.2 discretization of left separatrix leg
   call divertor_leg_discretization(S(2)%M3%t_curve, 1.d0-etaL(1), npL(2), DL2)
   M_PFR2(nr(4), 0:npL(2), :) = DL2
-  M_SOL1(   0 , 0:npL(2), :) = DL2
+  M_SOL2(   0 , 0:npL(2), :) = DL2
 
   end subroutine make_interface_cdn
   !.....................................................................
