@@ -99,6 +99,7 @@ module topo_cdn
 
 
   dtheta = Xp(2)%theta - Xp(1)%theta
+  if (dtheta < 0) dtheta = dtheta + pi2
 
 
   call S(1)%M1%setup_angular_sampling(Pmag)
