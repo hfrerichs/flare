@@ -10,11 +10,13 @@ module mesh_spacing
 
 
   integer, parameter :: &
+     LINEAR      = 0, &
      EXPONENTIAL = 1, &
      SPLINE_X1   = 2, &
      DELTA_R_SYM = 3, &
      X1          = 4, &
-     USER_DEF    = -1
+     USER_DEF    = -1, &
+     S_RECURSIVE = -2
 
 
   type, public :: t_spacing
@@ -23,14 +25,16 @@ module mesh_spacing
      integer :: nc ! number of coefficients
      real(real64), dimension(:), allocatable :: c ! internal coefficients
      type(t_curve) :: D
+     type(t_spacing), dimension(:), pointer  :: S
 
      contains
-     procedure init, node, plot
+     procedure init, node, sample, plot
      procedure init_spline_x1
      procedure init_X1
+     procedure init_recursive
   end type t_spacing
   
-  type(t_spacing), public, parameter :: Equidistant = t_spacing(0,0,null(),Empty_curve)
+  type(t_spacing), public, parameter :: Equidistant = t_spacing(0,0,null(),Empty_curve,null())
 
   contains
 !=======================================================================
@@ -54,7 +58,7 @@ module mesh_spacing
 
   ! equidistant spacing
   if (mode == '') then
-     this%mode = 0
+     this%mode = LINEAR
 
   ! exponential spacing function
   elseif (mode(1:4) == 'exp:') then
@@ -150,6 +154,41 @@ module mesh_spacing
 
 
 !=======================================================================
+  subroutine init_recursive(this, S_left, S_right, eta1, rho1)
+  class(t_spacing)            :: this
+  type(t_spacing), intent(in) :: S_left, S_right
+  real(real64),    intent(in) :: eta1, rho1
+
+
+  ! 0. check input
+  if (eta1 < 0.d0  .or.  eta1 > 1.d0) then
+     write (6, *) 'error in t_spacing%init_recursive: invalid parameter!'
+     write (6, *) 'eta1 = ', eta1
+     stop
+  endif
+  if (rho1 < 0.d0  .or.  rho1 > 1.d0) then
+     write (6, *) 'error in t_spacing%init_recursive: invalid parameter!'
+     write (6, *) 'rho1 = ', rho1
+     stop
+  endif
+
+
+  ! 1. recursive definition of spacing function
+  this%mode = S_RECURSIVE
+  allocate (this%S(2))
+  this%S(1) = S_left
+  this%S(2) = S_right
+
+  allocate (this%c(2))
+  this%c(1) = eta1
+  this%c(2) = rho1
+
+  end subroutine init_recursive
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine check_manual_stretching_function (D)
   type(t_curve), intent(in) :: D
 
@@ -214,15 +253,31 @@ module mesh_spacing
   real(real64) :: t, x(2)
 
 
-  ! equidistant spacings
   t  = 1.d0 * i / n
-  xi = t
+  xi = this%sample(t)
+
+  end function node
+!=======================================================================
+
+
+
+!=======================================================================
+  function sample(this, t) result(xi)
+  class(t_spacing)         :: this
+  real(real64), intent(in) :: t
+  real(real64)             :: xi
+
+  real(real64) :: x(2)
 
 
   select case(this%mode)
+  ! linear spacing
+  case(LINEAR)
+     xi = t
+
   ! exponential spacings
   case(EXPONENTIAL)
-     xi = sample_exp(i, n, this%c(1))
+     xi = sample_exp(t, this%c(1))
 
   ! spline with reference node
   case(SPLINE_X1)
@@ -241,23 +296,24 @@ module mesh_spacing
      call this%D%sample_at(t, x)
      xi = x(2)
 
+  ! recursive definition
+  case(S_RECURSIVE)
+     xi = sample_recursive(t, this%S(1), this%S(2), this%c(1), this%c(2))
   end select
 
-  end function node
+  end function sample
 !=======================================================================
 
 
 
 !=======================================================================
-  function sample_exp(i, n, lambda) result(xi)
-  integer,      intent(in) :: i, n
-  real(real64), intent(in) :: lambda
+  function sample_exp(t, lambda) result(xi)
+  real(real64), intent(in) :: t, lambda
 
-  real(real64) :: xi, t, S
+  real(real64) :: xi, S
 
 
   S  = exp(1.d0/lambda) - 1.d0
-  t  = 1.d0 * i / n
   xi = (exp(t/lambda) - 1.d0)/S
 
   end function sample_exp
@@ -339,13 +395,34 @@ module mesh_spacing
 
 
 !=======================================================================
+  function sample_recursive(eta, S_left, S_right, eta1, rho1) result(xi)
+  real(real64),    intent(in) :: eta, eta1, rho1
+  type(t_spacing), intent(in) :: S_left, S_right
+  real(real64)                :: xi
+
+  real(real64) :: t
+
+  if (eta < eta1) then
+     t  = eta / eta1
+     xi = S_left%sample(t) * rho1
+  else
+     t  = (eta-eta1) / (1.d0-eta1)
+     xi = rho1 + S_right%sample(t) * (1.d0-rho1)
+  endif
+
+  end function sample_recursive
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine plot(this, iu, filename, nsample)
   class(t_spacing) :: this
   integer, intent(in), optional          :: iu, nsample
   character(len=*), intent(in), optional :: filename
 
   real(real64) :: t, xi
-  integer :: i, iu0 = 99
+  integer :: i, n, iu0 = 99
 
 
   if (present(iu)) iu0 = iu
@@ -353,20 +430,24 @@ module mesh_spacing
      open  (iu0, file=filename)
   endif
 
+  ! set number of sampling points
+  n = 20
+  if (present(nsample)) n = nsample
+
 
   ! write nodes
-  do i=0,nsample
-     t  = 1.d0 * i / nsample
-     xi = this%node(i, nsample)
+  do i=0,n
+     t  = 1.d0 * i / n
+     xi = this%node(i, n)
      write (iu0, *) t, xi
   enddo
   write (iu0, *)
 
 
   ! write horizontal and vertical bars
-  do i=1,nsample-1
-     t  = 1.d0 * i / nsample
-     xi = this%node(i, nsample)
+  do i=1,n-1
+     t  = 1.d0 * i / n
+     xi = this%node(i, n)
 
      write (iu0, *) t, 0.d0
      write (iu0, *) t, xi
