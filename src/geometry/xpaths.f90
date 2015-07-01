@@ -24,6 +24,7 @@ module xpaths
      contains
      procedure :: generate
      procedure :: setup_linear
+     procedure :: setup_PsiN_sampling
   end type t_xpath
 
   !type(t_radial_path), dimension(:), allocatable :: radial_path
@@ -106,7 +107,7 @@ module xpaths
   ! 2.2 expected number of segments from curve length
   case(LIMIT_LENGTH)
      L     = limit_val
-     n_seg = nint((L-dl) / abs(ds)) + 2
+     n_seg = nint((L-dl) / abs(ds)) + 1
 
   ! either PsiN or L must be given!
   case default
@@ -186,6 +187,51 @@ module xpaths
 !=======================================================================
 !  subroutine setup_radial_paths (n, mode, default_mode)
 !  end subroutine setup_radial_paths
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_PsiN_sampling(this)
+  use equilibrium
+  class(t_xpath) :: this
+
+  real(real64) :: x(3), PsiN, PsiN1, w
+  integer :: i, n
+
+
+  n = this%n_seg
+  if (associated(this%w)) deallocate(this%w)
+  allocate (this%w(0:n))
+  this%w = 0
+
+  x(3) = 0.d0
+  call this%setup_length_sampling()
+  open  (99, file='test_PsiN.plt')
+  do i=0,this%n_seg
+     x(1:2) = this%x(i,1:2)
+     PsiN   = get_PsiN(x)
+
+     write (99, *) this%w(i), PsiN, x(1:2)
+     if (i>0) this%w(i) = this%w(i-1) + PsiN - PsiN1
+
+     PsiN1 = PsiN
+  enddo
+  this%w = this%w / this%w(n)
+  close (99)
+
+
+  open  (99, file='test_PsiN_sample.plt')
+  n = 10
+  do i=0,n
+     w = 1.d0 * i / n
+     call this%sample_at(w, x(1:2))
+     PsiN = get_PsiN(x)
+     write (99, *) x(1:2), PsiN
+  enddo
+  close (99)
+
+  end subroutine setup_PsiN_sampling
 !=======================================================================
 
 end module xpaths
