@@ -289,7 +289,7 @@ module topo_cdn
 
   ! 3.2 discretization of left separatrix leg
   call divertor_leg_discretization(S(1)%M4%t_curve, etaL(1), npL(1), DL1)
-  M_SOL1(    0, npL(2)+npR(0):npL(2)+npR(0)+npL(1), :) = DL1
+  M_SOL1(    0, npL(2)+npL(0):npL(2)+npL(0)+npL(1), :) = DL1
   M_PFR1(nr(3), npR(1)       :npR(1)       +npL(1), :) = DL1
 
 
