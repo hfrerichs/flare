@@ -112,10 +112,10 @@ module topo_cdn
   call rpath(0)%setup_linear(Xp(1)%X, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 right outer SOL
-  call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
+  call rpath(1)%generate(1, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(1))
   call rpath(1)%plot(filename='rpath_1.plt')
   ! 4.2 left outer SOL
-  call rpath(2)%generate(1, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(2))
+  call rpath(2)%generate(1, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(2))
   call rpath(2)%plot(filename='rpath_2.plt')
   ! 4.3 PFR1
   call rpath(3)%generate(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))

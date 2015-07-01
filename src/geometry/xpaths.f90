@@ -66,6 +66,8 @@ module xpaths
   dl    = Px(1) / 1.d2
   ! step size
   ds    = 0.1d0 * dl
+  ! position of X-point with respect to midplane
+  if (Px(2) > 0.d0) v2 = - v2
 
 
   ! 1. select orientation from saddle point (X-point)
