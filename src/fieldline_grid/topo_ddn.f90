@@ -162,7 +162,7 @@ module topo_ddn
 
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2a, M_SOL2b, M_PFR1, M_PFR2
 
-  type(t_spacing) :: Sp_HPR, Sp_a, Sp_b
+  type(t_spacing) :: Sp_HPR, Sp1, Sp2
   real(real64)    :: phi
   integer         :: i, iz, iz0, iblock, connectX(nx)
 
@@ -214,9 +214,9 @@ module topo_ddn
         call Zone(iz)%Sr%init(radial_spacing(i))
      enddo
      ! set up poloidal spacing in core layer
-     call Sp_a%init(poloidal_spacing(0))
-     call Sp_b%init(poloidal_spacing(1))
-     call Sp_HPR%init_recursive(Sp_a, Sp_b, 1.d0 * npR(0)/np(0), dtheta/pi2)
+     call Sp1%init(poloidal_spacing(0))
+     call Sp2%init(poloidal_spacing(1))
+     call Sp_HPR%init_recursive(Sp1, Sp2, 1.d0 * npR(0)/np(0), dtheta/pi2)
 
 
      ! initialize base grids in present block
@@ -243,8 +243,8 @@ module topo_ddn
 
      ! 2.b scrape-off layer (SOL)
      call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp_HPR)
-     call make_flux_surfaces_SOL(M_SOL2a,nr(2), npR(2), npR(0), npR(1), 1, nr(2), rpath(2), -1, 2, Zone(iz0+2)%Sr, Sp_a)
-     call make_flux_surfaces_SOL(M_SOL2b,nr(3), npL(1), npL(0), npL(2), 1, nr(3), rpath(3), 2, -1, Zone(iz0+3)%Sr, Sp_b)
+     call make_flux_surfaces_SOL(M_SOL2a,nr(2), npR(2), npR(0), npR(1), 1, nr(2), rpath(2), -1, 2, Zone(iz0+2)%Sr, Sp1)
+     call make_flux_surfaces_SOL(M_SOL2b,nr(3), npL(1), npL(0), npL(2), 1, nr(3), rpath(3), 2, -1, Zone(iz0+3)%Sr, Sp2)
 
      ! 2.c private flux region (PFR)
      call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
@@ -278,7 +278,7 @@ module topo_ddn
   ! 1. discretization of main part of 1st separatrix
   ! 1.a right segment
   do j=0,npR(0)
-     xi = Zone(iz0)%Sp%node(j,npR(0))
+     xi = Sp1%node(j,npR(0))
 
      call S(1)%M1%sample_at(xi, x)
      M_HPR (nr(0),                   j, :) = x
@@ -286,7 +286,7 @@ module topo_ddn
   enddo
   ! 1.b left segment
   do j=0,npL(0)
-     xi = Zone(iz0)%Sp%node(j,npL(0))
+     xi = Sp2%node(j,npL(0))
 
      call S(1)%M2%sample_at(xi, x)
      M_HPR (nr(0), npR(0) +          j, :) = x
@@ -322,7 +322,7 @@ module topo_ddn
 
   ! 1.1 core segment
   do j=0,npR(0)
-     xi = Zone(iz0)%Sp%node(j,npR(0))
+     xi = Sp1%node(j,npR(0))
 
      call CR(2)%sample_at(xi, x)
      M_SOL1 (nr(1),          npR(1) + j, :) = x
@@ -347,7 +347,7 @@ module topo_ddn
 
   ! 2.1 core segment
   do j=0,npL(0)
-     xi = Zone(iz0)%Sp%node(j,npL(0))
+     xi = Sp2%node(j,npL(0))
 
      call CL(1)%sample_at(xi, x)
      M_SOL1 (nr(1), npR(1) + npR(0) + j, :) = x

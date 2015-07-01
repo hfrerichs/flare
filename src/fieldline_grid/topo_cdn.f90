@@ -263,7 +263,7 @@ module topo_cdn
   call SR0%plot(filename='SR0.plt')
   call SR0%setup_angular_sampling(Pmag)
   do j=0,npR(0)
-     xi = Zone(iz0)%Sp%node(j,npR(0))
+     xi = Sp1%node(j,npR(0))
 
      call SR0%sample_at(xi, x)
      M_HPR (nr(0),          j, :) = x
@@ -276,7 +276,7 @@ module topo_cdn
   call SL0%plot(filename='SL0.plt')
   call SL0%setup_angular_sampling(Pmag)
   do j=0,npL(0)
-     xi = Zone(iz0)%Sp%node(j,npL(0))
+     xi = Sp2%node(j,npL(0))
 
      call SL0%sample_at(xi, x)
      M_HPR (nr(0), npR(0) + j, :) = x
