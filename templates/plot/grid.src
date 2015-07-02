@@ -160,7 +160,7 @@ pro read_grid, grid_file, xoffset=xoffset, yoffset=yoffset, swap_xy=swap_xy
 		readf, lun, x_data
 		readf, lun, y_data
 		n_xy	= n_x * n_y
-		isort	= 1
+		isort	= -1
 		x_title	= c_label(icoord1)
 		y_title	= c_label(icoord2)
 
