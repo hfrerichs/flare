@@ -317,7 +317,7 @@ module topo_ddn
 
   ! 1. right segments
   call divide_SOL2(S(2)%M2, 1.d0,  1, alphaR(1), S(1)%M3%length(), CR%t_curve)
-  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Pmag, 1.d0, 0.d0, dtheta, Dtheta_sampling)
+  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Pmag, Dtheta_sampling, 0.d0, dtheta)
   call CR(1)%setup_length_sampling()
 
   ! 1.1 core segment
@@ -343,7 +343,7 @@ module topo_ddn
   ! 2. left segments
   call divide_SOL2(S(2)%M1, 1.d0, -1, alphaL(1), S(1)%M4%length(), CL%t_curve)
   call CL(2)%setup_length_sampling()
-  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Pmag, 0.d0, 1.d0, pi2-dtheta, Dtheta_sampling)
+  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Pmag, 0.d0, Dtheta_sampling, pi2-dtheta)
 
   ! 2.1 core segment
   do j=0,npL(0)

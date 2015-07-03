@@ -309,30 +309,27 @@ module flux_surface_2D
 ! X-points while angular weights are used for the intermediate part.
 ! The line X-point (x1,x2) to magnetic axis (xc) is used as reference. The transition
 ! between angle-weighted sampling and length-weighted sampling occurs at an
-! angle of (r1,r2) * phi_transition.
-! dphi0: reference angular weight (pi2 for full loop)
+! angle of DthetaR (lower end) and DthetaL (upper end)
+! Dtheta0: reference angular weight (pi2 for full loop)
 !===============================================================================
-  subroutine setup_sampling(this, x1, x2, xc, r1, r2, dphi0, phi_transition)
+  subroutine setup_sampling(this, x1, x2, xc, DthetaR, DthetaL, Dtheta0)
   use math
   class(t_flux_surface_2D) :: this
-  real(real64), intent(in) :: x1(2), x2(2), xc(2), r1, r2, dphi0
-  real(real64), intent(in), optional :: phi_transition
+  real(real64), intent(in) :: x1(2), x2(2), xc(2), DthetaR, DthetaL, Dtheta0
 
-  real(real64), parameter :: phi_transition_default = pi2 / 9.d0
-
-  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, phiT, s, f0, g0, w
+  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w
   integer      :: i, n, iseg1, iseg2
 
 
   !.....................................................................
   ! 0.a small segments
-  if (dphi0 < phi_transition) then
+  if (Dtheta0 < DthetaR+DthetaL) then
      call this%setup_length_sampling()
      return
   endif
 
-  ! 0.b use angular weights in the limit r = 0
-  if (r1.eq.0.0d0 .and. r2.eq.0.d0) then
+  ! 0.b use all angular weights
+  if (DthetaR.eq.0.0d0 .and. DthetaL.eq.0.d0) then
      call this%setup_angular_sampling(xc)
      return
   endif
@@ -340,8 +337,6 @@ module flux_surface_2D
   ! otherwise setup sampling by segment lengths
   n  = this%n_seg
   call this%setup_length_sampling(raw_weights=.true.)
-  phiT = phi_transition_default
-  if (present(phi_transition)) phiT = phi_transition
   !.....................................................................
 
 
@@ -356,7 +351,7 @@ module flux_surface_2D
      phi   = datan2(x(2)-xc(2), x(1)-xc(1))
      dphi1 = phi - phi1
      iseg1 = i
-     if (dabs(dphi1) .gt. phiT*r1) exit
+     if (dabs(dphi1) .gt. DthetaR) exit
   enddo
 
   phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
@@ -367,7 +362,7 @@ module flux_surface_2D
      phi   = datan2(x(2)-xc(2), x(1)-xc(1))
      dphi2 = phi - phi2
      iseg2 = i
-     if (dabs(dphi2) .gt. phiT*r2) exit
+     if (dabs(dphi2) .gt. DthetaL) exit
   enddo
   !.....................................................................
 
@@ -384,8 +379,8 @@ module flux_surface_2D
      dphi = phi2 - phi1
      if (dabs(dphi) .gt. pi) dphi = dphi - dsign(pi2,dphi)
 
-     this%w(i) = dphi / dphi0
-     w         = w + dphi / dphi0
+     this%w(i) = dphi / Dtheta0
+     w         = w + dphi / Dtheta0
      phi1      = phi2
   enddo
   !.....................................................................
@@ -396,12 +391,12 @@ module flux_surface_2D
 
   ! first part
   s     = sum(this%w(1:iseg1))
-  dphi1 = dabs(dphi1) / dphi0
+  dphi1 = dabs(dphi1) / Dtheta0
   this%w(1:iseg1) = this%w(1:iseg1) / s * dphi1
 
   !  last part
   s     = sum(this%w(iseg2:n))
-  dphi2 = dabs(dphi2) / dphi0
+  dphi2 = dabs(dphi2) / Dtheta0
   this%w(iseg2:n) = this%w(iseg2:n) / s * dphi2
   !.....................................................................
 
@@ -415,10 +410,9 @@ module flux_surface_2D
      write (6, *) 'x1    = ', x1
      write (6, *) 'x2    = ', x2
      write (6, *) 'xc    = ', xc
-     write (6, *) 'r1    = ', r1
-     write (6, *) 'r2    = ', r2
-     write (6, *) 'dphi0 = ', dphi0 / pi * 180.d0
-     write (6, *) 'phiT  = ', phiT / pi * 180.d0
+     write (6, *) 'DthetaR = ', DthetaR
+     write (6, *) 'DthetaL = ', DthetaL
+     write (6, *) 'Dtheta0 = ', Dtheta0
      call this%plot(filename='error.plt')
      stop
   else
