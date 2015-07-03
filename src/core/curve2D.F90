@@ -1208,6 +1208,13 @@ module curve2D
   integer      :: i2
 
 
+  ! check if curve is set up for sampling
+  if (.not.associated(L%w)) then
+     write (6, *) 'error: curve is not set up for sampling!'
+     stop
+  endif
+
+
   ! find index i of line segment associated with t
   n = L%n_seg
   i = binary_interval_search(0, n, L%w, xi, ierr)
