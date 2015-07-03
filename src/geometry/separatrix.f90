@@ -134,22 +134,22 @@ module separatrix
 
 
   ! right core segment
-  x0 = Px + v1*orientation + v2
+  x0 = Px + v1*orientation + v2*orientation
   call this%M1%generate(x0,  1, ds, AltSurf=C_cutl, theta_cut=theta_cutR)
   this%M1%x(0,:) = Px
 
   ! left core segment
-  x0 = Px - v1*orientation + v2
+  x0 = Px - v1*orientation + v2*orientation
   call this%M2%generate(x0, -1, ds, AltSurf=C_cutr, theta_cut=theta_cutL)
   this%M2%x(this%M2%n_seg,:) = Px
 
   ! right divertor leg
-  x0 = Px + v1*orientation - v2
+  x0 = Px + v1*orientation - v2*orientation
   call this%M3%generate(x0, -1, ds, AltSurf=C_cutr)
   this%M3%x(this%M3%n_seg,:) = Px
 
   ! left divertor leg
-  x0 = Px - v1*orientation - v2
+  x0 = Px - v1*orientation - v2*orientation
   call this%M4%generate(x0,  1, ds, AltSurf=C_cutl)
   this%M4%x(0,:) = Px
 
