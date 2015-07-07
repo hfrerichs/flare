@@ -312,13 +312,19 @@ module flux_surface_2D
 ! angle of DthetaR (lower end) and DthetaL (upper end)
 ! Dtheta0: reference angular weight (pi2 for full loop)
 !===============================================================================
-  subroutine setup_sampling(this, x1, x2, xc, DthetaR, DthetaL, Dtheta0)
+  subroutine setup_sampling(this, x1, x2, xc, DthetaR, DthetaL)
   use math
   class(t_flux_surface_2D) :: this
-  real(real64), intent(in) :: x1(2), x2(2), xc(2), DthetaR, DthetaL, Dtheta0
+  real(real64), intent(in) :: x1(2), x2(2), xc(2), DthetaR, DthetaL
 
-  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w
+  real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w, Dtheta0
   integer      :: i, n, iseg1, iseg2
+
+
+  ! set reference weight automatically
+  phi1  = datan2(x1(2)-xc(2), x1(1)-xc(1))
+  phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
+  Dtheta0 = phi2 - phi1; if (Dtheta0 <= 0.d0) Dtheta0 = Dtheta0 + pi2
 
 
   !.....................................................................
@@ -343,7 +349,6 @@ module flux_surface_2D
   !.....................................................................
   ! 1. find first and last segment number for angle-weighted domain
 
-  phi1  = datan2(x1(2)-xc(2), x1(1)-xc(1))
   ! find first segment on L
   do i=1,n
      ! upper node of segment
@@ -354,7 +359,6 @@ module flux_surface_2D
      if (dabs(dphi1) .gt. DthetaR) exit
   enddo
 
-  phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
   ! find last segment on L
   do i=n,1,-1
      ! lower node of segment
