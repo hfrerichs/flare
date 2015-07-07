@@ -10,14 +10,16 @@ module xpaths
 
 
   integer, parameter, public :: &
-     ASCENT_LEFT  = 1, &
-     ASCENT_RIGHT = 2, &
-     DESCENT_CORE = 3, &
-     DESCENT_PFR  = 4
+     ASCENT_LEFT   = 1, &
+     ASCENT_RIGHT  = 2, &
+     DESCENT_CORE  = 3, &
+     DESCENT_PFR   = 4
 
   integer, parameter, public :: &
-     LIMIT_PSIN   = 1, &
-     LIMIT_LENGTH = 2
+     LIMIT_PSIN    = 1, &
+     LIMIT_LENGTH  = 2, &
+     SAMPLE_PSIN   = 1, &
+     SAMPLE_LENGTH = 2
 
 
   type, public, extends(t_curve) :: t_xpath
@@ -116,7 +118,7 @@ module xpaths
   real(real64), dimension(:,:), allocatable :: tmp, tmp_tmp
   type(t_ODE)  :: Path
   real(real64) :: y(3), ds, t, Psi0, PsiN, L
-  integer      :: i, n_seg, is, n_tmp
+  integer      :: i, n_seg, is, n_tmp, sampling_method
 
 
   ! 0. check input
@@ -131,7 +133,7 @@ module xpaths
 
   ! 1. initialize
   ! step size
-  ds    = sqrt(sum(x0**2)) * 0.5d-4
+  ds    = sqrt(sum(xinit**2)) * 0.5d-4
   if (direction == DESCENT_CORE  .or.  direction == DESCENT_PFR) then
      ds = - ds
   endif
@@ -192,7 +194,7 @@ module xpaths
      ! 2. curve length given
      case(LIMIT_LENGTH)
         t = (limit_val - L - abs(ds)) / abs(ds)
-        if (limit_val >= L) exit
+        if (L >= limit_val) exit
 
      end select
   enddo
@@ -208,21 +210,21 @@ module xpaths
 
 
   ! 4. setup sampling
-  if (present(sampling)) then
-     select case(sampling)
-     case(LIMIT_PSIN)
-        allocate (this%w(0:n_seg))
-        this%w = (tmp(1:i,3) - this%PsiN(1)) / (this%PsiN(2) - this%PsiN(1))
+  sampling_method = SAMPLE_LENGTH
+  if (present(sampling)) sampling_method = sampling
+  select case(sampling_method)
+  case(SAMPLE_PSIN)
+     allocate (this%w(0:n_seg))
+     this%w = (tmp(1:i,3) - this%PsiN(1)) / (this%PsiN(2) - this%PsiN(1))
 
-     case(LIMIT_LENGTH)
-        call this%setup_length_sampling()
+  case(SAMPLE_LENGTH)
+     call this%setup_length_sampling()
 
-     case default
-        write (6, *) 'error in subroutine t_xpath%generate:'
-        write (6, *) 'sampling must be either PSIN or LENGTH!'
-        stop
-     end select
-  endif
+  case default
+     write (6, *) 'error in subroutine t_xpath%generate:'
+     write (6, *) 'sampling must be either SAMPLE_PSIN or SAMPLE_LENGTH!'
+     stop
+  end select
 
 
   ! 5. cleanup
