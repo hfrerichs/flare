@@ -21,10 +21,13 @@ module xpaths
 
 
   type, public, extends(t_curve) :: t_xpath
+     real(real64) :: PsiN(2)
      contains
+     procedure :: generateX
      procedure :: generate
      procedure :: setup_linear
      procedure :: setup_PsiN_sampling
+     procedure :: sample_at_PsiN
   end type t_xpath
 
   !type(t_radial_path), dimension(:), allocatable :: radial_path
@@ -45,17 +48,17 @@ module xpaths
 !             = 3: descent PsiN to core
 !             = 4: descent PsiN to PFR
 !=======================================================================
-  subroutine generate(this, iPx, orientation, limit_type, limit_val)
+  subroutine generateX(this, iPx, orientation, limit_type, limit_val, sampling)
   use ode_solver
   use equilibrium
   use run_control, only: Trace_Method, N_steps
   class(t_xpath)           :: this
   integer,      intent(in) :: iPx, orientation, limit_type
   real(real64), intent(in) :: limit_val
+  integer,      intent(in), optional :: sampling
 
   type(t_ODE)  :: Path
-  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), y(3), ds, dl, t, Psi0, PsiN, L
-  integer      :: n_seg, is
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), dl
 
 
   ! 0. initialize
@@ -63,9 +66,7 @@ module xpaths
   H  = Xp(iPx)%H
   call H_eigenvectors(H, v1, v2)
   ! offset from X-point for tracing
-  dl    = Px(1) / 1.d2
-  ! step size
-  ds    = 0.1d0 * dl
+  dl    = Px(1) / 1.d3
   ! position of X-point with respect to midplane
   if (Px(2) > 0.d0) v2 = - v2
 
@@ -78,10 +79,8 @@ module xpaths
      x0    = Px + dl*v1
   case(DESCENT_CORE)
      x0    = Px + dl*v2
-     ds    = -ds
   case(DESCENT_PFR)
      x0    = Px - dl*v2
-     ds    = -ds
   case default
      write (6, *) 'error in subroutine t_gradPsiN_path%generate:'
      write (6, *) 'invalid parameter orientation = ', orientation
@@ -89,55 +88,145 @@ module xpaths
   end select
 
 
-  ! 2.1 determine length/number of segments by final PsiN value
-  select case(limit_type)
-  case(LIMIT_PSIN)
-     PsiN = limit_val
+  ! 2. generate path from x0
+  call this%generate(x0, orientation, limit_type, limit_val, Px, sampling)
 
-     n_seg  = 1
-     y(1:2) = x0
-     y(3)   = 0.d0
-     Psi0   = get_PsiN(y)
-     call Path%init_ODE(2, x0, ds, ePsi_sub, Trace_Method)
-     do
-        if (Psi0 < PsiN  .and.  get_PsiN(y) > PsiN) exit
-        if (Psi0 > PsiN  .and.  get_PsiN(y) < PsiN) exit
-        y(1:2) = Path%next_step()
-        n_seg  = n_seg + 1
-     enddo
+  end subroutine generateX
+!=======================================================================
 
-  ! 2.2 expected number of segments from curve length
-  case(LIMIT_LENGTH)
-     L     = limit_val
-     n_seg = nint((L-dl) / abs(ds)) + 1
 
-  ! either PsiN or L must be given!
-  case default
-     write (6, *) 'error in subroutine t_gradPsiN_Path%generate:'
+
+!=======================================================================
+! Generate path along grad-Psi from x0 (non-hyperbolic point)
+! direction = 1,2: ascent PsiN
+!           = 3,4: descent PsiN
+!=======================================================================
+  subroutine generate(this, xinit, direction, limit_type, limit_val, x0, sampling)
+  use ode_solver
+  use equilibrium
+  use run_control, only: Trace_Method, N_steps
+  class(t_xpath)           :: this
+  real(real64), intent(in) :: xinit(2), limit_val
+  integer,      intent(in) :: direction, limit_type
+  real(real64), intent(in), optional :: x0(2)
+  integer,      intent(in), optional :: sampling
+
+  integer, parameter :: n_tmp0 = 1000
+
+  real(real64), dimension(:,:), allocatable :: tmp, tmp_tmp
+  type(t_ODE)  :: Path
+  real(real64) :: y(3), ds, t, Psi0, PsiN, L
+  integer      :: i, n_seg, is, n_tmp
+
+
+  ! 0. check input
+  if (limit_type .ne. LIMIT_PSIN  .and. &
+      limit_type .ne. LIMIT_LENGTH) then
+     write (6, *) 'error in subroutine t_xpath%generate:'
      write (6, *) 'limit must be either LIMIT_PSIN or LIMIT_LENGTH!'
+     write (6, *) 'limit_type = ', limit_type
      stop
-  end select
-  call this%new(n_seg)
-  this%x(0,:) = Px
-  this%x(1,:) = x0
+  endif
 
 
-  ! 3. generate grad PsiN path
-  call Path%init_ODE(2, x0, ds, ePsi_sub, Trace_Method)
-  do is=2,n_seg
-     this%x(is,:) = Path%next_step()
-     dl           = dl + abs(ds)
+  ! 1. initialize
+  ! step size
+  ds    = sqrt(sum(x0**2)) * 0.5d-4
+  if (direction == DESCENT_CORE  .or.  direction == DESCENT_PFR) then
+     ds = - ds
+  endif
+
+  ! temporary data array
+  n_tmp = n_tmp0
+  allocate (tmp(n_tmp, 3))
+
+  i     = 0
+  L     = 0.d0
+  ! set 0th data point (if present)
+  if (present(x0)) then
+     i     = 1
+     tmp(1,1:2) = x0
+     tmp(1,  3) = get_PsiN(x0)
+     L          = sqrt(sum((xinit-x0)**2))
+  endif
+
+  ! set 1st data point
+  i = i + 1
+  tmp(i,1:2) = xinit
+  tmp(i,  3) = get_PsiN(xinit)
+
+
+  ! 2. generate grad PsiN path
+  call Path%init_ODE(2, xinit, ds, ePsi_sub, Trace_Method)
+  do
+     i = i + 1
+
+     ! increase temporary array, if necessary
+     if (i > n_tmp) then
+        allocate (tmp_tmp(n_tmp, 3))
+        tmp_tmp = tmp
+        deallocate (tmp)
+
+        allocate (tmp(n_tmp+n_tmp0, 3))
+        tmp(1:n_tmp,:) = tmp_tmp
+        n_tmp          = n_tmp + n_tmp0
+        deallocate (tmp_tmp)
+     endif
+
+     ! calculate next step
+     tmp(i,1:2)  = Path%next_step()
+     tmp(i,  3)  = get_PsiN(tmp(i,1:2))
+     L           = L  + abs(ds)
+
+     ! last step?
+     select case(limit_type)
+     ! 1. final PsiN value given
+     case(LIMIT_PSIN)
+        t = (limit_val - tmp(i-1,3)) / (tmp(i,3) - tmp(i-1,3))
+        ! PsiN rises above limit
+        if (tmp(1,3) < limit_val  .and.  tmp(i,3) > limit_val) exit
+
+        ! PsiN falls below limit
+        if (tmp(1,3) > limit_val  .and.  tmp(i,3) < limit_val) exit
+
+     ! 2. curve length given
+     case(LIMIT_LENGTH)
+        t = (limit_val - L - abs(ds)) / abs(ds)
+        if (limit_val >= L) exit
+
+     end select
   enddo
+  n_seg = i-1
+  call this%new(n_seg)
+  this%x(:,:) = tmp(1:i,1:2)
 
 
-  ! 4. adjust last node to match L
-  t = 1.d0
-  if (limit_type == LIMIT_LENGTH) t = (L-dl+abs(ds))/abs(ds)
+  ! 3. adjust last node to match boundary condition
   this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
+  this%PsiN(1) = tmp(1,3)
+  this%PsiN(2) = tmp(i,3)
 
 
-  ! 5. setup sampling
-  call this%setup_length_sampling()
+  ! 4. setup sampling
+  if (present(sampling)) then
+     select case(sampling)
+     case(LIMIT_PSIN)
+        allocate (this%w(0:n_seg))
+        this%w = (tmp(1:i,3) - this%PsiN(1)) / (this%PsiN(2) - this%PsiN(1))
+
+     case(LIMIT_LENGTH)
+        call this%setup_length_sampling()
+
+     case default
+        write (6, *) 'error in subroutine t_xpath%generate:'
+        write (6, *) 'sampling must be either PSIN or LENGTH!'
+        stop
+     end select
+  endif
+
+
+  ! 5. cleanup
+  deallocate (tmp)
 
   end subroutine generate
 !=======================================================================
@@ -234,6 +323,23 @@ module xpaths
   close (99)
 
   end subroutine setup_PsiN_sampling
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine sample_at_PsiN(this, PsiN, x)
+  class(t_xpath)            :: this
+  real(real64), intent(in)  :: PsiN
+  real(real64), intent(out) :: x(2)
+
+  real(real64) :: eta
+
+
+  eta = (PsiN - this%PsiN(1)) / (this%PsiN(2) - this%PsiN(1))
+  call this%sample_at(eta, x)
+
+  end subroutine sample_at_PsiN
 !=======================================================================
 
 end module xpaths
