@@ -460,9 +460,23 @@ module equilibrium
 !=======================================================================
 ! Sample normalized poloidal magnetic flux at r=(R,Z [cm], phi [rad])
 !===============================================================================
-  function get_PsiN(r) result(PsiN)
-  real*8, intent(in)  :: r(3)
-  real*8              :: PsiN
+  function get_PsiN(r0) result(PsiN)
+  real(real64), dimension(:), intent(in) :: r0
+  real(real64)                           :: PsiN
+
+  real(real64) :: r(3)
+
+
+  select case(size(r0))
+  case(2)
+     r(1:2) = r0
+     r(  3) = 0.d0
+  case(3)
+     r      = r0
+  case default
+     write (6, *) 'error in get_PsiN: invalid size of argument r0!'
+     write (6, *) 'size(r0) = ', size(r0)
+  end select
 
   PsiN = (get_Psi(r) - Psi_axis) / (Psi_sepx - Psi_axis)
 
