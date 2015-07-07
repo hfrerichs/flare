@@ -150,7 +150,7 @@ module divertor
   type(t_flux_surface_2D), intent(out) :: C0
   integer,                 intent(in)  :: ix1, ix2
 
-  real(real64) :: l, alpha, xiR, xiL, dthetaX, eta1, eta2, DthetaR, DthetaL
+  real(real64) :: l, alpha, xiR, xiL, eta1, eta2, DthetaR, DthetaL
   integer      :: jx1, jx2
 
 
@@ -175,15 +175,10 @@ module divertor
   DthetaL = eta2 * Dtheta_sampling
 
 
-  ! setup reference weight for angular sampling
-  dthetaX = Xp(jx2)%theta - Xp(jx1)%theta
-  if (dthetaX .le. 0.d0) dthetaX = dthetaX + pi2
-
-
   ! split flux surface in main part and divertor segments
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
   call CR%setup_length_sampling()
-  call C0%setup_sampling(Xp(jx1)%X, Xp(jx2)%X, Pmag, DthetaR, DthetaL, dthetaX)
+  call C0%setup_sampling(Xp(jx1)%X, Xp(jx2)%X, Pmag, DthetaR, DthetaL)
   call CL%setup_length_sampling()
 
   !call CL%plot(filename='CL.plt', append=.true.)

@@ -130,19 +130,19 @@ module topo_ddn
   call rpath(0)%setup_linear(Xp(1)%X, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 SOL
-  call rpath(1)%generate(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
+  call rpath(1)%generateX(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
   call rpath(1)%plot(filename='rpath_1.plt')
   ! 4.2 right outer SOL
-  call rpath(2)%generate(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(1))
+  call rpath(2)%generateX(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(1))
   call rpath(2)%plot(filename='rpath_2.plt')
   ! 4.3 left outer SOL
-  call rpath(3)%generate(2, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(2))
+  call rpath(3)%generateX(2, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(2))
   call rpath(3)%plot(filename='rpath_3.plt')
   ! 4.4 PFR1
-  call rpath(4)%generate(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
+  call rpath(4)%generateX(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
   call rpath(4)%plot(filename='rpath_4.plt')
   ! 4.5 PFR2
-  call rpath(5)%generate(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
+  call rpath(5)%generateX(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
   call rpath(5)%plot(filename='rpath_5.plt')
 
   end subroutine setup_domain
@@ -317,7 +317,7 @@ module topo_ddn
 
   ! 1. right segments
   call divide_SOL2(S(2)%M2, 1.d0,  1, alphaR(1), S(1)%M3%length(), CR%t_curve)
-  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Pmag, Dtheta_sampling, 0.d0, dtheta)
+  call CR(2)%setup_sampling(Xp(1)%X, Xp(2)%X, Pmag, Dtheta_sampling, 0.d0)
   call CR(1)%setup_length_sampling()
 
   ! 1.1 core segment
@@ -343,7 +343,7 @@ module topo_ddn
   ! 2. left segments
   call divide_SOL2(S(2)%M1, 1.d0, -1, alphaL(1), S(1)%M4%length(), CL%t_curve)
   call CL(2)%setup_length_sampling()
-  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Pmag, 0.d0, Dtheta_sampling, pi2-dtheta)
+  call CL(1)%setup_sampling(Xp(2)%X, Xp(1)%X, Pmag, 0.d0, Dtheta_sampling)
 
   ! 2.1 core segment
   do j=0,npL(0)
