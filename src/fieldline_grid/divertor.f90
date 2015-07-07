@@ -151,6 +151,7 @@ module divertor
   integer,                 intent(in)  :: ix1, ix2
 
   real(real64) :: l, alpha, xiR, xiL, eta1, eta2, DthetaR, DthetaL
+  real(real64) :: x(2), thetaR, thetaL
   integer      :: jx1, jx2
 
 
@@ -177,6 +178,17 @@ module divertor
 
   ! split flux surface in main part and divertor segments
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
+
+  ! automatic calculation of Dtheta
+  if (Dtheta_sampling < 0.d0) then
+     x = C0%x(C0%n_seg,:)
+     thetaL = atan2(x(2)-Pmag(2), x(1)-Pmag(1))
+     DthetaL = 2.d0 * (Xp(jx2)%theta - thetaL)
+
+     x = C0%x(0,:)
+     thetaR = atan2(x(2)-Pmag(2), x(1)-Pmag(1))
+     DthetaR = 2.d0 * (thetaR - Xp(jx2)%theta)
+  endif
   call CR%setup_length_sampling()
   call C0%setup_sampling(Xp(jx1)%X, Xp(jx2)%X, Pmag, DthetaR, DthetaL)
   call CL%setup_length_sampling()
