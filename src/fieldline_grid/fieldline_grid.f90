@@ -19,6 +19,12 @@ module fieldline_grid
      TOPO_CDN1   = 'cdn'
 
 
+  ! Discretization type definitions
+  character(len=*), parameter :: &
+     POLOIDAL_ANGLE    = 'poloidal_angle', &
+     ORTHOGONAL        = 'orthogonal'
+
+
   ! zone type definitions
   integer, parameter :: &
      TYPE_SINGLE_LAYER = -1, &
@@ -56,6 +62,7 @@ module fieldline_grid
   character(len=80) :: &
      topology                         = TOPO_SC, &
      Innermost_Flux_Surface           = SF_EXACT, &
+     discretization_method            = POLOIDAL_ANGLE, &
      radial_spacing(0:max_layers-1)   = '', &
      poloidal_spacing(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
@@ -297,7 +304,7 @@ module fieldline_grid
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
      Dtheta_sampling, Dtheta_separatrix, &
-     guiding_surface
+     discretization_method, guiding_surface
 
 
   ! 1. read user configuration from input file

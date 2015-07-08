@@ -110,8 +110,13 @@ module topo_cdn
 
   ! 4. setup paths for discretization in radial direction
   ! 4.0 HPR
-  dx    = get_d_HPR(Xp(1)%X, Pmag)
-  call rpath(0)%setup_linear(Xp(1)%X, dx)
+  select case(discretization_method)
+  case (POLOIDAL_ANGLE)
+     dx    = get_d_HPR(Xp(1)%X, Pmag)
+     call rpath(0)%setup_linear(Xp(1)%X, dx)
+  case (ORTHOGONAL)
+     call rpath(0)%generateX(1, DESCENT_CORE, LIMIT_PSIN, PsiN_in)
+  end select
   call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 right outer SOL
   call rpath(1)%generateX(1, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(1))
@@ -218,7 +223,20 @@ module topo_cdn
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
-     call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp_HPR)
+     select case(discretization_method)
+     case (POLOIDAL_ANGLE)
+        if (Dtheta_separatrix > 0.d0) then
+           write (6, *) 'error: Dtheta_separatrix > 0 not implemented for discretization by poloidal angle!'
+           stop
+        endif
+        call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp_HPR)
+
+     case (ORTHOGONAL)
+        call make_ortho_grid(M_HPR, nr(0), np(0), nr(0), 2+n_interpolate, nr(0)-1, &
+                             0, 1, npR(0)-1, npR(0), 2, rpath(0), Zone(iz0)%Sr, Sp_HPR)
+        call make_ortho_grid(M_HPR, nr(0), np(0), nr(0), 2+n_interpolate, nr(0)-1, &
+                             np(0), npR(0)+1, np(0)-1, npR(0), 2, rpath(0), Zone(iz0)%Sr, Sp_HPR)
+     end select
 
      ! 2.b scrape-off layer (SOL)
      call make_flux_surfaces_SOL(M_SOL1,nr(1), npR(2), npR(0), npR(1), 1, nr(1), rpath(1), 1, 2, Zone(iz0+1)%Sr, Sp1)
@@ -229,7 +247,14 @@ module topo_cdn
      call make_flux_surfaces_PFR(M_PFR2, nr(4), npR(2), npL(2), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
 
      ! 3. interpolated surfaces
-     call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
+     select case(discretization_method)
+     case (POLOIDAL_ANGLE)
+        call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
+
+     case (ORTHOGONAL)
+        call make_interpolated_surfaces_ortho(M_HPR, nr(0), np(0), 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, &
+                                           C_in(iblock,:), DPsiN1(iblock,1))
+     end select
 
 
      ! output
