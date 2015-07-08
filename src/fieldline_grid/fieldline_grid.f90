@@ -89,7 +89,8 @@ module fieldline_grid
      alphaR(2)           =    1.0d0, &     !    (L)eft and (R)ight segments
      etaL(2)             =    0.8d0, &     ! fraction of cells in front of the target
      etaR(2)             =    0.8d0, &     !    (L)eft and (R)ight segments
-     Dtheta_sampling     =    20.d0        ! Transition between angular and length weighted sampling of flux surfaces
+     Dtheta_sampling     =    20.d0, &     ! Transition between angular and length weighted sampling of flux surfaces
+     Dtheta_separatrix   =     0.d0        ! ... same on separatrix
 
 
 
@@ -295,7 +296,7 @@ module fieldline_grid
      n_interpolate, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
-     Dtheta_sampling, &
+     Dtheta_sampling, Dtheta_separatrix, &
      guiding_surface
 
 
@@ -308,7 +309,8 @@ module fieldline_grid
      write (6, *) blocks, ' > ', max_blocks
      stop
   endif
-  Dtheta_sampling = Dtheta_sampling / 180.d0 * pi
+  Dtheta_sampling   = Dtheta_sampling / 180.d0 * pi
+  Dtheta_separatrix = Dtheta_separatrix / 180.d0 * pi
 
 
   ! 2. setup size and position of toroidal blocks

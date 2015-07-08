@@ -76,6 +76,7 @@ module divertor
      write (6, 2001) ix, tmp(1:2)
      write (6, 2002) Xp(ix)%theta/pi*180.d0
   enddo
+  write (6, *)
  2001 format(8x,i0,'. X-point at: ',2f10.4)
  2002 format(11x,'-> poloidal angle [deg]: ',f10.4)
 
@@ -143,7 +144,7 @@ module divertor
   use math
   use flux_surface_2D
   use equilibrium
-  use fieldline_grid, only: Dtheta_sampling, alphaL, alphaR
+  use fieldline_grid, only: Dtheta_sampling, Dtheta_separatrix, alphaL, alphaR
   type(t_flux_surface_2D), intent(in)  :: F
   real(real64),            intent(in)  :: eta
   type(t_curve),           intent(out) :: CL, CR
@@ -179,16 +180,25 @@ module divertor
   ! split flux surface in main part and divertor segments
   call F%split3(xiR, xiL, CR, C0%t_curve, CL)
 
+
   ! automatic calculation of Dtheta
   if (Dtheta_sampling < 0.d0) then
-     x = C0%x(C0%n_seg,:)
-     thetaL = atan2(x(2)-Pmag(2), x(1)-Pmag(1))
+     x       = C0%x(C0%n_seg,:)
+     thetaL  = atan2(x(2)-Pmag(2), x(1)-Pmag(1))
      DthetaL = 2.d0 * (Xp(jx2)%theta - thetaL)
 
-     x = C0%x(0,:)
-     thetaR = atan2(x(2)-Pmag(2), x(1)-Pmag(1))
+     x       = C0%x(0,:)
+     thetaR  = atan2(x(2)-Pmag(2), x(1)-Pmag(1))
      DthetaR = 2.d0 * (thetaR - Xp(jx2)%theta)
   endif
+
+
+  ! set minimum Dtheta to Dtheta_separatrix
+  DthetaR = max(DthetaR, Dtheta_separatrix)
+  DthetaL = max(DthetaL, Dtheta_separatrix)
+
+
+  ! set up segments for sampling
   call CR%setup_length_sampling()
   call C0%setup_sampling(Xp(jx1)%X, Xp(jx2)%X, Pmag, DthetaR, DthetaL)
   call CL%setup_length_sampling()
@@ -246,6 +256,36 @@ module divertor
 
   end subroutine divertor_leg_discretization
   !=====================================================================
+
+
+  !=============================================================================
+  subroutine make_interface_core(F, ix1, ix2, S, np, D)
+  use flux_surface_2D
+  use mesh_spacing
+  use equilibrium
+  use fieldline_grid, only: Dtheta_separatrix
+  use math
+  type(t_flux_surface_2D), intent(in)  :: F
+  integer,                 intent(in)  :: ix1, ix2, np
+  type(t_spacing),         intent(in)  :: S
+  real(real64),            intent(out) :: D(0:np,2)
+
+  real(real64) :: rho, x(2)
+  integer      :: j
+
+
+  call F%setup_sampling(Xp(ix1)%X, Xp(ix2)%X, Pmag, Dtheta_separatrix, Dtheta_separatrix)
+
+  do j=0,np
+     rho = S%node(j,np)
+
+     call F%sample_at(rho, x)
+     D(j,:) = x
+  enddo
+
+  end subroutine make_interface_core
+  !=============================================================================
+
 
 
   !=============================================================================
@@ -331,6 +371,116 @@ module divertor
               i0, ' -> ', i0)
   end subroutine make_interpolated_surfaces
   !=============================================================================
+
+  !=============================================================================
+  ! orthogonal flux surface grid
+  !=============================================================================
+  subroutine make_ortho_grid(M, nr, np, ir0, ir1, ir2, ip0, ip1, ip2, ipx, ix, rpath, Sr, Sp, periodic)
+  use run_control, only: Debug
+  use xpaths
+  use mesh_spacing
+  use equilibrium, only: get_PsiN
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer, intent(in) :: nr, np, ir0, ir1, ir2, ip0, ip1, ip2, ipx, ix
+  type(t_xpath),   intent(in) :: rpath
+  type(t_spacing), intent(in) :: Sr, Sp
+  logical,         intent(in), optional :: periodic
+
+  type(t_xpath) :: R
+  real(real64)  :: x(2), PsiN(0:nr), eta
+  integer       :: ir, ip
+
+
+  ! set up nodes along rpath and radial coordinate PsiN
+  do ir=ir1,ir2
+     eta = 1.d0 - Sr%node(ir-1,nr-1)
+     call rpath%sample_at(eta, x)
+     PsiN(ir) = get_PsiN(x)
+     M(ir,ip0,:) = x
+  enddo
+
+
+  ! set up nodes in poloidal range ip1->ip2
+  do ip=ip1,ip2
+     call R%generate(M(ir0,ip,:), DESCENT_CORE, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
+
+     do ir=ir1,ir2
+        call R%sample_at_PsiN(PsiN(ir), x)
+        M(ir,ip,:) = x
+     enddo
+  enddo
+
+
+  ! set up nodes at poloidal index ix
+  if (ipx >= 0) then
+     call R%generateX(ix, DESCENT_CORE, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
+     do ir=ir1,ir2
+        call R%sample_at_PsiN(PsiN(ir), x)
+        M(ir,ipx,:) = x
+     enddo
+  endif
+
+
+  ! set up periodic boundaries
+  if (present(periodic)  .and.  periodic) then
+     M(:,np,:) = M(:,0,:)
+  endif
+
+  end subroutine make_ortho_grid
+  !=============================================================================
+
+  !=============================================================================
+  ! inner boundaries and interpolated surfaces (2 -> 1+n_interpolate) (high pressure region)
+  !=============================================================================
+  subroutine make_interpolated_surfaces_ortho(M, nr, np, ir2, Sr, Sp, C, PsiN1)
+  use run_control, only: Debug
+  use mesh_spacing
+  use flux_surface_2D
+  use math
+  use equilibrium
+  use xpaths
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer, intent(in) :: nr, np, ir2
+  type(t_spacing), intent(in) :: Sr, Sp
+  type(t_curve), intent(in)   :: C(0:1)
+  real(real64),  intent(in)   :: PsiN1
+
+  type(t_xpath) :: R
+  real(real64)  :: eta, xi, x(2), x1(2), x2(2), theta
+  integer       :: i, ir1, j
+
+
+  ir1 = 1
+  write (6, 1001) ir1+1, ir2-1
+  do j=0,np
+     write (6, *) j
+     x = M(ir2,j,:)
+     write (97, *) x
+     call R%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1, C_limit=C(1), sampling=SAMPLE_LENGTH)
+
+     ! interpolated surfaces
+     do i=ir1,ir2-1
+        eta = 1.d0 - Sr%node(i-1, nr-1) / Sr%node(ir2-1, nr-1)
+        call R%sample_at(eta, x)
+
+        M(i,j,:) = x
+        write (97, *) x
+     enddo
+
+     ! innermost surface
+     theta = atan2(M(ir1,j,2)-Pmag(2), M(ir1,j,1)-Pmag(1)) - Xp(1)%theta
+     xi    = theta / pi2; if (xi < 0.d0) xi = xi + 1.d0
+     call C(0)%sample_at(xi, x)
+     M(0, j, :) = x
+  enddo
+
+ 1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
+              i0, ' -> ', i0)
+  end subroutine make_interpolated_surfaces_ortho
+  !=============================================================================
+
 
   !=============================================================================
   ! scrape-off layer
