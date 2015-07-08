@@ -19,14 +19,12 @@ module inner_boundary
   subroutine load_inner_boundaries (theta0)
   use equilibrium
   use math
-  use dataset
   use run_control, only: Debug
   real(real64), intent(in), optional :: theta0
 
-  type(t_dataset)   :: Dtmp
   character(len=72) :: filename
   real(real64)     :: d(2), phi, r3(3), Pmag(2), delta, PsiN_x
-  integer          :: i, iblock, sort_method
+  integer          :: i, iblock, n, sort_method
 
 
   write (6, 1000)
@@ -71,18 +69,18 @@ module inner_boundary
      enddo
 
      ! calculate mean and variance of PsiN on (perturbed) flux surface
-     call Dtmp%load(filename,4,output=SILENT)
-     do i=1,Dtmp%nrow
-        PsiN_x            = Dtmp%x(i,4)
+     n = C_in(iblock,1)%n_seg
+     do i=1,n
+        PsiN_x            = get_PsiN(C_in(iblock,1)%x(i,:))
         delta             = PsiN_x - PsiN1(iblock)
         PsiN1(iblock)     = PsiN1(iblock) + delta/i
         DPsiN1(iblock, 0) = DPsiN1(iblock,0) + delta*(PsiN_x - PsiN1(iblock))
         DPsiN1(iblock,-1) = min(DPsiN1(iblock,-1), PsiN_x)
         DPsiN1(iblock, 1) = max(DPsiN1(iblock, 1), PsiN_x)
 
-        PsiN_in           = PsiN_in + PsiN_x / Dtmp%nrow
+        PsiN_in           = PsiN_in + PsiN_x / n
      enddo
-     DPsiN1(iblock,0) = sqrt(DPsiN1(iblock,0) / (Dtmp%nrow - 1.d0))
+     DPsiN1(iblock,0) = sqrt(DPsiN1(iblock,0) / (n - 1.d0))
      write (6, 1002), iblock, PsiN1(iblock), DPsiN1(iblock,0), DPsiN1(iblock,-1), DPsiN1(iblock,1)
   enddo
 
