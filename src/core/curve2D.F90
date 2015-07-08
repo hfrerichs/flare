@@ -78,6 +78,7 @@ module curve2D
 
 
   public :: intersect_curve, make_2D_curve, connect
+  public :: SILENT, VERBOSE
 
   contains
 !=======================================================================
@@ -241,17 +242,18 @@ module curve2D
 ! intersect_mode = 0: check for intersection with segment x1->x2 only (default)
 !                  1: check for intersection also beyond x2
 !                 -1: check for intersection along the full line defined by x1->x2
+! is_start:           start search for intersection at this segment
 !===============================================================================
-  function intersect_curve (x1, x2, C, xh, th, sh, ish, intersect_mode)
+  function intersect_curve (x1, x2, C, xh, th, sh, ish, intersect_mode, is_start)
   real(real64),  intent(in)            :: x1(2), x2(2)
   type(t_curve), intent(in)            :: C
   real(real64),  intent(out), optional :: xh(2), th, sh
   integer,       intent(out), optional :: ish
-  integer,       intent(in ), optional :: intersect_mode
+  integer,       intent(in ), optional :: intersect_mode, is_start
   logical                              :: intersect_curve
 
   real(real64) :: t, s, xl1(2), xl2(2), xh0(2), th0
-  integer      :: is, mode
+  integer      :: i, is, is0, mode
 
 
   intersect_curve = .false.
@@ -262,9 +264,13 @@ module curve2D
   mode = 0
   if (present(intersect_mode)) mode = intersect_mode
 
-  do is=1,C%n_seg
-     xl1 = C%x(is-1,:)
-     xl2 = C%x(is  ,:)
+  is0  = 0
+  if (present(is_start)) is0 = is_start
+
+  do i=0,C%n_seg-1
+     is  = mod(i + is0, C%n_seg)
+     xl1 = C%x(is  ,:)
+     xl2 = C%x(is+1,:)
      if (intersect_lines(x1,x2,xl1,xl2,t,s,xh0)) then
         ! intersection with actual segment on curve
         if (s.ge.0.d0 .and. s.le.1.d0) then
@@ -286,7 +292,7 @@ module curve2D
                  sh = s
               endif
               if (present(ish)) then
-                 ish = is
+                 ish = is+1
               endif
               endif
            endif
