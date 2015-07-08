@@ -204,7 +204,7 @@ module xpaths
 
      ! 2. curve length given
      case(LIMIT_LENGTH)
-        t = (limit_val - L - abs(ds)) / abs(ds)
+        t = (limit_val - L + abs(ds)) / abs(ds)
         if (L >= limit_val) exit
 
      ! 3. limiting contour given, but at least to PsiN=limit_val
