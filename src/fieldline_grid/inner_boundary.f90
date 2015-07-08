@@ -6,6 +6,8 @@ module inner_boundary
 
   type(t_curve), dimension(:,:), allocatable :: C_in
 
+  real(real64) :: PsiN_in
+
 
   contains
   !=====================================================================
@@ -35,6 +37,7 @@ module inner_boundary
 
 
   allocate (C_in(0:blocks-1,0:1))
+  PsiN_in = 0.d0
   do iblock=0,blocks-1
      phi  = Block(iblock)%phi_base / 180.d0 * pi
      r3   = get_magnetic_axis(phi)
@@ -48,6 +51,10 @@ module inner_boundary
            write (filename, 1001) i, iblock
            call C_in(iblock,i)%plot(filename=filename)
         endif
+     enddo
+
+     do i=0,C_in(iblock,1)%n_seg-1
+        PsiN_in = PsiN_in + get_PsiN(C_in(iblock,1)%x(i,:)) / C_in(iblock,1)%n_seg
      enddo
   enddo
 
