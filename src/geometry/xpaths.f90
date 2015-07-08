@@ -18,6 +18,7 @@ module xpaths
   integer, parameter, public :: &
      LIMIT_PSIN    = 1, &
      LIMIT_LENGTH  = 2, &
+     LIMIT_CURVE   = 3, &
      SAMPLE_PSIN   = 1, &
      SAMPLE_LENGTH = 2
 
@@ -103,15 +104,16 @@ module xpaths
 ! direction = 1,2: ascent PsiN
 !           = 3,4: descent PsiN
 !=======================================================================
-  subroutine generate(this, xinit, direction, limit_type, limit_val, x0, sampling)
+  subroutine generate(this, xinit, direction, limit_type, limit_val, x0, sampling, C_limit)
   use ode_solver
   use equilibrium
   use run_control, only: Trace_Method, N_steps
   class(t_xpath)           :: this
-  real(real64), intent(in) :: xinit(2), limit_val
-  integer,      intent(in) :: direction, limit_type
-  real(real64), intent(in), optional :: x0(2)
-  integer,      intent(in), optional :: sampling
+  real(real64),  intent(in) :: xinit(2), limit_val
+  integer,       intent(in) :: direction, limit_type
+  real(real64),  intent(in), optional :: x0(2)
+  integer,       intent(in), optional :: sampling
+  type(t_curve), intent(in), optional :: C_limit
 
   integer, parameter :: n_tmp0 = 1000
 
@@ -122,13 +124,22 @@ module xpaths
 
 
   ! 0. check input
-  if (limit_type .ne. LIMIT_PSIN  .and. &
-      limit_type .ne. LIMIT_LENGTH) then
+  select case(limit_type)
+  case(LIMIT_PSIN,LIMIT_LENGTH)
+
+  case(LIMIT_CURVE)
+     if (.not.present(C_limit)) then
+        write (6, *) 'error in subroutine t_xpath%generate:'
+        write (6, *) 'C_limit must be set for limit_type = LIMIT_CURVE!'
+        stop
+     endif
+
+  case default
      write (6, *) 'error in subroutine t_xpath%generate:'
-     write (6, *) 'limit must be either LIMIT_PSIN or LIMIT_LENGTH!'
+     write (6, *) 'limit must be either LIMIT_PSIN, LIMIT_LENGTH or LIMIT_CURVE!'
      write (6, *) 'limit_type = ', limit_type
      stop
-  endif
+  end select
 
 
   ! 1. initialize
@@ -195,6 +206,12 @@ module xpaths
      case(LIMIT_LENGTH)
         t = (limit_val - L - abs(ds)) / abs(ds)
         if (L >= limit_val) exit
+
+     ! 3. limiting contour given, but at least to PsiN=limit_val
+     case(LIMIT_CURVE)
+        if ((limit_val - tmp(i,3))*(limit_val - tmp(1,3)) < 0.d0) then
+           if (intersect_curve(tmp(i-1,1:2), tmp(i,1:2), C_limit, th=t)) exit
+        endif
 
      end select
   enddo
