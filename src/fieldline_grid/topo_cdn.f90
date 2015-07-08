@@ -251,37 +251,27 @@ module topo_cdn
 
   integer, intent(in)     :: iz0
 
-  type(t_flux_surface_2D) :: CR(2), CL(2)
-  type(t_curve)           :: SL0, SR0
-  real(real64) :: DL1(0:npL(1), 2), DR1(0:npR(1), 2), DL2(0:npL(2), 2), DR2(0:npR(2), 2)
+  type(t_flux_surface_2D) :: SL0, SR0, CR(2), CL(2)
+  real(real64) :: DL0(0:npL(0), 2), DR0(0:npR(0), 2), &
+                  DL1(0:npL(1), 2), DR1(0:npR(1), 2), DL2(0:npL(2), 2), DR2(0:npR(2), 2)
   real(real64) :: x(2), xi, xiR, xiL
   integer :: j
 
 
   ! 1. right core segment
-  SR0 = connect(S(1)%M1%t_curve, S(2)%M2%t_curve)
+  SR0%t_curve = connect(S(1)%M1%t_curve, S(2)%M2%t_curve)
   call SR0%plot(filename='SR0.plt')
-  call SR0%setup_angular_sampling(Pmag)
-  do j=0,npR(0)
-     xi = Sp1%node(j,npR(0))
-
-     call SR0%sample_at(xi, x)
-     M_HPR (nr(0),          j, :) = x
-     M_SOL1(   0 , npR(1) + j, :) = x
-  enddo
+  call make_interface_core(SR0, 1, 2, Sp1, npR(0), DR0)
+  M_HPR (nr(0),     0 :       npR(0), :) = DR0
+  M_SOL1(   0 , npR(1):npR(1)+npR(0), :) = DR0
 
 
   ! 2. left core segment
-  SL0 = connect(S(2)%M1%t_curve, S(1)%M2%t_curve)
+  SL0%t_curve = connect(S(2)%M1%t_curve, S(1)%M2%t_curve)
   call SL0%plot(filename='SL0.plt')
-  call SL0%setup_angular_sampling(Pmag)
-  do j=0,npL(0)
-     xi = Sp2%node(j,npL(0))
-
-     call SL0%sample_at(xi, x)
-     M_HPR (nr(0), npR(0) + j, :) = x
-     M_SOL2(   0 , npL(2) + j, :) = x
-  enddo
+  call make_interface_core(SL0, 2, 1, Sp2, npL(0), DL0)
+  M_HPR (nr(0), npR(0):npR(0)+npL(0), :) = DL0
+  M_SOL2(   0 , npL(2):npL(2)+npL(0), :) = DL0
 
 
   ! 3. lower divertor
