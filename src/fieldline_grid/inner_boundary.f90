@@ -6,6 +6,8 @@ module inner_boundary
 
   type(t_curve), dimension(:,:), allocatable :: C_in
 
+  real(real64), dimension(:,:), allocatable :: DPsiN1
+  real(real64), dimension(:),   allocatable :: PsiN1
   real(real64) :: PsiN_in
 
 
@@ -17,13 +19,18 @@ module inner_boundary
   subroutine load_inner_boundaries (theta0)
   use equilibrium
   use math
+  use dataset
   use run_control, only: Debug
   real(real64), intent(in), optional :: theta0
 
+  type(t_dataset)   :: Dtmp
   character(len=72) :: filename
-  real(real64)     :: d(2), phi, r3(3), Pmag(2)
+  real(real64)     :: d(2), phi, r3(3), Pmag(2), delta, PsiN_x
   integer          :: i, iblock, sort_method
 
+
+  write (6, 1000)
+  write (6, 1001)
 
   ! set reference direction
   d(1) = 1.d0
@@ -37,29 +44,54 @@ module inner_boundary
 
 
   allocate (C_in(0:blocks-1,0:1))
-  PsiN_in = 0.d0
+  allocate (PsiN1(0:blocks-1), DPsiN1(0:blocks-1,-1:1))
+  PsiN_in       = 0.d0
+  PsiN1         = 0.d0
+  DPsiN1        = 0.d0
+  DPsiN1(:,-1)  = 1.d0
   do iblock=0,blocks-1
      phi  = Block(iblock)%phi_base / 180.d0 * pi
      r3   = get_magnetic_axis(phi)
      Pmag = r3(1:2)
 
+     ! read boundary data from file and set up flux surface
      do i=0,1
-        write (filename, 1000) i, iblock
-        call C_in(iblock,i)%load(filename)
+        write (filename, 2000) i, iblock
+        call C_in(iblock,i)%load(filename,output=SILENT)
+        if (C_in(iblock,i)%n_seg <= 0) then
+           write (6, 9000) iblock, i
+           stop
+        endif
+
         call C_in(iblock,i)%sort_loop(Pmag, d, sort_method)
         if (Debug) then
-           write (filename, 1001) i, iblock
+           write (filename, 2001) i, iblock
            call C_in(iblock,i)%plot(filename=filename)
         endif
      enddo
 
-     do i=0,C_in(iblock,1)%n_seg-1
-        PsiN_in = PsiN_in + get_PsiN(C_in(iblock,1)%x(i,:)) / C_in(iblock,1)%n_seg
+     ! calculate mean and variance of PsiN on (perturbed) flux surface
+     call Dtmp%load(filename,4,output=SILENT)
+     do i=1,Dtmp%nrow
+        PsiN_x            = Dtmp%x(i,4)
+        delta             = PsiN_x - PsiN1(iblock)
+        PsiN1(iblock)     = PsiN1(iblock) + delta/i
+        DPsiN1(iblock, 0) = DPsiN1(iblock,0) + delta*(PsiN_x - PsiN1(iblock))
+        DPsiN1(iblock,-1) = min(DPsiN1(iblock,-1), PsiN_x)
+        DPsiN1(iblock, 1) = max(DPsiN1(iblock, 1), PsiN_x)
+
+        PsiN_in           = PsiN_in + PsiN_x / Dtmp%nrow
      enddo
+     DPsiN1(iblock,0) = sqrt(DPsiN1(iblock,0) / (Dtmp%nrow - 1.d0))
+     write (6, 1002), iblock, PsiN1(iblock), DPsiN1(iblock,0), DPsiN1(iblock,-1), DPsiN1(iblock,1)
   enddo
 
- 1000 format ('fsin',i0,'_',i0,'.txt')
- 1001 format ('fsin',i0,'_',i0,'.plt')
+ 1000 format (3x,'- Inner simulation boundaries:')
+ 1001 format (8x,'Block   PsiN_mean                Min(PsiN)   Max(PsiN)')
+ 1002 format (8x,i4,4x,f8.6,' +/- ',f8.6,2(4x,f8.6))
+ 2000 format ('fsin',i0,'_',i0,'.txt')
+ 2001 format ('fsin',i0,'_',i0,'.plt')
+ 9000 format ('error: boundary ',i0,' in block ',i0,' undefined!')
   end subroutine load_inner_boundaries
   !=====================================================================
 
