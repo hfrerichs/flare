@@ -1054,6 +1054,9 @@ module equilibrium
 
 
 !=======================================================================
+! ierr = 0: successfull
+!        1: eigenvalues are non-real
+!=======================================================================
   subroutine analysis(this, lambda1, lambda2, v1, v2, ierr)
   use math
   use run_control, only: Debug
@@ -1079,7 +1082,9 @@ module equilibrium
         write (6, *) A(2,1), A(2,2)
         write (6, *) 'P, Q = ', P, Q
      endif
-     ierr = 1
+     lambda1 = P
+     lambda2 = Q
+     ierr    = 1
      return
   endif
   lambda1 = P + sqrt(Q)
