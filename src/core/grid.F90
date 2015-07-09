@@ -31,6 +31,7 @@ module grid
   ! local coordinates
   integer, public, parameter :: &
      LOCAL      = 0
+  public :: CYLINDRICAL, CARTESIAN
 
   ! grid layout
   integer, public, parameter :: &
@@ -38,6 +39,13 @@ module grid
      SEMI_STRUCTURED = 2, &
      STRUCTURED      = 3, &
      MESH_2D         = 4
+
+  ! 2D vs. 3D grids
+  integer, public, parameter :: &
+     FIXED_COORD1    = 1, &
+     FIXED_COORD2    = 2, &
+     FIXED_COORD3    = 3, &
+     DEFAULT_GRID    = 0
 
 
   type, public :: t_grid
@@ -59,6 +67,7 @@ module grid
      procedure :: new
      procedure :: load
      procedure :: setup_mesh
+     procedure :: setup_structured_grid
      procedure :: store
      procedure :: destroy
      procedure :: plot_mesh
@@ -102,6 +111,8 @@ module grid
   if (present(n3)) then
      this%n3     = n3
      this%n      = this%n * n3
+  else
+     this%n3     = 1
   endif
 
 
@@ -293,6 +304,7 @@ module grid
      else
         n3 = 1
         call rscrape (iu, x0)
+        this%fixed_coord_value = x0
      endif
 
      call this%new(coordinates, layout, fixed_coord, n1, n2, n3)
@@ -315,20 +327,7 @@ module grid
      endif
 
      ! distribute to main grid
-     do i=1,n1
-     do j=1,n2
-     do k=1,n3
-        ig = (k-1)*n1*n2  +  (j-1)*n1  +  i
-        this%x(ig, this%coord1)         = this%x1(i)
-        this%x(ig, this%coord2)         = this%x2(j)
-        if (fixed_coord == 0) then
-           this%x(ig, 3)           = this%x3(k)
-        else
-           this%x(ig, fixed_coord) = x0
-        endif
-     enddo
-     enddo
-     enddo
+     call this%setup_structured_grid()
 
   !.....................................................................
   ! 3.4. unstructured mesh, n1*n2: total number of grid nodes
@@ -454,6 +453,34 @@ module grid
 
 
 !=======================================================================
+  subroutine setup_structured_grid(this)
+  class(t_grid)                 :: this
+
+  integer :: i, j, k, ig
+
+
+  ! distribute to main grid
+  do i=1,this%n1
+  do j=1,this%n2
+  do k=1,this%n3
+     ig = (k-1)*this%n1*this%n2  +  (j-1)*this%n1  +  i
+     this%x(ig, this%coord1)         = this%x1(i)
+     this%x(ig, this%coord2)         = this%x2(j)
+     if (this%fixed_coord == 0) then
+        this%x(ig, 3)                = this%x3(k)
+     else
+        this%x(ig, this%fixed_coord) = this%fixed_coord_value
+     endif
+  enddo
+  enddo
+  enddo
+
+  end subroutine setup_structured_grid
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine setup_mesh(this)
   class(t_grid)                 :: this
 
@@ -560,6 +587,34 @@ module grid
         write (iu, 3002) xout((j-1)*this%n1+1, this%fixed_coord)
      enddo
 
+  ! 3. structured grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
+  elseif (layout == STRUCTURED) then
+     ! header
+     write (iu, 2003) this%n1
+     write (iu, 2004) this%n2
+     if (this%fixed_coord == 0) then
+        write (iu, 2005) this%n3
+     else
+        write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
+     endif
+
+     ! body
+     do i=1,this%n1
+        write (iu, 3002) this%x1(i)
+     enddo
+     do i=1,this%n2
+        write (iu, 3002) this%x2(i)
+     enddo
+     if (this%fixed_coord == 0) then
+        do i=1,this%n3
+           if (this%coordinates == CYLINDRICAL) then
+              write (iu, 3002) this%x3(i) / pi * 180.d0
+           else
+              write (iu, 3002) this%x3(i)
+           endif
+        enddo
+     endif
+
   ! 4 unstructured meshs, one coordinate fixed
   elseif (layout == MESH_2D  .and.  this%fixed_coord > 0) then
      write (iu, 2003) this%n1
@@ -586,6 +641,7 @@ module grid
  2002 format ('# ',a12,' =                ',f10.5)
  2003 format ('# grid resolution:   n1      =  ',i10)
  2004 format ('#                    n2      =  ',i10)
+ 2005 format ('#                    n3      =  ',i10)
  3001 format (1e18.10)
  3002 format (2e18.10)
  3003 format (3e18.10)
