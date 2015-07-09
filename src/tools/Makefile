@@ -23,7 +23,8 @@ OBJECTS =  \
                separatrix_manifolds.o\
                generate_flux_tube.o\
                FLR_analysis.o\
-               melnikov_function.o
+               melnikov_function.o\
+               critical_point_analysis.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR) -I ../$(GRIDGEN_DIR)
