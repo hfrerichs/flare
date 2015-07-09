@@ -146,6 +146,9 @@ module fieldline_grid
      ! connectivity between zones (surface types = periodic, mapping, ...)
      integer :: isfr(2), isfp(2), isft(2)
 
+     ! zone type information
+     integer :: itypeR, itypeP
+
      ! surface indices for plasma transport range
      integer :: r_surf_pl_trans_range(2), p_surf_pl_trans_range(2)
 
@@ -210,7 +213,9 @@ module fieldline_grid
   this%N0_file = N0_file(ilayer)
 
 
-  ! 4. boundaries
+  ! 4. boundaries and zone type
+  this%itypeR = itypeR
+  this%itypeP = itypeP
   call setup_boundaries()
 
   contains

@@ -10,6 +10,7 @@ OBJECTS =  \
                topo_lsn.o\
                topo_ddn.o\
                topo_cdn.o\
+               base_grid.o\
                vacuum_domain.o\
                trace_nodes.o\
                check.o
