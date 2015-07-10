@@ -50,7 +50,7 @@ subroutine field_line_loss
      if (firstP) write (6, *) y(2)
 
      r    = get_cylindrical_coordinates (y, ierr)
-     call S2D%generate(r(1:2))
+     call S2D%generate_closed(r(1:2), RIGHT_HANDED)
      call S3D%generate_from_axisymmetric_surface(S2D, N_sym, N_phi, N_theta)
   
      call field_line_loss_from_surface(S3D)

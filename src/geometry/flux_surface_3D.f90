@@ -29,7 +29,7 @@ module flux_surface_3D
      type (t_interpolate3D) :: distance
 
      contains
-     procedure :: new, load, generate, plot
+     procedure :: new, load, generate, plot, destroy
      procedure :: generate_from_axisymmetric_surface
      procedure :: get_distance_to
      procedure :: load_distance_to
@@ -51,6 +51,7 @@ module flux_surface_3D
   integer :: i
 
 
+  call this%destroy()
   this%n_sym = n_sym
   this%n_phi = n_phi
   allocate (this%slice(0:n_phi-1))
@@ -225,6 +226,29 @@ module flux_surface_3D
  1001 format('# ',f10.5)
  1002 format('# phi = ',f10.5)
   end subroutine plot
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine destroy(this)
+  class(t_flux_surface_3D) :: this
+
+  integer :: i, n1, n2
+
+
+  if (allocated(this%slice)) then
+     n1 = lbound(this%slice, 1)
+     n2 = ubound(this%slice, 1)
+     do i=n1,n2
+        call this%slice(i)%destroy()
+     enddo
+     deallocate(this%slice)
+  endif
+
+  !call this%distance%destroy()
+
+  end subroutine destroy
 !=======================================================================
 
 
