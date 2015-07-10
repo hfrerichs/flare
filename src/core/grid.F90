@@ -91,6 +91,8 @@ module grid
 
   this%coordinates = coordinates
   this%n1          = n1
+  this%n2          = 1
+  this%n3          = 1
   this%n           = n1
   this%layout      = layout
   this%fixed_coord = fixed_coord
@@ -111,8 +113,6 @@ module grid
   if (present(n3)) then
      this%n3     = n3
      this%n      = this%n * n3
-  else
-     this%n3     = 1
   endif
 
 
