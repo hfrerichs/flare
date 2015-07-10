@@ -1400,7 +1400,7 @@ module curve2D
   n_seg  = this%n_seg
   do i=1,n-1
      isplit(i) = binary_interval_search(0, n_seg, this%w, xi(i), ierr)
-     tsplit(i) = (this%w(isplit(i)+1) - xi(i)) / (this%w(isplit(i)+1) - this%w(isplit(i)))
+     tsplit(i) = (xi(i) - this%w(isplit(i))) / (this%w(isplit(i)+1) - this%w(isplit(i)))
   enddo
 
 
@@ -1429,13 +1429,24 @@ module curve2D
   isplit1(0)     = 0
   isplit1(1:n-1) = isplit
   isplit1(n)     = this%n_seg-1
-  tsplit1(0)     = 1.d0
+  tsplit1(0)     = 0.d0
   tsplit1(1:n-1) = tsplit
-  tsplit1(n)     = 0.d0
+  tsplit1(n)     = 1.d0
 
   do i=1,n
      iA     = isplit1(i-1)
      iB     = isplit1(i)
+
+     ! check input
+     if (iA < 0  .or.  iA >= this%n_seg) then
+        write (6, *) 'error in t_curve2D%splitnseg: invalid segment number!'
+        write (6, *) 'isplit(', i-1, ') = ', iA
+     endif
+     if (iB < 0  .or.  iB >= this%n_seg) then
+        write (6, *) 'error in t_curve2D%splitnseg: invalid segment number!'
+        write (6, *) 'isplit(', i, ') = ', iB
+     endif
+
      m      = iB - iA + 1
      call C(i)%new(m)
      C(i)%x = this%x(iA:iB+1,:)
@@ -1443,8 +1454,8 @@ module curve2D
      ! adapt first and last node
      tA     = tsplit1(i-1)
      tB     = tsplit1(i)
-     C(i)%x(0,:) = this%x(iA,:) * tA + this%x(iA+1,:) * (1.d0 - tA)
-     C(i)%x(m,:) = this%x(iB,:) * tB + this%x(iB+1,:) * (1.d0 - tB)
+     C(i)%x(0,:) = this%x(iA,:) * (1.d0-tA) + this%x(iA+1,:) * tA
+     C(i)%x(m,:) = this%x(iB,:) * (1.d0-tB) + this%x(iB+1,:) * tB
   enddo
 
   end subroutine splitnseg
