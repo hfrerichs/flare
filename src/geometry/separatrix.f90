@@ -203,7 +203,7 @@ module separatrix
   character(len=*), intent(in) :: filename_prefix
   logical,          intent(in), optional :: parts
 
-  integer, parameter :: iu = 99
+  integer, parameter :: iu = 50
 
   character(len=120) :: filename
 

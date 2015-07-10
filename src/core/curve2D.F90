@@ -426,7 +426,7 @@ module curve2D
 
 
   ! set default unit number for output
-  iu0 = 99
+  iu0 = 50
 
   ! Unit number given for output?
   if (present(iu)) iu0 = iu
