@@ -79,7 +79,7 @@ module base_grid
 
   type(t_spacing) :: Sp
   real(real64) :: phi
-  integer      :: iblock, iz0, iz, il, ix1, ix2, i
+  integer      :: iblock, iz0, iz, il, ix1, ix2, i, iseg, iSOL, iPFR
 
 
   write (6, 1000)
@@ -145,6 +145,7 @@ module base_grid
      do i=0,interfaces-1
         M1 => G(iblock, interface_radial(i)%iz(1))%mesh
         M2 => G(iblock, interface_radial(i)%iz(2))%mesh
+        ! Sp = ...
         call make_interface(interface_radial(i), Sp, M1, M2)
      enddo
      write (6, *)
@@ -155,6 +156,7 @@ module base_grid
      write (6, 2002)
      write (6, 2003)
      iz = iz0
+     iseg = 0
      ! start at X-point 1
      ix1 = 1
      ix2 = connectX(ix1)
@@ -176,6 +178,8 @@ module base_grid
 
         ! do stuff...
         !write (6, *) 'do stuff ', ix1, ix2
+        iseg = iseg + 1
+        call Sp%init(poloidal_spacing(iseg))
 
 
         ! are we back at 1st X-point?
@@ -192,12 +196,18 @@ module base_grid
 
 
      ! 2.2 scrape-off layer and private flux region
+     iSOL = 0
+     iPFR = 0
+     ! SP0 = connect Sp 1-> iseg
      do il=1,layers-1
         iz = iz0 + il
         select case(Zone(iz)%itypeR)
         case(TYPE_SOL)
+           iSOL = iSOL + 1
         case(TYPE_SOLMAP)
+           iSOL = iSOL + 1
         case(TYPE_PFR)
+           iPFR = iPFR + 1
         end select
      enddo
 
