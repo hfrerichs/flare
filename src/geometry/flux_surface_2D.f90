@@ -64,8 +64,8 @@ module flux_surface_2D
   if (present(Trace_Step)) then
      ds = Trace_Step
   else
-     ! TODO: get PsiN from equilibrium and use small trace step close to the separatrix
-     ds = length_scale() / 800.d0
+     ! set small trace step close to the separatrix
+     ds = length_scale() * min(1.d-3, abs(1.d0-get_PsiN(r)))
   endif
 
 
