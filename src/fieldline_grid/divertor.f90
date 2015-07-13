@@ -650,13 +650,13 @@ module divertor
   do i=R_SURF_PL_TRANS_RANGE(1,IZ)+1,R_SURF_PL_TRANS_RANGE(2,IZ)
      ig   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
      w(i) = w(i-1) + sqrt((ZG(ig)-ZG(ig-1))**2 + (RG(ig)-RG(ig-1))**2)
-     write (98, *) RG(ig-1), ZG(ig-1)
-     write (98, *) RG(ig), ZG(ig)
+     !write (98, *) RG(ig-1), ZG(ig-1)
+     !write (98, *) RG(ig), ZG(ig)
   enddo
   w = w / w(R_SURF_PL_TRANS_RANGE(2,IZ))
-  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
-     write (6, *) w(i)
-  enddo
+!  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
+!     write (6, *) w(i)
+!  enddo
 
   i  = R_SURF_PL_TRANS_RANGE(1,IZ)
   ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
