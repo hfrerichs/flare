@@ -593,12 +593,19 @@ module divertor
 !=======================================================================
   subroutine close_grid_domain(iz)
   use equilibrium
+  use fieldline_grid, only: Zone
 
   integer, intent(in) :: iz
 
+  real(real64), parameter :: d_extend = 2.d0
+
+  real(real64), dimension(:), allocatable :: w
+  real(real64) :: R1, Z1, R2, Z2
   integer :: j0(-1:1), i, j, k, ig, ig0
 
 
+  P_SURF_PL_TRANS_RANGE(1,iz) = 1
+  P_SURF_PL_TRANS_RANGE(2,iz) = ZON_POLO(iz)-1
   j0(-1) = 0
   j0( 1) = SRF_POLO(iz)-1
 
@@ -630,7 +637,70 @@ module divertor
      enddo
   enddo
 
+
+
+
+
+  ! 2nd adjustment
+  ! lower boundary
+  allocate (w(R_SURF_PL_TRANS_RANGE(1,IZ):R_SURF_PL_TRANS_RANGE(2,IZ)))
+  j = 0
+  k = 0
+  w = 0.d0
+  do i=R_SURF_PL_TRANS_RANGE(1,IZ)+1,R_SURF_PL_TRANS_RANGE(2,IZ)
+     ig   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     w(i) = w(i-1) + sqrt((ZG(ig)-ZG(ig-1))**2 + (RG(ig)-RG(ig-1))**2)
+     write (98, *) RG(ig-1), ZG(ig-1)
+     write (98, *) RG(ig), ZG(ig)
+  enddo
+  w = w / w(R_SURF_PL_TRANS_RANGE(2,IZ))
+  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
+     write (6, *) w(i)
+  enddo
+
+  i  = R_SURF_PL_TRANS_RANGE(1,IZ)
+  ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+  call move_node(iz,i,j,k,0,1,0,d_extend)
+  R1 = RG(ig); Z1 = ZG(ig)
+  i  = R_SURF_PL_TRANS_RANGE(2,IZ)
+  ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+  call move_node(iz,i,j,k,0,1,0,d_extend)
+  R2 = RG(ig); Z2 = ZG(ig)
+
+
+  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
+     do k=0,SRF_TORO(iz)-1
+        ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+        RG(ig) = R1 + w(i) * (R2-R1)
+        ZG(ig) = Z1 + w(i) * (Z2-Z1)
+     enddo
+  enddo
+
+  deallocate(w)
+
   end subroutine close_grid_domain
+!=======================================================================
+!=======================================================================
+  subroutine move_node(iz,ir,ip,it,irdir,ipdir,itdir,d)
+  use emc3_grid
+  integer,      intent(in) :: iz, ir, ip, it, irdir, ipdir, itdir
+  real(real64), intent(in) :: d
+
+  real(real64) :: v(2)
+  integer      :: ig, ig1
+
+
+  ig     = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+  ig1    = ir+irdir + (ip+ipdir + (it+itdir)*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+
+  v(1)   = RG(ig) - RG(ig1)
+  v(2)   = ZG(ig) - ZG(ig1)
+  v      = v / sqrt(sum(v**2))
+
+  RG(ig) = RG(ig) + d*v(1)
+  ZG(ig) = ZG(ig) + d*v(2)
+
+  end subroutine move_node
 !=======================================================================
 
 end module divertor
