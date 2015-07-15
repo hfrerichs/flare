@@ -107,6 +107,10 @@ subroutine get_equi_info_2D
   close (iu)
 
 
+  ! equilibrium type specific information
+  if (associated(equilibrium_info)) call equilibrium_info()
+
+
  9001 format (3x,'- Magnetic axis is at: ',2f10.3)
  1000 format ('# grid_id = 233     (regular RZ grid)')
  1001 format ('# R resolution:      n_R     =  ',i8)

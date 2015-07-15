@@ -46,7 +46,8 @@
      6    geqdsk_get_DPsi,
      7    geqdsk_get_domain,
      8    geqdsk_provides_boundary,
-     9    geqdsk_export_boundary
+     9    geqdsk_export_boundary,
+     .    geqdsk_info
 !     a    sample_psi1_EQDSK, get_D1Psi_geqdsk,
 !     b    sample_psi2_EQDSK, get_D2Psi_geqdsk,
 !     4    equi_info_EQDSK, get_equi_domain_EQDSK, magnetic_axis_geqdsk,
@@ -606,6 +607,21 @@ c-------------------------------------------------------------------------------
       return
  1000 format (5e16.8)
       end subroutine jt_profile
+c-------------------------------------------------------------------------------
+
+
+
+c-------------------------------------------------------------------------------
+      subroutine geqdsk_info()
+
+      integer :: i
+      open  (99, file='q.dat')
+      do i=1,nR
+          write (99, *) (i-1.d0) / (nR-1.d0), qpsi(i)
+      enddo
+      close (99)
+
+      end subroutine geqdsk_info
 c-------------------------------------------------------------------------------
 
       end module geqdsk

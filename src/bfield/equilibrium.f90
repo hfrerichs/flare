@@ -146,6 +146,7 @@ module equilibrium
 
   ! Broadcast data for parallel execution
   procedure(), pointer :: broadcast_equilibrium
+  procedure(), pointer :: equilibrium_info
 !...............................................................................
 
 
@@ -198,7 +199,8 @@ module equilibrium
 
 
 ! set default values
-  export_boundary => null()
+  export_boundary  => null()
+  equilibrium_info => null()
 
 
 ! 2. load equilibrium data (if provided) ...............................
@@ -370,6 +372,7 @@ module equilibrium
      equilibrium_provides_boundary => geqdsk_provides_boundary
      export_boundary               => geqdsk_export_boundary
      broadcast_equilibrium         => geqdsk_broadcast
+     equilibrium_info              => geqdsk_info
   case (EQ_DIVAMHD)
      get_Bf_eq2D                   => divamhd_get_Bf
      get_Psi                       => divamhd_get_Psi
