@@ -12,7 +12,8 @@ module equilibrium
      S_GEQDSK     = 'geqdsk', &
      S_DIVAMHD    = 'divamhd', &
      S_JETEQ      = 'jeteq', &
-     S_M3DC1      = 'm3dc1'
+     S_M3DC1      = 'm3dc1', &
+     S_AMHD       = 'amhd'
 
   integer, parameter :: &
      EQ_GUESS     = -1, &
@@ -20,7 +21,8 @@ module equilibrium
      EQ_GEQDSK    = 1, &
      EQ_DIVAMHD   = 2, &
      EQ_JET       = 3, &
-     EQ_M3DC1     = 4
+     EQ_M3DC1     = 4, &
+     EQ_AMHD      = 5
 
 
   integer, parameter :: nX_max = 10
@@ -189,6 +191,8 @@ module equilibrium
      i_equi = EQ_DIVAMHD
   case (S_M3DC1)
      i_equi = EQ_M3DC1
+  case (S_AMHD)
+     i_equi = EQ_AMHD
   case ('')
      i_equi = EQ_GUESS
   case default
@@ -202,7 +206,7 @@ module equilibrium
 
 
 ! 2. load equilibrium data (if provided) ...............................
-  if (Data_File .ne. '') call load_equilibrium_data()
+  if (Data_File .ne. '') call load_equilibrium_data(iu, iconfig)
   call setup_equilibrium()
 
 
@@ -298,10 +302,14 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine load_equilibrium_data
+  subroutine load_equilibrium_data(iu, iconfig)
   use run_control, only: Prefix
   use geqdsk
   use divamhd
+  use amhd
+
+  integer, intent(in)  :: iu
+  integer, intent(out) :: iconfig
 
   integer, parameter :: iu_scan = 17
 
@@ -342,6 +350,9 @@ module equilibrium
   case (EQ_M3DC1)
      ! nothing to be done here
 
+  case (EQ_AMHD)
+     call amhd_load (iu, iconfig, Ip, Bt, R0)
+
   case default
      write (6, *) 'error: cannot determine equilibrium type!'
      stop
@@ -359,6 +370,7 @@ module equilibrium
   use geqdsk
   use divamhd
   use m3dc1
+  use amhd
 
   ! select case equilibrium
   select case (i_equi)
@@ -380,6 +392,12 @@ module equilibrium
      get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
      get_Psi                       => m3dc1_get_Psi
      get_DPsi                      => m3dc1_get_DPsi
+  case (EQ_AMHD)
+     get_Bf_eq2D                   => amhd_get_Bf
+     get_Psi                       => amhd_get_Psi
+     get_DPsi                      => amhd_get_DPsi
+     get_domain                    => amhd_get_domain
+     broadcast_equilibrium         => amhd_broadcast
   end select
 
   end subroutine setup_equilibrium
@@ -995,7 +1013,7 @@ module equilibrium
      ! check if present critical point is identical to previous ones
      do k=1,ind
         r = sqrt(sum((xk(k,:)-x)**2))
-        if (r < 1.d-8) cycle loop1
+        if (r < 1.d-5) cycle loop1
      enddo
 
      ! so this is a new critical point, run analysis
