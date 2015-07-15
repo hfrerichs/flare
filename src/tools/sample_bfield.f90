@@ -37,7 +37,7 @@ subroutine sample_bfield
      write (6, *) 'Sample magnetic field, output in: ', adjustl(trim(Output_File))
      write (6, *)
 
-     if (Output_Format < 1 .or. Output_Format > 6) then
+     if (Output_Format < 1 .or. Output_Format > 7) then
         write (6, *) 'undefined output format ', Output_Format
         stop
      endif
