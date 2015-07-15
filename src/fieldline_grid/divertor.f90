@@ -389,7 +389,12 @@ module divertor
 
   type(t_xpath) :: R
   real(real64)  :: x(2), PsiN(0:nr), eta
-  integer       :: ir, ip
+  integer       :: ir, ip, direction
+
+
+  ! set direction
+  direction = DESCENT
+  if (ir1 > ir0) direction = ASCENT
 
 
   ! set up nodes along rpath and radial coordinate PsiN
@@ -403,7 +408,7 @@ module divertor
 
   ! set up nodes in poloidal range ip1->ip2
   do ip=ip1,ip2
-     call R%generate(M(ir0,ip,:), DESCENT_CORE, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
+     call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
 
      do ir=ir1,ir2
         call R%sample_at_PsiN(PsiN(ir), x)
@@ -414,7 +419,7 @@ module divertor
 
   ! set up nodes at poloidal index ix
   if (ipx >= 0) then
-     call R%generateX(ix, DESCENT_CORE, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
+     call R%generateX(ix, direction, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
      do ir=ir1,ir2
         call R%sample_at_PsiN(PsiN(ir), x)
         M(ir,ipx,:) = x

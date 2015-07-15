@@ -148,11 +148,17 @@ module inner_boundary
   integer,         intent(in)    :: iblock, sampling_method
   type(t_spacing), intent(in)    :: S
 
-  real(real64) :: xi
-  integer :: j, np
+  real(real64) :: xi, x(2)
+  integer :: i, j, np
+
 
   np = G%n2-1
   do j=0,np
+     xi = S%node(j,np)
+     do i=0,1
+        call C_in(iblock,i)%sample_at(xi, x)
+        G%mesh(i, j, :) = x
+     enddo
   enddo
 
   end subroutine setup_inner_boundaries
