@@ -13,7 +13,7 @@ subroutine get_equi_info_2D
 
   character(len=120) :: fout, sboundary
   character(len=8)   :: cid
-  real(real64)       :: Rbox(2), Zbox(2), r(3), Psi
+  real(real64)       :: Rbox(2), Zbox(2), r(3), Psi, Ip_int, Ip_info
   integer            :: i, j, nR, nZ
 
 
@@ -107,7 +107,13 @@ subroutine get_equi_info_2D
   close (iu)
 
 
+  ! calculate plasma current from plasma surface integral
+  Ip_int = Ip_info (1.d-4, 400)
+  write (6, 9002) Ip_int
+
+
  9001 format (3x,'- Magnetic axis is at: ',2f10.3)
+ 9002 format (3x,'- Plasma current [MA] from surface integration: ', f10.5)
  1000 format ('# grid_id = 233     (regular RZ grid)')
  1001 format ('# R resolution:      n_R     =  ',i8)
  1002 format ('# Z resolution:      n_Z     =  ',i8)
@@ -126,3 +132,55 @@ subroutine get_equi_info_2D
  2009 format ("ps_plot='equi_info.eps'")
  2010 format ('EOF')
 end subroutine get_equi_info_2D
+!===============================================================================
+
+
+
+!===============================================================================
+! calculate plasma current from plasma surface integral
+!===============================================================================
+function Ip_info(delta_PsiN, n_sample) result(Ip)
+  use iso_fortran_env
+  use equilibrium, only: get_cylindrical_coordinates, get_Bf_eq2D
+  use flux_surface_2D
+  use math
+  use run_control, only: Debug
+  implicit none
+
+  real(real64), intent(in) :: delta_PsiN
+  integer,      intent(in) :: n_sample
+  real(real64)             :: Ip
+
+  type(t_flux_surface_2D) :: F
+  real(real64)       :: dl, Bpol, Bpolint, Bf(3), xi, r(3), y(3)
+  integer            :: i, ierr
+
+
+  ! get point just inside separatrix on inner equatorial plane
+  y(1) = 180.d0
+  y(2) = 1.d0 - delta_PsiN
+  y(3) = 0.d0
+  r    = get_cylindrical_coordinates(y, ierr)
+  if (ierr > 0) write (6, *) 'warning: reference point at PsiN = ', y(2), ' exceeds required accuracy!'
+
+  ! generate "last closed flux surface"
+  call F%generate_closed(r(1:2), RIGHT_HANDED)
+  if (Debug) call F%plot(filename='lcfs.plt')
+  call F%setup_length_sampling()
+
+
+  dl      = F%length() / n_sample
+  Bpolint = 0.d0
+  do i=0,n_sample-1
+     xi      = 1.d0 * i / n_sample
+     call F%sample_at(xi, r(1:2))
+
+     Bf      = get_Bf_eq2D(r)
+     Bpol    = sqrt(Bf(1)**2 + Bf(2)**2)
+     Bpolint = Bpolint + Bpol * dl
+  enddo
+  Bpolint = Bpolint * 1.d-4 * 1.d-2	! Gauss cm -> T m
+  Ip      = Bpolint / (4.d-1 * pi)
+
+end function Ip_info
+!===============================================================================

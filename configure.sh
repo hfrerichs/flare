@@ -76,19 +76,27 @@ echo "Binary directory is $BIN_DIR" | tee -a $LOG_FILE
 
 
 # MPI support / Fortran compiler
+echo "# Fortran compiler and options"			>> include.mk
 if type mpif90 >/dev/null 2>/dev/null; then
 	echo "Compiling with MPI support" | tee -a $LOG_FILE
-	echo "FC_BASE        = mpif90 -DMPI" >> include.mk
+	echo "COMPILER       = mpif90 -DMPI" >> include.mk
 elif type ifort >/dev/null 2>/dev/null; then
 	echo "Using Inter Fortran compiler" | tee -a $LOG_FILE
-	echo "FC_BASE        = ifort" >> include.mk
+	echo "COMPILER       = ifort" >> include.mk
 elif type gfortran >/dev/null 2>/dev/null; then
 	echo "Using GNU Fortran compiler" | tee -a $LOG_FILE
-	echo "FC_BASE        = gfortran" >> include.mk
+	echo "COMPILER       = gfortran" >> include.mk
 fi
 echo "OPT            = -O2" >> include.mk
 echo "OPT_DEBUG      = -g" >> include.mk
 echo "" >> include.mk
+
+
+# GNU Scientific Library
+echo "# GNU Scientific Library"				>> include.mk
+echo "FGSL_CFLAGS    = `pkg-config --cflags fgsl`"	>> include.mk
+echo "FGSL_LIBS      = `pkg-config --libs fgsl`"	>> include.mk
+echo ""							>> include.mk
 
 
 # setting local source directories
@@ -150,13 +158,21 @@ else
 	echo "# $NOTE" >> include.mk
 	echo "M3DC1_FLAG     = -DM3DC1" >> include.mk
 	echo "M3DC1_INC      = -I $fusion_io_dir/include/_$fusion_io_arch" >> include.mk
-        echo "LIBS           = -L $fusion_io_dir/lib/_$fusion_io_arch -lfusionio -lm3dc1 -lhdf5 -lstdc++" >> include.mk
+        echo "M3DC1_LIBS     = -L $fusion_io_dir/lib/_$fusion_io_arch -lfusionio -lm3dc1 -lhdf5 -lstdc++" >> include.mk
 	echo "" >> include.mk
 fi
 
 
-echo 'FC             = $(FC_BASE) -DFLARE $(OPT)' >> include.mk
-echo 'FC_DEBUG       = $(FC_BASE) -DFLARE $(OPT_DEBUG)' >> include.mk
+# Flags and libraries
+echo "# Flags and libraries"				>> include.mk
+echo 'CFLAGS         = $(FGSL_CFLAGS)'			>> include.mk
+echo 'LIBS           = $(FGSL_LIBS) $(M3DC1_LIBS)'	>> include.mk
+echo ""							>> include.mk
+
+
+#
+echo 'FC             = $(COMPILER) $(CFLAGS) -DFLARE $(OPT)' >> include.mk
+echo 'FC_DEBUG       = $(COMPILER) $(CFLAGS) -DFLARE $(OPT_DEBUG)' >> include.mk
 
 
 # generating header file config.h

@@ -11,6 +11,7 @@
 !                       = 4: |grad PsiN|, e_Psi * e_B
 !                       = 5: divB
 !                       = 6: Psi, PsiN, dPsi_dR, dPsi_dZ
+!                       = 7: Psi, d2Psi_dR2, d2Psi_dRdZ, d2Psi_dZ2
 !===============================================================================
 subroutine sample_bfield
   use iso_fortran_env
@@ -36,7 +37,7 @@ subroutine sample_bfield
      write (6, *) 'Sample magnetic field, output in: ', adjustl(trim(Output_File))
      write (6, *)
 
-     if (Output_Format < 1 .or. Output_Format > 6) then
+     if (Output_Format < 1 .or. Output_Format > 7) then
         write (6, *) 'undefined output format ', Output_Format
         stop
      endif
@@ -56,6 +57,7 @@ subroutine sample_bfield
   if (Output_Format == 4) n = 2
   if (Output_Format == 5) n = 4
   if (Output_Format == 6) n = 4
+  if (Output_Format == 7) n = 4
   call D%new(G%nodes(), n)
 
 
@@ -111,6 +113,12 @@ subroutine sample_bfield
         D%x(ig,2)   = PsiN
         D%x(ig,3)   = DPsiDR
         D%x(ig,4)   = DPsiDZ
+     endif
+     if (Output_Format == 7) then
+        D%x(ig,1)   = get_Psi(r)
+        D%x(ig,2)   = get_DPsi(r, 2, 0)
+        D%x(ig,3)   = get_DPsi(r, 1, 1)
+        D%x(ig,4)   = get_DPsi(r, 0, 2)
      endif
   enddo grid_loop
   call D%mpi_allreduce()

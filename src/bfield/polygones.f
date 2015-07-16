@@ -4,6 +4,7 @@
 ! THIS MODULE NEEDS CLEANUP !!!!
 !===============================================================================
       module polygones
+      use iso_fortran_env
       implicit none
 
       integer, parameter :: max_coil_sets = 100
@@ -344,6 +345,41 @@ c-----------------------------------------------------------------------
 
       end function get_Bcyl_polygones
       !end subroutine Bcyl_polygones
+c-----------------------------------------------------------------------
+
+
+
+c-----------------------------------------------------------------------
+      function get_A_polygones(x) result(Aout)
+      real(real64), intent(in) :: x(3)
+      real(real64)             :: Aout(3)
+
+      real(real64) :: F, x1(3), x2(3), a, b, c, lnX
+      integer :: ip, is
+
+
+      Aout = 0.d0
+      do ip=1,n_poly
+      F = polygon_data(ip)%I_poly * 0.1d0	! mu_0 / 4pi * 100 cm/m * 10000 Gauss/T
+      do is=1,polygon_data(ip)%n_seg
+         x1(1) = polygon_data(ip)%X(is-1)
+         x1(2) = polygon_data(ip)%Y(is-1)
+         x1(3) = polygon_data(ip)%Z(is-1)
+         x2(1) = polygon_data(ip)%X(is)
+         x2(2) = polygon_data(ip)%Y(is)
+         x2(3) = polygon_data(ip)%Z(is)
+
+         a = sum((x2-x1)**2)
+         b = sum(-2.d0*(x2-x1)*(x-x1))
+         c = sum((x-x1)**2)
+
+         lnX = log(((0.5d0*b+a)/sqrt(a) + sqrt(a+b+c))
+     .           / (0.5d0*b/sqrt(a) + sqrt(c)))
+         Aout = Aout + F*(x2-x1) / sqrt(a) * lnX
+      enddo
+      enddo
+
+      end function get_A_polygones
 c-----------------------------------------------------------------------
 
       end module polygones
