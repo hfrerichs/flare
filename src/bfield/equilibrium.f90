@@ -262,12 +262,14 @@ module equilibrium
      x0(1)        = Xp(ix)%R_estimate
      x0(2)        = Xp(ix)%Z_estimate
      Xp(ix)%X     = find_x(x0, Hout=Xp(ix)%H)
-     if (Xp(ix)%X(1) > 0.d0) Xp(ix)%undefined = .false.
+     if (Xp(ix)%X(1) > 0.d0) then
+        Xp(ix)%undefined = .false.
 
-     r(1:2)       = Xp(ix)%X; r(3) = 0.d0
-     Xp(ix)%Psi   = get_Psi(r)
-     Xp(ix)%theta = get_poloidal_angle(r)
-     if (ix == 1) Psi_sepx = Xp(ix)%Psi
+        r(1:2)       = Xp(ix)%X; r(3) = 0.d0
+        Xp(ix)%Psi   = get_Psi(r)
+        Xp(ix)%theta = get_poloidal_angle(r)
+        if (ix == 1) Psi_sepx = Xp(ix)%Psi
+     endif
 
      write (6, 4001) Xp(ix)%X, Xp(ix)%Psi
      if (Debug) then
