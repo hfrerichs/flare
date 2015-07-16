@@ -161,8 +161,11 @@ module grid
      if (allocated(this%x2)) deallocate(this%x2)
      if (allocated(this%x3)) deallocate(this%x3)
      allocate (this%x1(this%n1))
+     this%x1 = 0.d0
      allocate (this%x2(this%n2))
+     this%x2 = 0.d0
      allocate (this%x3(this%n3))
+     this%x3 = 0.d0
   endif
 !
 !     if (.not.present(n2)) then
