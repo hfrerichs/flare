@@ -63,21 +63,22 @@ module topo_sc
   use equilibrium
   use divertor, only: Pmag
 
-  real(real64) :: x1(2), x2(2), d(2), tmp(3)
+  real(real64) :: x1(2), x2(2), d(2), tmp(3), theta0
 
 
-  tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
-  x1  = x_in2(1:2)
+  tmp    = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+  x1     = x_in2(1:2)
+  theta0 = get_poloidal_angle(x_in2)
   select case(discretization_method)
   case(POLOIDAL_ANGLE)
-     call load_inner_boundaries(pi)
+     call load_inner_boundaries(theta0)
      x2    = x1
      x2(1) = x2(1) - d_SOL(1)
      d     = x1-x2
      call rpath(0)%setup_linear(x2, d)
 
   case(ORTHOGONAL)
-     call load_inner_boundaries(pi)
+     call load_inner_boundaries(theta0)
      call rpath(0)%generate(x1, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
      call rpath(0)%flip()
 
