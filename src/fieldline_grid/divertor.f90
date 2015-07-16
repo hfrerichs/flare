@@ -398,6 +398,10 @@ module divertor
 
 
   ! set up nodes along rpath and radial coordinate PsiN
+  if (ir2 .ge. ir1) then
+     write (6, 1010) ir2, ir1, ip1, ip2
+     write (6, 1011) rpath%length()
+  endif
   do ir=ir1,ir2
      eta = 1.d0 - Sr%node(ir-1,nr-1)
      call rpath%sample_at(eta, x)
@@ -432,6 +436,8 @@ module divertor
      M(:,np,:) = M(:,0,:)
   endif
 
+ 1010 format (8x,'generating high pressure region: (',i0,' -> ',i0,'), (',i0,' -> ',i0,')')
+ 1011 format (8x,'d_width = ',f8.3)
   end subroutine make_ortho_grid
   !=============================================================================
 
