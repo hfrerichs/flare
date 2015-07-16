@@ -15,10 +15,10 @@ module amhd
 
   ! equilibrium shape coefficients
   integer(fgsl_size_t), parameter :: n = 7
-  real(real64) :: eps, del, kap, A, xsep, ysep, c(n)
+  real(real64) :: eps, del, kap, A, xsep, ysep, c(n), scale_manual = 1.d0
 
   namelist /AMHD_Input/ &
-     eps, del, kap, A, xsep, ysep
+     eps, del, kap, A, xsep, ysep, scale_manual
 
 
   public :: &
@@ -71,6 +71,7 @@ module amhd
   write (6, 2001) kap
   write (6, 2002) del
   write (6, 2003) eps
+  write (6, *)
 
 
   ! internal parameters
@@ -154,7 +155,7 @@ module amhd
   r(3) = 0.d0
   Bf   = amhd_get_Bf(r)
   Bpol = Ip * 2.d5 / R0 / eps
-  PSI0_scale = Bpol / Bf(2)
+  PSI0_scale = Bpol / Bf(2) * scale_manual
 
 
 
@@ -413,6 +414,7 @@ module amhd
   call broadcast_real_s (Bt)
   call broadcast_real_s (R0)
   call broadcast_real_s (PSI0_scale)
+  call broadcast_real_s (scale_manual)
   call broadcast_real_s (A)
   call broadcast_real   (c,int(n))
 
