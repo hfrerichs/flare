@@ -10,6 +10,8 @@ module amhd
   ! toroidal magnetic field and plasma current
   real(real64) :: Ip, Bt, R0
 
+  real(real64) :: PSI0_scale
+
 
   ! equilibrium shape coefficients
   integer(fgsl_size_t), parameter :: n = 7
@@ -46,7 +48,7 @@ module amhd
   integer(fgsl_int)         :: stat, sig
   type(fgsl_permutation)    :: p
 
-  real(real64)              :: alp, N1, N2, N3
+  real(real64)              :: alp, N1, N2, N3, r(3), Bf(3), Bpol
 
 
   ! set up toroidal magnetic field and plasma current
@@ -56,7 +58,7 @@ module amhd
   write (6, 1000)
   write (6, 1001) Bt
   write (6, 1002) R0
-  write (6, 1003) Ip/1.e6
+  write (6, 1003) Ip
   write (6, *)
   Bt_sign = int(sign(1.d0, Bt))
   Ip_sign = int(sign(1.d0, Ip))
@@ -143,6 +145,17 @@ module amhd
   call fgsl_vector_free(bfgsl)
   call fgsl_vector_free(xfgsl)
   call fgsl_permutation_free(p)
+
+
+  ! calculate scaling factor
+  PSI0_scale = 1.d0
+  r(1) = R0 * (1.d0-eps)
+  r(2) = 0.d0
+  r(3) = 0.d0
+  Bf   = amhd_get_Bf(r)
+  Bpol = Ip * 2.d5 / R0 / eps
+  PSI0_scale = Bpol / Bf(2)
+
 
 
   return
@@ -298,13 +311,12 @@ module amhd
 ! Calculate R,phi,Z components of magnetic field vector [Gauss] at r=(R,Z [cm], phi [rad])
 !===============================================================================
   function amhd_get_Bf(r) result(Bf)
-  use math
-  use fgsl
 
   real(real64), intent(in)  :: r(3)
   real(real64)              :: Bf(3)
 
-  real(real64) :: dPsi_dR, dPsi_dZ
+  real(real64), parameter   :: m_to_cm = 1.d2
+  real(real64) :: dPsi_dR, dPsi_dZ, R1
 
 
   ! toroidal magnetic field
@@ -313,10 +325,11 @@ module amhd
 
 
   ! poloidal magnetic field
-  dPsi_dR = amhd_get_DPsi(r, 1, 0)
-  dPsi_dZ = amhd_get_DPsi(r, 0, 1)
-  Bf(1)   = Bf(1) - dPsi_dZ / r(1)
-  Bf(2)   = Bf(2) + dPsi_dR / r(1)
+  R1      = r(1) / m_to_cm
+  dPsi_dR = amhd_get_DPsi(r, 1, 0) * m_to_cm
+  dPsi_dZ = amhd_get_DPsi(r, 0, 1) * m_to_cm
+  Bf(1)   = Bf(1) - dPsi_dZ / R1
+  Bf(2)   = Bf(2) + dPsi_dR / R1
 
 
   ! Tesla -> Gauss
@@ -346,7 +359,6 @@ module amhd
   integer,      intent(in) :: mR, mZ
   real(real64)             :: DPsi
 
-  real(real64) :: R1, Z1, Psi0, dPsi_dR, dPsi_dZ, dPsi_dR2, dPsi_dRZ, dPsi_dZ2
   real(real64) :: x, y, vPsi(0:12)
   integer :: i
 
@@ -356,19 +368,19 @@ module amhd
   if (mR == 0  .and.  mZ == 0) then
      vPsi   = Psi_osfa(x, y)
   elseif (mR == 1  .and.  mZ == 0) then
-     vPsi   = Psix_osfa(x, y)
+     vPsi   = Psix_osfa(x, y) / R0
   elseif (mR == 0  .and.  mZ == 1) then
-     vPsi   = Psiy_osfa(x, y)
+     vPsi   = Psiy_osfa(x, y) / R0
   elseif (mR == 2  .and.  mZ == 0) then
-     vPsi   = Psixx_osfa(x, y)
+     vPsi   = Psixx_osfa(x, y) / R0**2
   elseif (mR == 1  .and.  mZ == 1) then
-     vPsi   = Psixy_osfa(x, y)
+     vPsi   = Psixy_osfa(x, y) / R0**2
   elseif (mR == 0  .and.  mZ == 2) then
-     vPsi   = Psiyy_osfa(x, y)
+     vPsi   = Psiyy_osfa(x, y) / R0**2
   else
      vPsi   = 0.d0
   endif
-  DPsi = DPsi + vPsi(0) + sum(c*vPsi(1:n))
+  DPsi = PSI0_scale*(vPsi(0) + sum(c*vPsi(1:n)))
 
   end function amhd_get_DPsi
 !===============================================================================
@@ -400,6 +412,9 @@ module amhd
   call broadcast_real_s (Ip)
   call broadcast_real_s (Bt)
   call broadcast_real_s (R0)
+  call broadcast_real_s (PSI0_scale)
+  call broadcast_real_s (A)
+  call broadcast_real   (c,int(n))
 
   end subroutine amhd_broadcast
 !===============================================================================
