@@ -21,6 +21,7 @@ subroutine flux_surface_grid
   use equilibrium
   use parallel
   use dataset
+  use grid
   implicit none
 
   integer, parameter :: &
@@ -29,6 +30,7 @@ subroutine flux_surface_grid
 
   type(t_flux_surface_2D) :: S
   type(t_dataset)         :: D
+  type(t_grid)            :: G_debug
   real(real64) :: x0(2), xc(3), t, x(3), y(3)
   integer :: i, j, ig, n, ierr, iterations
 
@@ -55,6 +57,7 @@ subroutine flux_surface_grid
  2001 format ('# resolution:        n_grid  =  ',i10)
  2002 format ('# toroidal position: phi     =  ',f6.2)
 
+  call G_debug%new(LOCAL, STRUCTURED, FIXED_COORD3, n_theta, n_psi)
   n  = n_theta * n_psi
   ig = 1
   call D%new(n,2)
@@ -70,12 +73,18 @@ subroutine flux_surface_grid
         D%x(ig,1) = ierr
         D%x(ig,2) = iterations
         ig        = ig + 1
+
+        G_debug%x1(j+1) = j
+        G_debug%x2(i+1) = i
      enddo
   enddo
   close (iu1)
   close (iu2)
  3000 format (2e18.10)
-  if (Debug) call D%plot(filename='debug.txt')
+  if (Debug) then
+     call D%plot(filename='debug.dat')
+     call G_debug%store(filename='debug.grid')
+  endif
 
 
 !  x0(1) = 0.1278518850E+03
