@@ -612,23 +612,31 @@ module equilibrium
 !=======================================================================
 ! Get cylindrical coordinates (R[cm], Z[cm], Phi[rad]) for flux
 ! coordinates (Theta[deg], PsiN, Phi[deg])
+!
+! ierr <= 0:	successfull operation
+!	< 0:	at least one step with 1st order approximation
+!	> 0:	exceed required accuracy
+!
+! optional output:
+! iter:		number of iterations performed
 !=======================================================================
-  function get_cylindrical_coordinates(y, ierr, r0) result(r)
+  function get_cylindrical_coordinates(y, ierr, r0, iter) result(r)
   use iso_fortran_env
   use math
   implicit none
 
-  real(real64), intent(inout)        :: y(3)
-  integer,      intent(out)          :: ierr
-  real(real64), intent(in), optional :: r0(3)
-  real(real64)                       :: r(3)
+  real(real64), intent(inout)         :: y(3)
+  integer,      intent(out)           :: ierr
+  real(real64), intent(in),  optional :: r0(3)
+  real(real64)                        :: r(3)
+  integer,      intent(out), optional :: iter
 
-  integer, parameter :: imax = 160
+  integer, parameter :: imax = 100
   real(real64), parameter :: tolerance = 1.d-10
-  real(real64), parameter :: damping   = 0.9d0
+  real(real64), parameter :: damping   = 1.0d0
 
-  real(real64) :: dl, dpsi_dR, dpsi_dZ, dpsi_dl
-  real(real64) :: M(3), Theta, PsiN, dr(2), beta
+  real(real64) :: dpsi_dR, dpsi_dZ, dpsi_dl, dpsi_dl2, H(2,2), P, Q
+  real(real64) :: M(3), Theta, PsiN, er(2), beta, delta
 
   integer :: i
 
@@ -638,30 +646,45 @@ module equilibrium
   ! set start point for approximation
   if (present(r0)) then
      r = r0
-  else
-     ! start near magnetic axis
-     r(3)  = y(3) / 180.d0*pi
-     M     = get_magnetic_axis(r(3))
-     dr(1) = cos(y(1)/180.d0*pi)
-     dr(2) = sin(y(1)/180.d0*pi)
-     dl    = 0.2d0 * length_scale()
-
-     r(1:2)= M(1:2) + dl*dr
-     PsiN  = get_PsiN(r)
+     write (6, *) 'warning: start point not supported in present implementation!'
   endif
+
+  ! start near magnetic axis
+  r(3)  = y(3) / 180.d0*pi
+  M     = get_magnetic_axis(r(3))
+  er(1) = cos(y(1)/180.d0*pi)
+  er(2) = sin(y(1)/180.d0*pi)
+  delta = 0.2d0 * length_scale()
+
+  r(1:2)= M(1:2) + delta * er
+  PsiN  = get_PsiN(r)
 
 
   do i=1,imax
      dpsi_dR = get_DPsiN(r, 1, 0)
      dpsi_dZ = get_DPsiN(r, 0, 1)
-     dr(1) = cos(y(1)/180.d0*pi)
-     dr(2) = sin(y(1)/180.d0*pi)
-     dpsi_dl = dpsi_dR*dr(1) + dpsi_dZ*dr(2)
+
+     ! Hessian
+     H(1,1)  = get_DPsiN(r, 2, 0)
+     H(2,1)  = get_DPsiN(r, 1, 1); H(1,2) = H(2,1)
+     H(2,2)  = get_DPsiN(r, 0, 2)
 
      beta    = y(2) - PsiN
-     dr      = dr * beta / dpsi_dl * damping
+     dpsi_dl = dpsi_dR*er(1) + dpsi_dZ*er(2)
+     dpsi_dl2= H(1,1)*er(1)**2  +  2.d0*H(1,2)*er(1)*er(2)  +  H(2,2)*er(2)**2
 
-     r(1:2)  = r(1:2) + dr
+     ! 1st order approximation
+     delta   = beta / dpsi_dl * damping
+     ! 2nd order approximation
+     P       = - dpsi_dl / dpsi_dl2
+     Q       = P**2 + 2.d0 * beta / dpsi_dl2
+     if (Q > 0.d0) then
+        delta = P - sign(sqrt(Q),P)
+     else
+        ierr = -1
+     endif
+
+     r(1:2)  = r(1:2) + delta * er
      PsiN    = get_PsiN(r)
      Theta   = get_poloidal_angle(r) / pi*180.d0
      if (Theta < 0) Theta = Theta + 360.d0
@@ -675,6 +698,8 @@ module equilibrium
   if (abs(beta) > tolerance) then
      ierr = 1
   endif
+
+  if (present(iter)) iter = i
 
   end function get_cylindrical_coordinates
 !=======================================================================
