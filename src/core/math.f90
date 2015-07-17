@@ -17,12 +17,13 @@ module math
      COORDINATES = (/ 'cartesian   ', &
                       'cylindrical ' /)
 
-  character(len=12), dimension(3,4), parameter :: &
-     COORD_STR   = reshape((/ 'x [cm]      ', 'y [cm]      ', 'z [cm]      ', &
+  character(len=12), dimension(3,0:4), parameter :: &
+     COORD_STR   = reshape((/ 'coord1      ', 'coord2      ', 'coord3      ', &
+                              'x [cm]      ', 'y [cm]      ', 'z [cm]      ', &
                               'R [cm]      ', 'Z [cm]      ', 'Phi [deg]   ', &
                               'R [cm]      ', 'Z [cm]      ', 'Phi [deg]   ', &
                               'Rmin [cm]   ', 'Theta [deg] ', 'Phi [deg]   ' &
-                            /), (/ 3, 4 /))
+                            /), (/ 3, 5 /))
 
   contains
 !=======================================================================
