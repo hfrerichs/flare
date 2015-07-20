@@ -199,7 +199,7 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
 
   ! loop over all toroidal slices
   allocate (en(0:SRF_POLO(iz)-1,2))
-  do it=0,SRF_TORO(iz)-1
+     it = ZON_TORO(iz) / 2
      call C%new(ZON_POLO(iz))
      ! poloidal loop (setup nodes for curve blowup)
      do ip=0,SRF_POLO(iz)-1
@@ -242,6 +242,7 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
 
 
      ! poloidal loop (set new grid nodes)
+  do it=0,SRF_TORO(iz)-1
      do ip=0,SRF_POLO(iz)-1
         ig0 = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
         if (resample) then
@@ -258,10 +259,10 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
            ZG(ig) = ZG(ig0) + rho * (x(2) - ZG(ig0))
         enddo
      enddo
+  enddo
 
      ! cleanup
      call C%destroy()
-  enddo
   deallocate (en)
 
   contains
