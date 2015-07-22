@@ -7,6 +7,7 @@ subroutine FLR_analysis
   use flux_tube
   use dataset
   use math
+  use emc3_grid
   implicit none
 
   integer, parameter :: iu = 32
@@ -14,9 +15,15 @@ subroutine FLR_analysis
   character(len=72)  :: &
      Operation     = 'nothing', &
      Target_File   = 'analysis.conf', &
-     Output_File   = 'output.dat', &
-     Grid_File     = 'output.grid', &
+     Output_File   = '', &
+     Grid_File     = '', &
      Cross_Section = ''
+
+  integer            :: &
+     iz            =  0, &
+     ir(2)         = -1, &
+     ip(2)         = -1
+
 
   real(real64)       :: x0(2), phi0, a1, alpha1, a2, alpha2, P, theta
   real(real64)       :: xi = 0.d0, eta = 0.d0
@@ -25,7 +32,8 @@ subroutine FLR_analysis
   namelist /Analysis_Input/ &
      Operation, Output_File, Grid_File, Cross_Section, &
      x0, phi0, a1, alpha1, a2, alpha2, P, theta, nphi, nlength, &
-     xi, eta
+     xi, eta, &
+     iz, ir, ip
 
   type(t_flux_tube)  :: FT
 
@@ -40,6 +48,30 @@ subroutine FLR_analysis
   open  (iu, file=Target_File)
   read  (iu, Analysis_Input)
   close (iu)
+  call load_emc3_grid()
+
+
+  ! 1. set default values
+  ! 1.1 file names
+  if (Output_File == '') Output_File = trim(Operation)//'.dat'
+  if (Grid_File   == '') Grid_File   = trim(Operation)//'.grid'
+  write (6, 1000) Operation
+  write (6, 1001) trim(Output_File), trim(Grid_File)
+
+  ! 1.2 indices (radial and poloidal range)
+  if (ir(1) < 0) then
+     ir(1) = R_SURF_PL_TRANS_RANGE(1,iz)
+     ir(2) = R_SURF_PL_TRANS_RANGE(2,iz)-1
+  else
+     if (ir(2) < 0) ir(2) = ir(1)
+  endif
+  if (ip(1) < 0) then
+     ip(1) = P_SURF_PL_TRANS_RANGE(1,iz)
+     ip(2) = P_SURF_PL_TRANS_RANGE(2,iz)-1
+  else
+     if (ip(2) < 0) ip(2) = ip(1)
+  endif
+
 
 
   select case(Operation)
@@ -57,6 +89,8 @@ subroutine FLR_analysis
   end select
 
   return
+ 1000 format(3x,'- Operation: ',a)
+ 1001 format(8x,'Output files: ',a,' ',a)
   contains
 !=======================================================================
 
@@ -192,24 +226,22 @@ subroutine FLR_analysis
   subroutine grid_accuracy()
   use emc3_grid
   use fieldline
-  use equilibrium
+  use equilibrium, only: get_PsiN, get_DPsiN, get_poloidal_angle
   use dataset
   use grid
   implicit none
 
   type(t_fieldline) :: Fo
   type(t_dataset)   :: D
-  type(t_grid)      :: G1, G2
+  type(t_grid)      :: G
   real(real64), dimension(:,:), allocatable :: Fg
-  integer, dimension(:), allocatable :: ir_list, ip_list
 
   real(real64) :: Dphi, xi(3), xo(3), ts, dx(-1:1), dr(-1:1), dt(-1:1), xg(3)
-  real(real64) :: dPsidR, dPsidZ, Psio, Psig, dPsi, thetao, thetag, dtheta
-  integer :: i, j, ig, n, idir, it(-1:1), iz, tm, tc, ierr, iscan
+  real(real64) :: dPsidR, dPsidZ, Psio, Psig, dPsi, thetao, thetag, dtheta, phi0
+  integer :: i, j, ig, n, n1, n2, idir, it(-1:1), tm, tc, ierr, iscan
 
 
   write (6, 1000)
-  call load_emc3_grid()
 
 
   ts = pi2 / 3600.d0
@@ -217,47 +249,33 @@ subroutine FLR_analysis
   tc = FL_ANGLE
 
 
-  iz    = 0
-  iscan = 3
-  select case(iscan)
-  ! set up poloidal profile
-  case(1)
-     n  = ZON_POLO(iz)
-     allocate (ip_list(n), ir_list(n))
-     ir_list = 6
-     !ir_list = ZON_RADI(0) - 4
-     do i=1,ZON_POLO(iz)
-        ip_list(i) = i-1
-     enddo
-
-  ! set up radial-poloidal scan
-  case(3)
-     n  = ZON_POLO(iz) * ZON_RADI(iz)
-     ig = 1
-     allocate (ip_list(n), ir_list(n))
-     do i=0,ZON_RADI(iz)-1
-        do j=0,ZON_POLO(iz)-1
-           ip_list(ig) = j
-           ir_list(ig) = i
-           ig          = ig + 1
-        enddo
-     enddo
-
-  end select
-
-
   ! Fo: field line from (o)rdinary differential equation
   ! Fg: field line reconstructed from (g)rid
-  allocate (Fg(0:ZON_TORO(iz),3))
-  call D%new(n, 7)
-  call G1%new(LOCAL, UNSTRUCTURED, FIXED_COORD3, n)
-  call G2%new(LOCAL, UNSTRUCTURED, FIXED_COORD3, n)
+  n1     = ir(2)-ir(1)+1
+  n2     = ip(2)-ip(1)+1
+  n      = n1 * n2
   it(-1) = 0
   it( 0) = ZON_TORO(iz) / 2
   it( 1) = ZON_TORO(iz)
-  do i=1,n
-     write (6, *) ir_list(i), ip_list(i)
-     call reconstruct_field_line (iz, ir_list(i), ip_list(i), 0.d0, 0.d0, Fg)
+
+  ! setup mesh in real space
+  phi0   = PHI_PLANE(it(0) + PHI_PL_OS(iz))
+  call G%new(LOCAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
+  do j=ip(1),ip(2)+1
+  do i=ir(1),ir(2)+1
+     ig = i + (j + it(0)*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     G%mesh(i-ir(1),j-ip(1),1) = RG(ig)
+     G%mesh(i-ir(1),j-ip(1),2) = ZG(ig)
+  enddo
+  enddo
+
+  allocate (Fg(0:ZON_TORO(iz),3))
+  call D%new(n, 8)
+  ig     = 1
+  do j=ip(1),ip(2)
+  do i=ir(1),ir(2)
+     write (6, *) i, j
+     call reconstruct_field_line (iz, i, j, 0.d0, 0.d0, Fg)
      ! initial point for field line tracing
      xi = Fg(it(0),:)
 
@@ -290,23 +308,20 @@ subroutine FLR_analysis
         dtheta = thetao - thetag; if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
         dt(idir) = dtheta
      enddo
-     D%x(i,1)    = get_poloidal_angle(xi)
-     D%x(i,2)    = dx(-1)
-     D%x(i,3)    = dx( 1)
-     D%x(i,4)    = dr(-1)
-     D%x(i,5)    = dr( 1)
-     D%x(i,6)    = dt(-1)
-     D%x(i,7)    = dt( 1)
-     G1%x(i,1) = ip_list(i)
-     G1%x(i,2) = ir_list(i)
-     G2%x(i,1) = D%x(i,1) / pi * 180.d0
-     G2%x(i,2) = get_PsiN(xi)
+     D%x(ig,1) = get_poloidal_angle(xi)
+     D%x(ig,2) = dx(-1)
+     D%x(ig,3) = dx( 1)
+     D%x(ig,4) = dr(-1)
+     D%x(ig,5) = dr( 1)
+     D%x(ig,6) = dt(-1)
+     D%x(ig,7) = dt( 1)
+     D%x(ig,8) = flux_tube_length(iz, i, j)
+     ig        = ig + 1
+  enddo
   enddo
   call D%plot(filename=Output_File)
-  call G1%store(filename='cell_indices.dat')
-  call G2%store(filename=Grid_File)
+  call G%store(filename=Grid_File)
 
-  deallocate (ip_list, ir_list)
   deallocate (Fg)
  1000 format(3x,'- Running grid accuracy check')
   end subroutine grid_accuracy
@@ -327,30 +342,41 @@ subroutine FLR_analysis
 
   type(t_grid)    :: G
   type(t_dataset) :: D
-  integer         :: iz, it0, i, j, ig, n
+  real(real64)    :: phi0
+  integer         :: it0, i, j, ig, n, n1, n2
 
 
-  write (6, 1000)
-  call load_emc3_grid()
   call load_bfstren()
+  write (6, 1000)
 
-  iz  = 0
   it0 = ZON_TORO(iz) / 2
   allocate (div  (0:ZON_POLO(iz)-1, 0:ZON_RADI(iz)-1), &
             pitch(0:ZON_POLO(iz)-1, 0:ZON_RADI(iz)-1), &
             NL   (0:ZON_POLO(iz)-1, 0:ZON_RADI(iz)-1, 0:ZON_TORO(iz)))
   call check_mesh(iz, div, NL, pitch)
 
-  n = (P_SURF_PL_TRANS_RANGE(2,iz) - P_SURF_PL_TRANS_RANGE(1,iz)) * &
-      (R_SURF_PL_TRANS_RANGE(2,iz) - R_SURF_PL_TRANS_RANGE(1,iz))
+  n1     = ir(2)-ir(1)+1
+  n2     = ip(2)-ip(1)+1
+  n      = n1 * n2
+  ! setup mesh in real space
+  phi0   = PHI_PLANE(it0 + PHI_PL_OS(iz))
+  call G%new(LOCAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
+  do j=ip(1),ip(2)+1
+  do i=ir(1),ir(2)+1
+     ig = i + (j + it0*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     G%mesh(i-ir(1),j-ip(1),1) = RG(ig)
+     G%mesh(i-ir(1),j-ip(1),2) = ZG(ig)
+  enddo
+  enddo
+
+
   call D%new(n, 5)
-  call G%new(LOCAL, UNSTRUCTURED, FIXED_COORD3, n)
   ig = 0
-  do j=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
-     do i=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
+  write (6, 1001) ir(1), ir(2)
+  write (6, 1002) ip(1), ip(2)
+  do j=ip(1),ip(2)
+     do i=ir(1),ir(2)
         ig = ig + 1
-        G%x(ig,1) = j
-        G%x(ig,2) = i
         D%x(ig,1) = div(j,i) * 100.d0
         D%x(ig,2) = pitch(j,i)
         D%x(ig,3) = NL(j,i,0)
@@ -364,6 +390,8 @@ subroutine FLR_analysis
 
   deallocate (div, pitch, NL)
  1000 format(3x,'- Running flux conservation and non-linearity check')
+ 1001 format(8x,'Radial cell range:   ',i0,' -> ',i0)
+ 1002 format(8x,'Poloidal cell range: ',i0,' -> ',i0)
   end subroutine flux_conservation
 !=======================================================================
 
