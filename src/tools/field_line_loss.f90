@@ -20,7 +20,7 @@ subroutine field_line_loss
   use flux_surface_3D
   use run_control, only: N_sym, N_phi, N_theta, Psi, N_psi, &
                          Trace_Step, Trace_Method, Trace_Coords, Limit, &
-                         Output_File
+                         Output_File, Debug
   use equilibrium
   use fieldline
   use parallel
@@ -50,7 +50,14 @@ subroutine field_line_loss
      if (firstP) write (6, *) y(2)
 
      r    = get_cylindrical_coordinates (y, ierr)
-     call S2D%generate_closed(r(1:2), RIGHT_HANDED)
+     if (ierr .ne. 0) then
+        write (6, *) 'error in subroutine field_line_loss: could not find real space coordinates!'
+        write (6, *) r
+        stop
+     endif
+
+     call S2D%generate_closed(r(1:2))
+     if (Debug) call S2D%plot(filename='flux_surfaces.plt', append=.true.)
      call S3D%generate_from_axisymmetric_surface(S2D, N_sym, N_phi, N_theta)
   
      call field_line_loss_from_surface(S3D)

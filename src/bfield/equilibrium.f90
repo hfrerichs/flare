@@ -558,6 +558,15 @@ module equilibrium
 
   end function get_H
 !=======================================================================
+  function get_HN(x) result(HN)
+  real(real64), intent(in) :: x(2)
+  real(real64)             :: HN(2,2)
+
+
+  HN = get_H(x) / (Psi_sepx - Psi_axis)
+
+  end function get_HN
+!=======================================================================
   function approximate_H(x) result(H)
   use run_control, only: Debug
   real(real64), intent(in) :: x(2)
@@ -665,9 +674,7 @@ module equilibrium
      dpsi_dZ = get_DPsiN(r, 0, 1)
 
      ! Hessian
-     H(1,1)  = get_DPsiN(r, 2, 0)
-     H(2,1)  = get_DPsiN(r, 1, 1); H(1,2) = H(2,1)
-     H(2,2)  = get_DPsiN(r, 0, 2)
+     H       = get_HN(r(1:2))
 
      beta    = y(2) - PsiN
      dpsi_dl = dpsi_dR*er(1) + dpsi_dZ*er(2)
