@@ -35,7 +35,7 @@ subroutine separatrix_manifolds
   Label = 'stable'//trim(Label0)
   do idir=-1,1,2
      do i=1,N_phi
-        G%x(i,1:2) = Xp(iPx)%X + 0.1d0 * v
+        G%x(i,1:2) = Xp(iPx)%X + 0.1d0 * v * orientation
         G%x(i,  3) = -idir * Bt_sign * pi2/N_sym * (i-1) / N_phi
      enddo
      Grid_File = 'grid_'//trim(label)//'.dat'
