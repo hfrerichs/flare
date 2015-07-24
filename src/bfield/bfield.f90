@@ -135,6 +135,7 @@ module bfield
 ! WARNING: presently only for interpolateA - components
 !=======================================================================
   function get_JBf_Cyl(r) result(J)
+  use equilibrium
   use splineB
   real(real64), intent(in) :: r(3)
   real(real64)             :: J(3,3)
@@ -142,6 +143,7 @@ module bfield
 
   J = 0.d0
 
+  if (iconfig(BF_EQ2D   )  == 1) J = J + get_JBf_eq2D(r)
   if (iconfig(BF_SPLINEB)  == 1) J = J + splineB_get_JBf(r)
 
   end function get_JBf_Cyl

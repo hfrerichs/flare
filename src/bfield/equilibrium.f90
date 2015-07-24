@@ -118,6 +118,7 @@ module equilibrium
 
   ! get equilibrium magnetic field in cylindrical coordinates
   procedure(default_get_Bf), pointer :: get_Bf_eq2D  => default_get_Bf
+  procedure(default_get_JBf), pointer :: get_JBf_eq2D  => default_get_JBf
 
   ! get poloidal magnetic flux
   procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
@@ -376,6 +377,7 @@ module equilibrium
   select case (i_equi)
   case (EQ_GEQDSK)
      get_Bf_eq2D                   => geqdsk_get_Bf
+     get_JBf_eq2D                  => geqdsk_get_JBf
      get_Psi                       => geqdsk_get_Psi
      get_DPsi                      => geqdsk_get_DPsi
      get_domain                    => geqdsk_get_domain
@@ -453,6 +455,20 @@ module equilibrium
   endif
 
   end function default_get_Bf
+!=======================================================================
+
+
+
+!=======================================================================
+! Jacobian of magnetic field
+!=======================================================================
+  function default_get_JBf(r) result(J)
+  real(real64), intent(in)  :: r(3)
+  real(real64)              :: J(3,3)
+
+  J = 0.d0
+
+  end function default_get_JBf
 !=======================================================================
 
 
