@@ -12,13 +12,15 @@
 !    N_R, N_Z           Resolution of computational domain (number of grid nodes)
 !
 !    Output_File        filename for output g-file
+!    Grid_File          filename for grid with computational nodes
 !===============================================================================
 subroutine export_gfile
   use iso_fortran_env
-  use run_control, only: R_start, R_end, Z_start, Z_end, N_R, N_Z, Output_File
+  use run_control, only: R_start, R_end, Z_start, Z_end, N_R, N_Z, Output_File, Grid_File
   use equilibrium
   use boundary
   use parallel
+  use grid
   implicit none
 
   integer, parameter :: iu = 42
@@ -27,6 +29,7 @@ subroutine export_gfile
   ! internal variables
   real(real64), dimension(:,:), allocatable :: psirz
   real(real64), dimension(:), allocatable :: empty, fpol
+  type(t_grid) :: G
   real(real64) :: R, Z, Zmid, DeltaR, DeltaZ, Raxis, Zaxis, r3(3)
   integer      :: i, j, nr, nz
 
@@ -57,6 +60,7 @@ subroutine export_gfile
   allocate (psirz(nr,nz), empty(nr), fpol(nr))
   empty = 0.d0
   fpol  = Bt * (R0/1.d2)
+  call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, nr, nz)
 
 
   ! set up Psi(R,Z) for output
@@ -65,8 +69,12 @@ subroutine export_gfile
      r3(1)      = R_start + (i-1.d0) / (nr-1.d0) * DeltaR
      r3(2)      = Z_start + (j-1.d0) / (nz-1.d0) * DeltaZ
      psirz(i,j) = get_Psi(r3)
+
+     G%mesh(i-1,j-1,1) = r3(1)
+     G%mesh(i-1,j-1,2) = r3(2)
   enddo
   enddo
+  call G%store(filename=Grid_File)
 
 
   ! convert units
