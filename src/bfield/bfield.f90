@@ -234,8 +234,8 @@ module bfield
   call wait_pe()
   call sum_inte_data(icall,2)
   if (firstP) then
-     write (6, *) icall(1), ' calls to Bf_cyl'
-     write (6, *) icall(2), ' calls to Bf_cart'
+     if (icall(1) > 0) write (6, *) icall(1), ' calls to Bf_cyl'
+     if (icall(2) > 0) write (6, *) icall(2), ' calls to Bf_cart'
   endif
 
 
