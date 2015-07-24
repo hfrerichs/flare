@@ -15,7 +15,7 @@ module amhd
 
   ! equilibrium shape coefficients
   integer(fgsl_size_t), parameter :: n = 7
-  real(real64) :: eps, del, kap, A, xsep, ysep, c(n), scale_manual = 1.d0
+  real(real64) :: eps, del, kap, A = 0.d0, xsep, ysep, c(n), scale_manual = 1.d0
 
   namelist /AMHD_Input/ &
      eps, del, kap, A, xsep, ysep, scale_manual
@@ -75,7 +75,6 @@ module amhd
 
 
   ! internal parameters
-  A    = 0.d0
   xsep = 1.d0 - 1.1d0*del*eps
   ysep = -1.1d0*kap*eps
 
