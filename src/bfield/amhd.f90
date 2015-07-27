@@ -13,12 +13,24 @@ module amhd
   real(real64) :: PSI0_scale
 
 
-  ! equilibrium shape coefficients
-  integer(fgsl_size_t), parameter :: n = 7
-  real(real64) :: eps, del, kap, A = 0.d0, xsep, ysep, c(n), scale_manual = 1.d0
+  ! equilibrium shape coefficients (input)
+  real(real64) :: &
+     eps          = 0.4d0, & ! inverse aspect ratio = normlized midplane minor radius
+     del          = 0.4d0, & ! triangularity
+     kap          = 1.8d0, & ! elongation
+     A            = 0.d0, &
+     xsep         = 0.d0, &  ! position of lower X-point
+     ysep         = 0.d0, &
+     scale_manual = 1.d0
+  logical      :: up_down_symmetry = .true.
 
   namelist /AMHD_Input/ &
-     eps, del, kap, A, xsep, ysep, scale_manual
+     eps, del, kap, A, xsep, ysep, scale_manual, up_down_symmetry
+
+
+  ! derived parameters (from equilibrium shape coefficients)
+  real(real64), dimension(:), allocatable :: ceq
+  integer :: n
 
 
   public :: &
@@ -41,15 +53,7 @@ module amhd
   integer,      intent(out) :: iconfig
   real(real64), intent(in)  :: Ip_, Bt_, R0_
 
-
-  real(fgsl_double), target :: M(n, n), b(n), x(n), vpsi(0:12)
-  type(fgsl_matrix)         :: Mfgsl
-  type(fgsl_vector)         :: bfgsl, xfgsl
-  integer(fgsl_int)         :: stat, sig
-  type(fgsl_permutation)    :: p
-
-  real(real64)              :: alp, N1, N2, N3, r(3), Bf(3), Bpol
-
+  integer(fgsl_size_t) :: npass
 
   ! set up toroidal magnetic field and plasma current
   Ip = Ip_
@@ -74,9 +78,43 @@ module amhd
   write (6, *)
 
 
-  ! internal parameters
-  xsep = 1.d0 - 1.1d0*del*eps
-  ysep = -1.1d0*kap*eps
+  ! set up derived coefficients
+  n     = 12
+  if (up_down_symmetry) n = 7
+  npass = n
+  call setup_amhd(npass)
+
+
+  return
+ 1000 format(3x,'- Analytic MHD equilibrium')
+ 1001 format(8x,'Toroidal magnetic field (T): ',f8.3)
+ 1002 format(8x,'Reference Major Radius (cm): ',f8.3)
+ 1003 format(8x,'Plasma current (MA):         ',f8.3)
+ 2001 format(8x,'Elongation (kappa):          ',f8.3)
+ 2002 format(8x,'Triangularity (delta):       ',f8.3)
+ 2003 format(8x,'1 / Aspect ratio (epsilon):  ',f8.3)
+ 9000 iconfig = 0
+  end subroutine amhd_load
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine setup_amhd(n)
+  integer(fgsl_size_t), intent(in) :: n
+
+  real(fgsl_double), target :: M(n, n), b(n), x(n), vpsi(0:12)
+  type(fgsl_matrix)         :: Mfgsl
+  type(fgsl_vector)         :: bfgsl, xfgsl
+  integer(fgsl_int)         :: stat, sig
+  type(fgsl_permutation)    :: p
+
+  real(real64)              :: alp, N1, N2, N3, r(3), Bf(3), Bpol
+
+
+  ! set default position of X-point
+  if (xsep == 0.d0) xsep = 1.d0 - 1.1d0*del*eps
+  if (ysep == 0.d0) ysep = -1.1d0*kap*eps
 
 
   ! derived parameters
@@ -93,12 +131,10 @@ module amhd
   ! 2. inner equatorial point
   vpsi   = Psi_osfa(1.d0 - eps, 0.d0)
   M(:,2) = vpsi(1:n);  b(2)   = -vpsi(0)
-  ! 3. high point
-!  vpsi   = Psi_osfa(1.d0 - del*eps, kap*eps)
+  ! 3. X-point
   vpsi   = Psi_osfa(xsep, ysep)
   M(:,3) = vpsi(1:n);  b(3)   = -vpsi(0)
-  ! 4. high point maximum
-!  vpsi   = Psix_osfa(1.d0 - del*eps, kap*eps)
+  ! 4. BZ=0 at X-point
   vpsi   = Psix_osfa(xsep, ysep)
   M(:,4) = vpsi(1:n);  b(4)   = -vpsi(0)
   ! 5. outer equatorial point curvature
@@ -113,14 +149,29 @@ module amhd
   vpsi   = Psix_osfa(1.d0 - eps, 0.d0)
   M(:,6) = M(:,6) + N2*vpsi(1:n)
   b(6)   = b(6)   - N2*vpsi(0)
-  ! 7. high point curvature
-!  vpsi   = Psixx_osfa(1.d0 - del*eps, kap*eps)
-!  M(:,7) = vpsi(1:n);  b(7)   = -vpsi(0)
-!  vpsi   = Psiy_osfa(1.d0 - del*eps, kap*eps)
-!  M(:,7) = M(:,7) + N3*vpsi(1:n)
-!  b(7)   = b(7)   - N3*vpsi(0)
+  ! 7. BR=0 at X-point
   vpsi   = Psiy_osfa(xsep, ysep)
   M(:,7) = vpsi(1:n);  b(7)   = -vpsi(0)
+  if (.not.up_down_symmetry) then
+     ! 8. high point
+     vpsi = Psi_osfa(1.d0 - del*eps, kap*eps)
+     M(:,8) = vpsi(1:n);  b(8)   = -vpsi(0)
+     ! 9. high point maximum
+     vpsi = Psix_osfa(1.d0 - del*eps, kap*eps)
+     M(:,9) = vpsi(1:n);  b(9)   = -vpsi(0)
+     ! 10. high point curvature
+     vpsi = Psixx_osfa(1.d0 - del*eps, kap*eps)
+     M(:,10) = vpsi(1:n);  b(10)   = -vpsi(0)
+     vpsi = Psiy_osfa(1.d0 - del*eps, kap*eps)
+     M(:,10) = M(:,10) + N3*vpsi(1:n)
+     b(10)   = b(10)   - N3*vpsi(0)
+     ! 11. outer equatorial point: up-down symmetry
+     vpsi = Psiy_osfa(1.d0 + eps, 0.d0)
+     M(:,11) = vpsi(1:n);  b(11)   = -vpsi(0)
+     ! 12. inner equatorial point: up-down symmetry
+     vpsi = Psiy_osfa(1.d0 - eps, 0.d0)
+     M(:,12) = vpsi(1:n);  b(12)   = -vpsi(0)
+  endif
 
 
   ! solve linear system
@@ -136,8 +187,8 @@ module amhd
   stat   = fgsl_linalg_LU_solve(Mfgsl, p, bfgsl, xfgsl)
 
   ! gather results
-  c      = 0.d0
-  c(1:n) = x
+  allocate(ceq(n))
+  ceq    = x
 
 
   ! cleanup
@@ -156,18 +207,7 @@ module amhd
   Bpol = Ip * 2.d5 / R0 / eps
   PSI0_scale = Bpol / Bf(2) * scale_manual
 
-
-
-  return
- 1000 format(3x,'- Analytic MHD equilibrium')
- 1001 format(8x,'Toroidal magnetic field (T): ',f8.3)
- 1002 format(8x,'Reference Major Radius (cm): ',f8.3)
- 1003 format(8x,'Plasma current (MA):         ',f8.3)
- 2001 format(8x,'Elongation (kappa):          ',f8.3)
- 2002 format(8x,'Triangularity (delta):       ',f8.3)
- 2003 format(8x,'1 / Aspect ratio (epsilon):  ',f8.3)
- 9000 iconfig = 0
-  end subroutine amhd_load
+  end subroutine setup_amhd
 !===============================================================================
 
 
@@ -380,7 +420,7 @@ module amhd
   else
      vPsi   = 0.d0
   endif
-  DPsi = PSI0_scale*(vPsi(0) + sum(c*vPsi(1:n)))
+  DPsi = PSI0_scale*(vPsi(0) + sum(ceq(1:n)*vPsi(1:n)))
 
   end function amhd_get_DPsi
 !===============================================================================
@@ -415,7 +455,9 @@ module amhd
   call broadcast_real_s (PSI0_scale)
   call broadcast_real_s (scale_manual)
   call broadcast_real_s (A)
-  call broadcast_real   (c,int(n))
+  call broadcast_inte_s (n)
+  call broadcast_real   (ceq,int(n))
+  call broadcast_logi   (up_down_symmetry)
 
   end subroutine amhd_broadcast
 !===============================================================================
