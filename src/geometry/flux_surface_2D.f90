@@ -477,8 +477,21 @@ module flux_surface_2D
   class(t_flux_surface_2D) :: this
   real(real64)             :: V
 
+  real(real64) :: x(2), dl(2), dA, dS(2)
+  integer :: i
 
-  V = -1.d0
+
+  V = 0.d0
+  do i=1,this%n_seg
+     x     = 0.5d0 * (this%x(i-1,:) + this%x(i,:))
+     dl    = this%x(i,:) - this%x(i-1,:)
+     dA    = pi2 * sqrt(sum(dl**2)) * x(1)
+
+     dS(1) = dl(2);     dS(2) = -dl(1)
+     dS    = dS / sqrt(sum(dS**2)) * dA
+
+     V     = V + 0.5d0 * (dS(2) * x(2)  +  dS(1) * x(1) / 2.d0)
+  enddo
 
   end function volume
 !===============================================================================
