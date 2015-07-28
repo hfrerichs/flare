@@ -462,7 +462,7 @@ module flux_surface_2D
 
      dPsi(1) = get_dPsiN(x, 1, 0)
      dPsi(2) = get_dPsiN(x, 0, 1)
-     GradPsi = GradPsi + dA * sqrt(sum(dPsi))
+     GradPsi = GradPsi + dA * sqrt(sum(dPsi**2))
   enddo
   GradPsi = GradPsi / area
 
