@@ -494,25 +494,26 @@ module equilibrium
 !=======================================================================
 ! Sample normalized poloidal magnetic flux at r=(R,Z [cm], phi [rad])
 !===============================================================================
-  function get_PsiN(r0) result(PsiN)
-  real(real64), dimension(:), intent(in) :: r0
+  function get_PsiN(r) result(PsiN)
+  real(real64), dimension(:), intent(in) :: r
   real(real64)                           :: PsiN
 
-  real(real64) :: r(3)
+  real(real64) :: r3(3)
 
 
-  select case(size(r0))
+  select case(size(r))
   case(2)
-     r(1:2) = r0
-     r(  3) = 0.d0
+     r3(1:2) = r
+     r3(  3) = 0.d0
   case(3)
-     r      = r0
+     r3      = r
   case default
      write (6, *) 'error in get_PsiN: invalid size of argument r0!'
-     write (6, *) 'size(r0) = ', size(r0)
+     write (6, *) 'size(r) = ', size(r)
+     stop
   end select
 
-  PsiN = (get_Psi(r) - Psi_axis) / (Psi_sepx - Psi_axis)
+  PsiN = (get_Psi(r3) - Psi_axis) / (Psi_sepx - Psi_axis)
 
   end function get_PsiN
 !=======================================================================
@@ -536,11 +537,23 @@ module equilibrium
   end function default_get_DPsi
 !=======================================================================
   function get_DPsiN(r, nR, nZ) result(DPsiN)
-  real*8, intent(in)  :: r(3)
-  integer, intent(in) :: nR, nZ
-  real*8              :: DPsiN
+  real(real64), dimension(:), intent(in)  :: r
+  integer, intent(in)                     :: nR, nZ
+  real(real64)                            :: DPsiN
 
-  DPsiN = get_DPsi(r(1:2), nR, nZ) / (Psi_sepx - Psi_axis)
+  real(real64) :: r2(2)
+
+
+  select case(size(r))
+  case(2,3)
+     r2 = r(1:2)
+  case default
+     write (6, *) 'error in get_DPsiN: invalid size of argument r!'
+     write (6, *) 'size(r) = ', size(r)
+     stop
+  end select
+
+  DPsiN = get_DPsi(r2, nR, nZ) / (Psi_sepx - Psi_axis)
 
   end function get_DPsiN
 !=======================================================================

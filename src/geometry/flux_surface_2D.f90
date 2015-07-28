@@ -19,6 +19,7 @@ module flux_surface_2D
      procedure :: generate_closed
      procedure :: generate_open
      procedure :: setup_sampling
+     procedure :: surface, volume
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -437,5 +438,49 @@ module flux_surface_2D
   end subroutine setup_sampling
 !===============================================================================
 
+
+
+!===============================================================================
+  subroutine surface(this, area, GradPsi)
+  use math
+  use equilibrium
+  class(t_flux_surface_2D)  :: this
+  real(real64), intent(out) :: area, GradPsi
+
+  real(real64) :: x(2), dl(2), dA, dPsi(2)
+  integer :: i
+
+
+  area = 0.d0
+  GradPsi = 0.d0
+  do i=1,this%n_seg
+     x    = 0.5d0 * (this%x(i-1,:) + this%x(i,:))
+     dl   = this%x(i,:) - this%x(i-1,:)
+
+     dA   = pi2 * sqrt(sum(dl**2)) * x(1)
+     area = area + dA
+
+     dPsi(1) = get_dPsiN(x, 1, 0)
+     dPsi(2) = get_dPsiN(x, 0, 1)
+     GradPsi = GradPsi + dA * sqrt(sum(dPsi))
+  enddo
+  GradPsi = GradPsi / area
+
+  end subroutine surface
+!===============================================================================
+
+
+
+!===============================================================================
+  function volume(this) result(V)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64)             :: V
+
+
+  V = -1.d0
+
+  end function volume
+!===============================================================================
 
 end module flux_surface_2D
