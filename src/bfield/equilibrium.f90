@@ -128,6 +128,8 @@ module equilibrium
 
 !  ! return poloidal magnetic flux at magnetic axis
 !  procedure(Psi_axis_interface), pointer :: Psi_axis
+  ! pressure profile
+  procedure(default_pressure), pointer :: get_pressure => default_pressure
 
   ! Return boundaries [cm] of equilibrium domain
   procedure(default_get_domain), pointer :: get_domain => default_get_domain
@@ -398,6 +400,7 @@ module equilibrium
      get_Bf_eq2D                   => amhd_get_Bf
      get_Psi                       => amhd_get_Psi
      get_DPsi                      => amhd_get_DPsi
+     get_pressure                  => amhd_get_pressure
      get_domain                    => amhd_get_domain
      broadcast_equilibrium         => amhd_broadcast
   end select
@@ -738,6 +741,18 @@ module equilibrium
   if (present(iter)) iter = i
 
   end function get_cylindrical_coordinates
+!=======================================================================
+
+
+
+!=======================================================================
+  function default_pressure(Psi) result(P)
+  real(real64), intent(in) :: Psi
+  real(real64)             :: P
+
+  P = 0.d0
+
+  end function default_pressure
 !=======================================================================
 
 

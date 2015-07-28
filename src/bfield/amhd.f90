@@ -38,6 +38,7 @@ module amhd
      amhd_get_Bf, &
      amhd_get_Psi, &
      amhd_get_DPsi, &
+     amhd_get_pressure, &
      amhd_get_domain, &
      amhd_broadcast
 
@@ -423,6 +424,22 @@ module amhd
   DPsi = PSI0_scale*(vPsi(0) + sum(ceq(1:n)*vPsi(1:n)))
 
   end function amhd_get_DPsi
+!===============================================================================
+
+
+
+!===============================================================================
+! Return pressure on flux surface Psi
+!===============================================================================
+  function amhd_get_pressure(Psi) result(P)
+  use math
+  real(real64), intent(in) :: Psi
+  real(real64)             :: P
+
+
+  P = PSI0_scale**2 / (4.d-7*pi) / (R0/1.d2)**4 * (1.d0-A) * Psi
+
+  end function amhd_get_pressure
 !===============================================================================
 
 
