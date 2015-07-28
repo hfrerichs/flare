@@ -21,14 +21,19 @@ module amhd
      A            = 0.d0, &
      xsep         = 0.d0, &  ! position of lower X-point
      ysep         = 0.d0, &
+     xsep2        = 0.d0, &  ! position of 2nd X-point (generalized snowflake)
+     ysep2        = 0.d0, &
      scale_manual = 1.d0
-  logical      :: up_down_symmetry = .true.
+  logical      :: &
+     up_down_symmetry = .true., &
+     snowflake        = .false.
 
   namelist /AMHD_Input/ &
-     eps, del, kap, A, xsep, ysep, scale_manual, up_down_symmetry
+     eps, del, kap, A, xsep, ysep, xsep2, ysep2, scale_manual, up_down_symmetry, snowflake
 
 
   ! derived parameters (from equilibrium shape coefficients)
+  integer, parameter :: nmax = 14
   real(real64), dimension(:), allocatable :: ceq
   integer :: n
 
@@ -82,6 +87,7 @@ module amhd
   ! set up derived coefficients
   n     = 12
   if (up_down_symmetry) n = 7
+  if (snowflake)        n = 14 ! up-down asymmetric snowflake
   npass = n
   call setup_amhd(npass)
 
@@ -104,7 +110,7 @@ module amhd
   subroutine setup_amhd(n)
   integer(fgsl_size_t), intent(in) :: n
 
-  real(fgsl_double), target :: M(n, n), b(n), x(n), vpsi(0:12)
+  real(fgsl_double), target :: M(n, n), b(n), x(n), vpsi(0:nmax)
   type(fgsl_matrix)         :: Mfgsl
   type(fgsl_vector)         :: bfgsl, xfgsl
   integer(fgsl_int)         :: stat, sig
@@ -116,6 +122,8 @@ module amhd
   ! set default position of X-point
   if (xsep == 0.d0) xsep = 1.d0 - 1.1d0*del*eps
   if (ysep == 0.d0) ysep = -1.1d0*kap*eps
+  if (xsep2 == 0.d0) xsep2 = 0.54506
+  if (ysep2 == 0.d0) ysep2 = -1.7701
 
 
   ! derived parameters
@@ -173,6 +181,15 @@ module amhd
      vpsi = Psiy_osfa(1.d0 - eps, 0.d0)
      M(:,12) = vpsi(1:n);  b(12)   = -vpsi(0)
   endif
+  if (snowflake) then
+     ! 2nd X-point
+     ! 13. BZ=0 at X-point
+     vpsi   = Psix_osfa(xsep2, ysep2)
+     M(:,13) = vpsi(1:n);  b(13)   = -vpsi(0)
+     ! 14. BR=0 at X-point
+     vpsi   = Psiy_osfa(xsep2, ysep2)
+     M(:,14) = vpsi(1:n);  b(14)   = -vpsi(0)
+  endif
 
 
   ! solve linear system
@@ -216,7 +233,7 @@ module amhd
 !===============================================================================
   function Psi_osfa(x, y)
   real(real64), intent(in) :: x, y
-  real(real64)             :: Psi_osfa(0:12)
+  real(real64)             :: Psi_osfa(0:nmax)
 
 
   Psi_osfa(0) = x**4 / 8.d0 + A * (0.5d0*x**2*log(x) - x**4/8.d0)
@@ -233,12 +250,15 @@ module amhd
   Psi_osfa(10)= y**3 - 3.d0*y * x**2 *log(x)
   Psi_osfa(11)= 3.d0*y * x**4 - 4.d0* y**3 * x**2
   Psi_osfa(12)= 8.d0*y**5 - 45.d0*y *x**4 - 80.d0*y**3 * x**2 *log(x) + 60.d0*y * x**4 *log(x)
+  Psi_osfa(13)= -5.0d0*x**8 + 120.d0*x**6 *y**2 - 240.d0*x**4 *y**4 + 64.d0*x**2 *y**6
+  Psi_osfa(14)= 48.d0*y**8 - 1344.d0*x**2 *y**6 *log(x) + 5040.d0*x**4 *y**4 *log(x) - 2520.d0*x**6 *y**2 *log(x) &
+              + 105.d0*x**8 *log(x) - 1960.d0*x**2 *y**6 + 3570.d0*x**4 *y**4 - 735.d0*x**6 * y**2
 
   end function Psi_osfa
 !===============================================================================
   function Psix_osfa(x, y)
   real(real64), intent(in) :: x, y
-  real(real64)             :: Psix_osfa(0:12)
+  real(real64)             :: Psix_osfa(0:nmax)
 
 
   Psix_osfa(0) = x**3 / 2.d0 + A * (x*log(x) + x/2.d0 - x**3/2.d0)
@@ -255,12 +275,16 @@ module amhd
   Psix_osfa(10)= -6.d0*y * x * log(x) - 3.d0* y * x
   Psix_osfa(11)= 12.d0*y* x**3 - 8.d0*y**3 * x
   Psix_osfa(12)= -120.d0*y * x**3 - 160.d0*y**3 * x * log(x) - 80.d0*y**3 * x + 240.d0*y * x**3 *log(x)
+  Psix_osfa(13)= -40.d0*x**7 + 720.d0*x**5 *y**2 - 960.d0*x**3 *y**4 + 128.d0*x *y**6
+  Psix_osfa(14)= -2688.d0*x *y**6 *log(x) - 5264.d0*x *y**6 + 20160.d0*x**3 *y**4 *log(x) &
+               + 19320.d0*x**3 *y**4 - 15120.d0*x**5 *y**2 *log(x) - 6930.d0*x**5 *y**2 &
+               + 840.d0*x**7 *log(x) + 105.d0*x**7
 
   end function Psix_osfa
 !===============================================================================
   function Psixx_osfa(x, y)
   real(real64), intent(in) :: x, y
-  real(real64)             :: Psixx_osfa(0:12)
+  real(real64)             :: Psixx_osfa(0:nmax)
 
 
   Psixx_osfa(0) = 3.d0 * x**2 / 2.d0 + A * (log(x) + 3.d0/2.d0 - 3.d0*x**2/2.d0)
@@ -277,12 +301,16 @@ module amhd
   Psixx_osfa(10)= -6.d0*y *log(x) - 9.d0*y
   Psixx_osfa(11)= 36.d0*y *x**2 - 8.d0*y**3
   Psixx_osfa(12)= -120.d0*y *x**2 - 160.d0*y**3 *log(x) - 240.d0*y**3 + 720.d0*y *x**2 *log(x)
+  Psixx_osfa(13)= -280.d0*x**6 + 3600.d0*x**4 *y**2 - 2880.d0*x**2 *y**4 + 128.d0*y**6
+  Psixx_osfa(14)= -2688.d0*y**6 *log(x) - 7952.d0*y**6 + 60480.d0*x**2 *y**4 *log(x) &
+                + 78120.d0*x**2 *y**4 - 75600.d0*x**4 *y**2 *log(x) - 49770.d0*x**4 *y**2 &
+                + 5880.d0*x**6 *log(x) + 1575.d0*x**6
 
   end function Psixx_osfa
 !===============================================================================
   function Psiy_osfa(x, y)
   real(real64), intent(in) :: x, y
-  real(real64)             :: Psiy_osfa(0:12)
+  real(real64)             :: Psiy_osfa(0:nmax)
 
 
   Psiy_osfa(0) = 0.d0
@@ -299,12 +327,16 @@ module amhd
   Psiy_osfa(10)= 3.d0*y**2 - 3.d0*x**2 *log(x)
   Psiy_osfa(11)= 3.d0*x**4 - 12.d0*y**2 * x**2
   Psiy_osfa(12)= 40.d0*y**4 - 45.d0*x**4 - 240.d0*y**2 * x**2 *log(x) + 60.d0*x**4 *log(x)
+  Psiy_osfa(13)= 240.d0*x**6 *y - 960.d0*x**4 *y**3 + 384.d0*x**2 *y**5
+  Psiy_osfa(14)= 384.d0*y**7 - 8064.d0*x**2 *y**5*log(x) + 20160.d0*x**4 *y**3 *log(x) &
+               - 5040.d0*x**6 *y *log(x) - 11760.d0*x**2 *y**5 + 14280.d0*x**4 *y**3 &
+               - 1470.d0*x**6 *y
 
   end function Psiy_osfa
 !===============================================================================
   function Psiyy_osfa(x, y)
   real(real64), intent(in) :: x, y
-  real(real64)             :: Psiyy_osfa(0:12)
+  real(real64)             :: Psiyy_osfa(0:nmax)
 
 
   Psiyy_osfa(0) = 0.d0
@@ -321,12 +353,16 @@ module amhd
   Psiyy_osfa(10)= 6.d0*y
   Psiyy_osfa(11)= -24.d0*y * x**2
   Psiyy_osfa(12)= 160.d0*y**3 - 480.d0*y *x**2 *log(x)
+  Psiyy_osfa(13)= 240.d0*x**6 - 2880.d0*x**4 *y**2 + 1920.d0*x**2 *y**4
+  Psiyy_osfa(14)= 2688.d0*y**6 - 40320.d0*x**2 *y**4 *log(x) + 60480.d0*x**4 *y**2 *log(x) &
+                - 5040.d0*x**6 *log(x) - 58800.d0*x**2 *y**4 + 42840.d0*x**4 *y**2 &
+                - 1470.d0*x**6
 
   end function Psiyy_osfa
 !===============================================================================
   function Psixy_osfa(x, y)
   real(real64), intent(in) :: x, y
-  real(real64)             :: Psixy_osfa(0:12)
+  real(real64)             :: Psixy_osfa(0:nmax)
 
 
   Psixy_osfa(0) = 0.d0
@@ -342,6 +378,9 @@ module amhd
   Psixy_osfa(10)= -6.d0*x *log(x) - 3.d0*x
   Psixy_osfa(11)= 12.d0* x**3 - 24.d0*x * y**2
   Psixy_osfa(12)= -120.d0 * x**3 - 480.d0*y**2 *x *log(x) - 240.d0*y**2 * x + 240.d0*x**3 *log(x)
+  Psixy_osfa(13)= 1440.d0*x**5 *y - 3840.d0*x**3 *y**3 + 768.d0*x *y**5
+  Psixy_osfa(14)= -16128.d0*x *y**5 *log(x) - 31584.d0*x *y**5 + 80640.d0*x**3 *y**3 *log(x) &
+                + 77280.d0*x**3 *y**3 - 30240.d0*x**5 *y *log(x) - 13860.d0*x**5 *y
 
   end function Psixy_osfa
 !===============================================================================
@@ -400,7 +439,7 @@ module amhd
   integer,      intent(in) :: mR, mZ
   real(real64)             :: DPsi
 
-  real(real64) :: x, y, vPsi(0:12)
+  real(real64) :: x, y, vPsi(0:nmax)
   integer :: i
 
 
