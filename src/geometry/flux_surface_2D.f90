@@ -19,7 +19,7 @@ module flux_surface_2D
      procedure :: generate_closed
      procedure :: generate_open
      procedure :: setup_sampling
-     procedure :: surface, volume
+     procedure :: surface, volume, surface_analysis
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -441,7 +441,22 @@ module flux_surface_2D
 
 
 !===============================================================================
-  subroutine surface(this, area, GradPsi)
+  function surface(this) result(area)
+  class(t_flux_surface_2D)  :: this
+  real(real64)              :: area
+
+  real(real64) :: dPsi
+
+
+  call this%surface_analysis(area, dPsi)
+
+  end function surface
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine surface_analysis(this, area, GradPsi)
   use math
   use equilibrium
   class(t_flux_surface_2D)  :: this
@@ -466,7 +481,7 @@ module flux_surface_2D
   enddo
   GradPsi = GradPsi / area
 
-  end subroutine surface
+  end subroutine surface_analysis
 !===============================================================================
 
 

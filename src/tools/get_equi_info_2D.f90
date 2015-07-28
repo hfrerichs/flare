@@ -13,7 +13,7 @@ subroutine get_equi_info_2D
 
   character(len=120) :: fout, sboundary
   character(len=8)   :: cid
-  real(real64)       :: Rbox(2), Zbox(2), r(3), Psi, Ip_int, Ip_info
+  real(real64)       :: Rbox(2), Zbox(2), r(3), Psi, Ip_int, Bpol, betaP, betaT
   integer            :: i, j, nR, nZ
 
 
@@ -33,6 +33,7 @@ subroutine get_equi_info_2D
   r(3) = 0.d0
   r = get_magnetic_axis(r(3))
   write (6, 9001) r(1:2)
+  write (6, *)
   open  (iu, file='magnetic_axis.dat')
   write (iu, *) r(1:2)
   close (iu)
@@ -94,11 +95,6 @@ subroutine get_equi_info_2D
   ! write plot script
   open  (iu, file='plot_equi_info.sh')
   write (iu, 2000)
-  write (iu, 2001)
-  write (iu, 2002)
-  write (iu, 2003)
-  write (iu, 2004)
-  write (iu, 2005)
   write (iu, 2006)
   write (iu, 2007)
   write (iu, 2008) sboundary
@@ -108,12 +104,18 @@ subroutine get_equi_info_2D
 
 
   ! calculate plasma current from plasma surface integral
-  Ip_int = Ip_info (1.d-4, 400)
-  write (6, 9002) Ip_int
+  call Ip_info (1.d-4, 400, Ip_int, Bpol)
 
+  ! calculate plasma beta
+  call beta_info(100, Bpol, betaP, betaT)
+  write (6, 9002) Ip_int
+  write (6, 9003) betaT
+  write (6, 9004) betaP
 
  9001 format (3x,'- Magnetic axis is at: ',2f10.3)
  9002 format (3x,'- Plasma current [MA] from surface integration: ', f10.5)
+ 9003 format (3x,'- Toroidal plasma beta:                         ', f10.5)
+ 9004 format (3x,'- Poloidal plasma beta:                         ', f10.5)
  1000 format ('# grid_id = 233     (regular RZ grid)')
  1001 format ('# R resolution:      n_R     =  ',i8)
  1002 format ('# Z resolution:      n_Z     =  ',i8)
@@ -121,11 +123,6 @@ subroutine get_equi_info_2D
  1004 format (e18.10)
 
  2000 format ('#!/bin/bash')
- 2001 format ('if [ ! -e plot_data.pro ]; then')
- 2002 format ('echo "Please make (symbolic) link to plot_data.pro!"')
- 2003 format ('echo "This file can be found in the FLARE directory under templates/plot"')
- 2004 format ('exit')
- 2005 format ('fi')
  2006 format ('idl << EOF')
  2007 format ("plot_data, 'equi_info.grid', 'equi_info.data', 0, zrange=[0,2], clevels=[0.9, 1.0, 1.1], $")
  2008 format (a120)
@@ -139,7 +136,7 @@ end subroutine get_equi_info_2D
 !===============================================================================
 ! calculate plasma current from plasma surface integral
 !===============================================================================
-function Ip_info(delta_PsiN, n_sample) result(Ip)
+subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   use iso_fortran_env
   use equilibrium, only: get_cylindrical_coordinates, get_Bf_eq2D
   use flux_surface_2D
@@ -147,12 +144,12 @@ function Ip_info(delta_PsiN, n_sample) result(Ip)
   use run_control, only: Debug
   implicit none
 
-  real(real64), intent(in) :: delta_PsiN
-  integer,      intent(in) :: n_sample
-  real(real64)             :: Ip
+  real(real64), intent(in)  :: delta_PsiN
+  integer,      intent(in)  :: n_sample
+  real(real64), intent(out) :: Ip, Bpolbar
 
-  type(t_flux_surface_2D) :: F
-  real(real64)       :: dl, Bpol, Bpolint, Bf(3), xi, r(3), y(3)
+  type(t_flux_surface_2D)  :: F
+  real(real64)       :: L, dl, Bpol, Bpolint, Bf(3), xi, r(3), y(3)
   integer            :: i, ierr
 
 
@@ -167,9 +164,16 @@ function Ip_info(delta_PsiN, n_sample) result(Ip)
   call F%generate_closed(r(1:2), RIGHT_HANDED)
   if (Debug) call F%plot(filename='lcfs.plt')
   call F%setup_length_sampling()
+  L       = F%length()
+  write (6, 9010)
+  write (6, 9011) L / 1.d2
+  write (6, 9012) F%area() / 1.d4
+  write (6, 9013) F%surface() / 1.d4
+  write (6, 9014) F%volume() / 1.d6
+  write (6, *)
 
 
-  dl      = F%length() / n_sample
+  dl      = L / n_sample
   Bpolint = 0.d0
   do i=0,n_sample-1
      xi      = 1.d0 * i / n_sample
@@ -181,6 +185,69 @@ function Ip_info(delta_PsiN, n_sample) result(Ip)
   enddo
   Bpolint = Bpolint * 1.d-4 * 1.d-2	! Gauss cm -> T m
   Ip      = Bpolint / (4.d-1 * pi)
+  Bpolbar = Bpolint / (L/1.d2)
 
-end function Ip_info
+ 9010 format(3x,'- Plasma boundary:')
+ 9011 format(8x,'poloidal cirumference [m]     = ', f10.4)
+ 9012 format(8x,'poloidal cross-section [m**2] = ', f10.4)
+ 9013 format(8x,'surface area [m**2]           = ', f10.4)
+ 9014 format(8x,'plasma volume [m**3]          = ', f10.4)
+end subroutine Ip_info
+!===============================================================================
+
+
+
+!===============================================================================
+! Calculate plasma beta
+!===============================================================================
+subroutine beta_info(n_R, Bpol, betaP, betaT)
+  use iso_fortran_env
+  use equilibrium, only: get_cylindrical_coordinates, get_pressure, Psi_axis, Psi_sepx, Bt
+  use flux_surface_2D
+  use math
+  implicit none
+  integer,      intent(in)  :: n_R
+  real(real64), intent(in)  :: Bpol
+  real(real64), intent(out) :: betaP, betaT
+
+  type(t_flux_surface_2D)  :: F
+
+  real(real64) :: y(3), r(3), area, Psi, dPsi, psi1, P, V, dV, delta_Psi
+  integer :: i, ierr
+
+
+  P         = 0.d0
+  V         = 0.d0
+  delta_Psi = 1.d0 / n_R
+  do i=0,n_R-1
+     Psi  = (i + 0.5d0) * delta_Psi
+     ! find coordinates in real space for point i
+     y(1) = 180.d0
+     y(2) = Psi
+     y(3) = 0.d0
+     r    = get_cylindrical_coordinates(y, ierr)
+     if (ierr > 0) write (6, *) 'warning: reference point at PsiN = ', y(2), ' exceeds required accuracy!'
+
+     ! generate flux surface
+     call F%generate_closed(r(1:2), RIGHT_HANDED)
+     call F%setup_length_sampling()
+     call F%surface_analysis(area, dPsi)
+
+
+     dV = area / dPsi * delta_Psi
+     psi1 = Psi_axis + Psi * (Psi_sepx - Psi_axis)
+     P  = P + dV * get_pressure(psi1)
+     V  = V + dV
+
+     !write (98, *) Psi, V, F%volume()
+     !write (99, *) Psi, get_pressure(psi1), psi1
+     !write (97, *) Psi, area, F%volume(), dPsi
+  enddo
+  P     = P / V
+  betaP = 2 * 4.d-7*pi * P / Bpol**2
+  betaT = 2 * 4.d-7*pi * P / Bt**2
+  !write (6, *) 'volume = ', V
+  !write (6, *) Bt, Bpol
+
+end subroutine beta_info
 !===============================================================================

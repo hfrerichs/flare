@@ -437,7 +437,7 @@ module amhd
   real(real64)             :: P
 
 
-  P = PSI0_scale**2 / (4.d-7*pi) / (R0/1.d2)**4 * (1.d0-A) * Psi
+  P = -PSI0_scale / (4.d-7*pi) / (R0/1.d2)**4 * (1.d0-A) * Psi
 
   end function amhd_get_pressure
 !===============================================================================
