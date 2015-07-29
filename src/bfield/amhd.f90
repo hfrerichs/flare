@@ -19,8 +19,10 @@ module amhd
      del          = 0.4d0, & ! triangularity
      kap          = 1.8d0, & ! elongation
      A            = 0.d0, &
-     xsep         = 0.d0, &  ! position of lower X-point
+     xsep         = 0.d0, &  ! normalized position of lower X-point
      ysep         = 0.d0, &
+     Rx(2)        = 0.d0, &  ! absolute position of X-point(s)
+     Zx(2)        = 0.d0, &
      xsep2        = 0.d0, &  ! position of 2nd X-point (generalized snowflake)
      ysep2        = 0.d0, &
      scale_manual = 1.d0
@@ -29,7 +31,8 @@ module amhd
      snowflake        = .false.
 
   namelist /AMHD_Input/ &
-     eps, del, kap, A, xsep, ysep, xsep2, ysep2, scale_manual, up_down_symmetry, snowflake
+     eps, del, kap, A, xsep, ysep, xsep2, ysep2, scale_manual, up_down_symmetry, snowflake, &
+     Rx, Zx
 
 
   ! derived parameters (from equilibrium shape coefficients)
@@ -93,10 +96,10 @@ module amhd
 
 
   return
- 1000 format(3x,'- Analytic MHD equilibrium')
- 1001 format(8x,'Toroidal magnetic field (T): ',f8.3)
- 1002 format(8x,'Reference Major Radius (cm): ',f8.3)
- 1003 format(8x,'Plasma current (MA):         ',f8.3)
+ 1000 format(8x,'Analytic MHD equilibrium:')
+ 1001 format(8x,'Toroidal magnetic field [T]: ',f8.3)
+ 1002 format(8x,'Reference Major Radius [cm]: ',f8.3)
+ 1003 format(8x,'Plasma current [MA]:         ',f8.3)
  2001 format(8x,'Elongation (kappa):          ',f8.3)
  2002 format(8x,'Triangularity (delta):       ',f8.3)
  2003 format(8x,'1 / Aspect ratio (epsilon):  ',f8.3)
@@ -124,6 +127,11 @@ module amhd
   if (ysep == 0.d0) ysep = -1.1d0*kap*eps
   if (xsep2 == 0.d0) xsep2 = 0.54506
   if (ysep2 == 0.d0) ysep2 = -1.7701
+  ! overwrite if real space coordinates are given
+  if (Rx(1) .ne. 0.d0) xsep = Rx(1) / R0
+  if (Zx(1) .ne. 0.d0) ysep = Zx(1) / R0
+  if (Rx(2) .ne. 0.d0) xsep2 = Rx(2) / R0
+  if (Zx(2) .ne. 0.d0) ysep2 = Zx(2) / R0
 
 
   ! derived parameters

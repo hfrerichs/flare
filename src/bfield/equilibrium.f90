@@ -247,6 +247,7 @@ module equilibrium
      Psi_axis = 0.d0
   endif
   write (6, 3000) Psi_axis
+  write (6, *)
 
 
 ! 4. set up X-points ...................................................
@@ -293,7 +294,7 @@ module equilibrium
 
   return
  1000 iconfig = 0
- 1001 format ('   - Equilibrium configuration:')
+ 1001 format (3x,'- Equilibrium configuration:')
  3000 format (8x,'Psi_axis = ', e12.4)
  4000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
  4001 format (8x,2f12.4,2x,e12.4)
