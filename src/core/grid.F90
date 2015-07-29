@@ -65,7 +65,7 @@ module grid
 
      contains
      procedure :: new
-     procedure :: load
+     procedure :: load, load_usr
      procedure :: setup_mesh
      procedure :: setup_structured_grid
      procedure :: store
@@ -448,6 +448,60 @@ module grid
  2001 format (8x,a80)
   end subroutine rscrape
 !-----------------------------------------------------------------------
+!=======================================================================
+
+
+
+!=======================================================================
+! iformat = 1:	X, Y, Z [cm]
+!           2:  R, Z [cm], phi [deg]
+!           3:  R, Z [cm] at phi_default
+!=======================================================================
+  subroutine load_usr(this, filename, iformat, phi0)
+  use dataset
+  class(t_grid)                :: this
+  character(len=*), intent(in) :: filename
+  integer,          intent(in) :: iformat
+  real(real64),     intent(in), optional :: phi0
+
+  integer, parameter :: iu = 10
+
+  type(t_dataset) :: D
+  real(real64)    :: phi, yi(3), yo(3)
+  integer         :: columns, i, n
+
+
+  phi = 0.d0
+  if (present(phi0)) phi = phi0
+
+
+  ! read data
+  columns = 3
+  if (iformat == 3) columns = 2
+  call D%load(filename, columns)
+
+
+  ! setup grid
+  n = D%nrow
+  call this%new(CYLINDRICAL, UNSTRUCTURED, DEFAULT_GRID, n)
+  do i=1,n
+     yi(1) = D%x(i,1)
+     yi(2) = D%x(i,2)
+     select case (iformat)
+     case(1,2)
+        yi(3) = D%x(i-1,3) / 180.d0 * pi
+     case(3)
+        yi(3) = phi / 180.d0 * pi
+     end select
+     call coord_trans (yi, iformat, yo, CYLINDRICAL)
+     this%x(i,:) = yo
+  enddo
+
+
+  ! cleanup
+  call D%destroy()
+
+  end subroutine load_usr
 !=======================================================================
 
 
