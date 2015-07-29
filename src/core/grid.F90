@@ -466,6 +466,7 @@ module grid
 
   integer, parameter :: iu = 10
 
+#ifdef FLARE
   type(t_dataset) :: D
   real(real64)    :: phi, yi(3), yo(3)
   integer         :: columns, i, n
@@ -501,6 +502,7 @@ module grid
   ! cleanup
   call D%destroy()
 
+#endif
   end subroutine load_usr
 !=======================================================================
 

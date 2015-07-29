@@ -109,6 +109,7 @@ echo "GEOMETRY_DIR   = geometry" >> include.mk
 echo "GRIDGEN_DIR    = fieldline_grid" >> include.mk
 echo "TOOLS_DIR      = tools" >> include.mk
 echo "DEVEL_DIR      = development" >> include.mk
+echo "ADDONS_DIR     = addons" >> include.mk
 echo "" >> include.mk
 
 
@@ -172,6 +173,7 @@ echo ""							>> include.mk
 
 #
 echo 'FC             = $(COMPILER) $(CFLAGS) -DFLARE $(OPT)' >> include.mk
+echo 'FC_ADDONS      = $(COMPILER) $(CFLAGS)         $(OPT)' >> include.mk
 echo 'FC_DEBUG       = $(COMPILER) $(CFLAGS) -DFLARE $(OPT_DEBUG)' >> include.mk
 
 
