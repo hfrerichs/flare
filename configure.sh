@@ -181,4 +181,5 @@ echo "  character(*), parameter :: base_dir             =  '"$base_dir"'"    > c
 
 echo "  character(*), parameter :: Boundary_input_file  =  'boundary.conf'" >> config.h
 echo "  character(*), parameter :: Boundary_sub_dir     =  'boundary'"      >> config.h
+echo "  character(*), parameter :: TAG                  =  'TAGNAME'"       >> config.h
 ################################################################################

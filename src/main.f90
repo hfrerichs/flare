@@ -13,7 +13,7 @@ program main
   call initial_parallel()
   if (firstP) then
      write (6, 1000)
-     write (6, *) 'Running FLARE (tagname Monkey Island)'
+     write (6, *) 'Running FLARE ('//trim(TAG)//')'
      if (nprs.gt.1) then
         write (6, *) 'on ', nprs, ' processors'
      endif
