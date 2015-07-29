@@ -397,6 +397,7 @@ module equilibrium
      get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
      get_Psi                       => m3dc1_get_Psi
      get_DPsi                      => m3dc1_get_DPsi
+     broadcast_equilibrium         => m3dc1_broadcast
   case (EQ_AMHD)
      get_Bf_eq2D                   => amhd_get_Bf
      get_Psi                       => amhd_get_Psi
