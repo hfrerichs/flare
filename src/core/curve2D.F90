@@ -49,6 +49,7 @@ module curve2D
 
      procedure :: load
      procedure :: closed_check
+     procedure :: duplicate_node_check
      procedure :: new
      procedure :: destroy
      procedure :: copy
@@ -100,6 +101,7 @@ module curve2D
   this%n_dim =  2
   this%x     => this%nodes%x
   call this%closed_check()
+  call this%duplicate_node_check()
 
   end subroutine load
 !=======================================================================
@@ -125,6 +127,57 @@ module curve2D
   endif
 
   end subroutine closed_check
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine duplicate_node_check(this)
+  class (t_curve),  intent(inout)         :: this
+
+  real(real64), dimension(:,:), allocatable :: xtmp
+  real(real64) :: dl, x1(2), x2(2)
+  integer      :: idrop(this%n_seg), ndrop, i, j
+
+
+  ndrop = 0
+  ! find duplicate nodes
+  do i=1,this%n_seg
+     x1 = this%x(i-1,:)
+     x2 = this%x(i  ,:)
+     dl = sqrt(sum((x1-x2)**2))
+     if (dl < epsilon(real(1.0,real64))) then
+        ndrop        = ndrop + 1
+        idrop(ndrop) = i
+     endif
+  enddo
+
+
+  ! remove duplicate nodes
+  if (ndrop == 0) return
+  allocate (xtmp(0:this%n_seg-ndrop,2))
+  j     = 0
+  ndrop = 1
+  do i=0,this%n_seg
+     if (i == idrop(ndrop)) then
+        write (6, *) 'removing duplicate node at ', this%x(i,:)
+        ndrop = ndrop + 1
+        cycle
+     endif
+
+     xtmp(j,:) = this%x(i,:)
+     j         = j+1
+  enddo
+
+  ! copy xtmp
+  call this%new(j-1)
+  this%x = xtmp
+
+
+  ! cleanup
+  deallocate (xtmp)
+
+  end subroutine duplicate_node_check
 !=======================================================================
 
 
