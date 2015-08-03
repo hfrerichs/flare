@@ -21,8 +21,8 @@ module fieldline_grid
 
   ! Discretization type definitions
   character(len=*), parameter :: &
-     POLOIDAL_ANGLE    = 'poloidal_angle', &
-     ORTHOGONAL        = 'orthogonal'
+     POLOIDAL_ANGLE    = 'poloidal_angle_fixed', &
+     ORTHOGONAL        = 'quasi_orthogonal'
 
 
   ! zone type definitions
@@ -871,7 +871,7 @@ module fieldline_grid
   write (iu, 3000)
   write (iu, 9999)
   write (iu, 3001)
-  write (iu, *) 0, 0, -1
+  write (iu, *) 0, 0, 1
  3000 format ('*** 3. Neutral Source distribution')
  3001 format ('* N0S NS_PLACE  NSSIDE')
 
