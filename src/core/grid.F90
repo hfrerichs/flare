@@ -164,6 +164,10 @@ module grid
      allocate (this%x2(this%n2))
      allocate (this%x3(this%n3))
   endif
+  if (layout == SEMI_STRUCTURED) then
+     if (allocated(this%x2)) deallocate(this%x2)
+     allocate (this%x2(this%n2))
+  endif
 !
 !     if (.not.present(n2)) then
 !        write (6, *) 'error: resolution parameter n2 missing for regular 2D grid!'
@@ -190,7 +194,7 @@ module grid
   if (firstP) then
      call read_grid()
   endif
-  call broadcast_grid()
+  if (nprs > 1) call broadcast_grid()
 
   contains
 !-----------------------------------------------------------------------
@@ -285,6 +289,7 @@ module grid
      ! read list of x(fixed_coord)
      do j=1,n2
         read  (iu, *) y1
+        this%x2(j) = y1(1)
 
         ! set y1 for all n1 values of x(coord1), x(coord2)
         do i=1,n1
