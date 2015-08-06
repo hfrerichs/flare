@@ -15,6 +15,7 @@ module mesh_spacing
      SPLINE_X1   = 2, &
      DELTA_R_SYM = 3, &
      X1          = 4, &
+     D_CURVE     = 5, &
      USER_DEF    = -1, &
      S_RECURSIVE = -2
 
@@ -32,6 +33,7 @@ module mesh_spacing
      procedure init_spline_x1
      procedure init_X1
      procedure init_recursive
+     procedure init_Dcurve
   end type t_spacing
   
   type(t_spacing), public, parameter :: Equidistant = t_spacing(0,0,null(),Empty_curve,null())
@@ -47,7 +49,8 @@ module mesh_spacing
   class(t_spacing) :: this
   character(len=*) :: mode
 
-  character(len=256) :: s1, s2
+  character(len=256) :: s1, s2, s3
+  real(real64) :: eps, kap, del, phi0, dphi
   integer :: iB
 
 
@@ -94,6 +97,22 @@ module mesh_spacing
      read (s1, *, err=5000) this%c(1)
      read (s2, *, err=5000) this%c(2)
      write (6, *) 'X1: ', this%c
+
+
+  ! D-curve
+  elseif (mode(1:8) == 'D-curve:') then
+     s1        = parse_string(mode(9:iB),1)
+     read (s1, *, err=5000) eps
+     s1        = parse_string(mode(9:iB),2)
+     read (s1, *, err=5000) kap
+     s1        = parse_string(mode(9:iB),3)
+     read (s1, *, err=5000) del
+     s1        = parse_string(mode(9:iB),4)
+     read (s1, *, err=5000) phi0
+     s1        = parse_string(mode(9:iB),5)
+     read (s1, *, err=5000) dphi
+     write (6, *) 'D-curve: ', eps, kap, del, phi0, dphi
+     call this%init_Dcurve(eps, kap, del, phi0, dphi)
 
 
   ! user defined (external) spacing function
@@ -184,6 +203,48 @@ module mesh_spacing
   this%c(2) = rho1
 
   end subroutine init_recursive
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine init_Dcurve(this, eps, kap, del, phi0, dphi)
+  use math
+  class(t_spacing)            :: this
+  real(real64), intent(in)    :: eps, kap, del, phi0, dphi
+
+  integer, parameter :: n = 720
+  real(real64)       :: alp, t, K, x1, x2, y1, y2, curv, tau
+  integer            :: i
+
+
+  this%mode = USER_DEF
+  alp       = asin(del)
+
+  call this%D%new(n)
+  do i=1,n
+     this%D%x(i,2) = 1.d0 * i / n
+
+     t    = (i-0.5d0) / n
+     tau  = (dphi * t  +  phi0) / 180.d0 * pi
+     x1   = -eps*sin(tau + alp*sin(tau)) * (1.d0 + alp*cos(tau))
+     x2   = -eps*cos(tau + alp*sin(tau)) * (1.d0 + alp*cos(tau))**2 + eps*sin(tau + alp*sin(tau)) * alp * sin(tau)
+     y1   = eps*kap*cos(tau)
+     y2   = -eps*kap*sin(tau)
+     curv = (x1*y2 - y1*x2) / (x1**2 + y1**2)**(1.5d0)
+
+
+     !K    = 1.d0/curv
+     K    = curv
+     this%D%x(i,1) = this%D%x(i-1,1) + K
+  enddo
+  this%D%x(:,1) = this%D%x(:,1) / this%D%x(n,1)
+
+  !call this%D%plot(filename='Dcurve.tmp')
+  call check_manual_stretching_function(this%D)
+  call this%D%setup_coordinate_sampling(1)
+
+  end subroutine init_Dcurve
 !=======================================================================
 
 
