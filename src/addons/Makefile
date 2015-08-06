@@ -1,4 +1,4 @@
-DIRS = plot_grid
+DIRS = plot_grid deposition_grid
 
 
 .PHONY: all install clean $(DIRS)
