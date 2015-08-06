@@ -9,8 +9,8 @@
 !    N_psi              Number of initial surfaces
 !    Psi(1:2)           Lower and upper radial boundary
 !
-!    Limit              Max. length of field line tracing
-!    N_steps            Calculate loss fraction at N_steps steps of 'Limit'
+!    Limit              Reference length for field line tracing
+!    N_steps            Calculate loss fraction at N_steps steps of 'Limit' (default = 1)
 !    Trace_Step, Trace_Method, Trace_Coords as ususal
 !
 !    Output_File
@@ -34,17 +34,43 @@ subroutine field_line_loss
   integer      :: i, ierr, j, n
 
 
-  if (firstP) then
-     write (6, *) 'Calculate field line losses within ',Limit/1.d2,' m, output in: ', adjustl(trim(Output_File))
-     write (6, *)
-
-     open  (iu, file=Output_File)
-     write (iu, 1000)
-  endif
-
-
   ! check user input, set default values
   if (N_steps <=0) N_steps = 1
+
+
+  ! reference output to screen
+  if (firstP) then
+     write (6, *) 'Calculate field line losses, output in: ', adjustl(trim(Output_File))
+     write (6, *)
+     if (N_Psi == 1) then
+        write (6, 1001) Psi(1)
+     else
+        write (6, 1002) Psi(1), Psi(2)
+     endif
+     write (6, *)
+
+     write (6, 1003)
+     write (6, 1004) N_sym
+     write (6, 1005) N_phi, N_theta
+     write (6, *)
+
+     if (N_steps == 1) then
+        write (6, 1006) Limit/1.d2
+     else
+        write (6, 1007) N_steps, Limit/1.d2, N_steps*Limit/1.d2
+     endif
+     write (6, *)
+ 1001 format(3x,'- Radial position [PsiN]:         ',5x,f0.4)
+ 1002 format(3x,'- Radial domain [PsiN]:           ',5x,f0.4,' -> ',f0.4)
+ 1003 format(3x,'- Flux surface discretization:')
+ 1004 format(8x,'Toroidal symmetry:                ',i0)
+ 1005 format(8x,'Toroidal x Poloidal resolution:   ',i0,' x ',i0)
+ 1006 format(3x,'- Reference length [m]:           ',5x,f0.2)
+ 1007 format(3x,'- Reference length [m]:           ',5x,i0,' x ',f0.2,' = ',f0.2)
+
+     open  (iu, file=Output_File)
+     write (iu, 2000)
+  endif
 
 
   ! initialize output variables
@@ -79,7 +105,7 @@ subroutine field_line_loss
      n     = N_phi * N_theta
      if (firstP) then
         do j=1,N_steps
-           write (iu, 1001) y(2), j*Limit, 1.d0*iloss(-1,j)/n, 1.d0*iloss(1,j)/n
+           write (iu, 2001) y(2), j*Limit, 1.d0*iloss(-1,j)/n, 1.d0*iloss(1,j)/n
         enddo
      endif
   enddo
@@ -91,6 +117,6 @@ subroutine field_line_loss
   endif
   deallocate (iloss)
 
- 1000 format('# PsiN,       L               loss(backward)  loss(forward)')
- 1001 format(f12.8,3e16.8)
+ 2000 format('# PsiN,       L               loss(backward)  loss(forward)')
+ 2001 format(f12.8,3e16.8)
 end subroutine field_line_loss
