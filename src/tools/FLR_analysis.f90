@@ -83,6 +83,8 @@ subroutine FLR_analysis
      call grid_accuracy()
   case ('flux_conservation')
      call flux_conservation()
+  case ('flux_surface_discretization')
+     call flux_surface_discretization()
   case default
      write (6, *) 'error: invalid operation ', trim(Operation), '!'
      stop
@@ -260,7 +262,7 @@ subroutine FLR_analysis
 
   ! setup mesh in real space
   phi0   = PHI_PLANE(it(0) + PHI_PL_OS(iz))
-  call G%new(LOCAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
+  call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
   do j=ip(1),ip(2)+1
   do i=ir(1),ir(2)+1
      ig = i + (j + it(0)*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
@@ -360,7 +362,7 @@ subroutine FLR_analysis
   n      = n1 * n2
   ! setup mesh in real space
   phi0   = PHI_PLANE(it0 + PHI_PL_OS(iz))
-  call G%new(LOCAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
+  call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
   do j=ip(1),ip(2)+1
   do i=ir(1),ir(2)+1
      ig = i + (j + it0*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
@@ -393,6 +395,44 @@ subroutine FLR_analysis
  1001 format(8x,'Radial cell range:   ',i0,' -> ',i0)
  1002 format(8x,'Poloidal cell range: ',i0,' -> ',i0)
   end subroutine flux_conservation
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine flux_surface_discretization()
+  use equilibrium
+  use flux_surface_2D
+  implicit none
+
+  type(t_flux_surface_2D) :: F1, F2
+  real(real64) :: Psi1, Psi2, y(3), r1(3), r2(3)
+  integer      :: ierr
+
+
+  Psi1  = 0.990d0
+  Psi2  = 0.995d0
+
+  y     = 0.d0
+  y(2)  = Psi1; r1 = get_cylindrical_coordinates(y, ierr)
+  if (ierr .ne. 0) then
+     write (6, 9000) Psi1, r1
+     stop
+  endif
+  y(2)  = Psi2; r2 = get_cylindrical_coordinates(y, ierr)
+  if (ierr .ne. 0) then
+     write (6, 9000) Psi2, r2
+     stop
+  endif
+
+
+  ! generate flux surfaces Psi1, Psi2
+  call F1%generate_closed(r1, RIGHT_HANDED)
+  call F2%generate_closed(r2, RIGHT_HANDED)
+
+  return
+ 9000 format('error in subroutine flux_surface_discretization: could not find real space coordinates for Psi = ', f10.5,//3e10.5)
+  end subroutine flux_surface_discretization
 !=======================================================================
 
 end subroutine FLR_analysis
