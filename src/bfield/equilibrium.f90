@@ -1074,12 +1074,13 @@ module equilibrium
 
 
   call get_domain (Rbox, Zbox)
-  write (6, 1000)
-  write (6, 1001) Rbox
-  write (6, 1001) Zbox
+  write (6, 1000) Rbox, Zbox
 
   ind = 0
+  r3(3) = 0.d0
   open  (iu, file='hyperbolic_points.dat')
+  write (iu, 1001)
+  write (6,  1002)
   loop2: do i=0, nR
   loop1: do j=0, nZ
      x(1) = Rbox(1) + (Rbox(2)-Rbox(1)) * i / nR
@@ -1096,14 +1097,15 @@ module equilibrium
 
      ! so this is a new critical point, run analysis
      Xp%X = x; Xp%H = H
+     r3(1:2) = x; Xp%Psi = get_Psi(r3)
      call Xp%analysis(lambda1, lambda2, v1, v2, ierr)
      if (ierr .ne. 0) cycle ! this is not a hyperbolic point
 
      ! add present point to list
      ind = ind + 1
      xk(ind,:) = x
-     write (6, 1002) ind, x, lambda1, lambda2
-     write (iu, *) x, lambda1, lambda2
+     write (6, 1003) ind, x, Xp%PsiN(), lambda1, lambda2
+     write (iu, *) x, Xp%PsiN(), lambda1, lambda2
   enddo loop1
   enddo loop2
   close (iu)
@@ -1124,9 +1126,11 @@ module equilibrium
 !  write (6, *) 'primary X-point is: ', xk(iPsi,:)
   write (6, *)
 
- 1000 format(3x,'- Running search for hyperbolic points in domain:')
- 1001 format(8x,2f12.4)
- 1002 format(8x,i0,4x,'(',f10.4,', ',f10.4,')',4x,'l1 = ',e12.4,',',4x,'l2 = ',e12.4)
+ 1000 format(3x,'- Running search for hyperbolic points in domain: ',&
+             '(',f0.2,' -> ',f0.2,') x (',f0.2,' -> ',f0.2,')')
+ 1001 format('# Hyperbolic points: R, Z, PsiN, Eigenvalues(l1, l2)')
+ 1002 format(13x,'(  R       ,  Z        )     PsiN        Eigenvalues')
+ 1003 format(8x,i0,4x,'(',f10.4,', ',f10.4,')',1x,f12.6,4x,'l1 = ',e12.4,',',4x,'l2 = ',e12.4)
   end subroutine find_hyperbolic_points
 !=======================================================================
 
