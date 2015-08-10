@@ -105,12 +105,14 @@ subroutine get_equi_info_2D
 
   ! calculate plasma current from plasma surface integral
   call Ip_info (1.d-4, 400, Ip_int, Bpol)
+  write (6, 9002) Ip_int
 
   ! calculate plasma beta
+  if (i_equi == EQ_AMHD) then
   call beta_info(100, Bpol, betaP, betaT)
-  write (6, 9002) Ip_int
   write (6, 9003) betaT
   write (6, 9004) betaP
+  endif
 
  9001 format (3x,'- Magnetic axis is at: ',2f10.3)
  9002 format (3x,'- Plasma current [MA] from surface integration: ', f10.5)

@@ -46,6 +46,7 @@
      4    geqdsk_get_JBf,
      5    geqdsk_get_Psi, 
      6    geqdsk_get_DPsi,
+     6    geqdsk_get_pressure,
      7    geqdsk_get_domain,
      8    geqdsk_provides_boundary,
      9    geqdsk_export_boundary
@@ -453,6 +454,18 @@ c-----------------------------------------------------------------------
       DPsi = DPsi / 100.d0**(mR+mZ)
 
       end function geqdsk_get_DPsi
+!===============================================================================
+
+
+
+!===============================================================================
+      function geqdsk_get_pressure(Psi) result(P)
+      real(real64), intent(in) :: Psi
+      real(real64)             :: P
+
+      P = 0.d0
+
+      end function geqdsk_get_pressure
 !===============================================================================
 
 

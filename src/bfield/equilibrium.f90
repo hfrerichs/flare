@@ -383,6 +383,7 @@ module equilibrium
      get_JBf_eq2D                  => geqdsk_get_JBf
      get_Psi                       => geqdsk_get_Psi
      get_DPsi                      => geqdsk_get_DPsi
+     get_pressure                  => geqdsk_get_pressure
      get_domain                    => geqdsk_get_domain
      equilibrium_provides_boundary => geqdsk_provides_boundary
      export_boundary               => geqdsk_export_boundary
