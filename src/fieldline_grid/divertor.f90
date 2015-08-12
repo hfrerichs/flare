@@ -451,6 +451,7 @@ module divertor
   use math
   use equilibrium
   use xpaths
+  use fieldline_grid, only: nr_perturbed
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
   integer, intent(in) :: nr, np, ir2
@@ -463,13 +464,13 @@ module divertor
   integer       :: i, ir1, j
 
 
-  ir1 = 1
+  ir1 = nr_perturbed-1
   write (6, 1001) ir1+1, ir2-1
   do j=0,np
      write (6, *) j
      x = M(ir2,j,:)
      write (97, *) x
-     call R%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1, C_limit=C(1), sampling=SAMPLE_LENGTH)
+     call R%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
 
      ! interpolated surfaces
      do i=ir1,ir2-1
@@ -481,10 +482,12 @@ module divertor
      enddo
 
      ! innermost surface
-     theta = atan2(M(ir1,j,2)-Pmag(2), M(ir1,j,1)-Pmag(1)) - Xp(1)%theta
-     xi    = theta / pi2; if (xi < 0.d0) xi = xi + 1.d0
-     call C(0)%sample_at(xi, x)
-     M(0, j, :) = x
+     if (ir1 == 1) then
+        theta = atan2(M(ir1,j,2)-Pmag(2), M(ir1,j,1)-Pmag(1)) - Xp(1)%theta
+        xi    = theta / pi2; if (xi < 0.d0) xi = xi + 1.d0
+        call C(0)%sample_at(xi, x)
+        M(0, j, :) = x
+     endif
   enddo
 
  1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &

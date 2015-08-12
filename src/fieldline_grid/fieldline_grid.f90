@@ -80,7 +80,8 @@ module fieldline_grid
      nr(0:max_layers-1)  =  32, &          ! default radial resolution
      n_interpolate       =   4, &          ! number of interpolated flux surfaces (for the transition between the pair of perturbed flux surfaces at the inner simulation boundary and unperturbed flux surfaces further outside)
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
-     nr_EIRENE_vac       =   1             ! radial resolution in vacuum (EIRENE only)
+     nr_EIRENE_vac       =   1, &          ! radial resolution in vacuum (EIRENE only)
+     nr_perturbed        =   2             ! number of perturbed flux surfaces at the inner boundary
 ! TODO: aligned surfaces for neutrals (nr_EIRENE_core_aligned, ...)
 
   real(real64) :: &
@@ -305,7 +306,7 @@ module fieldline_grid
      topology, symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
-     n_interpolate, &
+     n_interpolate, nr_perturbed, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
      Dtheta_sampling, Dtheta_separatrix, &
@@ -319,6 +320,10 @@ module fieldline_grid
   if (blocks > max_blocks) then
      write (6, *) 'error: number of blocks exceeds maximum'
      write (6, *) blocks, ' > ', max_blocks
+     stop
+  endif
+  if (nr_perturbed < 1  .or. nr_perturbed > 2) then
+     write (6, *) 'error: nr_perturbed = 1 or 2 required!'
      stop
   endif
   Dtheta_sampling   = Dtheta_sampling / 180.d0 * pi
