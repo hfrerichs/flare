@@ -769,7 +769,7 @@ module fieldline_grid
   integer :: ir, iz, irun, n
 
 
-  open  (iu, file='input.n0g')
+  open  (iu, file='input.N0G')
   write (iu, 1000)
   write (iu, 9999)
   write (iu, 1001)
@@ -899,7 +899,7 @@ module fieldline_grid
   integer :: ir, iz, irun, n
 
 
-  open  (iu, file='input.par.6')
+  open  (iu, file='input.PAR.6')
   write (iu, 9999)
   write (iu, 1000)
   write (iu, 9999)
