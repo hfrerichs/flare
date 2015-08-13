@@ -16,3 +16,8 @@ install:
 .PHONY: clean
 clean:
 	cd src; $(MAKE) clean
+
+addon_targets = addons addons_install addons_clean
+.PHONY: $(addon_targets)
+$(addon_targets):
+	cd src; $(MAKE) $(MAKECMDGOALS)

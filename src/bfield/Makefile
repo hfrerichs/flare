@@ -7,6 +7,7 @@ OBJECTS =  \
                m3dc1.o\
                geqdsk.o\
                divamhd.o\
+               amhd.o\
                equilibrium.o\
                polygones.o\
                splineB.o\

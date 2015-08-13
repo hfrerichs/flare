@@ -49,6 +49,7 @@ module curve2D
 
      procedure :: load
      procedure :: closed_check
+     procedure :: duplicate_node_check
      procedure :: new
      procedure :: destroy
      procedure :: copy
@@ -70,6 +71,7 @@ module curve2D
      procedure :: split3, splitn
      procedure :: split3seg, splitnseg
      procedure :: length
+     procedure :: area
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve
   end type t_curve
@@ -100,6 +102,7 @@ module curve2D
   this%n_dim =  2
   this%x     => this%nodes%x
   call this%closed_check()
+  call this%duplicate_node_check()
 
   end subroutine load
 !=======================================================================
@@ -125,6 +128,57 @@ module curve2D
   endif
 
   end subroutine closed_check
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine duplicate_node_check(this)
+  class (t_curve),  intent(inout)         :: this
+
+  real(real64), dimension(:,:), allocatable :: xtmp
+  real(real64) :: dl, x1(2), x2(2)
+  integer      :: idrop(this%n_seg), ndrop, i, j
+
+
+  ndrop = 0
+  ! find duplicate nodes
+  do i=1,this%n_seg
+     x1 = this%x(i-1,:)
+     x2 = this%x(i  ,:)
+     dl = sqrt(sum((x1-x2)**2))
+     if (dl < epsilon(real(1.0,real64))) then
+        ndrop        = ndrop + 1
+        idrop(ndrop) = i
+     endif
+  enddo
+
+
+  ! remove duplicate nodes
+  if (ndrop == 0) return
+  allocate (xtmp(0:this%n_seg-ndrop,2))
+  j     = 0
+  ndrop = 1
+  do i=0,this%n_seg
+     if (i == idrop(ndrop)) then
+        write (6, *) 'removing duplicate node at ', this%x(i,:)
+        ndrop = ndrop + 1
+        cycle
+     endif
+
+     xtmp(j,:) = this%x(i,:)
+     j         = j+1
+  enddo
+
+  ! copy xtmp
+  call this%new(j-1)
+  this%x = xtmp
+
+
+  ! cleanup
+  deallocate (xtmp)
+
+  end subroutine duplicate_node_check
 !=======================================================================
 
 
@@ -1400,7 +1454,7 @@ module curve2D
   n_seg  = this%n_seg
   do i=1,n-1
      isplit(i) = binary_interval_search(0, n_seg, this%w, xi(i), ierr)
-     tsplit(i) = (this%w(isplit(i)+1) - xi(i)) / (this%w(isplit(i)+1) - this%w(isplit(i)))
+     tsplit(i) = (xi(i) - this%w(isplit(i))) / (this%w(isplit(i)+1) - this%w(isplit(i)))
   enddo
 
 
@@ -1429,13 +1483,24 @@ module curve2D
   isplit1(0)     = 0
   isplit1(1:n-1) = isplit
   isplit1(n)     = this%n_seg-1
-  tsplit1(0)     = 1.d0
+  tsplit1(0)     = 0.d0
   tsplit1(1:n-1) = tsplit
-  tsplit1(n)     = 0.d0
+  tsplit1(n)     = 1.d0
 
   do i=1,n
      iA     = isplit1(i-1)
      iB     = isplit1(i)
+
+     ! check input
+     if (iA < 0  .or.  iA >= this%n_seg) then
+        write (6, *) 'error in t_curve2D%splitnseg: invalid segment number!'
+        write (6, *) 'isplit(', i-1, ') = ', iA
+     endif
+     if (iB < 0  .or.  iB >= this%n_seg) then
+        write (6, *) 'error in t_curve2D%splitnseg: invalid segment number!'
+        write (6, *) 'isplit(', i, ') = ', iB
+     endif
+
      m      = iB - iA + 1
      call C(i)%new(m)
      C(i)%x = this%x(iA:iB+1,:)
@@ -1443,8 +1508,8 @@ module curve2D
      ! adapt first and last node
      tA     = tsplit1(i-1)
      tB     = tsplit1(i)
-     C(i)%x(0,:) = this%x(iA,:) * tA + this%x(iA+1,:) * (1.d0 - tA)
-     C(i)%x(m,:) = this%x(iB,:) * tB + this%x(iB+1,:) * (1.d0 - tB)
+     C(i)%x(0,:) = this%x(iA,:) * (1.d0-tA) + this%x(iA+1,:) * tA
+     C(i)%x(m,:) = this%x(iB,:) * (1.d0-tB) + this%x(iB+1,:) * tB
   enddo
 
   end subroutine splitnseg
@@ -1467,6 +1532,30 @@ module curve2D
   enddo
 
   end function length
+!=======================================================================
+
+
+
+!=======================================================================
+  function area(this) result(A)
+  class(t_curve) :: this
+  real(real64)   :: A
+
+  real(real64)   :: dA, dl(2), x(2)
+  integer :: i
+
+
+  A = 0.d0
+  if (.not. this%closed) return
+  do i=1,this%n_seg
+     dl = this%x(i,:) - this%x(i-1,:)
+     x  = 0.5d0*(this%x(i,:) + this%x(i-1,:))
+     dA = 0.5d0 * (dl(2)*x(1) - dl(1)*x(2))
+
+     A = A + dA
+  enddo
+
+  end function area
 !=======================================================================
 
 

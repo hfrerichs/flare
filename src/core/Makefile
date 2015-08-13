@@ -6,17 +6,16 @@ OBJECTS =  \
                string.o\
                quicksort.o\
                math.o\
+               dataset.o\
                grid.o\
                Q4.o\
-               dataset.o\
                search.o\
                curve2D.o\
                mesh_spacing.o\
                bilinear_system.o\
                interpolate3D.o\
                ode_solver.o\
-               quad_ele.o\
-               usr_grid.o
+               quad_ele.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR)
 

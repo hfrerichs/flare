@@ -1,25 +1,29 @@
 !===============================================================================
 ! Field line reconstruction analysis
-!
-! Input (taken from run control file):
-!    Output_File        Configuration file for field line analysis
 !===============================================================================
 subroutine FLR_analysis
   use iso_fortran_env
-  use run_control, only: Target_File => Output_File
   use parallel
   use flux_tube
   use dataset
   use math
+  use emc3_grid
   implicit none
 
   integer, parameter :: iu = 32
 
   character(len=72)  :: &
      Operation     = 'nothing', &
-     Output_File   = 'output.dat', &
-     Grid_File     = 'output.grid', &
+     Target_File   = 'analysis.conf', &
+     Output_File   = '', &
+     Grid_File     = '', &
      Cross_Section = ''
+
+  integer            :: &
+     iz            =  0, &
+     ir(2)         = -1, &
+     ip(2)         = -1
+
 
   real(real64)       :: x0(2), phi0, a1, alpha1, a2, alpha2, P, theta
   real(real64)       :: xi = 0.d0, eta = 0.d0
@@ -28,7 +32,8 @@ subroutine FLR_analysis
   namelist /Analysis_Input/ &
      Operation, Output_File, Grid_File, Cross_Section, &
      x0, phi0, a1, alpha1, a2, alpha2, P, theta, nphi, nlength, &
-     xi, eta
+     xi, eta, &
+     iz, ir, ip
 
   type(t_flux_tube)  :: FT
 
@@ -43,6 +48,30 @@ subroutine FLR_analysis
   open  (iu, file=Target_File)
   read  (iu, Analysis_Input)
   close (iu)
+  call load_emc3_grid()
+
+
+  ! 1. set default values
+  ! 1.1 file names
+  if (Output_File == '') Output_File = trim(Operation)//'.dat'
+  if (Grid_File   == '') Grid_File   = trim(Operation)//'.grid'
+  write (6, 1000) Operation
+  write (6, 1001) trim(Output_File), trim(Grid_File)
+
+  ! 1.2 indices (radial and poloidal range)
+  if (ir(1) < 0) then
+     ir(1) = R_SURF_PL_TRANS_RANGE(1,iz)
+     ir(2) = R_SURF_PL_TRANS_RANGE(2,iz)-1
+  else
+     if (ir(2) < 0) ir(2) = ir(1)
+  endif
+  if (ip(1) < 0) then
+     ip(1) = P_SURF_PL_TRANS_RANGE(1,iz)
+     ip(2) = P_SURF_PL_TRANS_RANGE(2,iz)-1
+  else
+     if (ip(2) < 0) ip(2) = ip(1)
+  endif
+
 
 
   select case(Operation)
@@ -50,12 +79,20 @@ subroutine FLR_analysis
      call single_fieldline
   case ('fluxtube')
      call fluxtube
+  case ('grid_accuracy')
+     call grid_accuracy()
+  case ('flux_conservation')
+     call flux_conservation()
+  case ('flux_surface_discretization')
+     call flux_surface_discretization()
   case default
      write (6, *) 'error: invalid operation ', trim(Operation), '!'
      stop
   end select
 
   return
+ 1000 format(3x,'- Operation: ',a)
+ 1001 format(8x,'Output files: ',a,' ',a)
   contains
 !=======================================================================
 
@@ -183,6 +220,219 @@ subroutine FLR_analysis
 
  1000 format(3x,'- Analyzing flux tube')
   end subroutine fluxtube
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine grid_accuracy()
+  use emc3_grid
+  use fieldline
+  use equilibrium, only: get_PsiN, get_DPsiN, get_poloidal_angle
+  use dataset
+  use grid
+  implicit none
+
+  type(t_fieldline) :: Fo
+  type(t_dataset)   :: D
+  type(t_grid)      :: G
+  real(real64), dimension(:,:), allocatable :: Fg
+
+  real(real64) :: Dphi, xi(3), xo(3), ts, dx(-1:1), dr(-1:1), dt(-1:1), xg(3)
+  real(real64) :: dPsidR, dPsidZ, Psio, Psig, dPsi, thetao, thetag, dtheta, phi0
+  integer :: i, j, ig, n, n1, n2, idir, it(-1:1), tm, tc, ierr, iscan
+
+
+  write (6, 1000)
+
+
+  ts = pi2 / 3600.d0
+  tm = NM_AdamsBashforth4
+  tc = FL_ANGLE
+
+
+  ! Fo: field line from (o)rdinary differential equation
+  ! Fg: field line reconstructed from (g)rid
+  n1     = ir(2)-ir(1)+1
+  n2     = ip(2)-ip(1)+1
+  n      = n1 * n2
+  it(-1) = 0
+  it( 0) = ZON_TORO(iz) / 2
+  it( 1) = ZON_TORO(iz)
+
+  ! setup mesh in real space
+  phi0   = PHI_PLANE(it(0) + PHI_PL_OS(iz))
+  call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
+  do j=ip(1),ip(2)+1
+  do i=ir(1),ir(2)+1
+     ig = i + (j + it(0)*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     G%mesh(i-ir(1),j-ip(1),1) = RG(ig)
+     G%mesh(i-ir(1),j-ip(1),2) = ZG(ig)
+  enddo
+  enddo
+
+  allocate (Fg(0:ZON_TORO(iz),3))
+  call D%new(n, 8)
+  ig     = 1
+  do j=ip(1),ip(2)
+  do i=ir(1),ir(2)
+     write (6, *) i, j
+     call reconstruct_field_line (iz, i, j, 0.d0, 0.d0, Fg)
+     ! initial point for field line tracing
+     xi = Fg(it(0),:)
+
+     do idir=-1,1,2
+        Dphi = abs(Fg(it(idir), 3) - Fg(it(0), 3))
+        call Fo%init(xi, idir*ts, tm, tc)
+        call Fo%trace_Dphi(Dphi, .false., xo, ierr)
+        if (ierr .ne. 0) then
+           write (6, *) 'error in subroutine trace_grid: ', &
+                        'trace_Dphi returned error ', ierr
+           stop
+        endif
+
+        ! evaluate field line tracing vs. reconstruction
+        xg = Fg(it(idir),:)
+
+        ! absolute displacement
+        dx(idir) = sqrt((xg(1)-xo(1))**2 + (xg(2)-xo(2))**2)
+
+        ! radial and poloidal displacement
+        dPsidR = get_DPsiN(xo, 1, 0)
+        dPsidZ = get_DPsiN(xo, 0, 1)
+        Psig   = get_PsiN(xg)
+        Psio   = get_PsiN(xo)
+        dPsi   = Psig - Psio
+        dr(idir) = dPsi / sqrt(dPsidR**2 + dPsidZ**2)
+
+        thetag = get_poloidal_angle(xg)
+        thetao = get_poloidal_angle(xo)
+        dtheta = thetao - thetag; if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
+        dt(idir) = dtheta
+     enddo
+     D%x(ig,1) = get_poloidal_angle(xi)
+     D%x(ig,2) = dx(-1)
+     D%x(ig,3) = dx( 1)
+     D%x(ig,4) = dr(-1)
+     D%x(ig,5) = dr( 1)
+     D%x(ig,6) = dt(-1)
+     D%x(ig,7) = dt( 1)
+     D%x(ig,8) = flux_tube_length(iz, i, j)
+     ig        = ig + 1
+  enddo
+  enddo
+  call D%plot(filename=Output_File)
+  call G%store(filename=Grid_File)
+
+  deallocate (Fg)
+ 1000 format(3x,'- Running grid accuracy check')
+  end subroutine grid_accuracy
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine flux_conservation()
+  use iso_fortran_env
+  use emc3_grid
+  use dataset
+  use grid
+  implicit none
+
+  real(real64), dimension(:,:),   allocatable :: div, pitch
+  real(real64), dimension(:,:,:), allocatable :: NL
+
+  type(t_grid)    :: G
+  type(t_dataset) :: D
+  real(real64)    :: phi0
+  integer         :: it0, i, j, ig, n, n1, n2
+
+
+  call load_bfstren()
+  write (6, 1000)
+
+  it0 = ZON_TORO(iz) / 2
+  allocate (div  (0:ZON_POLO(iz)-1, 0:ZON_RADI(iz)-1), &
+            pitch(0:ZON_POLO(iz)-1, 0:ZON_RADI(iz)-1), &
+            NL   (0:ZON_POLO(iz)-1, 0:ZON_RADI(iz)-1, 0:ZON_TORO(iz)))
+  call check_mesh(iz, div, NL, pitch)
+
+  n1     = ir(2)-ir(1)+1
+  n2     = ip(2)-ip(1)+1
+  n      = n1 * n2
+  ! setup mesh in real space
+  phi0   = PHI_PLANE(it0 + PHI_PL_OS(iz))
+  call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, n1+1, n2+1, fixed_coord_value=phi0)
+  do j=ip(1),ip(2)+1
+  do i=ir(1),ir(2)+1
+     ig = i + (j + it0*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     G%mesh(i-ir(1),j-ip(1),1) = RG(ig)
+     G%mesh(i-ir(1),j-ip(1),2) = ZG(ig)
+  enddo
+  enddo
+
+
+  call D%new(n, 5)
+  ig = 0
+  write (6, 1001) ir(1), ir(2)
+  write (6, 1002) ip(1), ip(2)
+  do j=ip(1),ip(2)
+     do i=ir(1),ir(2)
+        ig = ig + 1
+        D%x(ig,1) = div(j,i) * 100.d0
+        D%x(ig,2) = pitch(j,i)
+        D%x(ig,3) = NL(j,i,0)
+        D%x(ig,4) = NL(j,i,it0)
+        D%x(ig,5) = NL(j,i,ZON_TORO(iz))
+     enddo
+  enddo
+  call D%plot(filename=Output_File)
+  call G%store(filename=Grid_File)
+
+
+  deallocate (div, pitch, NL)
+ 1000 format(3x,'- Running flux conservation and non-linearity check')
+ 1001 format(8x,'Radial cell range:   ',i0,' -> ',i0)
+ 1002 format(8x,'Poloidal cell range: ',i0,' -> ',i0)
+  end subroutine flux_conservation
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine flux_surface_discretization()
+  use equilibrium
+  use flux_surface_2D
+  implicit none
+
+  type(t_flux_surface_2D) :: F1, F2
+  real(real64) :: Psi1, Psi2, y(3), r1(3), r2(3)
+  integer      :: ierr
+
+
+  Psi1  = 0.990d0
+  Psi2  = 0.995d0
+
+  y     = 0.d0
+  y(2)  = Psi1; r1 = get_cylindrical_coordinates(y, ierr)
+  if (ierr .ne. 0) then
+     write (6, 9000) Psi1, r1
+     stop
+  endif
+  y(2)  = Psi2; r2 = get_cylindrical_coordinates(y, ierr)
+  if (ierr .ne. 0) then
+     write (6, 9000) Psi2, r2
+     stop
+  endif
+
+
+  ! generate flux surfaces Psi1, Psi2
+  call F1%generate_closed(r1, RIGHT_HANDED)
+  call F2%generate_closed(r2, RIGHT_HANDED)
+
+  return
+ 9000 format('error in subroutine flux_surface_discretization: could not find real space coordinates for Psi = ', f10.5,//3e10.5)
+  end subroutine flux_surface_discretization
 !=======================================================================
 
 end subroutine FLR_analysis

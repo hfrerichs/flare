@@ -90,9 +90,14 @@ module separatrix
         theta_cutL = theta_cutR + pi; if (theta_cutL > pi) theta_cutL = theta_cutL - pi2
 
      ! use position of another X-point as reference
-     else
+     elseif (iconnect < 0) then
         theta_cutR = Xp(abs(iconnect))%theta
         theta_cutL = Xp(abs(iconnect))%theta
+
+     ! unset cut-off angle
+     else
+        theta_cutR = -pi2
+        theta_cutL = -pi2
      endif
   endif
   if (present(theta_cut)) then

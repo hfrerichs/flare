@@ -15,11 +15,13 @@
 !===============================================================================
 subroutine flux_surface_grid
   use iso_fortran_env
-  use run_control, only: Theta, Psi, n_theta, n_psi, Phi_output, Grid_File, Output_File
+  use run_control, only: Theta, Psi, n_theta, n_psi, Phi_output, Grid_File, Output_File, Debug
   use flux_surface_2D
 !  use magnetic_axis
   use equilibrium
   use parallel
+  use dataset
+  use grid
   implicit none
 
   integer, parameter :: &
@@ -27,8 +29,10 @@ subroutine flux_surface_grid
      iu2 = 42
 
   type(t_flux_surface_2D) :: S
+  type(t_dataset)         :: D
+  type(t_grid)            :: G_debug
   real(real64) :: x0(2), xc(3), t, x(3), y(3)
-  integer :: i, j, n, ierr
+  integer :: i, j, ig, n, ierr, iterations
 
 
   if (firstP) then
@@ -41,7 +45,7 @@ subroutine flux_surface_grid
   write (iu1, 1000)
   write (iu1, 1001) n_theta * n_psi
   write (iu1, 1002) Phi_Output
- 1000 format ('# grid_id = 1       (irregular RZ grid)')
+ 1000 format ('# grid_id = 213     (irregular RZ grid)')
  1001 format ('# resolution:        n_grid  =  ',i10)
  1002 format ('# toroidal position: phi     =  ',f6.2)
 
@@ -49,24 +53,38 @@ subroutine flux_surface_grid
   write (iu2, 2000)
   write (iu2, 2001) n_theta * n_psi
   write (iu2, 2002) Phi_Output
- 2000 format ('# grid_id = 80      (irregular theta-psin grid)')
+ 2000 format ('# grid_id = 013     (irregular theta-psin grid)')
  2001 format ('# resolution:        n_grid  =  ',i10)
  2002 format ('# toroidal position: phi     =  ',f6.2)
 
+  call G_debug%new(LOCAL, STRUCTURED, FIXED_COORD3, n_theta, n_psi)
+  n  = n_theta * n_psi
+  ig = 1
+  call D%new(n,2)
   do i=0, n_psi-1
      do j=0, n_theta-1
         y(2) = Psi(1) + 1.d0*i/(n_psi-1) * (Psi(2)-Psi(1))
         y(1) = Theta(1) + 1.d0*j/(n_theta-1) * (Theta(2)-Theta(1))
         y(3) = Phi_output
 
-        x = get_cylindrical_coordinates (y, ierr)
+        x = get_cylindrical_coordinates (y, ierr, iter=iterations)
         write (iu1, 3000) x(1:2)
         write (iu2, 3000) y(1:2)
+        D%x(ig,1) = ierr
+        D%x(ig,2) = iterations
+        ig        = ig + 1
+
+        G_debug%x1(j+1) = j
+        G_debug%x2(i+1) = i
      enddo
   enddo
   close (iu1)
   close (iu2)
  3000 format (2e18.10)
+  if (Debug) then
+     call D%plot(filename='debug.dat')
+     call G_debug%store(filename='debug.grid')
+  endif
 
 
 !  x0(1) = 0.1278518850E+03

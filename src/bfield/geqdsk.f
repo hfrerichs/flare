@@ -4,6 +4,7 @@
 ! THIS MODULE NEED SOME CLEANUP !!!
 !===============================================================================
       module geqdsk
+      use iso_fortran_env
       use magnetic_axis
       implicit none
 
@@ -42,8 +43,10 @@
      1    geqdsk_load,
      2    geqdsk_broadcast,
      3    geqdsk_get_Bf,
+     4    geqdsk_get_JBf,
      5    geqdsk_get_Psi, 
      6    geqdsk_get_DPsi,
+     6    geqdsk_get_pressure,
      7    geqdsk_get_domain,
      8    geqdsk_provides_boundary,
      9    geqdsk_export_boundary,
@@ -346,6 +349,56 @@ c-----------------------------------------------------------------------
 
 
 !===============================================================================
+! Calculate Jacobian(Bf) [T/m] in cylindrical coordinates
+!===============================================================================
+      function geqdsk_get_JBf(r) result(J)
+      use bspline
+
+      real(real64), intent(in)  :: r(3)
+      real(real64)              :: J(3,3)
+
+      real(real64) :: rr, zz, psi, dpsidr, dpsidz, d2psi(3), F, dFdpsi
+
+
+      ! convert cm -> m
+      rr      =  r(1) / 100.d0
+      zz      =  r(2) / 100.d0
+
+      ! force limits of computational box
+      if (rr.lt.Rleft)          rr = Rleft
+      if (rr.gt.Rleft+Rdim)     rr = Rleft+Rdim
+      if (zz.lt.Zmid-Zdim/2.d0) zz = Zmid-Zdim/2.d0
+      if (zz.gt.Zmid+Zdim/2.d0) zz = Zmid+Zdim/2.d0
+
+
+      J       =  0.d0
+      psi     =  dbs2dr(0,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      psi     =  (psi - Simag) / (Sibry - Simag)
+      if (psi.gt.1.d0) psi = 1.d0
+      dpsidr  =  dbs2dr(1,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      dpsidz  =  dbs2dr(0,1,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      d2psi(1)=  dbs2dr(2,0,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      d2psi(2)=  dbs2dr(1,1,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      d2psi(3)=  dbs2dr(0,2,rr,zz,nord,nord,REQD,ZEQD,nR,nZ,Psicoeff)
+      F       =  dbsval(psi,nord,PsinEQD,nR,fpolcoeff)
+      dFdpsi  =  dbsder(1,psi,nord,PsinEQD,nR,fpolcoeff)
+
+      ! Br
+      J(1,1)  =  -d2psi(2)/rr + dpsidz/rr**2
+      J(1,2)  =  -d2psi(3)/rr
+      ! Bz
+      J(2,1)  =  d2psi(1)/rr - dpsidr/rr**2
+      J(2,2)  =  d2psi(2)/rr
+      ! Bphi
+      J(3,1)  =  dFdpsi * dpsidr / rr - F/rr**2
+      J(3,2)  =  dFdpsi * dpsidz / rr
+
+      end function geqdsk_get_JBf
+!===============================================================================
+
+
+
+!===============================================================================
 ! Sample poloidal magnetic flux at r=(R,Z [cm], phi [rad])
 !===============================================================================
       function geqdsk_get_Psi(r) result(Psi)
@@ -402,6 +455,18 @@ c-----------------------------------------------------------------------
       DPsi = DPsi / 100.d0**(mR+mZ)
 
       end function geqdsk_get_DPsi
+!===============================================================================
+
+
+
+!===============================================================================
+      function geqdsk_get_pressure(Psi) result(P)
+      real(real64), intent(in) :: Psi
+      real(real64)             :: P
+
+      P = 0.d0
+
+      end function geqdsk_get_pressure
 !===============================================================================
 
 

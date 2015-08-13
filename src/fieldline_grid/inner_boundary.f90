@@ -1,6 +1,6 @@
 module inner_boundary
   use iso_fortran_env
-  use fieldline_grid, only: blocks, Block, x_in2
+  use fieldline_grid, only: blocks, Block, x_in2, nr_perturbed
   use curve2D
   implicit none
 
@@ -53,7 +53,7 @@ module inner_boundary
      Pmag = r3(1:2)
 
      ! read boundary data from file and set up flux surface
-     do i=0,1
+     do i=0,nr_perturbed-1
         write (filename, 2000) i, iblock
         call C_in(iblock,i)%load(filename,output=SILENT)
         if (C_in(iblock,i)%n_seg <= 0) then
@@ -69,7 +69,7 @@ module inner_boundary
      enddo
 
      ! calculate mean and variance of PsiN on (perturbed) flux surface
-     n = C_in(iblock,1)%n_seg
+     n = C_in(iblock,nr_perturbed-1)%n_seg
      do i=1,n
         PsiN_x            = get_PsiN(C_in(iblock,1)%x(i,:))
         delta             = PsiN_x - PsiN1(iblock)
@@ -148,11 +148,17 @@ module inner_boundary
   integer,         intent(in)    :: iblock, sampling_method
   type(t_spacing), intent(in)    :: S
 
-  real(real64) :: xi
-  integer :: j, np
+  real(real64) :: xi, x(2)
+  integer :: i, j, np
+
 
   np = G%n2-1
   do j=0,np
+     xi = S%node(j,np)
+     do i=0,nr_perturbed-1
+        call C_in(iblock,i)%sample_at(xi, x)
+        G%mesh(i, j, :) = x
+     enddo
   enddo
 
   end subroutine setup_inner_boundaries

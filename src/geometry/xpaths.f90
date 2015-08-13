@@ -10,8 +10,10 @@ module xpaths
 
 
   integer, parameter, public :: &
+     ASCENT        = 1, &
      ASCENT_LEFT   = 1, &
      ASCENT_RIGHT  = 2, &
+     DESCENT       = 3, &
      DESCENT_CORE  = 3, &
      DESCENT_PFR   = 4
 

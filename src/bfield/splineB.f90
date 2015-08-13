@@ -301,6 +301,8 @@ module splineB
 
 
 !=======================================================================
+! Calculate Jacobian(Bf) [T/m] in cylindrical coordinates
+!=======================================================================
   function splineB_get_JBf(r3) result(J)
   use bspline
   use math
@@ -331,9 +333,6 @@ module splineB
   J(3,1) = dbs3dr(1,0,0,rr,zz,phi,nord,nord,nord,Rnot,Znot,Phinot,nr,nz,nphi,Aphicoeff)
   J(3,2) = dbs3dr(0,1,0,rr,zz,phi,nord,nord,nord,Rnot,Znot,Phinot,nr,nz,nphi,Aphicoeff)
   J(3,3) = dbs3dr(0,0,1,rr,zz,phi,nord,nord,nord,Rnot,Znot,Phinot,nr,nz,nphi,Aphicoeff)
-
-  ! convert units 1/m -> 1/cm
-  J(:,1:2) = J(:,1:2) / 1.d2
   endif
 
   end function splineB_get_JBf

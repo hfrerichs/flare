@@ -21,8 +21,8 @@ module fieldline_grid
 
   ! Discretization type definitions
   character(len=*), parameter :: &
-     POLOIDAL_ANGLE    = 'poloidal_angle', &
-     ORTHOGONAL        = 'orthogonal'
+     POLOIDAL_ANGLE    = 'poloidal_angle_fixed', &
+     ORTHOGONAL        = 'quasi_orthogonal'
 
 
   ! zone type definitions
@@ -80,7 +80,8 @@ module fieldline_grid
      nr(0:max_layers-1)  =  32, &          ! default radial resolution
      n_interpolate       =   4, &          ! number of interpolated flux surfaces (for the transition between the pair of perturbed flux surfaces at the inner simulation boundary and unperturbed flux surfaces further outside)
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
-     nr_EIRENE_vac       =   1             ! radial resolution in vacuum (EIRENE only)
+     nr_EIRENE_vac       =   1, &          ! radial resolution in vacuum (EIRENE only)
+     nr_perturbed        =   2             ! number of perturbed flux surfaces at the inner boundary
 ! TODO: aligned surfaces for neutrals (nr_EIRENE_core_aligned, ...)
 
   real(real64) :: &
@@ -146,6 +147,9 @@ module fieldline_grid
      ! connectivity between zones (surface types = periodic, mapping, ...)
      integer :: isfr(2), isfp(2), isft(2)
 
+     ! zone type information
+     integer :: itypeR, itypeP
+
      ! surface indices for plasma transport range
      integer :: r_surf_pl_trans_range(2), p_surf_pl_trans_range(2)
 
@@ -210,7 +214,9 @@ module fieldline_grid
   this%N0_file = N0_file(ilayer)
 
 
-  ! 4. boundaries
+  ! 4. boundaries and zone type
+  this%itypeR = itypeR
+  this%itypeP = itypeP
   call setup_boundaries()
 
   contains
@@ -300,7 +306,7 @@ module fieldline_grid
      topology, symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
-     n_interpolate, &
+     n_interpolate, nr_perturbed, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
      Dtheta_sampling, Dtheta_separatrix, &
@@ -314,6 +320,10 @@ module fieldline_grid
   if (blocks > max_blocks) then
      write (6, *) 'error: number of blocks exceeds maximum'
      write (6, *) blocks, ' > ', max_blocks
+     stop
+  endif
+  if (nr_perturbed < 1  .or. nr_perturbed > 2) then
+     write (6, *) 'error: nr_perturbed = 1 or 2 required!'
      stop
   endif
   Dtheta_sampling   = Dtheta_sampling / 180.d0 * pi
@@ -759,7 +769,7 @@ module fieldline_grid
   integer :: ir, iz, irun, n
 
 
-  open  (iu, file='input.n0g')
+  open  (iu, file='input.N0G')
   write (iu, 1000)
   write (iu, 9999)
   write (iu, 1001)
@@ -866,7 +876,7 @@ module fieldline_grid
   write (iu, 3000)
   write (iu, 9999)
   write (iu, 3001)
-  write (iu, *) 0, 0, -1
+  write (iu, *) 0, 0, 1
  3000 format ('*** 3. Neutral Source distribution')
  3001 format ('* N0S NS_PLACE  NSSIDE')
 
@@ -889,7 +899,7 @@ module fieldline_grid
   integer :: ir, iz, irun, n
 
 
-  open  (iu, file='input.par.6')
+  open  (iu, file='input.PAR.6')
   write (iu, 9999)
   write (iu, 1000)
   write (iu, 9999)

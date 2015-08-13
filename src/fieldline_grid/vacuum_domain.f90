@@ -199,7 +199,7 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
 
   ! loop over all toroidal slices
   allocate (en(0:SRF_POLO(iz)-1,2))
-  do it=0,SRF_TORO(iz)-1
+     it = ZON_TORO(iz) / 2
      call C%new(ZON_POLO(iz))
      ! poloidal loop (setup nodes for curve blowup)
      do ip=0,SRF_POLO(iz)-1
@@ -235,7 +235,14 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
      endif
      call C%setup_length_sampling()
 
+
+     ! adjust ends
+     call adjust_boundary(C)
+     call C%setup_length_sampling()
+
+
      ! poloidal loop (set new grid nodes)
+  do it=0,SRF_TORO(iz)-1
      do ip=0,SRF_POLO(iz)-1
         ig0 = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
         if (resample) then
@@ -252,12 +259,62 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
            ZG(ig) = ZG(ig0) + rho * (x(2) - ZG(ig0))
         enddo
      enddo
+  enddo
 
      ! cleanup
      call C%destroy()
-  enddo
   deallocate (en)
 
+  contains
+  !---------------------------------------------------------------------
+  subroutine adjust_boundary(C)
+  type(t_curve), intent(inout) :: C
+
+  character(len=*), dimension(2), parameter :: Send = (/ 'right', 'left ' /)
+
+  type(t_curve) :: C_split(3)
+  real(real64)  :: x1(2), x2(2), tsplit(2), xh(2)
+  integer       :: j, isplit(2)
+
+
+  ! find position on C from where the ends will be split off
+  ip = 0
+  do j=1,2
+     ig0   = ir0 + (ip +it*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     x1(1) = RG(ig0)
+     x1(2) = ZG(ig0)
+     ig0   = ir0-idir + (ip +it*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     x2(1) = RG(ig0)
+     x2(2) = ZG(ig0)
+
+     if (intersect_curve(x2, x1, C, xh=xh, sh=tsplit(j), ish=isplit(j), intersect_mode=1)) then
+        !write (6, 1000) Send(j)
+        !write (6, 1001) xh
+        isplit(j) = isplit(j) - 1
+        !write (6, *) 'ish = ', isplit(j)
+        !write (6, *) 'sh  = ', tsplit(j)
+     else
+        !write (6, 1002) Send(j)
+        isplit(j) = (j-1) * (C%n_seg-1)
+        tsplit(j) = (j-1) * 1.d0
+     endif
+
+     ip = ZON_POLO(iz)
+  enddo
+
+  ! split off the ends of C
+  !write (6, *) 'isplit = ', isplit
+  call C%splitnseg(3, isplit, tsplit, C_split)
+  !call C_split(1)%plot(filename='split_right.plt')
+  !call C_split(2)%plot(filename='split_center.plt')
+  !call C_split(3)%plot(filename='split_left.plt')
+  call C%copy(C_split(2))
+
+ 1000 format(8x,'adjusting ',a5,' end: ')
+ 1001 format(10x,2f12.6)
+ 1002 format(8x,'no adjustment on ',a5,' end')
+  end subroutine adjust_boundary
+  !---------------------------------------------------------------------
 end subroutine vacuum_domain_by_upscale
 !===============================================================================
 

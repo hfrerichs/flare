@@ -39,17 +39,24 @@ cp $run run_input
 ###############################################################################
 # run FLARE
 
+# Absolute path to this script
+SCRIPT=$(readlink -f "$0")
+
+# Absolute path this script is in
+FLARE_PATH=$(dirname "$SCRIPT")
+
+
 if [ "$FLAG_DEBUG" == "" ]; then
 	if [ "$NCPU" == 1 ]; then
-		flare_bin
+		$FLARE_PATH/flare_bin
 	else
-		mpiexec -n $NCPU flare_bin
+		mpiexec -n $NCPU $FLARE_PATH/flare_bin
 	fi
 else # for debugging only
 	if [ "$NCPU" == 1 ]; then
-		gdb flare_bin_debug
+		gdb $FLARE_PATH/flare_bin_debug
 	else
-		mpiexec -n $NCPU xterm -e gdb flare_bin_debug
+		mpiexec -n $NCPU xterm -e gdb $FLARE_PATH/flare_bin_debug
 	fi
 fi
 ###############################################################################

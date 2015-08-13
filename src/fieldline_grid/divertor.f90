@@ -389,10 +389,19 @@ module divertor
 
   type(t_xpath) :: R
   real(real64)  :: x(2), PsiN(0:nr), eta
-  integer       :: ir, ip
+  integer       :: ir, ip, direction
+
+
+  ! set direction
+  direction = DESCENT
+  if (ir1 > ir0) direction = ASCENT
 
 
   ! set up nodes along rpath and radial coordinate PsiN
+  if (ir2 .ge. ir1) then
+     write (6, 1010) ir2, ir1, ip1, ip2
+     write (6, 1011) rpath%length()
+  endif
   do ir=ir1,ir2
      eta = 1.d0 - Sr%node(ir-1,nr-1)
      call rpath%sample_at(eta, x)
@@ -403,7 +412,7 @@ module divertor
 
   ! set up nodes in poloidal range ip1->ip2
   do ip=ip1,ip2
-     call R%generate(M(ir0,ip,:), DESCENT_CORE, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
+     call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
 
      do ir=ir1,ir2
         call R%sample_at_PsiN(PsiN(ir), x)
@@ -414,7 +423,7 @@ module divertor
 
   ! set up nodes at poloidal index ix
   if (ipx >= 0) then
-     call R%generateX(ix, DESCENT_CORE, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
+     call R%generateX(ix, direction, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
      do ir=ir1,ir2
         call R%sample_at_PsiN(PsiN(ir), x)
         M(ir,ipx,:) = x
@@ -427,6 +436,8 @@ module divertor
      M(:,np,:) = M(:,0,:)
   endif
 
+ 1010 format (8x,'generating high pressure region: (',i0,' -> ',i0,'), (',i0,' -> ',i0,')')
+ 1011 format (8x,'d_width = ',f8.3)
   end subroutine make_ortho_grid
   !=============================================================================
 
@@ -440,6 +451,7 @@ module divertor
   use math
   use equilibrium
   use xpaths
+  use fieldline_grid, only: nr_perturbed
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
   integer, intent(in) :: nr, np, ir2
@@ -452,13 +464,13 @@ module divertor
   integer       :: i, ir1, j
 
 
-  ir1 = 1
+  ir1 = nr_perturbed-1
   write (6, 1001) ir1+1, ir2-1
   do j=0,np
      write (6, *) j
      x = M(ir2,j,:)
      write (97, *) x
-     call R%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1, C_limit=C(1), sampling=SAMPLE_LENGTH)
+     call R%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
 
      ! interpolated surfaces
      do i=ir1,ir2-1
@@ -470,10 +482,12 @@ module divertor
      enddo
 
      ! innermost surface
-     theta = atan2(M(ir1,j,2)-Pmag(2), M(ir1,j,1)-Pmag(1)) - Xp(1)%theta
-     xi    = theta / pi2; if (xi < 0.d0) xi = xi + 1.d0
-     call C(0)%sample_at(xi, x)
-     M(0, j, :) = x
+     if (ir1 == 1) then
+        theta = atan2(M(ir1,j,2)-Pmag(2), M(ir1,j,1)-Pmag(1)) - Xp(1)%theta
+        xi    = theta / pi2; if (xi < 0.d0) xi = xi + 1.d0
+        call C(0)%sample_at(xi, x)
+        M(0, j, :) = x
+     endif
   enddo
 
  1001 format (8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
@@ -593,12 +607,19 @@ module divertor
 !=======================================================================
   subroutine close_grid_domain(iz)
   use equilibrium
+  use fieldline_grid, only: Zone
 
   integer, intent(in) :: iz
 
+  real(real64), parameter :: d_extend = 2.d0
+
+  real(real64), dimension(:), allocatable :: w
+  real(real64) :: R1, Z1, R2, Z2
   integer :: j0(-1:1), i, j, k, ig, ig0
 
 
+  P_SURF_PL_TRANS_RANGE(1,iz) = 1
+  P_SURF_PL_TRANS_RANGE(2,iz) = ZON_POLO(iz)-1
   j0(-1) = 0
   j0( 1) = SRF_POLO(iz)-1
 
@@ -630,7 +651,70 @@ module divertor
      enddo
   enddo
 
+
+
+
+
+  ! 2nd adjustment
+  ! lower boundary
+  allocate (w(R_SURF_PL_TRANS_RANGE(1,IZ):R_SURF_PL_TRANS_RANGE(2,IZ)))
+  j = 0
+  k = 0
+  w = 0.d0
+  do i=R_SURF_PL_TRANS_RANGE(1,IZ)+1,R_SURF_PL_TRANS_RANGE(2,IZ)
+     ig   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     w(i) = w(i-1) + sqrt((ZG(ig)-ZG(ig-1))**2 + (RG(ig)-RG(ig-1))**2)
+     !write (98, *) RG(ig-1), ZG(ig-1)
+     !write (98, *) RG(ig), ZG(ig)
+  enddo
+  w = w / w(R_SURF_PL_TRANS_RANGE(2,IZ))
+!  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
+!     write (6, *) w(i)
+!  enddo
+
+  i  = R_SURF_PL_TRANS_RANGE(1,IZ)
+  ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+  call move_node(iz,i,j,k,0,1,0,d_extend)
+  R1 = RG(ig); Z1 = ZG(ig)
+  i  = R_SURF_PL_TRANS_RANGE(2,IZ)
+  ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+  call move_node(iz,i,j,k,0,1,0,d_extend)
+  R2 = RG(ig); Z2 = ZG(ig)
+
+
+  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
+     do k=0,SRF_TORO(iz)-1
+        ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+        RG(ig) = R1 + w(i) * (R2-R1)
+        ZG(ig) = Z1 + w(i) * (Z2-Z1)
+     enddo
+  enddo
+
+  deallocate(w)
+
   end subroutine close_grid_domain
+!=======================================================================
+!=======================================================================
+  subroutine move_node(iz,ir,ip,it,irdir,ipdir,itdir,d)
+  use emc3_grid
+  integer,      intent(in) :: iz, ir, ip, it, irdir, ipdir, itdir
+  real(real64), intent(in) :: d
+
+  real(real64) :: v(2)
+  integer      :: ig, ig1
+
+
+  ig     = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+  ig1    = ir+irdir + (ip+ipdir + (it+itdir)*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+
+  v(1)   = RG(ig) - RG(ig1)
+  v(2)   = ZG(ig) - ZG(ig1)
+  v      = v / sqrt(sum(v**2))
+
+  RG(ig) = RG(ig) + d*v(1)
+  ZG(ig) = ZG(ig) + d*v(2)
+
+  end subroutine move_node
 !=======================================================================
 
 end module divertor
