@@ -15,10 +15,11 @@ module flux_surface_2D
      real(real64) :: PsiN
 
      contains
-     procedure :: generate => generate_flux_surface_2D
+     procedure :: generate
      procedure :: generate_closed
      procedure :: generate_open
      procedure :: setup_sampling
+     procedure :: surface, volume, surface_analysis
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -38,7 +39,7 @@ module flux_surface_2D
 ! An optional cut-off poloidal angle theta_cut can be given.
 ! Re-tracing of half-open surfaces is optional
 !=======================================================================
-  recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, &
+  recursive subroutine generate(this, r, direction, Trace_Step, N_steps, &
       Trace_Method, AltSurf, theta_cut, retrace, sampling)
   use equilibrium
   use ode_solver
@@ -105,6 +106,7 @@ module flux_surface_2D
   yc(3)     = 0.d0
   r3(1:2)   = r
   r3(3)     = 0.d0
+  call this%destroy()
   this%PsiN = get_PsiN(r3)
 
 
@@ -191,7 +193,7 @@ module flux_surface_2D
      end select
   endif
 
-  end subroutine generate_flux_surface_2D
+  end subroutine generate
 !=======================================================================
 
 
@@ -201,20 +203,26 @@ module flux_surface_2D
   use equilibrium
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: r(2)
-  integer, intent(in)      :: direction
 
+  integer, intent(in), optional       :: direction
   integer, intent(in), optional       :: N_steps, Trace_Method
   real(real64), intent(in), optional  :: Trace_Step
   type(t_curve), intent(in), optional :: AltSurf
   logical, intent(in), optional       :: retrace
 
   real(real64) :: theta_cut, r3(3), x1(2), x2(2), dl, dl0
+  integer      :: direction0
+
+
+  ! set default direction
+  direction0 = RIGHT_HANDED
+  if (present(direction)) direction0 = direction
 
 
   r3(1:2) = r
   r3(3)   = 0.d0
   theta_cut = get_poloidal_angle(r3)
-  call this%generate(r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut, retrace)
+  call this%generate(r, direction0, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut, retrace)
 
   ! retrieve step size
   x1  = this%x(0,:)
@@ -430,5 +438,77 @@ module flux_surface_2D
   end subroutine setup_sampling
 !===============================================================================
 
+
+
+!===============================================================================
+  function surface(this) result(area)
+  class(t_flux_surface_2D)  :: this
+  real(real64)              :: area
+
+  real(real64) :: dPsi
+
+
+  call this%surface_analysis(area, dPsi)
+
+  end function surface
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine surface_analysis(this, area, GradPsi)
+  use math
+  use equilibrium
+  class(t_flux_surface_2D)  :: this
+  real(real64), intent(out) :: area, GradPsi
+
+  real(real64) :: x(2), dl(2), dA, dPsi(2)
+  integer :: i
+
+
+  area = 0.d0
+  GradPsi = 0.d0
+  do i=1,this%n_seg
+     x    = 0.5d0 * (this%x(i-1,:) + this%x(i,:))
+     dl   = this%x(i,:) - this%x(i-1,:)
+
+     dA   = pi2 * sqrt(sum(dl**2)) * x(1)
+     area = area + dA
+
+     dPsi(1) = get_dPsiN(x, 1, 0)
+     dPsi(2) = get_dPsiN(x, 0, 1)
+     GradPsi = GradPsi + dA * sqrt(sum(dPsi**2))
+  enddo
+  GradPsi = GradPsi / area
+
+  end subroutine surface_analysis
+!===============================================================================
+
+
+
+!===============================================================================
+  function volume(this) result(V)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64)             :: V
+
+  real(real64) :: x(2), dl(2), dA, dS(2)
+  integer :: i
+
+
+  V = 0.d0
+  do i=1,this%n_seg
+     x     = 0.5d0 * (this%x(i-1,:) + this%x(i,:))
+     dl    = this%x(i,:) - this%x(i-1,:)
+     dA    = pi2 * sqrt(sum(dl**2)) * x(1)
+
+     dS(1) = dl(2);     dS(2) = -dl(1)
+     dS    = dS / sqrt(sum(dS**2)) * dA
+
+     V     = V + 0.5d0 * (dS(2) * x(2)  +  dS(1) * x(1) / 2.d0)
+  enddo
+
+  end function volume
+!===============================================================================
 
 end module flux_surface_2D

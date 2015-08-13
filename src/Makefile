@@ -63,3 +63,9 @@ clean:
 	cd $(DEVEL_DIR); $(MAKE) clean
 	rm -rf *.o
 	rm -rf *.mod
+
+
+addon_targets = addons addons_install addons_clean
+.PHONY: $(addon_targets)
+$(addon_targets):
+	cd $(ADDONS_DIR); $(MAKE) $(MAKECMDGOALS)

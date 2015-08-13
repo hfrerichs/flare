@@ -119,12 +119,24 @@ end subroutine m3dc1_load
   subroutine m3dc1_broadcast
   use parallel
 
+  integer :: i
+
+
   if (nprs .gt. 1) then
      if (firstP) then
         write (6, *) 'parallel execution not supported for magnetic field data from M3D-C1!'
      endif
      stop
   endif
+
+  call broadcast_inte_s (n_sets)
+  call broadcast_inte_s (timeslice)
+  call broadcast_real_s (factor)
+  call broadcast_real   (amplitude, n_sets_max)
+  call broadcast_real   (phase,     n_sets_max)
+  do i=1,n_sets_max
+     call broadcast_char(filename(i), 80)
+  enddo
 
   return
   end subroutine m3dc1_broadcast

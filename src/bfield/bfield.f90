@@ -135,6 +135,7 @@ module bfield
 ! WARNING: presently only for interpolateA - components
 !=======================================================================
   function get_JBf_Cyl(r) result(J)
+  use equilibrium
   use splineB
   real(real64), intent(in) :: r(3)
   real(real64)             :: J(3,3)
@@ -142,6 +143,7 @@ module bfield
 
   J = 0.d0
 
+  if (iconfig(BF_EQ2D   )  == 1) J = J + get_JBf_eq2D(r)
   if (iconfig(BF_SPLINEB)  == 1) J = J + splineB_get_JBf(r)
 
   end function get_JBf_Cyl
@@ -232,8 +234,8 @@ module bfield
   call wait_pe()
   call sum_inte_data(icall,2)
   if (firstP) then
-     write (6, *) icall(1), ' calls to Bf_cyl'
-     write (6, *) icall(2), ' calls to Bf_cart'
+     if (icall(1) > 0) write (6, *) icall(1), ' calls to Bf_cyl'
+     if (icall(2) > 0) write (6, *) icall(2), ' calls to Bf_cart'
   endif
 
 

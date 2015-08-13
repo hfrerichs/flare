@@ -205,6 +205,8 @@ module run_control
      call generate_field_aligend_grid(Run_Level(1), Run_Level(2))
   case ('critical_point_analysis')
      call critical_point_analysis(Grid_File, Output_File)
+  case ('export_gfile')
+     call export_gfile()
   case default
 !     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
 !        read (Run_Type(40:42), *) i

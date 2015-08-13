@@ -17,16 +17,17 @@ subroutine transform_to_flux_coordinates
   use parallel
   use equilibrium
   use curve2D
-  use usr_grid
+  use grid
   use math
   implicit none
 
   integer, parameter :: iu = 42
 
+  type(t_grid)  :: G
   real*8, dimension(:,:), allocatable :: X
   character*120 :: str
   real*8  :: r(3), theta, PsiN
-  integer :: iflag, i, ig, n
+  integer :: i, ig, n_grid
 
 
   if (firstP) then
@@ -40,18 +41,17 @@ subroutine transform_to_flux_coordinates
   read  (iu, '(a120)') str
   close (iu)
   if (str(3:9) .eq. 'grid_id') then
-     call read_grid (Grid_File, use_coordinates=COORDINATES(CYLINDRICAL))
+     call G%load(Grid_File)
   else
-     call read_grid_usr (Grid_File, Input_Format, CYLINDRICAL, Phi_Output)
+     call G%load_usr(Grid_File, Input_Format, Phi_Output)
   endif
+  n_grid = G%nodes()
   allocate (X(n_grid,3))
 
 
   ! transform to flux coordinates
-  ig = mype+1
-  grid_loop: do
-     call get_next_grid_point (iflag, r)
-     if (iflag.lt.0) exit grid_loop
+  grid_loop: do ig=mype,n_grid,nprs
+     r = G%node(ig+1)
 
      theta   = get_poloidal_angle(r) * 180.d0 / pi
      if (Output_Format == 1  .and.  theta < 0.d0) theta = theta + 360.d0
@@ -59,7 +59,6 @@ subroutine transform_to_flux_coordinates
      X(ig,1) = theta
      X(ig,2) = PsiN
      X(ig,3) = r(3)
-     ig      = ig + nprs
   enddo grid_loop
 
 

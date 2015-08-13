@@ -118,6 +118,7 @@ module equilibrium
 
   ! get equilibrium magnetic field in cylindrical coordinates
   procedure(default_get_Bf), pointer :: get_Bf_eq2D  => default_get_Bf
+  procedure(default_get_JBf), pointer :: get_JBf_eq2D  => default_get_JBf
 
   ! get poloidal magnetic flux
   procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
@@ -127,6 +128,8 @@ module equilibrium
 
 !  ! return poloidal magnetic flux at magnetic axis
 !  procedure(Psi_axis_interface), pointer :: Psi_axis
+  ! pressure profile
+  procedure(default_pressure), pointer :: get_pressure => default_pressure
 
   ! Return boundaries [cm] of equilibrium domain
   procedure(default_get_domain), pointer :: get_domain => default_get_domain
@@ -244,6 +247,7 @@ module equilibrium
      Psi_axis = 0.d0
   endif
   write (6, 3000) Psi_axis
+  write (6, *)
 
 
 ! 4. set up X-points ...................................................
@@ -292,7 +296,7 @@ module equilibrium
 
   return
  1000 iconfig = 0
- 1001 format ('   - Equilibrium configuration:')
+ 1001 format (3x,'- Equilibrium configuration:')
  3000 format (8x,'Psi_axis = ', e12.4)
  4000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
  4001 format (8x,2f12.4,2x,e12.4)
@@ -378,8 +382,10 @@ module equilibrium
   select case (i_equi)
   case (EQ_GEQDSK)
      get_Bf_eq2D                   => geqdsk_get_Bf
+     get_JBf_eq2D                  => geqdsk_get_JBf
      get_Psi                       => geqdsk_get_Psi
      get_DPsi                      => geqdsk_get_DPsi
+     get_pressure                  => geqdsk_get_pressure
      get_domain                    => geqdsk_get_domain
      equilibrium_provides_boundary => geqdsk_provides_boundary
      export_boundary               => geqdsk_export_boundary
@@ -394,10 +400,12 @@ module equilibrium
      get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
      get_Psi                       => m3dc1_get_Psi
      get_DPsi                      => m3dc1_get_DPsi
+     broadcast_equilibrium         => m3dc1_broadcast
   case (EQ_AMHD)
      get_Bf_eq2D                   => amhd_get_Bf
      get_Psi                       => amhd_get_Psi
      get_DPsi                      => amhd_get_DPsi
+     get_pressure                  => amhd_get_pressure
      get_domain                    => amhd_get_domain
      broadcast_equilibrium         => amhd_broadcast
   end select
@@ -460,6 +468,20 @@ module equilibrium
 
 
 !=======================================================================
+! Jacobian of magnetic field
+!=======================================================================
+  function default_get_JBf(r) result(J)
+  real(real64), intent(in)  :: r(3)
+  real(real64)              :: J(3,3)
+
+  J = 0.d0
+
+  end function default_get_JBf
+!=======================================================================
+
+
+
+!=======================================================================
 ! Sample poloidal magnetic flux at r=(R,Z [cm], phi [rad])
 !===============================================================================
   function default_get_Psi(r) result(Psi)
@@ -480,25 +502,26 @@ module equilibrium
 !=======================================================================
 ! Sample normalized poloidal magnetic flux at r=(R,Z [cm], phi [rad])
 !===============================================================================
-  function get_PsiN(r0) result(PsiN)
-  real(real64), dimension(:), intent(in) :: r0
+  function get_PsiN(r) result(PsiN)
+  real(real64), dimension(:), intent(in) :: r
   real(real64)                           :: PsiN
 
-  real(real64) :: r(3)
+  real(real64) :: r3(3)
 
 
-  select case(size(r0))
+  select case(size(r))
   case(2)
-     r(1:2) = r0
-     r(  3) = 0.d0
+     r3(1:2) = r
+     r3(  3) = 0.d0
   case(3)
-     r      = r0
+     r3      = r
   case default
      write (6, *) 'error in get_PsiN: invalid size of argument r0!'
-     write (6, *) 'size(r0) = ', size(r0)
+     write (6, *) 'size(r) = ', size(r)
+     stop
   end select
 
-  PsiN = (get_Psi(r) - Psi_axis) / (Psi_sepx - Psi_axis)
+  PsiN = (get_Psi(r3) - Psi_axis) / (Psi_sepx - Psi_axis)
 
   end function get_PsiN
 !=======================================================================
@@ -522,11 +545,23 @@ module equilibrium
   end function default_get_DPsi
 !=======================================================================
   function get_DPsiN(r, nR, nZ) result(DPsiN)
-  real*8, intent(in)  :: r(3)
-  integer, intent(in) :: nR, nZ
-  real*8              :: DPsiN
+  real(real64), dimension(:), intent(in)  :: r
+  integer, intent(in)                     :: nR, nZ
+  real(real64)                            :: DPsiN
 
-  DPsiN = get_DPsi(r(1:2), nR, nZ) / (Psi_sepx - Psi_axis)
+  real(real64) :: r2(2)
+
+
+  select case(size(r))
+  case(2,3)
+     r2 = r(1:2)
+  case default
+     write (6, *) 'error in get_DPsiN: invalid size of argument r!'
+     write (6, *) 'size(r) = ', size(r)
+     stop
+  end select
+
+  DPsiN = get_DPsi(r2, nR, nZ) / (Psi_sepx - Psi_axis)
 
   end function get_DPsiN
 !=======================================================================
@@ -559,6 +594,15 @@ module equilibrium
   endif
 
   end function get_H
+!=======================================================================
+  function get_HN(x) result(HN)
+  real(real64), intent(in) :: x(2)
+  real(real64)             :: HN(2,2)
+
+
+  HN = get_H(x) / (Psi_sepx - Psi_axis)
+
+  end function get_HN
 !=======================================================================
   function approximate_H(x) result(H)
   use run_control, only: Debug
@@ -667,9 +711,7 @@ module equilibrium
      dpsi_dZ = get_DPsiN(r, 0, 1)
 
      ! Hessian
-     H(1,1)  = get_DPsiN(r, 2, 0)
-     H(2,1)  = get_DPsiN(r, 1, 1); H(1,2) = H(2,1)
-     H(2,2)  = get_DPsiN(r, 0, 2)
+     H       = get_HN(r(1:2))
 
      beta    = y(2) - PsiN
      dpsi_dl = dpsi_dR*er(1) + dpsi_dZ*er(2)
@@ -704,6 +746,18 @@ module equilibrium
   if (present(iter)) iter = i
 
   end function get_cylindrical_coordinates
+!=======================================================================
+
+
+
+!=======================================================================
+  function default_pressure(Psi) result(P)
+  real(real64), intent(in) :: Psi
+  real(real64)             :: P
+
+  P = 0.d0
+
+  end function default_pressure
 !=======================================================================
 
 
@@ -1023,12 +1077,13 @@ module equilibrium
 
 
   call get_domain (Rbox, Zbox)
-  write (6, 1000)
-  write (6, 1001) Rbox
-  write (6, 1001) Zbox
+  write (6, 1000) Rbox, Zbox
 
   ind = 0
+  r3(3) = 0.d0
   open  (iu, file='hyperbolic_points.dat')
+  write (iu, 1001)
+  write (6,  1002)
   loop2: do i=0, nR
   loop1: do j=0, nZ
      x(1) = Rbox(1) + (Rbox(2)-Rbox(1)) * i / nR
@@ -1045,14 +1100,15 @@ module equilibrium
 
      ! so this is a new critical point, run analysis
      Xp%X = x; Xp%H = H
+     r3(1:2) = x; Xp%Psi = get_Psi(r3)
      call Xp%analysis(lambda1, lambda2, v1, v2, ierr)
      if (ierr .ne. 0) cycle ! this is not a hyperbolic point
 
      ! add present point to list
      ind = ind + 1
      xk(ind,:) = x
-     write (6, 1002) ind, x, lambda1, lambda2
-     write (iu, *) x, lambda1, lambda2
+     write (6, 1003) ind, x, Xp%PsiN(), lambda1, lambda2
+     write (iu, *) x, Xp%PsiN(), lambda1, lambda2
   enddo loop1
   enddo loop2
   close (iu)
@@ -1073,9 +1129,11 @@ module equilibrium
 !  write (6, *) 'primary X-point is: ', xk(iPsi,:)
   write (6, *)
 
- 1000 format(3x,'- Running search for hyperbolic points in domain:')
- 1001 format(8x,2f12.4)
- 1002 format(8x,i0,4x,'(',f10.4,', ',f10.4,')',4x,'l1 = ',e12.4,',',4x,'l2 = ',e12.4)
+ 1000 format(3x,'- Running search for hyperbolic points in domain: ',&
+             '(',f0.2,' -> ',f0.2,') x (',f0.2,' -> ',f0.2,')')
+ 1001 format('# Hyperbolic points: R, Z, PsiN, Eigenvalues(l1, l2)')
+ 1002 format(13x,'(  R       ,  Z        )     PsiN        Eigenvalues')
+ 1003 format(8x,i0,4x,'(',f10.4,', ',f10.4,')',1x,f12.6,4x,'l1 = ',e12.4,',',4x,'l2 = ',e12.4)
   end subroutine find_hyperbolic_points
 !=======================================================================
 

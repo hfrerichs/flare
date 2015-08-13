@@ -71,6 +71,7 @@ module curve2D
      procedure :: split3, splitn
      procedure :: split3seg, splitnseg
      procedure :: length
+     procedure :: area
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve
   end type t_curve
@@ -1531,6 +1532,30 @@ module curve2D
   enddo
 
   end function length
+!=======================================================================
+
+
+
+!=======================================================================
+  function area(this) result(A)
+  class(t_curve) :: this
+  real(real64)   :: A
+
+  real(real64)   :: dA, dl(2), x(2)
+  integer :: i
+
+
+  A = 0.d0
+  if (.not. this%closed) return
+  do i=1,this%n_seg
+     dl = this%x(i,:) - this%x(i-1,:)
+     x  = 0.5d0*(this%x(i,:) + this%x(i-1,:))
+     dA = 0.5d0 * (dl(2)*x(1) - dl(1)*x(2))
+
+     A = A + dA
+  enddo
+
+  end function area
 !=======================================================================
 
 

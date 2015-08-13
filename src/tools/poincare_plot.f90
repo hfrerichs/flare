@@ -3,7 +3,8 @@
 !
 ! Input (taken from run control file):
 ! start locations: 1.
-!    R_start, R_end     Equidistant steps between R_start and R_end at Z = 0, Phi = 0
+!    R_start, R_end     Equidistant steps between R_start and R_end, Phi = 0
+!    Z_start, Z_end     Equidistant steps between Z_start and Z_end (default Z = 0)
 !    N_steps		Number of steps between start locations for field line tracing
 ! or. 2.
 !    Grid_File          Provide file with start locations
@@ -39,13 +40,14 @@
 !===============================================================================
 subroutine poincare_plot
   use run_control, only: R_start, R_end, N_steps, Grid_File, Output_File, Output_Format, &
+                         Z_start, Z_end, &
                          Trace_Step, Trace_Method, Trace_Coords, &
                          N_points, N_sym, N_mult, Phi_output, x_start
   use parallel
   use equilibrium
   use boundary
   use fieldline
-  use usr_grid
+  use grid
   use math
   implicit none
 
@@ -62,15 +64,15 @@ subroutine poincare_plot
      real*8, dimension(:,:,:,:), allocatable :: X
   end type t_poincare_data
 
+  type(t_grid)          :: G
   type(t_fieldline)     :: F
   type(t_poincare_data) :: Pdata
-  real*8, dimension(:,:), pointer     :: my_grid
   
 
   character*120 :: tmp_filename, suffix, smult
   real*8  :: lc, y(3), yc(3), X(3)
-  real*8  :: dr, Psi, theta
-  integer :: imult, j, ig, iflag, icut
+  real*8  :: dr, dz, Psi, theta
+  integer :: imult, j, ig, icut, n_grid
 
 
   if (firstP) then
@@ -114,28 +116,30 @@ subroutine poincare_plot
   ! use radial range R_start -> R_end
   if (R_start > 0.d0) then
      dr   = 0.d0
-     my_grid => new_grid(N_steps+1, log_progress=.false.)
+     dz   = 0.d0
+     call G%new(CYLINDRICAL, UNSTRUCTURED, FIXED_COORD3, N_steps+1)
 
      if (N_steps .ne. 0) then
         dr = (R_end - R_start) / N_steps
+        dz = (Z_end - Z_start) / N_steps
         if (firstP) write (6,2001) R_start, R_end, N_steps
         do ig=0,N_steps
-           my_grid(ig+1,1) = R_start + ig*dr
+           G%x(ig+1,1) = R_start + ig*dr; G%x(ig+1,2) = Z_start + ig*dz
         enddo
      else
         if (firstP) write (6,2002) R_start
-        my_grid(1,1) = R_start
+        G%x(1,1) = R_start; G%x(1,2) = R_start
      endif
 
   ! use x_start if N_steps is not specified
   elseif (N_steps == 0  .and.  x_start(1).ne.0.d0) then
-     my_grid => new_grid(N_steps+1, log_progress=.false.)
-     my_grid(1,:) = x_start
+     call G%new(CYLINDRICAL, UNSTRUCTURED, FIXED_COORD3, 1)
+     G%x(1,:) = x_start
      if (firstP) write (6, 2003) x_start
 
   ! use points from grid file if R_start is missing
   elseif (Grid_File .ne. '') then
-     call read_grid (Grid_File, log_progress=.false., use_coordinates=COORDINATES(min(Trace_Coords,2)))
+     call G%load(Grid_File)
      if (firstP) write (6,*)
 
   else
@@ -147,6 +151,7 @@ subroutine poincare_plot
 
 !.......................................................................
 ! prepare output data array
+  n_grid       = G%nodes()
   Pdata%n_sets = n_grid
   Pdata%n_cuts = N_mult
   allocate (Pdata%n_points(0:n_grid-1, 0:N_mult-1))
@@ -157,10 +162,8 @@ subroutine poincare_plot
 
 
 ! main loop (begin) ....................................................
-  ig = mype
-  grid_loop: do
-     call get_next_grid_point (iflag, yc)
-     if (iflag.eq.-1) exit grid_loop
+  grid_loop: do ig=mype,n_grid-1,nprs
+     yc = G%node(ig+1, coordinates=min(Trace_Coords,2))
 
      ! integrate connection length
      lc = 0.d0
@@ -206,8 +209,6 @@ subroutine poincare_plot
            exit trace_loop
         endif
      enddo trace_loop
-
-     ig = ig + nprs
   enddo grid_loop
 ! ... main loop (end) ..................................................
 

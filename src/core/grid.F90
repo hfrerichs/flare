@@ -65,7 +65,7 @@ module grid
 
      contains
      procedure :: new
-     procedure :: load
+     procedure :: load, load_usr
      procedure :: setup_mesh
      procedure :: setup_structured_grid
      procedure :: store
@@ -167,6 +167,10 @@ module grid
      allocate (this%x3(this%n3))
      this%x3 = 0.d0
   endif
+  if (layout == SEMI_STRUCTURED) then
+     if (allocated(this%x2)) deallocate(this%x2)
+     allocate (this%x2(this%n2))
+  endif
 !
 !     if (.not.present(n2)) then
 !        write (6, *) 'error: resolution parameter n2 missing for regular 2D grid!'
@@ -193,7 +197,7 @@ module grid
   if (firstP) then
      call read_grid()
   endif
-  call broadcast_grid()
+  if (nprs > 1) call broadcast_grid()
 
   contains
 !-----------------------------------------------------------------------
@@ -288,6 +292,7 @@ module grid
      ! read list of x(fixed_coord)
      do j=1,n2
         read  (iu, *) y1
+        this%x2(j) = y1(1)
 
         ! set y1 for all n1 values of x(coord1), x(coord2)
         do i=1,n1
@@ -451,6 +456,62 @@ module grid
  2001 format (8x,a80)
   end subroutine rscrape
 !-----------------------------------------------------------------------
+!=======================================================================
+
+
+
+!=======================================================================
+! iformat = 1:	X, Y, Z [cm]
+!           2:  R, Z [cm], phi [deg]
+!           3:  R, Z [cm] at phi_default
+!=======================================================================
+  subroutine load_usr(this, filename, iformat, phi0)
+  use dataset
+  class(t_grid)                :: this
+  character(len=*), intent(in) :: filename
+  integer,          intent(in) :: iformat
+  real(real64),     intent(in), optional :: phi0
+
+  integer, parameter :: iu = 10
+
+#ifdef FLARE
+  type(t_dataset) :: D
+  real(real64)    :: phi, yi(3), yo(3)
+  integer         :: columns, i, n
+
+
+  phi = 0.d0
+  if (present(phi0)) phi = phi0
+
+
+  ! read data
+  columns = 3
+  if (iformat == 3) columns = 2
+  call D%load(filename, columns)
+
+
+  ! setup grid
+  n = D%nrow
+  call this%new(CYLINDRICAL, UNSTRUCTURED, DEFAULT_GRID, n)
+  do i=1,n
+     yi(1) = D%x(i,1)
+     yi(2) = D%x(i,2)
+     select case (iformat)
+     case(1,2)
+        yi(3) = D%x(i-1,3) / 180.d0 * pi
+     case(3)
+        yi(3) = phi / 180.d0 * pi
+     end select
+     call coord_trans (yi, iformat, yo, CYLINDRICAL)
+     this%x(i,:) = yo
+  enddo
+
+
+  ! cleanup
+  call D%destroy()
+
+#endif
+  end subroutine load_usr
 !=======================================================================
 
 

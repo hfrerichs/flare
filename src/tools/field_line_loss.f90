@@ -9,7 +9,8 @@
 !    N_psi              Number of initial surfaces
 !    Psi(1:2)           Lower and upper radial boundary
 !
-!    Limit              Max. length of field line tracing
+!    Limit              Reference length for field line tracing
+!    N_steps            Calculate loss fraction at N_steps steps of 'Limit' (default = 1)
 !    Trace_Step, Trace_Method, Trace_Coords as ususal
 !
 !    Output_File
@@ -18,9 +19,7 @@ subroutine field_line_loss
   use iso_fortran_env
   use flux_surface_2D
   use flux_surface_3D
-  use run_control, only: N_sym, N_phi, N_theta, Psi, N_psi, &
-                         Trace_Step, Trace_Method, Trace_Coords, Limit, &
-                         Output_File
+  use run_control, only: N_sym, N_phi, N_theta, Psi, N_psi, N_steps, Limit, Output_File, Debug
   use equilibrium
   use fieldline
   use parallel
@@ -28,32 +27,87 @@ subroutine field_line_loss
 
   integer, parameter      :: iu = 80
 
+  integer, dimension(:,:), allocatable :: iloss
   type(t_flux_surface_2D) :: S2D
   type(t_flux_surface_3D) :: S3D
-  real(real64) :: r(3), y(3)
-  integer      :: i, ierr
+  real(real64) :: r(3), y(3), DPsi
+  integer      :: i, ierr, j, n
 
 
+  ! check user input, set default values
+  if (N_steps <=0) N_steps = 1
+
+
+  ! reference output to screen
   if (firstP) then
-     write (6, *) 'Calculate field line losses within ',Limit/1.d2,' m, output in: ', adjustl(trim(Output_File))
+     write (6, *) 'Calculate field line losses, output in: ', adjustl(trim(Output_File))
+     write (6, *)
+     if (N_Psi == 1) then
+        write (6, 1001) Psi(1)
+     else
+        write (6, 1002) Psi(1), Psi(2)
+     endif
      write (6, *)
 
+     write (6, 1003)
+     write (6, 1004) N_sym
+     write (6, 1005) N_phi, N_theta
+     write (6, *)
+
+     if (N_steps == 1) then
+        write (6, 1006) Limit/1.d2
+     else
+        write (6, 1007) N_steps, Limit/1.d2, N_steps*Limit/1.d2
+     endif
+     write (6, *)
+ 1001 format(3x,'- Radial position [PsiN]:         ',5x,f0.4)
+ 1002 format(3x,'- Radial domain [PsiN]:           ',5x,f0.4,' -> ',f0.4)
+ 1003 format(3x,'- Flux surface discretization:')
+ 1004 format(8x,'Toroidal symmetry:                ',i0)
+ 1005 format(8x,'Toroidal x Poloidal resolution:   ',i0,' x ',i0)
+ 1006 format(3x,'- Reference length [m]:           ',5x,f0.2)
+ 1007 format(3x,'- Reference length [m]:           ',5x,i0,' x ',f0.2,' = ',f0.2)
+
      open  (iu, file=Output_File)
+     write (iu, 2000)
   endif
 
 
-  ! loop over all initial surfaces
+  ! initialize output variables
+  allocate (iloss(-1:1, N_steps))
+  iloss = 0
+
+  ! loop over all unperturbed flux surfaces Psi(1) -> Psi(2)
   y(1) = 0.d0
   y(3) = 0.d0
+  DPsi = 0.d0; if (N_psi > 1) DPsi = (Psi(2)-Psi(1)) / (N_psi - 1.d0)
   do i=0,N_psi-1
-     y(2) = Psi(1) + 1.d0*i/(N_psi-1) * (Psi(2)-Psi(1))
+     y(2) = Psi(1) + i * DPsi
      if (firstP) write (6, *) y(2)
 
+     ! 1. find reference coordinate on flux surface (inboard midplane)
      r    = get_cylindrical_coordinates (y, ierr)
-     call S2D%generate_closed(r(1:2), RIGHT_HANDED)
+     if (ierr .ne. 0) then
+        write (6, *) 'error in subroutine field_line_loss: could not find real space coordinates!'
+        write (6, *) r
+        stop
+     endif
+
+
+     ! 2. generate flux surface shape
+     call S2D%generate_closed(r(1:2))
+     if (Debug) call S2D%plot(filename='flux_surfaces.plt', append=.true.)
      call S3D%generate_from_axisymmetric_surface(S2D, N_sym, N_phi, N_theta)
+
   
-     call field_line_loss_from_surface(S3D)
+     ! 3. calculate field line losses from this unperturbed flux surface
+     iloss = S3D%field_line_loss(N_steps, Limit)
+     n     = N_phi * N_theta
+     if (firstP) then
+        do j=1,N_steps
+           write (iu, 2001) y(2), j*Limit, 1.d0*iloss(-1,j)/n, 1.d0*iloss(1,j)/n
+        enddo
+     endif
   enddo
 
 
@@ -61,62 +115,8 @@ subroutine field_line_loss
   if (firstP) then
      close (iu)
   endif
-  contains
-!.......................................................................
+  deallocate (iloss)
 
-!.......................................................................
-  subroutine field_line_loss_from_surface(S)
-  type(t_flux_surface_3D), intent(in) :: S
-
-  type(t_fieldline) :: F
-  real(real64)      :: r0(3), y0(3), Lc, PsiNext
-  integer :: i, j, idir, n, iloss(-1:1), inext(-1:1), inext1
-
-
-  iloss = 0
-  inext = 0
-  n     = 0
-  !PsiNext = 0.99158916136325959
-  do i=0,S%n_phi-1
-  do j=1,S%slice(i)%n_seg
-     r0(1:2) = S%slice(i)%x(j,:)
-     r0(3)   = S%slice(i)%phi
-     n       = n + 1
-     if (mod(n,nprs) .ne. mype) cycle
-     call coord_trans (r0, CYLINDRICAL, y0, Trace_Coords)
-
-     ! forward and backward tracing
-     do idir=-1,1,2
-        call F%init(y0, idir*Trace_Step, Trace_Method, Trace_Coords)
-        Lc     = 0.d0
-        inext1 = 0
-        trace_loop: do
-           call F%trace_1step()
-           Lc = Lc + Trace_Step
-
-           ! stop field line tracing at limit
-           if (Lc > Limit) exit trace_loop
-
-           ! check intersection with boundary
-           if (F%intersect_boundary()) then
-              iloss(idir) = iloss(idir) + 1
-              exit trace_loop
-           endif
-
-!           ! connection to next (outward) main resonance
-!           if (F%get_PsiN() >= PsiNext) then
-!              inext1 = inext1 + 1
-!           endif
-        enddo trace_loop
-
-        if (inext1 > 0) inext(idir) = inext(idir) + 1
-     enddo
-  enddo
-  enddo
-
-  call wait_pe()
-  call sum_inte_data (iloss, 3)
-  if (firstP) write (iu, *) 1.d0*iloss(-1)/n, 1.d0*iloss(1)/n
-  end subroutine field_line_loss_from_surface
-!.......................................................................
+ 2000 format('# PsiN,       L               loss(backward)  loss(forward)')
+ 2001 format(f12.8,3e16.8)
 end subroutine field_line_loss

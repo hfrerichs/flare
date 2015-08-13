@@ -33,6 +33,7 @@ module flux_surface_3D
      procedure :: generate_from_axisymmetric_surface
      procedure :: get_distance_to
      procedure :: load_distance_to
+     procedure :: field_line_loss !(in the presence of magnetic perturbations)
      !procedure :: expand
   end type t_flux_surface_3D
   !end type t_poincare_set
@@ -306,6 +307,62 @@ module flux_surface_3D
   call this%distance%load(filename='distance.dat')
 
   end subroutine load_distance_to
+!=======================================================================
+
+
+
+!=======================================================================
+  function field_line_loss(S, nlimit, Limit) result(iloss)
+  use run_control, only: Trace_Step, Trace_Method, Trace_Coords
+  use fieldline
+  use parallel
+  implicit none
+  class(t_flux_surface_3D) :: S
+  integer,      intent(in) :: nlimit
+  real(real64), intent(in) :: Limit
+  integer                  :: iloss(-1:1, nlimit)
+
+  type(t_fieldline) :: F
+  real(real64)      :: r0(3), y0(3), Lc, PsiNext
+  integer :: i, j, idir, n, m
+
+
+  iloss = 0
+  n     = 0
+  do i=0,S%n_phi-1
+  do j=1,S%slice(i)%n_seg
+     r0(1:2) = S%slice(i)%x(j,:)
+     r0(3)   = S%slice(i)%phi
+     n       = n + 1
+     if (mod(n,nprs) .ne. mype) cycle
+     call coord_trans (r0, CYLINDRICAL, y0, Trace_Coords)
+
+     ! forward and backward tracing
+     do idir=-1,1,2
+        call F%init(y0, idir*Trace_Step, Trace_Method, Trace_Coords)
+        Lc = 0.d0
+        m  = 1
+        trace_loop: do
+           call F%trace_1step()
+           Lc = Lc + Trace_Step
+
+           ! stop field line tracing at limit nlimit*Limit
+           if (Lc > m*Limit) m = m+1
+           if (m > nlimit) exit trace_loop
+
+           ! check intersection with boundary
+           if (F%intersect_boundary()) then
+              iloss(idir,m:nlimit) = iloss(idir,m:nlimit) + 1
+              exit trace_loop
+           endif
+        enddo trace_loop
+     enddo
+  enddo
+  enddo
+
+  call wait_pe()
+  call sum_inte_data (iloss, 3*nlimit)
+  end function field_line_loss
 !=======================================================================
 
 end module flux_surface_3D
