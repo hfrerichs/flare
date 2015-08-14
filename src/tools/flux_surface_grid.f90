@@ -24,13 +24,9 @@ subroutine flux_surface_grid
   use grid
   implicit none
 
-  integer, parameter :: &
-     iu1 = 41, &
-     iu2 = 42
-
   type(t_flux_surface_2D) :: S
   type(t_dataset)         :: D
-  type(t_grid)            :: G_debug
+  type(t_grid)            :: G1, G2, G_debug
   real(real64) :: x0(2), xc(3), t, x(3), y(3)
   integer :: i, j, ig, n, ierr, iterations
 
@@ -41,21 +37,8 @@ subroutine flux_surface_grid
   endif
 
 
-  open  (iu1, file=Grid_File)
-  write (iu1, 1000)
-  write (iu1, 1001) n_theta * n_psi
-  write (iu1, 1002) Phi_Output
- 1000 format ('# grid_id = 213     (irregular RZ grid)')
- 1001 format ('# resolution:        n_grid  =  ',i10)
- 1002 format ('# toroidal position: phi     =  ',f6.2)
-
-  open  (iu2, file=Output_File)
-  write (iu2, 2000)
-  write (iu2, 2001) n_theta * n_psi
-  write (iu2, 2002) Phi_Output
- 2000 format ('# grid_id = 013     (irregular theta-psin grid)')
- 2001 format ('# resolution:        n_grid  =  ',i10)
- 2002 format ('# toroidal position: phi     =  ',f6.2)
+  call G1%new(CYLINDRICAL, MESH_2D, TOROIDAL_SLICE, n_psi, n_theta, fixed_coord_value=Phi_Output)
+  call G2%new(LOCALL,      MESH_2D, TOROIDAL_SLICE, n_psi, n_theta, fixed_coord_value=Phi_Output)
 
   call G_debug%new(LOCAL, STRUCTURED, FIXED_COORD3, n_theta, n_psi)
   n  = n_theta * n_psi
@@ -68,8 +51,9 @@ subroutine flux_surface_grid
         y(3) = Phi_output
 
         x = get_cylindrical_coordinates (y, ierr, iter=iterations)
-        write (iu1, 3000) x(1:2)
-        write (iu2, 3000) y(1:2)
+        !if (ierr > 0) x = get_cylindrical_coordinates (y, ierr, damping=0.01d0, iter=iterations)
+        G1%mesh(i,j,1:2) = x(1:2)
+        G2%mesh(i,j,1:2) = y(1:2)
         D%x(ig,1) = ierr
         D%x(ig,2) = iterations
         ig        = ig + 1
@@ -78,8 +62,8 @@ subroutine flux_surface_grid
         G_debug%x2(i+1) = i
      enddo
   enddo
-  close (iu1)
-  close (iu2)
+  call G1%store(filename=Grid_File)
+  call G2%store(filename=Output_File)
  3000 format (2e18.10)
   if (Debug) then
      call D%plot(filename='debug.dat')

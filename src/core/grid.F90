@@ -46,6 +46,7 @@ module grid
      FIXED_COORD1    = 1, &
      FIXED_COORD2    = 2, &
      FIXED_COORD3    = 3, &
+     TOROIDAL_SLICE  = FIXED_COORD3, &
      DEFAULT_GRID    = 0
 
 
