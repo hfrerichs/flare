@@ -38,7 +38,7 @@ subroutine flux_surface_grid
 
 
   call G1%new(CYLINDRICAL, MESH_2D, TOROIDAL_SLICE, n_psi, n_theta, fixed_coord_value=Phi_Output)
-  call G2%new(LOCALL,      MESH_2D, TOROIDAL_SLICE, n_psi, n_theta, fixed_coord_value=Phi_Output)
+  call G2%new(LOCAL,       MESH_2D, TOROIDAL_SLICE, n_psi, n_theta, fixed_coord_value=Phi_Output)
 
   call G_debug%new(LOCAL, STRUCTURED, FIXED_COORD3, n_theta, n_psi)
   n  = n_theta * n_psi
