@@ -27,7 +27,7 @@ subroutine flux_surface_grid
   type(t_flux_surface_2D) :: S
   type(t_dataset)         :: D
   type(t_grid)            :: G1, G2, G_debug
-  real(real64) :: x0(2), xc(3), t, x(3), y(3)
+  real(real64) :: x0(2), xc(3), t, x(3), y(3), dPsi, dTheta
   integer :: i, j, ig, n, ierr, iterations
 
 
@@ -44,10 +44,12 @@ subroutine flux_surface_grid
   n  = n_theta * n_psi
   ig = 1
   call D%new(n,2)
+  dTheta = 0.d0; if (n_theta > 1) dTheta = (Theta(2)-Theta(1)) / (n_theta - 1)
+  dPsi   = 0.d0; if (n_psi   > 1) dPsi   = (Psi(2)  -Psi(1)  ) / (n_psi   - 1)
   do i=0, n_psi-1
      do j=0, n_theta-1
-        y(2) = Psi(1) + 1.d0*i/(n_psi-1) * (Psi(2)-Psi(1))
-        y(1) = Theta(1) + 1.d0*j/(n_theta-1) * (Theta(2)-Theta(1))
+        y(2) = Psi(1)   + i * dPsi
+        y(1) = Theta(1) + j * dTheta
         y(3) = Phi_output
 
         x = get_cylindrical_coordinates (y, ierr, iter=iterations)
