@@ -117,15 +117,10 @@ module topo_lsn
   call rpath(0)%setup_linear(Px, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 SOL
-  dx(1) = Px(2) - Pmag(2)
-  dx(2) = Pmag(1) - Px(1)
-  dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
-  call rpath(1)%setup_linear(Px, dx)
+  call rpath(1)%generateX(1, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
   call rpath(1)%plot(filename='rpath_1.plt')
   ! 4.2 PFR
-  dx    = Px - Pmag
-  dx    = dx / sqrt(sum(dx**2)) * d_PFR(1)
-  call rpath(2)%setup_linear(Px, dx)
+  call rpath(2)%generateX(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
   call rpath(2)%plot(filename='rpath_2.plt')
 
   end subroutine setup_domain
