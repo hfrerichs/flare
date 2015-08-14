@@ -24,6 +24,7 @@ module grid
   implicit none
 
   logical, parameter :: firstP = .true.
+  integer            :: nprs   = 1
 #endif
   private
 
@@ -466,7 +467,9 @@ module grid
 !           3:  R, Z [cm] at phi_default
 !=======================================================================
   subroutine load_usr(this, filename, iformat, phi0)
+#ifdef FLARE
   use dataset
+#endif
   class(t_grid)                :: this
   character(len=*), intent(in) :: filename
   integer,          intent(in) :: iformat
