@@ -19,7 +19,9 @@ module flux_surface_2D
      procedure :: generate_closed
      procedure :: generate_open
      procedure :: setup_sampling
-     procedure :: surface, volume, surface_analysis
+     procedure :: surface
+     procedure :: surface_analysis
+     procedure :: volume
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D

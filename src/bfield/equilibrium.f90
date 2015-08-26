@@ -129,7 +129,7 @@ module equilibrium
 !  ! return poloidal magnetic flux at magnetic axis
 !  procedure(Psi_axis_interface), pointer :: Psi_axis
   ! pressure profile
-  procedure(default_pressure), pointer :: get_pressure => default_pressure
+  procedure(default_pressure), pointer :: get_pressure
 
   ! Return boundaries [cm] of equilibrium domain
   procedure(default_get_domain), pointer :: get_domain
@@ -210,6 +210,7 @@ module equilibrium
   get_Psi          => default_get_Psi
   get_DPsi         => default_get_DPsi
   get_domain       => default_get_domain
+  get_pressure     => default_pressure
   export_boundary  => null()
   equilibrium_info => null()
   equilibrium_provides_boundary => default_equilibrium_provides_boundary

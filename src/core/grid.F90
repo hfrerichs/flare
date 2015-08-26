@@ -65,7 +65,8 @@ module grid
 
      contains
      procedure :: new
-     procedure :: load, load_usr
+     procedure :: load
+     procedure :: load_usr
      procedure :: setup_mesh
      procedure :: setup_structured_grid
      procedure :: store
