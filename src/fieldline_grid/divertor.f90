@@ -439,7 +439,7 @@ module divertor
   use mesh_spacing
   use flux_surface_2D
   use math
-  use equilibrium
+  use equilibrium, only: Xp
   use xpaths
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M

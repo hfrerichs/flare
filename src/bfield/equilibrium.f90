@@ -26,7 +26,7 @@ module equilibrium
   integer, parameter :: nX_max = 10
 
 
-  type t_Xpoint
+  type t_Xpoint ! critical point
      real(real64) :: R_estimate = 0.d0, Z_estimate = 0.d0
      real(real64) :: X(2) = -1.d0, Psi, H(2,2), theta
      logical      :: undefined = .true.
@@ -56,7 +56,7 @@ module equilibrium
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
 
 
-  type(t_Xpoint) :: Xp(nX_max), MAxis
+  type(t_Xpoint) :: Xp(nX_max), M
 
 
   logical :: &
@@ -68,7 +68,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, MAxis, &
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, M, &
      Magnetic_Axis_File
 !...............................................................................
 
@@ -198,13 +198,13 @@ module equilibrium
 
 
 ! set default values
-  get_Bf_eq2D  => default_get_Bf
-  get_Psi => default_get_Psi
-  get_DPsi => default_get_DPsi
-  get_domain => default_get_domain
-  equilibrium_provides_boundary => default_equilibrium_provides_boundary
+  get_Bf_eq2D      => default_get_Bf
+  get_Psi          => default_get_Psi
+  get_DPsi         => default_get_DPsi
+  get_domain       => default_get_domain
   export_boundary  => null()
   equilibrium_info => null()
+  equilibrium_provides_boundary => default_equilibrium_provides_boundary
   call initialize_magnetic_axis()
 
 
@@ -215,14 +215,14 @@ module equilibrium
 
 ! 3. setup magnetic axis ...............................................
   ! 3.1 find magnetic axis from estimated position
-  if (MAxis%R_estimate > 0.d0) then
-     x0(1)     = MAxis%R_estimate
-     x0(2)     = MAxis%Z_estimate
-     MAxis%X   = find_x(x0)
+  if (M%R_estimate > 0.d0) then
+     x0(1)    = M%R_estimate
+     x0(2)    = M%Z_estimate
+     M%X      = find_x(x0)
 
-     r(1:2)    = MAxis%X; r(3) = 0.d0
-     MAxis%Psi = get_Psi(r)
-     Psi_Axis  = MAxis%Psi
+     r(1:2)   = M%X; r(3) = 0.d0
+     M%Psi    = get_Psi(r)
+     Psi_Axis = M%Psi
      call setup_magnetic_axis_2D (r(1), r(2))
   endif
 
@@ -588,7 +588,6 @@ module equilibrium
 ! Return poloidal angle [rad] at r=(R,Z [cm], phi [rad])
 !=======================================================================
   function get_poloidal_angle(r) result(theta)
-  use magnetic_axis
   real*8, intent(in) :: r(3)
   real*8             :: theta, Maxis(3)
 
@@ -607,7 +606,6 @@ module equilibrium
   function get_cylindrical_coordinates(y, ierr, r0) result(r)
   use iso_fortran_env
   use math
-  use magnetic_axis
   implicit none
 
   real(real64), intent(inout)        :: y(3)
@@ -1048,7 +1046,6 @@ module equilibrium
 
 !=======================================================================
   function length_scale () result(L)
-  use magnetic_axis
   real(real64) :: L
 
   real(real64) :: M(3)
