@@ -18,7 +18,11 @@ module dataset
      real(real64), dimension(:,:), pointer :: x => null()
 
      contains
-     procedure :: load, plot, new, destroy, mpi_allreduce
+     procedure :: load
+     procedure :: plot
+     procedure :: new
+     procedure :: destroy
+     procedure :: mpi_allreduce
      procedure :: sort_rows
      procedure :: smooth
   end type t_dataset

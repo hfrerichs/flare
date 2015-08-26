@@ -42,7 +42,8 @@ module flux_tube
      procedure :: generate => generate_cross_section
      procedure :: load
      procedure :: area
-     procedure :: Rcenter, Zcenter
+     procedure :: Rcenter
+     procedure :: Zcenter
      procedure :: generate_mesh
   end type t_cross_section
 

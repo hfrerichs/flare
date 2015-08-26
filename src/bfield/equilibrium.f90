@@ -3,8 +3,8 @@
 !===============================================================================
 module equilibrium
   use iso_fortran_env
-  use curve2D
   use magnetic_axis
+  use curve2D
   implicit none
 
 
@@ -28,7 +28,7 @@ module equilibrium
   integer, parameter :: nX_max = 10
 
 
-  type t_Xpoint
+  type t_Xpoint ! critical point
      real(real64) :: R_estimate = 0.d0, Z_estimate = 0.d0
      real(real64) :: X(2) = -1.d0, Psi, H(2,2), theta
      logical      :: undefined = .true.
@@ -58,7 +58,7 @@ module equilibrium
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
 
 
-  type(t_Xpoint) :: Xp(nX_max), Magnetic_Axis
+  type(t_Xpoint) :: Xp(nX_max), M
 
 
   logical :: &
@@ -70,7 +70,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, Magnetic_Axis, &
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, M, &
      Magnetic_Axis_File
 !...............................................................................
 
@@ -117,14 +117,14 @@ module equilibrium
 ! Interfaces for functions/subroutines from specific equilibrium types         .
 
   ! get equilibrium magnetic field in cylindrical coordinates
-  procedure(default_get_Bf), pointer :: get_Bf_eq2D  => default_get_Bf
-  procedure(default_get_JBf), pointer :: get_JBf_eq2D  => default_get_JBf
+  procedure(default_get_Bf), pointer  :: get_Bf_eq2D
+  procedure(default_get_JBf), pointer :: get_JBf_eq2D
 
   ! get poloidal magnetic flux
-  procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
+  procedure(default_get_Psi), pointer :: get_Psi
 
   ! get derivative of poloidal magnetic flux
-  procedure(default_get_DPsi), pointer :: get_DPsi => default_get_DPsi
+  procedure(default_get_DPsi), pointer :: get_DPsi
 
 !  ! return poloidal magnetic flux at magnetic axis
 !  procedure(Psi_axis_interface), pointer :: Psi_axis
@@ -132,7 +132,7 @@ module equilibrium
   procedure(default_pressure), pointer :: get_pressure => default_pressure
 
   ! Return boundaries [cm] of equilibrium domain
-  procedure(default_get_domain), pointer :: get_domain => default_get_domain
+  procedure(default_get_domain), pointer :: get_domain
 
   ! inquire boundary setup from equilibrium data
   interface
@@ -145,8 +145,7 @@ module equilibrium
      type(t_curve), intent(out) :: S
      end subroutine export_curve
   end interface
-  procedure(logical_inquiry), pointer :: &
-     equilibrium_provides_boundary => default_equilibrium_provides_boundary
+  procedure(logical_inquiry), pointer :: equilibrium_provides_boundary
   procedure(export_curve), pointer    :: export_boundary
 
   ! Broadcast data for parallel execution
@@ -206,8 +205,15 @@ module equilibrium
 
 
 ! set default values
+  get_Bf_eq2D      => default_get_Bf
+  get_JBf_eq2D     => default_get_JBf
+  get_Psi          => default_get_Psi
+  get_DPsi         => default_get_DPsi
+  get_domain       => default_get_domain
   export_boundary  => null()
   equilibrium_info => null()
+  equilibrium_provides_boundary => default_equilibrium_provides_boundary
+  call initialize_magnetic_axis()
 
 
 ! 2. load equilibrium data (if provided) ...............................
@@ -217,14 +223,14 @@ module equilibrium
 
 ! 3. setup magnetic axis ...............................................
   ! 3.1 find magnetic axis from estimated position
-  if (Magnetic_Axis%R_estimate > 0.d0) then
-     x0(1)             = Magnetic_Axis%R_estimate
-     x0(2)             = Magnetic_Axis%Z_estimate
-     Magnetic_Axis%X   = find_x(x0)
+  if (M%R_estimate > 0.d0) then
+     x0(1)    = M%R_estimate
+     x0(2)    = M%Z_estimate
+     M%X      = find_x(x0)
 
-     r(1:2)            = Magnetic_Axis%X; r(3) = 0.d0
-     Magnetic_Axis%Psi = get_Psi(r)
-     Psi_Axis          = Magnetic_Axis%Psi
+     r(1:2)   = M%X; r(3) = 0.d0
+     M%Psi    = get_Psi(r)
+     Psi_Axis = M%Psi
      call setup_magnetic_axis_2D (r(1), r(2))
   endif
 
@@ -1262,22 +1268,22 @@ module equilibrium
 
 
 !=======================================================================
-  function pol_flux(r) result(psi)
-  real*8, intent(in) :: r(3)
-  real*8             :: psi
-
-  end function pol_flux
+!  function pol_flux(r) result(psi)
+!  real*8, intent(in) :: r(3)
+!  real*8             :: psi
+!
+!  end function pol_flux
 !=======================================================================
 
 
 !=======================================================================
-  subroutine Bf_pol_sub (n, s, y, f)
-  integer, intent(in) :: n
-  real*8, intent(in)  :: s, y(n)
-  real*8, intent(out) :: f(n)
-
-  ! n = 2, y(1) = R, y(2) = Z
-  end subroutine Bf_pol_sub
+!  subroutine Bf_pol_sub (n, s, y, f)
+!  integer, intent(in) :: n
+!  real*8, intent(in)  :: s, y(n)
+!  real*8, intent(out) :: f(n)
+!
+!  ! n = 2, y(1) = R, y(2) = Z
+!  end subroutine Bf_pol_sub
 !=======================================================================
 
 end module equilibrium

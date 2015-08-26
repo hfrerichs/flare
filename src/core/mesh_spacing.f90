@@ -29,7 +29,10 @@ module mesh_spacing
      type(t_spacing), dimension(:), pointer  :: S
 
      contains
-     procedure init, node, sample, plot
+     procedure init
+     procedure node
+     procedure sample
+     procedure plot
      procedure init_spline_x1
      procedure init_X1
      procedure init_recursive

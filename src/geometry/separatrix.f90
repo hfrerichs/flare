@@ -13,7 +13,8 @@ module separatrix
      type(t_flux_surface_2D) :: M1, M2, M3, M4
      real(real64) :: Px(2)
      contains
-     procedure :: generate, plot
+     procedure :: generate
+     procedure :: plot
   end type t_separatrix
 
   public :: ePsi_sub, H_eigenvectors

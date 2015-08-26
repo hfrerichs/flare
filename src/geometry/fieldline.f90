@@ -34,13 +34,14 @@ module fieldline
      procedure(trace_1step_ODE), pointer :: trace_1step
 
      contains
-     procedure :: init, trace, init_toroidal_tracing, intersect_sym_plane
-     procedure :: &
-        cross_PsiN, &
-        get_PsiN => fieldline_get_PsiN, &
-        get_flux_coordinates, &
-        trace_Dphi
-
+     procedure :: init
+     procedure :: trace
+     procedure :: init_toroidal_tracing
+     procedure :: intersect_sym_plane
+     procedure :: cross_PsiN
+     procedure :: get_PsiN => fieldline_get_PsiN
+     procedure :: get_flux_coordinates
+     procedure :: trace_Dphi
      procedure :: intersect_boundary => fieldline_intersects_boundary
   end type t_fieldline
 
@@ -318,7 +319,8 @@ module fieldline
 
 !=======================================================================
   subroutine init_toroidal_tracing(this, y0, ds, isolver, icoord, nsym, phi_out)
-  use equilibrium
+  use magnetic_axis
+  !use equilibrium
 
   class (t_fieldline) :: this
   real*8, intent(in)  :: y0(3), ds, phi_out

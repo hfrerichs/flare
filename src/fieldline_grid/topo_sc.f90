@@ -1,7 +1,7 @@
 !===============================================================================
 ! Simply connected grid layout
 !===============================================================================
-module topo_sc
+module modtopo_sc
   use iso_fortran_env
   use fieldline_grid, unused => TOPO_SC
   use inner_boundary
@@ -257,4 +257,4 @@ module topo_sc
 
 
 
-end module topo_sc
+end module modtopo_sc

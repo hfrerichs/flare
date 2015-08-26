@@ -3,7 +3,9 @@
 !===============================================================================
 subroutine get_equi_info_2D
   use iso_fortran_env
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: get_domain, find_hyperbolic_points, get_Psi, &
+                         equilibrium_info, Psi_axis, Psi_sepx, i_equi, EQ_AMHD
   use boundary
   use parallel
   implicit none

@@ -3,15 +3,15 @@
 ! high pressure region (HPR), inner and outer scrape-off layer (SOL) and
 ! upper and lower private flux regions (PFR)
 !===============================================================================
-module topo_ddn
+module modtopo_ddn
   use iso_fortran_env
   use grid
   use separatrix
   use curve2D
   use equilibrium
-  use fieldline_grid, unused => TOPO_DDN
+  use fieldline_grid, unused => TOPO_DDN, unused2 => TOPO_LSN
   use inner_boundary
-  use topo_lsn
+  use modtopo_lsn
   implicit none
   private
 
@@ -443,4 +443,4 @@ module topo_ddn
   end subroutine post_process_grid_ddn
   !=============================================================================
 
-end module topo_ddn
+end module modtopo_ddn
