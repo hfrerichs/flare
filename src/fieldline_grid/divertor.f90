@@ -29,7 +29,8 @@ module divertor
   !=====================================================================
   subroutine setup_geometry(nx, connectX)
   use math
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: Xp
   use boundary
   use fieldline_grid, only: guiding_surface, d_cutL, d_cutR
   use inner_boundary
@@ -592,7 +593,7 @@ module divertor
 ! !!! These cells MUST be behind the wall !!!
 !=======================================================================
   subroutine close_grid_domain(iz)
-  use equilibrium
+  use magnetic_axis
 
   integer, intent(in) :: iz
 

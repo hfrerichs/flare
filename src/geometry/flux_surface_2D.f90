@@ -40,7 +40,8 @@ module flux_surface_2D
 !=======================================================================
   recursive subroutine generate_flux_surface_2D(this, r, direction, Trace_Step, N_steps, &
       Trace_Method, AltSurf, theta_cut, retrace, sampling)
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: length_scale, get_PsiN, get_poloidal_angle
   use ode_solver
   use boundary
   use math
@@ -260,7 +261,8 @@ module flux_surface_2D
 ! interface subroutine for poloidal magnetic field
 !=======================================================================
   subroutine Bpol_sub (n, t, y, f)
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: get_Bf_eq2D
 
   integer, intent(in) :: n
   real*8,  intent(in) :: t, y(n)
@@ -287,7 +289,7 @@ module flux_surface_2D
 ! based on the step size.
 !===============================================================================
   function N_steps_guess (Trace_Step) result(N)
-  use equilibrium
+  use magnetic_axis
   use math
   real*8, intent(in) :: Trace_Step
   integer :: N

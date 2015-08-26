@@ -2,7 +2,7 @@
 ! Lower Single Null configuration: block-structured decomposition with zones for
 ! high pressure region (HPR), scrape-off layer (SOL) and private flux region (PFR)
 !===============================================================================
-module topo_lsn
+module modtopo_lsn
   use iso_fortran_env
   use grid
   use equilibrium
@@ -386,4 +386,4 @@ module topo_lsn
   end subroutine post_process_grid_lsn
   !=============================================================================
 
-end module topo_lsn
+end module modtopo_lsn

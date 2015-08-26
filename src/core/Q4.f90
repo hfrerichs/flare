@@ -30,7 +30,9 @@ module Q4
      procedure :: set_nodes
      procedure :: set_shape
      procedure :: set_shape_advanced
-     procedure :: area, Rcenter, Zcenter
+     procedure :: area
+     procedure :: Rcenter
+     procedure :: Zcenter
      procedure :: generate_mesh
   end type t_Q4
 

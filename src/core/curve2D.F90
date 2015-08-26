@@ -67,8 +67,10 @@ module curve2D
      procedure :: setup_segment_sampling
      procedure :: setup_coordinate_sampling
      procedure :: sample_at
-     procedure :: split3, splitn
-     procedure :: split3seg, splitnseg
+     procedure :: split3
+     procedure :: splitn
+     procedure :: split3seg
+     procedure :: splitnseg
      procedure :: length
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve

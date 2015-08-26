@@ -26,7 +26,11 @@ module interpolate3D
      integer      :: nord
 
      contains
-     procedure :: new, load, store, setup, eval
+     procedure :: new
+     procedure :: load
+     procedure :: store
+     procedure :: setup
+     procedure :: eval
   end type t_interpolate3D
 
   contains

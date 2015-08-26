@@ -2,10 +2,10 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   use parallel
   use fieldline_grid
   use emc3_grid
-  use topo_sc
-  use topo_lsn
-  use topo_ddn
-  use topo_cdn
+  use modtopo_sc
+  use modtopo_lsn
+  use modtopo_ddn
+  use modtopo_cdn
   implicit none
 
   integer, intent(inout) :: run_level, run_level_end

@@ -232,17 +232,17 @@ module emc3_grid
 
 !=======================================================================
 #ifdef FLARE
-  function export_flux_tube(iz, ir, ip) result(flux_tube)
+  function export_flux_tube(iz, ir, ip) result(FT)
   use flux_tube
   use math
   integer, intent(in) :: iz, ir, ip
-  type(t_flux_tube)   :: flux_tube
+  type(t_flux_tube)   :: FT
 
   integer :: i, it, ig(4)
 
 
-  call flux_tube%new(ZON_TORO(iz))
-  flux_tube%phi = PHI_PLANE(PHI_PL_OS(iz):PHI_PL_OS(iz+1)-1) / 180.d0 * pi
+  call FT%new(ZON_TORO(iz))
+  FT%phi = PHI_PLANE(PHI_PL_OS(iz):PHI_PL_OS(iz+1)-1) / 180.d0 * pi
   do it=0,ZON_TORO(iz)
      ig(1) = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
      ig(2) = ig(1) + SRF_RADI(iz)
@@ -250,10 +250,10 @@ module emc3_grid
      ig(4) = ig(1) + 1
 
      do i=1,4
-        flux_tube%F(i)%x(it,1) = RG(ig(i))
-        flux_tube%F(i)%x(it,2) = ZG(ig(i))
+        FT%F(i)%x(it,1) = RG(ig(i))
+        FT%F(i)%x(it,2) = ZG(ig(i))
 
-        flux_tube%Bmod(it,i)   = BFSTREN(ig(i))
+        FT%Bmod(it,i)   = BFSTREN(ig(i))
      enddo
   enddo
 

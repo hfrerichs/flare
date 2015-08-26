@@ -31,7 +31,8 @@ module bfield
   use run_control
   use parallel
   use reconstruct
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: load_equilibrium_config, broadcast_mod_equilibrium
   use polygones
   use m3dc1
   use interpolateB

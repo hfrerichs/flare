@@ -23,7 +23,8 @@ module poincare_set
      integer :: nslice, npoints_max, nsym
 
      contains
-     procedure generate, plot
+     procedure :: generate
+     procedure :: plot
   end type t_poincare_set
 
 

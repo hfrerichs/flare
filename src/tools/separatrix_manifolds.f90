@@ -4,7 +4,8 @@
 subroutine separatrix_manifolds
   use iso_fortran_env
   use run_control, only: N_sym, N_phi, N_psi, Label, Trace_Step, Grid_File
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: Xp
   use grid
   use math
   implicit none

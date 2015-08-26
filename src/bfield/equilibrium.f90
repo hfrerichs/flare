@@ -3,8 +3,8 @@
 !===============================================================================
 module equilibrium
   use iso_fortran_env
-  use curve2D
   use magnetic_axis
+  use curve2D
   implicit none
 
 
@@ -56,7 +56,7 @@ module equilibrium
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
 
 
-  type(t_Xpoint) :: Xp(nX_max), Magnetic_Axis
+  type(t_Xpoint) :: Xp(nX_max), MAxis
 
 
   logical :: &
@@ -68,7 +68,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, Magnetic_Axis, &
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, MAxis, &
      Magnetic_Axis_File
 !...............................................................................
 
@@ -115,19 +115,19 @@ module equilibrium
 ! Interfaces for functions/subroutines from specific equilibrium types         .
 
   ! get equilibrium magnetic field in cylindrical coordinates
-  procedure(default_get_Bf), pointer :: get_Bf_eq2D  => default_get_Bf
+  procedure(default_get_Bf), pointer :: get_Bf_eq2D
 
   ! get poloidal magnetic flux
-  procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
+  procedure(default_get_Psi), pointer :: get_Psi
 
   ! get derivative of poloidal magnetic flux
-  procedure(default_get_DPsi), pointer :: get_DPsi => default_get_DPsi
+  procedure(default_get_DPsi), pointer :: get_DPsi
 
 !  ! return poloidal magnetic flux at magnetic axis
 !  procedure(Psi_axis_interface), pointer :: Psi_axis
 
   ! Return boundaries [cm] of equilibrium domain
-  procedure(default_get_domain), pointer :: get_domain => default_get_domain
+  procedure(default_get_domain), pointer :: get_domain
 
   ! inquire boundary setup from equilibrium data
   interface
@@ -140,8 +140,7 @@ module equilibrium
      type(t_curve), intent(out) :: S
      end subroutine export_curve
   end interface
-  procedure(logical_inquiry), pointer :: &
-     equilibrium_provides_boundary => default_equilibrium_provides_boundary
+  procedure(logical_inquiry), pointer :: equilibrium_provides_boundary
   procedure(export_curve), pointer    :: export_boundary
 
   ! Broadcast data for parallel execution
@@ -199,8 +198,14 @@ module equilibrium
 
 
 ! set default values
+  get_Bf_eq2D  => default_get_Bf
+  get_Psi => default_get_Psi
+  get_DPsi => default_get_DPsi
+  get_domain => default_get_domain
+  equilibrium_provides_boundary => default_equilibrium_provides_boundary
   export_boundary  => null()
   equilibrium_info => null()
+  call initialize_magnetic_axis()
 
 
 ! 2. load equilibrium data (if provided) ...............................
@@ -210,14 +215,14 @@ module equilibrium
 
 ! 3. setup magnetic axis ...............................................
   ! 3.1 find magnetic axis from estimated position
-  if (Magnetic_Axis%R_estimate > 0.d0) then
-     x0(1)             = Magnetic_Axis%R_estimate
-     x0(2)             = Magnetic_Axis%Z_estimate
-     Magnetic_Axis%X   = find_x(x0)
+  if (MAxis%R_estimate > 0.d0) then
+     x0(1)     = MAxis%R_estimate
+     x0(2)     = MAxis%Z_estimate
+     MAxis%X   = find_x(x0)
 
-     r(1:2)            = Magnetic_Axis%X; r(3) = 0.d0
-     Magnetic_Axis%Psi = get_Psi(r)
-     Psi_Axis          = Magnetic_Axis%Psi
+     r(1:2)    = MAxis%X; r(3) = 0.d0
+     MAxis%Psi = get_Psi(r)
+     Psi_Axis  = MAxis%Psi
      call setup_magnetic_axis_2D (r(1), r(2))
   endif
 
@@ -583,6 +588,7 @@ module equilibrium
 ! Return poloidal angle [rad] at r=(R,Z [cm], phi [rad])
 !=======================================================================
   function get_poloidal_angle(r) result(theta)
+  use magnetic_axis
   real*8, intent(in) :: r(3)
   real*8             :: theta, Maxis(3)
 
@@ -601,6 +607,7 @@ module equilibrium
   function get_cylindrical_coordinates(y, ierr, r0) result(r)
   use iso_fortran_env
   use math
+  use magnetic_axis
   implicit none
 
   real(real64), intent(inout)        :: y(3)
@@ -1041,6 +1048,7 @@ module equilibrium
 
 !=======================================================================
   function length_scale () result(L)
+  use magnetic_axis
   real(real64) :: L
 
   real(real64) :: M(3)
@@ -1159,22 +1167,22 @@ module equilibrium
 
 
 !=======================================================================
-  function pol_flux(r) result(psi)
-  real*8, intent(in) :: r(3)
-  real*8             :: psi
-
-  end function pol_flux
+!  function pol_flux(r) result(psi)
+!  real*8, intent(in) :: r(3)
+!  real*8             :: psi
+!
+!  end function pol_flux
 !=======================================================================
 
 
 !=======================================================================
-  subroutine Bf_pol_sub (n, s, y, f)
-  integer, intent(in) :: n
-  real*8, intent(in)  :: s, y(n)
-  real*8, intent(out) :: f(n)
-
-  ! n = 2, y(1) = R, y(2) = Z
-  end subroutine Bf_pol_sub
+!  subroutine Bf_pol_sub (n, s, y, f)
+!  integer, intent(in) :: n
+!  real*8, intent(in)  :: s, y(n)
+!  real*8, intent(out) :: f(n)
+!
+!  ! n = 2, y(1) = R, y(2) = Z
+!  end subroutine Bf_pol_sub
 !=======================================================================
 
 end module equilibrium
