@@ -503,10 +503,15 @@ module fieldline_grid
 
 
 !=======================================================================
-  subroutine setup_emc3_grid_layout
+  subroutine initialize_emc3_grid()
   use emc3_grid
+  use grid
+  use string
+  use system
 
-  integer :: iz
+  type(t_grid) :: G
+  real(real64) :: phi
+  integer :: iz, it, itz, ip, ip0, ir, ir0, ig, nr1, nr2, np1, np2
 
 
   ! 1a. allocate grid resolution arrays
@@ -544,7 +549,66 @@ module fieldline_grid
                    RG(0:GRID_P_OS(NZONET)-1), &
                    ZG(0:GRID_P_OS(NZONET)-1))
 
-  end subroutine setup_emc3_grid_layout
+
+  ! 4. load field lines
+  do iz=0,NZONET-1
+     call G%load('fieldlines_'//trim(str(iz))//'.dat', silent=.true.)
+
+
+     ! 4.1 check input
+     ! 4.1.1 radial resolution
+     nr1 = R_SURF_PL_TRANS_RANGE(1,iz)
+     nr2 = R_SURF_PL_TRANS_RANGE(2,iz)
+     if (G%n1-1 /= nr2-nr1) then
+        write (6, *) 'error: mismatching radial resolution: ', G%n1
+        write (6, *) 'expected index range for aligned grid: ', nr1, '->', nr2
+        stop
+     endif
+     ! 4.1.2 poloidal resolution
+     np1 = P_SURF_PL_TRANS_RANGE(1,iz)
+     np2 = P_SURF_PL_TRANS_RANGE(2,iz)
+     if (G%n2-1 /= np2-np1) then
+        write (6, *) 'error: mismatching poloidal resolution: ', G%n2
+        write (6, *) 'expected index range for aligned grid: ', np1, '->', np2
+        stop
+     endif
+     ! 4.1.3 toroidal resolution
+     nt = Zone(iz)%nt
+     if (G%n3-1 /= nt) then
+        write (6, *) 'error: mismatching toroidal resolution: ', G%n3
+        write (6, *) 'expected resolution is: ', nt
+        stop
+     endif
+
+
+     ! 4.2 set position of slices
+     do it=0,nt
+        phi = Zone(iz)%phi(it)
+        if (abs(phi-G%x3(it)) > machine_precision) then
+           write (6, *) 'error: mismatching toroidal positions: ', phi, G%x3(it)
+           stop
+        endif
+
+        itz = it + PHI_PL_OS(iz)
+        PHI_PLANE(itz) = phi / 180.d0 * pi
+     enddo
+
+
+     ! 4.3 setup grid from field lines
+     ir0 = R_SURF_PL_TRANS_RANGE(1,iz)
+     ip0 = P_SURF_PL_TRANS_RANGE(1,iz)
+     do it=0,nt
+     do ip=0,G%n2-1
+     do ir=0,G%n1-1
+        ig = ir0 + ir + (ip0 + ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        RG(ig) = G%mesh3D(ir,ip,it,1)
+        ZG(ig) = G%mesh3D(ir,ip,it,2)
+     enddo
+     enddo
+     enddo
+  enddo
+
+  end subroutine initialize_emc3_grid
 !=======================================================================
 
 

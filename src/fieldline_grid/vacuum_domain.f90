@@ -5,6 +5,7 @@
 subroutine vacuum_and_core_domain_for_EIRENE
   use emc3_grid
   use fieldline_grid
+  use divertor
   implicit none
 
   integer :: iz
@@ -13,10 +14,19 @@ subroutine vacuum_and_core_domain_for_EIRENE
   write (6, 1000)
  1000 format(3x,' - Set up additional domain for EIRENE')
   do iz=0,NZONET-1
+     ! adjust last cell of divertor legs to close simulatin domain
+     if (Zone(iz)%isfp(1) == SF_VACUUM  .and.  Zone(iz)%isfp(2) == SF_VACUUM) then
+        call close_grid_domain(iz)
+     endif
+
+
+     ! set up core domain
      if (Zone(iz)%isfr(1) == SF_CORE) then
         call setup_core_domain(iz, nr_EIRENE_core)
      endif
 
+
+     ! set up far SOL
      if (Zone(iz)%isfr(1) == SF_VACUUM) then
         call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
      endif

@@ -73,19 +73,16 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
 
   ! Level 3: generate 3D grid from field line tracing
   if (level(3)) then
-     call setup_emc3_grid_layout()
-     call trace_nodes()
-     call post_process_grid()
-     call write_emc3_grid()
-     call write_emc3_input_files()
+     call trace_nodes(post_process_grid)
   endif
 
 
   ! Level 4: generate vacuum domain (used by EIRENE only)
   if (level(4)) then
-     call load_emc3_grid()
+     call initialize_emc3_grid()
      call vacuum_and_core_domain_for_EIRENE()
      call write_emc3_grid()
+     call write_emc3_input_files()
   endif
 
 
@@ -104,13 +101,6 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
 
 
   !---------------------------------------------
-
-  ! Level 7: re-generate input files
-  if (level(7)) then
-     call setup_emc3_grid_layout()
-     call write_emc3_input_files()
-  endif
-
 
   ! Level 8: run grid checks
   if (level(8)) then
