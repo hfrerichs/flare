@@ -39,7 +39,8 @@ module grid
      UNSTRUCTURED    = 1, &
      SEMI_STRUCTURED = 2, &
      STRUCTURED      = 3, &
-     MESH_2D         = 4
+     MESH_2D         = 4, &
+     MESH_3D         = 5
 
   ! 2D vs. 3D grids
   integer, public, parameter :: &
@@ -57,6 +58,7 @@ module grid
      ! internal grid nodes
      real(real64), dimension(:),   allocatable :: x1, x2, x3
      real(real64), dimension(:,:,:), pointer :: mesh => null()
+     real(real64), dimension(:,:,:,:), pointer :: mesh3D => null()
 
      ! number of nodes
      integer :: n, n1, n2, n3
@@ -67,8 +69,10 @@ module grid
 
      contains
      procedure :: new
-     procedure :: load, load_usr
-     procedure :: setup_mesh
+     procedure :: load
+     procedure :: load_usr
+     procedure, private :: setup_mesh
+     procedure, private :: setup_mesh3D
      procedure :: setup_structured_grid
      procedure :: store
      procedure :: destroy
@@ -143,7 +147,7 @@ module grid
   this%x = 0.d0
   if (fixed_coord > 0) this%x(:,fixed_coord) = this%fixed_coord_value
 
-!  select case (layout)
+  select case (layout)
 !  case(UNSTRUCTURED_3D)
 !     ! unstructured grid nodes (3D)
 !     if (allocated(this%x)) deallocate(this%x)
@@ -158,7 +162,8 @@ module grid
 !     allocate (this%x3(1))
 !     this%n3 = 1
 !  case(STRUCTURED_2D)
-  if (layout == STRUCTURED) then
+!  if (layout == STRUCTURED) then
+  case(STRUCTURED)
      if (allocated(this%x1)) deallocate(this%x1)
      if (allocated(this%x2)) deallocate(this%x2)
      if (allocated(this%x3)) deallocate(this%x3)
@@ -168,11 +173,26 @@ module grid
      this%x2 = 0.d0
      allocate (this%x3(this%n3))
      this%x3 = 0.d0
-  endif
-  if (layout == SEMI_STRUCTURED) then
+!  endif
+!  if (layout == SEMI_STRUCTURED) then
+  case(SEMI_STRUCTURED)
      if (allocated(this%x2)) deallocate(this%x2)
      allocate (this%x2(this%n2))
-  endif
+!  endif
+
+  case(MESH_3D)
+     if (associated(this%mesh3D)) deallocate(this%mesh3D)
+     if (allocated(this%x3)) deallocate(this%x3)
+     if (fixed_coord > 0) then
+        allocate (this%mesh3D(0:this%n1-1, 0:this%n2-1, 0:this%n3-1, 2))
+        allocate (this%x3(0:this%n3-1))
+        this%x3 = 0.d0
+     else
+        allocate (this%mesh3D(0:this%n1-1, 0:this%n2-1, 0:this%n3-1, 3))
+     endif
+     this%mesh3D = 0.d0
+
+  end select
 !
 !     if (.not.present(n2)) then
 !        write (6, *) 'error: resolution parameter n2 missing for regular 2D grid!'
@@ -189,11 +209,19 @@ module grid
 
 
 !=======================================================================
-  subroutine load(this, filename)
+  subroutine load(this, filename, silent)
   class(t_grid)                 :: this
   character(len=*), intent(in)  :: filename
+  logical,          intent(in), optional :: silent
 
   integer, parameter :: iu = 32
+
+  logical            :: screen_output
+
+
+  ! set up internal variables
+  screen_output = .true.
+  if (present(silent) .and. silent) screen_output = .false.
 
 
   if (firstP) then
@@ -203,7 +231,7 @@ module grid
 
   contains
 !-----------------------------------------------------------------------
-  subroutine read_grid
+  subroutine read_grid()
 
   character(len=120) :: str
   real(real64)       :: y3(3), r(3), y2(2), y1(1), x0, R0
@@ -212,13 +240,13 @@ module grid
 
 
   ! 1. open grid file
-  write (6,1000) adjustl(trim(filename))
+  if (screen_output) write (6,1000) adjustl(trim(filename))
   open  (iu, file=filename, err=5000)
 
 
   ! 2. read grid header and determine grid layout and coordinates
   read  (iu, 2000) str
-  write (6,2001) str(3:74)
+  if (screen_output) write (6,2001) str(3:74)
   if (str(3:9).ne.'grid_id') then
      write (6,*) 'error: grid type not defined!'
      stop
@@ -368,6 +396,26 @@ module grid
      call this%setup_mesh()
 
   !.....................................................................
+  ! 3.5. unstructured 3D mesh, n1*n2*n3: total number of grid nodes
+  elseif (layout == MESH_3D  .and.  fixed_coord == 3) then
+     call iscrape (iu, n1)
+     call iscrape (iu, n2)
+     call iscrape (iu, n3)
+     call this%new(coordinates, layout, fixed_coord, n1, n2, n3)
+
+     ! read all grid nodes
+     do k=0,n3-1
+        read  (iu, *) this%x3(k)
+        do j=0,n2-1
+        do i=0,n1-1
+           read  (iu, *) y2
+           this%mesh3D(i,j,k,1:2) = y2
+        enddo
+        enddo
+     enddo
+     call this%setup_mesh3D()
+
+  !.....................................................................
   else
      write (6, *) 'error: invalid grid layout ', layout, '!'
      stop
@@ -430,7 +478,6 @@ module grid
 
   end subroutine broadcast_grid
 !-----------------------------------------------------------------------
-  end subroutine load
 !-----------------------------------------------------------------------
 ! internal routine to read integer values from header
 !-----------------------------------------------------------------------
@@ -439,7 +486,7 @@ module grid
   integer, intent(out) :: iout
   character(len=82) :: str
   read  (iu, 2000) str
-  write (6,2001) str(3:82)
+  if (screen_output) write (6,2001) str(3:82)
   read  (str(33:42),*) iout
  2000 format (a82)
  2001 format (8x,a80)
@@ -452,12 +499,13 @@ module grid
   real(real64), intent(out) :: rout
   character(len=82) :: str
   read  (iu, 2000) str
-  write (6,2001) str(3:82)
+  if (screen_output) write (6,2001) str(3:82)
   read  (str(33:42),*) rout
  2000 format (a82)
  2001 format (8x,a80)
   end subroutine rscrape
 !-----------------------------------------------------------------------
+  end subroutine load
 !=======================================================================
 
 
@@ -581,6 +629,40 @@ module grid
 
 
 !=======================================================================
+  subroutine setup_mesh3D(this)
+  class(t_grid)                 :: this
+
+  integer :: i, j, k, ig
+
+
+  if (.not.associated(this%mesh3D)) then
+     write (6, *) 'error in subroutine t_grid%setup_mesh3D: mesh3D undefined!'
+     stop
+  endif
+
+
+  ig = 0
+  do k=0,this%n3-1
+  do j=0,this%n2-1
+  do i=0,this%n1-1
+     ig = ig + 1
+     this%x(ig,this%coord1)      = this%mesh3D(i,j,k,1)
+     this%x(ig,this%coord2)      = this%mesh3D(i,j,k,2)
+     if (this%fixed_coord > 0) then
+        this%x(ig,this%fixed_coord) = this%x3(k)
+     else
+        this%x(ig,3)                = this%mesh3D(i,j,k,3)
+     endif
+  enddo
+  enddo
+  enddo
+
+  end subroutine setup_mesh3D
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine store(this, filename, header)
   class(t_grid)                :: this
   character(len=*), intent(in) :: filename
@@ -590,7 +672,7 @@ module grid
 
   real(real64), dimension(:,:), allocatable :: xout
   real(real64) :: phi, fixed_coord_value_out
-  integer :: grid_id, i, j, layout, coord1, coord2
+  integer :: grid_id, i, j, k, layout, coord1, coord2
 
 
 ! open output file .............................................
@@ -683,7 +765,7 @@ module grid
         enddo
      endif
 
-  ! 4 unstructured meshs, one coordinate fixed
+  ! 4. unstructured meshs, one coordinate fixed
   elseif (layout == MESH_2D  .and.  this%fixed_coord > 0) then
      write (iu, 2003) this%n1
      write (iu, 2004) this%n2
@@ -692,6 +774,20 @@ module grid
      do i=0,this%n1-1
         write (iu, 3002) this%mesh(i,j,1), this%mesh(i,j,2)
      enddo
+     enddo
+
+  ! 5. unstructured 3D meshs (set of 2D slices)
+  elseif (layout == MESH_3D  .and.  this%fixed_coord == 3) then
+     write (iu, 2003) this%n1
+     write (iu, 2004) this%n2
+     write (iu, 2005) this%n3
+     do k=0,this%n3-1
+        write (iu, 3001) this%x3(k) / pi * 180.d0
+        do j=0,this%n2-1
+        do i=0,this%n1-1
+           write (iu, 3002) this%mesh3D(i,j,k,1), this%mesh3D(i,j,k,2)
+        enddo
+        enddo
      enddo
 
   else
@@ -728,6 +824,7 @@ module grid
   if (allocated(this%x2)) deallocate(this%x2)
   if (allocated(this%x3)) deallocate(this%x3)
   if (associated(this%mesh)) deallocate(this%mesh)
+  if (associated(this%mesh3D)) deallocate(this%mesh3D)
 
   end subroutine destroy
 !=======================================================================
