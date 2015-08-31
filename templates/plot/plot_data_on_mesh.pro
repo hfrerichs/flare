@@ -379,6 +379,8 @@ pro plot_data_on_mesh, grid_file, data_file, idata, $
 
 	; initialize plot window
 	plot, xrange_plot, yrange_plot, xstyle=1, ystyle=1, /nodata, $
+		 charsize=char_size, $
+		 charthick=char_thick, $
 		xmargin=[XL_Margin, XR_Margin]
 	endif
 
@@ -452,7 +454,8 @@ pro plot_data_on_mesh, grid_file, data_file, idata, $
 	contour, bar_dummy, [0,1], levels, /fill, levels=levels, $
 		 ystyle=1, xstyle=4, xmargin=[XL_Margin_CBar,XR_Margin_Cbar], /noerase, $
 		 ytitle=utitle, c_colors=colors, $
-		 charsize=char_size, charthick=char_thick, $
+		 charsize=char_size, $
+		 charthick=char_thick, $
 		 ytickname=zticks, ytickinterval=ztickinterval
 
 
