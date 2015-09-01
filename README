@@ -1,0 +1,48 @@
+FLARE - Field Line Analysis and Reconstruction Environment
+==========================================================
+
+
+Installation:
+-------------
+
+Generate a configuration file with the following command (running "./configure.sh --help" will list optional arguments):
+
+	./configure.sh
+
+Then compile and install the code using:
+
+	make
+	make install
+
+
+
+
+Requirements:
+-------------
+
+FGSL (FORTRAN interface to the GNU Scientific Library) is required by the analytical ("one size fits all") equilibrium module.
+
+
+
+
+How to use FLARE:
+-----------------
+
+Execute "run_flare.sh" in your working directory. Required input files are:
+
+	bfield.conf	defines the magnetic configuretion
+
+	boundary.conf	defines the plasma boundary (divertor elements, limiters, main chamber, ...)
+
+	run.conf	defines which sub-programs to run and allows to set input parameter
+
+
+
+
+Notes for particular architectures:
+-----------------------------------
+CHTC: load modules
+  1) compile/intel             2) mpi/intel/openmpi-1.6.4
+local installation of FGSL:
+	-set PKG_CONFIG_PATH for compilation of FLARE
+	-set LD_LIBRARY_PATH for execution of FLARE
