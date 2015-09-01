@@ -11,6 +11,8 @@ fusion_io_dir=$M3DC1_INSTALL_DIR
 fusion_io_arch=`uname`
 
 BIN_DIR=$HOME/bin
+
+EXTERNAL_DIR=external
 ################################################################################
 
 
@@ -49,6 +51,7 @@ for opt in "$@"; do
         echo "error: unkown parameter " $par
     fi
 done
+echo
 ################################################################################
 
 
@@ -73,9 +76,10 @@ echo "# setting directory for links to executables" >> include.mk
 echo "BIN_DIR        = $BIN_DIR" >> include.mk
 echo "" >> include.mk
 echo "Binary directory is $BIN_DIR" | tee -a $LOG_FILE
+# ------------------------------------------------------------------------------
 
 
-# MPI support / Fortran compiler
+# MPI support / Fortran compiler -----------------------------------------------
 echo "# Fortran compiler and options"			>> include.mk
 if type mpif90 >/dev/null 2>/dev/null; then
 	echo "Compiling with MPI support" | tee -a $LOG_FILE
@@ -90,18 +94,20 @@ fi
 echo "OPT            = -O2" >> include.mk
 echo "OPT_DEBUG      = -g" >> include.mk
 echo "" >> include.mk
+# ------------------------------------------------------------------------------
 
 
-# GNU Scientific Library
+# GNU Scientific Library -------------------------------------------------------
 echo "# GNU Scientific Library"				>> include.mk
 echo "FGSL_CFLAGS    = `pkg-config --cflags fgsl`"	>> include.mk
 echo "FGSL_LIBS      = `pkg-config --libs fgsl`"	>> include.mk
 echo ""							>> include.mk
+# ------------------------------------------------------------------------------
 
 
-# setting local source directories
+# setting local source directories ---------------------------------------------
 echo "# setting local source directories" >> include.mk
-echo "EXTERNAL_DIR   = external" >> include.mk
+echo "EXTERNAL_DIR   = $EXTERNAL_DIR" >> include.mk
 echo "EMC3_LINK_DIR  = \$(EXTERNAL_DIR)/EMC3" >> include.mk
 echo "CORE_DIR       = core" >> include.mk
 echo "BFIELD_DIR     = bfield" >> include.mk
@@ -111,45 +117,46 @@ echo "TOOLS_DIR      = tools" >> include.mk
 echo "DEVEL_DIR      = development" >> include.mk
 echo "ADDONS_DIR     = addons" >> include.mk
 echo "" >> include.mk
+# ------------------------------------------------------------------------------
 
 
 # checking for coupling to EMC3
-if [ "$EMC3_dir" == "" ]; then
-	NOTE='Compiling without support for fieldline-grid input (bases on EMC3 sources)'
-	echo $NOTE | tee -a $LOG_FILE
-else
-	NOTE='Compiling with support for fieldline-grid input (bases on EMC3 sources)'
-	echo $NOTE | tee -a $LOG_FILE
-	echo "# $NOTE" >> include.mk
-	echo "EMC3_FLAG      = -DEMC3" >> include.mk
-        echo "EMC3_SRC_DIR   = $EMC3_dir/MAIN" >> include.mk
-	if [ ! -d "$EMC3_dir/MAIN" ]; then
-		echo "error: EMC3 source files not found!"
-		exit
-	fi
-	echo "EMC3_OBJ       = \
-               PHYS_CONST.o\
-               GEOMETRY_PL.o\
-               SURFACE_PL.o\
-               MAPPING.o\
-               CELL_GEO.o\
-               cell_def.o\
-               cell_user.o\
-               check.o\
-               ibm_iface.o\
-               random.o\
-               real_to_ft.o\
-               service.o\
-               sf_def_user.o\
-               sf_jump.o" >> include.mk
-	echo "EMC3_OBJ_LONG  = \$(addprefix \$(EMC3_LINK_DIR)/,\$(EMC3_OBJ))" >> include.mk
-	echo "" >> include.mk
+#if [ "$EMC3_dir" == "" ]; then
+#	NOTE='Compiling without support for fieldline-grid input (bases on EMC3 sources)'
+#	echo $NOTE | tee -a $LOG_FILE
+#else
+#	NOTE='Compiling with support for fieldline-grid input (bases on EMC3 sources)'
+#	echo $NOTE | tee -a $LOG_FILE
+#	echo "# $NOTE" >> include.mk
+#	echo "EMC3_FLAG      = -DEMC3" >> include.mk
+#        echo "EMC3_SRC_DIR   = $EMC3_dir/MAIN" >> include.mk
+#	if [ ! -d "$EMC3_dir/MAIN" ]; then
+#		echo "error: EMC3 source files not found!"
+#		exit
+#	fi
+#	echo "EMC3_OBJ       = \
+#               PHYS_CONST.o\
+#               GEOMETRY_PL.o\
+#               SURFACE_PL.o\
+#               MAPPING.o\
+#               CELL_GEO.o\
+#               cell_def.o\
+#               cell_user.o\
+#               check.o\
+#               ibm_iface.o\
+#               random.o\
+#               real_to_ft.o\
+#               service.o\
+#               sf_def_user.o\
+#               sf_jump.o" >> include.mk
+#	echo "EMC3_OBJ_LONG  = \$(addprefix \$(EMC3_LINK_DIR)/,\$(EMC3_OBJ))" >> include.mk
+#	echo "" >> include.mk
+#
+#
+#fi
 
 
-fi
-
-
-# checking for M3D-C1/fusion_io installation
+# checking for M3D-C1/fusion_io installation -----------------------------------
 if [ "$fusion_io_dir" == "" ]; then
 	NOTE='Compiling without M3D-C1 support'
 	echo $NOTE | tee -a $LOG_FILE
@@ -162,26 +169,50 @@ else
         echo "M3DC1_LIBS     = -L $fusion_io_dir/lib/_$fusion_io_arch -lfusionio -lm3dc1 -lhdf5 -lstdc++" >> include.mk
 	echo "" >> include.mk
 fi
+# ------------------------------------------------------------------------------
+
+
+# ODE solvers ------------------------------------------------------------------
+echo "# additional ODE solvers" >> include.mk
+declare -a ode_solver_files=("dlsode.f")
+declare -a ode_solver_names=("DLSODE"  )
+n_ode=${#ode_solver_files[@]}
+ODE_SOLVERS=''
+
+for (( i=0; i<${n_ode}; i++ )); do
+	if [ -f src/$EXTERNAL_DIR/${ode_solver_files[$i]} ]; then
+		NOTE="Compiling with ${ode_solver_names[$i]}"
+		echo $NOTE | tee -a $LOG_FILE
+		ODE_SOLVERS="$ODE_SOLVERS -D${ode_solver_names[$i]}"
+	else
+		NOTE="Compiling without ${ode_solver_names[$i]}"
+		echo $NOTE | tee -a $LOG_FILE
+	fi
+done
+echo "ODE_SOLVERS    = $ODE_SOLVERS"			>> include.mk
+echo "" >> include.mk
+# ------------------------------------------------------------------------------
 
 
 # Flags and libraries
 echo "# Flags and libraries"				>> include.mk
-echo 'CFLAGS         = $(FGSL_CFLAGS)'			>> include.mk
+echo 'FLAGS          = $(FGSL_CFLAGS) $(ODE_SOLVERS)'	>> include.mk
 echo 'LIBS           = $(FGSL_LIBS) $(M3DC1_LIBS)'	>> include.mk
 echo ""							>> include.mk
 
 
 #
-echo 'FC             = $(COMPILER) $(CFLAGS) -DFLARE $(OPT)' >> include.mk
-echo 'FC_ADDONS      = $(COMPILER) $(CFLAGS)         $(OPT)' >> include.mk
-echo 'FC_DEBUG       = $(COMPILER) $(CFLAGS) -DFLARE $(OPT_DEBUG)' >> include.mk
+echo 'FC             = $(COMPILER) $(FLAGS) -DFLARE $(OPT)' >> include.mk
+echo 'FC_ADDONS      = $(COMPILER) $(FLAGS)         $(OPT)' >> include.mk
+echo 'FC_DEBUG       = $(COMPILER) $(FLAGS) -DFLARE $(OPT_DEBUG)' >> include.mk
 
 
 # generating header file config.h
-echo "Setting base directory to" '$HOME'/$base_dir
+echo "Base directory is" $HOME/$base_dir
 echo "  character(*), parameter :: base_dir             =  '"$base_dir"'"    > config.h
 
 echo "  character(*), parameter :: Boundary_input_file  =  'boundary.conf'" >> config.h
 echo "  character(*), parameter :: Boundary_sub_dir     =  'boundary'"      >> config.h
 echo "  character(*), parameter :: TAG                  =  'master'"        >> config.h
 ################################################################################
+echo

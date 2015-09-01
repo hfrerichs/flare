@@ -346,6 +346,12 @@ module ode_solver
 
   integer :: neq
 
+
+#ifndef DLSODE
+  write (6, *) 'error: FLARE is compiled without DLSODE!'
+  stop
+#endif
+
   this%mf = 10
   this%istate = 1
 
@@ -370,9 +376,11 @@ module ode_solver
   real*8 :: DLSODE_couple(this%n)
 
 
-  call DLSODE (this%evaluate_f, 3, this%yc, this%sc, this%sc+this%ds, &
+#ifdef DLSODE
+  call dlsode (this%evaluate_f, 3, this%yc, this%sc, this%sc+this%ds, &
                1, this%rtol, this%atol, 1, this%istate, 0, this%rwork, &
                this%nrwork, this%iwork, this%niwork, JAC_DLSODE, this%mf)
+#endif
 
   ! check istate
   if (this%istate.ne.2) then
