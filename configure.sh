@@ -177,26 +177,29 @@ echo "# additional ODE solvers" >> include.mk
 declare -a ode_solver_files=("dlsode.f")
 declare -a ode_solver_names=("DLSODE"  )
 n_ode=${#ode_solver_files[@]}
-ODE_SOLVERS=''
+ODE_FLAGS=''
+ODE_OBJECTS=''
 
 for (( i=0; i<${n_ode}; i++ )); do
 	if [ -f src/$EXTERNAL_DIR/${ode_solver_files[$i]} ]; then
 		NOTE="Compiling with ${ode_solver_names[$i]}"
 		echo $NOTE | tee -a $LOG_FILE
-		ODE_SOLVERS="$ODE_SOLVERS -D${ode_solver_names[$i]}"
+		ODE_FLAGS="$ODE_FLAGS -D${ode_solver_names[$i]}"
+		ODE_OBJECTS="$ODE_OBJECTS ${ode_solver_files[$i]%%.f*}.o"
 	else
 		NOTE="Compiling without ${ode_solver_names[$i]}"
 		echo $NOTE | tee -a $LOG_FILE
 	fi
 done
-echo "ODE_SOLVERS    = $ODE_SOLVERS"			>> include.mk
+echo "ODE_FLAGS      = $ODE_FLAGS"			>> include.mk
+echo "ODE_OBJECTS    = $ODE_OBJECTS"			>> include.mk
 echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
 
 # Flags and libraries
 echo "# Flags and libraries"				>> include.mk
-echo 'FLAGS          = $(FGSL_CFLAGS) $(ODE_SOLVERS)'	>> include.mk
+echo 'FLAGS          = $(FGSL_CFLAGS) $(ODE_FLAGS)'	>> include.mk
 echo 'LIBS           = $(FGSL_LIBS) $(M3DC1_LIBS)'	>> include.mk
 echo ""							>> include.mk
 

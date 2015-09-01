@@ -3,7 +3,7 @@ include ../../include.mk
 
 OBJECTS =  \
                bspline90_22.o\
-               dlsode.o
+               $(ODE_OBJECTS)
 
 EMC3_DIR = EMC3
 
