@@ -403,7 +403,11 @@ module fieldline_grid
 
   ! 3. set lower boundary of simulation domain
   ! DEFAULT: neg. half of first block
-  if (phi0 == -360.d0) phi0 = -Block(0)%width / 2.d0
+  if (phi0 == -360.d0) then
+     phi0 = -Block(0)%width / 2.d0
+  else
+     default_decomposition = .false.
+  endif
 
 
   ! 4a. set absolute position of blocks
