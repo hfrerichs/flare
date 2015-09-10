@@ -27,6 +27,7 @@ module fieldline
      real*8 :: phi_sym
      integer :: iplane, sgn
 
+     real(real64) :: Trace_Step
      integer :: Trace_Coords
 
      type(t_fluxtube_coords) :: F
@@ -67,6 +68,7 @@ module fieldline
 
   ! use numerical integration method isolver > 0
   elseif (isolver > 0) then
+     this%Trace_Step   = ds
      this%Trace_Coords = icoord
      this%trace_1step  => trace_1step_ODE
 
@@ -102,9 +104,10 @@ module fieldline
 !=======================================================================
 ! Trace field line one step size
 !=======================================================================
-  subroutine trace_1step_ODE(this)
+  function trace_1step_ODE(this) result(dl)
   use equilibrium
   class(t_fieldline), intent(inout) :: this
+  real(real64) :: dl
 
   real(real64) :: yc(3), Dtheta
 
@@ -135,12 +138,19 @@ module fieldline
   ! update radial coordinate
   this%PsiNc     = get_PsiN(this%rc)
 
-  end subroutine trace_1step_ODE
-!=======================================================================
-  subroutine trace_1step_reconstruct(this)
-  class(t_fieldline), intent(inout) :: this
 
-  end subroutine trace_1step_reconstruct
+  ! update trace step
+  dl = this%Trace_Step
+  if (this%Trace_Coords == FL_ANGLE) dl = dl * 0.5d0 * (this%rl(1)+this%rc(1))
+
+
+  end function trace_1step_ODE
+!=======================================================================
+  function trace_1step_reconstruct(this) result(dl)
+  class(t_fieldline), intent(inout) :: this
+  real(real64)                      :: dl
+
+  end function trace_1step_reconstruct
 !=======================================================================
 
 
@@ -203,7 +213,7 @@ module fieldline
   real(real64), intent(out) :: yout(3)
   integer,      intent(out) :: ierr
 
-  real(real64) :: phi_int, f
+  real(real64) :: phi_int, f, dl
 
 
   ierr         = 0
@@ -211,7 +221,7 @@ module fieldline
   phi_int      = -this%phi_int ! offset from last call
   this%phi_int = 0.d0          ! reset integration distance
   trace_loop: do
-     call this%trace_1step()
+     dl = this%trace_1step()
 
      ! check intersection with boundary
      if (stop_at_boundary  .and.  this%intersect_boundary(yout)) then
@@ -242,13 +252,13 @@ module fieldline
   real*8, intent(in)  :: Limit
   logical, intent(in) :: stop_at_boundary
 
-  real*8 :: yc(3), lc
+  real*8 :: yc(3), lc, dl
 
 
   lc = 0.d0
   trace_loop: do
-     call this%trace_1step()
-     lc      = lc + this%ds
+     dl = this%trace_1step()
+     lc = lc + dl
 
      if (abs(lc) > Limit) exit trace_loop
 

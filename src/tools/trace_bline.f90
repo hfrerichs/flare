@@ -46,7 +46,7 @@ subroutine trace_bline
   type(t_fieldline) :: F
   type(t_grid)      :: G
   real(real64), dimension(:,:), pointer :: grid_ptr
-  real(real64)  :: rb(3), tau, y(3), l
+  real(real64)  :: rb(3), tau, y(3), l, dl
   integer       :: i, ig
   logical       :: Stop_at_Boundary
 
@@ -105,19 +105,19 @@ subroutine trace_bline
 
      l = 0.d0
      do i=1,N_steps
-        call F%trace_1step()
+        dl = F%trace_1step()
 
         ! intersect boundary?
         if (Stop_at_Boundary  .and.  F%intersect_boundary(tau=tau)) then
            rb = output_coordinates()
            rb = y + tau * (rb-y)
-           l  = l + tau * Trace_Step
+           l  = l + tau * dl
            write (iu, 1003) rb
            write (6, *) 'Field line tracing is stopped at the boundary'
            exit
         endif
 
-        l = l + Trace_Step
+        l = l + dl
         y = output_coordinates()
         write (iu, 1003) y
      enddo

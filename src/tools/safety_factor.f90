@@ -53,8 +53,7 @@ subroutine safety_factor
      call F%init(y, Trace_Step, Trace_Method, Trace_Coords)
 
      trace_loop: do
-        call F%trace_1step()
-        Lc = Lc + Trace_Step
+        Lc = Lc + F%trace_1step()
         if (F%intersect_boundary(X)) exit trace_loop
 
         Psi_av = Psi_av + F%get_PsiN()

@@ -49,7 +49,7 @@ module poincare_set
   logical,      intent(in) :: stop_at_boundary
 
   type (t_fieldline) :: F
-  real(real64)       :: ds, L, theta
+  real(real64)       :: ds, dl, L, theta
   integer            :: islice, islice0, ipoint, istep
 
 
@@ -73,7 +73,7 @@ module poincare_set
   main_loop: do ipoint=1,npoints
      slice_loop: do islice=1,nslice
         steps: do istep=1,nsteps
-           call F%trace_1step()
+           dl = F%trace_1step()
            if (stop_at_boundary  .and.  F%intersect_boundary()) exit main_loop
         enddo steps
 

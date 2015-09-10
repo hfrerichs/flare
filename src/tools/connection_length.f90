@@ -67,7 +67,7 @@ subroutine connection_length
   type(t_grid)       :: G
 
   character(len=12)  :: fstr
-  real(real64)       :: y(3), r(3), PsiN, Psi_min, Psi_av, ltor(-1:1)
+  real(real64)       :: y(3), r(3), dl, PsiN, Psi_min, Psi_av, ltor(-1:1)
   real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2), d, d_min, PsiN_final(-1:1)
   logical :: distance_to_lcfs
   integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir, id, id_limit(-1:1)
@@ -154,10 +154,10 @@ subroutine connection_length
 
         ! start field line tracing
         trace_loop: do
-           call F%trace_1step()
+           dl = F%trace_1step()
 
            ! update connection length
-           lc(idir)   = lc(idir) + Trace_Step
+           lc(idir)   = lc(idir) + dl
            if (abs(lc(idir)) .ge. Limit) exit trace_loop
            if (N_theta > 0  .and.  abs(F%theta_int) .ge. N_theta*pi2) exit trace_loop
 
@@ -168,7 +168,7 @@ subroutine connection_length
 
 
            ! update average pol. flux
-           Psi_av = Psi_av + PsiN * abs(Trace_Step)
+           Psi_av = Psi_av + PsiN * abs(dl)
 
 
            ! distance (along field line) to PsiN(1:2)

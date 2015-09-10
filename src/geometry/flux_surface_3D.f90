@@ -348,8 +348,7 @@ module flux_surface_3D
         Lc = 0.d0
         m  = 1
         trace_loop: do
-           call F%trace_1step()
-           Lc = Lc + Trace_Step
+           Lc = Lc + F%trace_1step()
 
            ! stop field line tracing at limit nlimit*Limit
            if (Lc > m*Limit) m = m+1
