@@ -351,7 +351,7 @@ module flux_surface_3D
            Lc = Lc + F%trace_1step()
 
            ! stop field line tracing at limit nlimit*Limit
-           if (Lc > m*Limit) m = m+1
+           if (abs(Lc) > m*Limit) m = m+1
            if (m > nlimit) exit trace_loop
 
            ! check intersection with boundary
