@@ -36,7 +36,7 @@ C BFSTREN        R(D)     1     B-field strength
      .,      GRID_P_OS,           MESH_P_OS,             PHI_PL_OS
       REAL*8, DIMENSION(:),ALLOCATABLE,SAVE  ::
      .       PHI_PLANE,                  RG,                    ZG    
-     .,      VOL3D,                 BFSTREN
+     .,      VOL3D,                 BFSTREN,                 LCELL
 
       CONTAINS                
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -168,9 +168,10 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       SUBROUTINE SETUP_GEOMETRY_PL()
       INTEGER :: IZ,  I,   J,   K,   I1,   I2,   I3,   I4
      .,          IG
-      REAL*8  :: R1, R2, FI1, FI2, AREA1, AREA2
+      REAL*8  :: R1, R2, Z1, Z2, FI1, FI2, AREA1, AREA2, DFL
 
       ALLOCATE ( VOL3D(0:GRID_P_OS(NZONET)-1) )
+      ALLOCATE ( LCELL(0:GRID_P_OS(NZONET)-1) )
       DO 10 IZ=0,NZONET-1
       DO 10 I =0,ZON_RADI(IZ) - 1
       DO 10 J =0,ZON_POLO(IZ) - 1
@@ -185,6 +186,7 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
      .-                   (RG(I3)-RG(I4))*(ZG(I4)-ZG(I1)) )
          FI1 = PHI_PLANE(PHI_PL_OS(IZ)+K)
          R1  = 0.25*(RG(I1)+RG(I2)+RG(I3)+RG(I4))
+         Z1  = 0.25*(ZG(I1)+ZG(I2)+ZG(I3)+ZG(I4))
       DO 10 K =0,ZON_TORO(IZ) - 1
          IG=I+(J+K*ZON_POLO(IZ))*ZON_RADI(IZ)+MESH_P_OS(IZ)
 
@@ -200,10 +202,13 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
          FI2 = PHI_PLANE(PHI_PL_OS(IZ)+K+1)
          R2  = 0.25*(RG(I1)+RG(I2)+RG(I3)+RG(I4))
          VOL3D(IG) = 0.5*(R1+R2)*ABS(FI2-FI1)*0.5*(AREA1+AREA2)
+         DFL       = 0.5*(R1+R2)*(FI2-FI1)
+         LCELL(IG) = SQRT(DFL**2 + (R2-R1)**2 + (Z2-Z1)**2)
 
          AREA1 = AREA2
          FI1   = FI2
          R1    = R2
+         Z1    = Z2
 10    CONTINUE 
  
       RETURN 

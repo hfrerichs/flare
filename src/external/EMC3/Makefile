@@ -19,17 +19,9 @@ SURFACE_PL.f:
 MAPPING.f:
 	ln -s $(EMC3_SRC_DIR)/MAPPING.f
 
-CELL_GEO.f:
-	ln -s $(EMC3_SRC_DIR)/CELL_GEO.f
-
-cell_def.f:
-	ln -s $(EMC3_SRC_DIR)/cell_def.f
-
-cell_user.f:
-	ln -s $(EMC3_SRC_DIR)/../USER/cell_user.f
-
 check.f:
-	ln -s $(EMC3_SRC_DIR)/check.f
+	sed -n '/CHECK_GRID_POINTS/,/CHECK_GRID_POINTS/p'   $(EMC3_SRC_DIR)/check.f > check.f
+	sed -n '/PLOT_CROSS_SECTION/,/PLOT_CROSS_SECTION/p' $(EMC3_SRC_DIR)/check.f >> check.f
 
 ibm_iface.f:
 	ln -s $(EMC3_SRC_DIR)/../SERV/ibm_iface.f
@@ -50,3 +42,4 @@ sf_jump.f:
 clean:
 	rm -rf *.o *.mod
 	for file in *f; do if [ -L $$file ]; then rm $$file; fi; done
+	rm check.f

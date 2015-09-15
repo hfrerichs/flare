@@ -30,7 +30,7 @@ for opt in "$@"; do
 	echo ""
 	echo "  --bin_dir=DIR           directory with links to executables"
 	echo ""
-	echo "  --EMC3_dir=DIR          set EMC3 source directory"
+	echo "  --emc3_dir=DIR          set EMC3 source directory"
 	echo ""
 	echo "  --fusion_io_dir=DIR     set directory of M3D-C1 / fusion_io installation"
 	echo "  --fusion_io_arch=ARCH   set architecture string used for M3D-C1 (if not equal to `uname`)"
@@ -41,8 +41,8 @@ for opt in "$@"; do
         base_dir=$val
     elif [ "$par" == "--bin_dir" ]; then
         BIN_DIR=$val
-    elif [ "$par" == "--EMC3_dir" ]; then
-        EMC3_dir=$val
+    elif [ "$par" == "--emc3_dir" ]; then
+        emc3_dir=$val
     elif [ "$par" == "--fusion_io_dir" ]; then
         fusion_io_dir=$val
     elif [ "$par" == "--fusion_io_arch" ]; then
@@ -120,40 +120,38 @@ echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
 
-# checking for coupling to EMC3
-#if [ "$EMC3_dir" == "" ]; then
-#	NOTE='Compiling without support for fieldline-grid input (bases on EMC3 sources)'
-#	echo $NOTE | tee -a $LOG_FILE
-#else
-#	NOTE='Compiling with support for fieldline-grid input (bases on EMC3 sources)'
-#	echo $NOTE | tee -a $LOG_FILE
-#	echo "# $NOTE" >> include.mk
-#	echo "EMC3_FLAG      = -DEMC3" >> include.mk
-#        echo "EMC3_SRC_DIR   = $EMC3_dir/MAIN" >> include.mk
-#	if [ ! -d "$EMC3_dir/MAIN" ]; then
-#		echo "error: EMC3 source files not found!"
-#		exit
-#	fi
-#	echo "EMC3_OBJ       = \
-#               PHYS_CONST.o\
-#               GEOMETRY_PL.o\
-#               SURFACE_PL.o\
-#               MAPPING.o\
-#               CELL_GEO.o\
-#               cell_def.o\
-#               cell_user.o\
-#               check.o\
-#               ibm_iface.o\
-#               random.o\
-#               real_to_ft.o\
-#               service.o\
-#               sf_def_user.o\
-#               sf_jump.o" >> include.mk
-#	echo "EMC3_OBJ_LONG  = \$(addprefix \$(EMC3_LINK_DIR)/,\$(EMC3_OBJ))" >> include.mk
-#	echo "" >> include.mk
-#
-#
-#fi
+# checking for coupling to EMC3 ------------------------------------------------
+if [ "$emc3_dir" == "" ]; then
+	NOTE='Compiling without support for fieldline-grid input (based on EMC3 sources)'
+	echo $NOTE | tee -a $LOG_FILE
+else
+	NOTE='Compiling with support for fieldline-grid input (based on EMC3 sources)'
+	echo $NOTE | tee -a $LOG_FILE
+	echo "# $NOTE" >> include.mk
+	echo "EMC3_FLAG      = -DEMC3" >> include.mk
+        echo "EMC3_SRC_DIR   = $emc3_dir/MAIN" >> include.mk
+	if [ ! -d "$emc3_dir/MAIN" ]; then
+		echo "error: EMC3 source files not found!"
+		exit
+	fi
+	echo "EMC3_OBJ       = \
+               PHYS_CONST.o\
+               GEOMETRY_PL.o\
+               SURFACE_PL.o\
+               MAPPING.o\
+               check.o\
+               ibm_iface.o\
+               random.o\
+               real_to_ft.o\
+               service.o\
+               sf_def_user.o\
+               sf_jump.o" >> include.mk
+	echo "EMC3_OBJ_LONG  = \$(addprefix \$(EMC3_LINK_DIR)/,\$(EMC3_OBJ))" >> include.mk
+	echo "" >> include.mk
+
+
+fi
+# ------------------------------------------------------------------------------
 
 
 # checking for M3D-C1/fusion_io installation -----------------------------------
