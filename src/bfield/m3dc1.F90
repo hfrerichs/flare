@@ -24,7 +24,7 @@ module m3dc1
   integer, parameter :: n_sets_max = 16
 
   integer :: n_sets = 0
-  character*80 :: filename(n_sets_max)
+  character(len=256) :: filename(n_sets_max)
   real*8       :: amplitude(n_sets_max) = 1.d0
   real*8       :: phase(n_sets_max)     = 0.d0	! offset in deg
 
@@ -55,7 +55,7 @@ module m3dc1
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
-  character*80 :: Input_File
+  character(len=256) :: Input_File
   integer :: ierr, i
   real*8  :: f
 
@@ -135,7 +135,7 @@ end subroutine m3dc1_load
   call broadcast_real   (amplitude, n_sets_max)
   call broadcast_real   (phase,     n_sets_max)
   do i=1,n_sets_max
-     call broadcast_char(filename(i), 80)
+     call broadcast_char(filename(i), 256)
   enddo
 
   return
