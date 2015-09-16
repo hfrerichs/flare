@@ -14,12 +14,6 @@ subroutine vacuum_and_core_domain_for_EIRENE
   write (6, 1000)
  1000 format(3x,' - Set up additional domain for EIRENE')
   do iz=0,NZONET-1
-     ! adjust last cell of divertor legs to close simulatin domain
-     if (Zone(iz)%isfp(1) == SF_VACUUM  .and.  Zone(iz)%isfp(2) == SF_VACUUM) then
-        call close_grid_domain(iz)
-     endif
-
-
      ! set up core domain
      if (Zone(iz)%isfr(1) == SF_CORE) then
         call setup_core_domain(iz, nr_EIRENE_core)
@@ -32,6 +26,12 @@ subroutine vacuum_and_core_domain_for_EIRENE
      endif
      if (Zone(iz)%isfr(2) == SF_VACUUM) then
         call setup_vacuum_domain(iz, nr_EIRENE_vac, 2)
+     endif
+
+
+     ! adjust last cell of divertor legs to close simulatin domain
+     if (Zone(iz)%isfp(1) == SF_VACUUM  .and.  Zone(iz)%isfp(2) == SF_VACUUM) then
+        call close_grid_domain(iz)
      endif
   enddo
 
@@ -172,7 +172,8 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
 
   select case (Method)
   case (UPSCALE)
-      call vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
+      !call vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
+      call vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
   case (MANUAL)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   end select
@@ -326,6 +327,212 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
   end subroutine adjust_boundary
   !---------------------------------------------------------------------
 end subroutine vacuum_domain_by_upscale
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
+  use iso_fortran_env
+  use emc3_grid
+  use curve2D
+  use run_control, only: Debug
+  use string
+  implicit none
+
+  integer, intent(in)      :: iz, ir0, idir, ir2
+  real(real64), intent(in) :: dl
+
+  real(real64), dimension(:,:), allocatable :: v
+  type(t_curve) :: C, Cout, directional_extend
+  real(real64)  :: rho
+  integer       :: it, ip, ir, ir1, ig, ig0
+
+
+  !if (iz .ne. 1) return
+
+  call C%new(ZON_POLO(iz))
+  allocate (v(0:SRF_POLO(iz)-1,2))
+  ir1 = ir0 + idir
+
+
+  do it=0,SRF_TORO(iz)-1
+     ! set up boundary nodes and direction vectors
+     do ip=0,SRF_POLO(iz)-1
+        ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        C%x(ip,1) = RG(ig)
+        C%x(ip,2) = ZG(ig)
+        v(ip,1)   = RG(ig) - RG(ig-idir)
+        v(ip,2)   = ZG(ig) - ZG(ig-idir)
+        v(ip,:)   = v(ip,:) / sqrt(sum(v(ip,:)**2)) * dl
+     enddo
+
+     Cout = directional_extend(C, v)
+     !call Cout%plot(filename='test.plt')
+
+
+     ! set up new grid nodes
+     do ip=0,SRF_POLO(iz)-1
+        ig0 = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        do ir=ir1,ir2,idir
+           rho = 1.d0 * (ir-ir0) / (ir2-ir1+idir)
+           ig  = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+           RG(ig) = RG(ig0) + rho * (Cout%x(ip,1) - RG(ig0))
+           ZG(ig) = ZG(ig0) + rho * (Cout%x(ip,2) - ZG(ig0))
+        enddo
+     enddo
+  enddo
+  deallocate (v)
+
+
+end subroutine vacuum_domain_by_upscale_v2
+
+
+  function directional_extend(C, v) result(Cout)
+  use iso_fortran_env
+  use curve2D
+  type(t_curve), intent(in) :: C
+  real(real64),  intent(in) :: v(0:C%n_seg,2)
+
+  integer,      dimension(:),   allocatable :: icheck
+  integer,      dimension(:,:), allocatable :: icheck2
+  type(t_curve) :: Cout
+  real(real64)  :: L1(2), L2(2), M1(2), M2(2), l, m
+  integer       :: n, ip
+
+
+  ! initialize output curve
+  n = C%n_seg
+  call Cout%new(n)
+  do ip=0,n
+     Cout%x(ip,:) = C%x(ip,:) + v(ip,:)
+  enddo
+
+
+  ! check misaligned cells
+  allocate (icheck(0:n-1))
+  icheck = 0
+  do ip=0,n-1
+     L1 = C%x(ip,:)
+     L2 = L1 + v(ip,:)
+     M1 = C%x(ip+1,:)
+     M2 = M1 + v(ip+1,:)
+     if (intersect_lines(L1, L2, M1, M2, l, m)) then
+        if (l >= 0.d0  .and.  l <= 1.d0  .and.  m >= 0.d0  .and.  m <= 1.d0) then
+           icheck(ip) = 1
+        endif
+     endif
+  enddo
+
+
+  ! mark unwanted segments
+  allocate (icheck2(0:n,-1:1))
+  icheck2 = 0
+  do ip=1,n-1
+     if (icheck(ip-1) > 0  .or.  icheck(ip) > 0) icheck2(ip,0) = 1
+  enddo
+
+!  ! test output
+!  write (99, *) C%x(0,:)
+!  write (99, *) C%x(0,:) + en(0,:)
+!  write (99, *)
+!
+!  do ip=1,SRF_POLO(iz)-2
+!     !if (icheck(ip-1) == 0  .and.  icheck(ip) == 0) then
+!     if (icheck2(ip,0) == 0) then
+!        write (99, *) C%x(ip,:)
+!        write (99, *) C%x(ip,:) + en(ip,:)
+!        write (99, *)
+!     endif
+!  enddo
+!  write (99, *) C%x(SRF_POLO(iz)-1,:)
+!  write (99, *) C%x(SRF_POLO(iz)-1,:) + en(SRF_POLO(iz)-1,:)
+!  write (99, *)
+
+
+
+
+  ! now double check each zone of misaligned cells
+  ip1 = -1
+  ip2 = -1
+  ip  = 0
+  do
+     ! stop at upper boundary
+     if (ip >= n+1) exit
+
+     ! find beginning of zone with misaligned segments
+     if (icheck2(ip,0) > 0) then
+        ! index of last good segment
+        ip1 = ip - 1
+        do
+           ! reached upper boundary before zone of misaligned segments endes
+           if (ip >= n+1) then
+              write (6, *) 'error: boundary segment is not set up correctly!'
+              stop
+           endif
+
+           ! find end of zone with misaligned segments
+           if (icheck2(ip,0) == 0) then
+              ip2 = ip
+              exit
+           endif
+
+           ! continue search
+           ip = ip + 1
+        enddo
+        !write (6, *) 'misaligned zone between segments ', ip1, ' and ', ip2
+
+
+        ! update boundaries of misaligned zone
+        ! adjust upper boundary
+        ip2b = ip2
+        do
+           if (ip2b >= n) exit
+
+           L1 = C%x(ip1,:)
+           L2 = L1 + v(ip1,:)
+           M1 = C%x(ip2b,:)
+           M2 = M1 + v(ip2b,:)
+           if (.not.intersect_lines(L1, L2, M1, M2, l, m)) exit
+
+           ! found new index if segments are not intersecting
+           if (l < 0.d0  .or.  m < 0.d0  .or.  m > 1.d0) exit
+
+           ip2b = ip2b + 1
+        enddo
+
+        ! adjust lower boundary
+        ip1b = ip1
+        do
+           if (ip1b <= 0) exit
+
+           L1 = C%x(ip1b,:)
+           L2 = L1 + v(ip1b,:)
+           M1 = C%x(ip2,:)
+           M2 = M1 + v(ip2,:)
+           if (.not.intersect_lines(L1, L2, M1, M2, l, m)) exit
+
+           ! found new index if segments are not intersecting
+           if (l < 0.d0  .or.  l > 1.d0  .or.  m < 0.d0) exit
+
+           ip1b = ip1b - 1
+        enddo
+        !write (6, *) 'adjusted region: ', ip1b, ' -> ', ip2b
+        ! interpolate nodes between ip1b and ip2b
+        do i=ip1b+1,ip2b-1
+        !   write (97, *) C%x(i,:) + en(i,:)*dl
+
+           l = 1.d0 * (i-ip1b) / (ip2b-ip1b)
+           Cout%x(i,:) = Cout%x(ip1b,:) + l * (Cout%x(ip2b,:) - Cout%x(ip1b,:))
+        enddo
+     endif
+
+     ip = ip + 1
+  enddo
+
+  deallocate (icheck, icheck2)
+  end function directional_extend
 !===============================================================================
 
 

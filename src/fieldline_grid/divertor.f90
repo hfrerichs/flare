@@ -469,7 +469,6 @@ module divertor
   do j=0,np
      write (6, *) j
      x = M(ir2,j,:)
-     write (97, *) x
      call R%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
 
      ! interpolated surfaces
@@ -478,7 +477,6 @@ module divertor
         call R%sample_at(eta, x)
 
         M(i,j,:) = x
-        write (97, *) x
      enddo
 
      ! innermost surface
@@ -615,7 +613,7 @@ module divertor
 
   real(real64), dimension(:), allocatable :: w
   real(real64) :: R1, Z1, R2, Z2
-  integer :: j0(-1:1), i, j, k, ig, ig0
+  integer :: j0(-1:1), i, j, k, ir1, ir2, ig, ig0, iside
 
 
   P_SURF_PL_TRANS_RANGE(1,iz) = 1
@@ -655,41 +653,46 @@ module divertor
 
 
 
-  ! 2nd adjustment
+  ! 2nd adjustment (straight connection between first and last radial node)
+  ! this should fix some problems for module MAPPING in EMC3
+  ! TODO: find optimal/minimal value for d_extend
+  ir1 = 0
+  !ir1 = R_SURF_PL_TRANS_RANGE(1,iz)
+  ir2 = SRF_RADI(iz)-1
+  !ir2 = R_SURF_PL_TRANS_RANGE(2,iz)
   ! lower boundary
-  allocate (w(R_SURF_PL_TRANS_RANGE(1,IZ):R_SURF_PL_TRANS_RANGE(2,IZ)))
-  j = 0
-  k = 0
-  w = 0.d0
-  do i=R_SURF_PL_TRANS_RANGE(1,IZ)+1,R_SURF_PL_TRANS_RANGE(2,IZ)
-     ig   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
-     w(i) = w(i-1) + sqrt((ZG(ig)-ZG(ig-1))**2 + (RG(ig)-RG(ig-1))**2)
-     !write (98, *) RG(ig-1), ZG(ig-1)
-     !write (98, *) RG(ig), ZG(ig)
-  enddo
-  w = w / w(R_SURF_PL_TRANS_RANGE(2,IZ))
-!  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
-!     write (6, *) w(i)
-!  enddo
+  allocate (w(ir1:ir2))
+  do iside=-1,1,2
+     j = j0(iside)
+     k = 0
+     w = 0.d0
+     do i=ir1+1,ir2
+        ig   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+        w(i) = w(i-1) + sqrt((ZG(ig)-ZG(ig-1))**2 + (RG(ig)-RG(ig-1))**2)
+        !write (98, *) RG(ig-1), ZG(ig-1)
+        !write (98, *) RG(ig), ZG(ig)
+     enddo
+     w = w / w(ir2)
+   !  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
+   !     write (6, *) w(i)
+   !  enddo
 
-  i  = R_SURF_PL_TRANS_RANGE(1,IZ)
-  ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
-  call move_node(iz,i,j,k,0,1,0,d_extend)
-  R1 = RG(ig); Z1 = ZG(ig)
-  i  = R_SURF_PL_TRANS_RANGE(2,IZ)
-  ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
-  call move_node(iz,i,j,k,0,1,0,d_extend)
-  R2 = RG(ig); Z2 = ZG(ig)
+     ig = ir1 + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     call move_node(iz,ir1,j,k,0,-iside,0,d_extend)
+     R1 = RG(ig); Z1 = ZG(ig)
+     ig = ir2 + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     call move_node(iz,ir2,j,k,0,-iside,0,d_extend)
+     R2 = RG(ig); Z2 = ZG(ig)
 
 
-  do i=R_SURF_PL_TRANS_RANGE(1,IZ),R_SURF_PL_TRANS_RANGE(2,IZ)
-     do k=0,SRF_TORO(iz)-1
-        ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
-        RG(ig) = R1 + w(i) * (R2-R1)
-        ZG(ig) = Z1 + w(i) * (Z2-Z1)
+     do i=ir1,ir2
+        do k=0,SRF_TORO(iz)-1
+           ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+           RG(ig) = R1 + w(i) * (R2-R1)
+           ZG(ig) = Z1 + w(i) * (Z2-Z1)
+        enddo
      enddo
   enddo
-
   deallocate(w)
 
   end subroutine close_grid_domain

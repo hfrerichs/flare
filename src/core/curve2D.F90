@@ -79,7 +79,7 @@ module curve2D
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
 
 
-  public :: intersect_curve, make_2D_curve, connect
+  public :: intersect_curve, intersect_lines, make_2D_curve, connect
   public :: SILENT, VERBOSE
 
   contains
