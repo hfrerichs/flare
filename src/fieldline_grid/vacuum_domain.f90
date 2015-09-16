@@ -130,14 +130,27 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   integer, intent(in) :: iz, nr_vac, boundary
 
   integer, parameter :: &
-     UPSCALE = 1, &
-     MANUAL  = -1
+     UPSCALE_ORTHO = 1, &
+     UPSCALE_CELL  = 2, &
+     MANUAL        = -1
 
   real(real64) :: dl
   integer      :: Method, ir0, idir, ir2
 
 
-  Method = UPSCALE
+  select case(Zone(iz)%N0_method)
+  case('orthogonal','')
+     Method = UPSCALE_ORTHO
+  case('cell')
+     Method = UPSCALE_CELL
+  case('manual')
+     Method = MANUAL
+  case default
+     write (6, *) 'error: invalid method ', trim(Zone(iz)%N0_method), ' for N0 domain!'
+     stop
+  end select
+
+
   dl     = Zone(iz)%d_N0
   if (Zone(iz)%N0_file .ne. '') then
      Method = MANUAL
@@ -171,8 +184,9 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
  1000 format(8x,'zone ',i0,': ',i0,' vacuum cell(s) at ',a,' boundary, D = ',f8.3)
 
   select case (Method)
-  case (UPSCALE)
-      !call vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
+  case (UPSCALE_ORTHO)
+      call vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
+  case (UPSCALE_CELL)
       call vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
   case (MANUAL)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
@@ -336,7 +350,6 @@ subroutine vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
   use iso_fortran_env
   use emc3_grid
   use curve2D
-  use run_control, only: Debug
   use string
   implicit none
 
@@ -347,6 +360,7 @@ subroutine vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
   type(t_curve) :: C, Cout, directional_extend
   real(real64)  :: rho
   integer       :: it, ip, ir, ir1, ig, ig0
+  logical       :: debug
 
 
   !if (iz .ne. 1) return
@@ -367,7 +381,9 @@ subroutine vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
         v(ip,:)   = v(ip,:) / sqrt(sum(v(ip,:)**2)) * dl
      enddo
 
-     Cout = directional_extend(C, v)
+     debug = .false.
+     !if (iz == 4  .and.  it == 0) debug = .true.
+     Cout = directional_extend(C, v, debug)
      !call Cout%plot(filename='test.plt')
 
 
@@ -389,11 +405,12 @@ subroutine vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
 end subroutine vacuum_domain_by_upscale_v2
 
 
-  function directional_extend(C, v) result(Cout)
+  function directional_extend(C, v, debug) result(Cout)
   use iso_fortran_env
   use curve2D
   type(t_curve), intent(in) :: C
   real(real64),  intent(in) :: v(0:C%n_seg,2)
+  logical,       intent(in) :: debug
 
   integer,      dimension(:),   allocatable :: icheck
   integer,      dimension(:,:), allocatable :: icheck2
@@ -408,6 +425,15 @@ end subroutine vacuum_domain_by_upscale_v2
   do ip=0,n
      Cout%x(ip,:) = C%x(ip,:) + v(ip,:)
   enddo
+  if (debug) then
+     open  (70, file='debug1.plt')
+     do ip=0,n
+        write (70, *) C%x(ip,:)
+        write (70, *) Cout%x(ip,:)
+        write (70, *)
+     enddo
+     close (70)
+  endif
 
 
   ! check misaligned cells
@@ -433,6 +459,17 @@ end subroutine vacuum_domain_by_upscale_v2
      if (icheck(ip-1) > 0  .or.  icheck(ip) > 0) icheck2(ip,0) = 1
   enddo
 
+  if (debug) then
+     open  (70, file='debug2.plt')
+     do ip=0,n
+        if (icheck2(ip,0) == 0) then
+           write (70, *) C%x(ip,:)
+           write (70, *) Cout%x(ip,:)
+           write (70, *)
+        endif
+     enddo
+     close (70)
+  endif
 !  ! test output
 !  write (99, *) C%x(0,:)
 !  write (99, *) C%x(0,:) + en(0,:)
@@ -481,7 +518,7 @@ end subroutine vacuum_domain_by_upscale_v2
            ! continue search
            ip = ip + 1
         enddo
-        !write (6, *) 'misaligned zone between segments ', ip1, ' and ', ip2
+        if (debug) write (6, *) 'misaligned zone between segments ', ip1, ' and ', ip2
 
 
         ! update boundaries of misaligned zone
@@ -518,7 +555,7 @@ end subroutine vacuum_domain_by_upscale_v2
 
            ip1b = ip1b - 1
         enddo
-        !write (6, *) 'adjusted region: ', ip1b, ' -> ', ip2b
+        if (debug) write (6, *) 'adjusted region: ', ip1b, ' -> ', ip2b
         ! interpolate nodes between ip1b and ip2b
         do i=ip1b+1,ip2b-1
         !   write (97, *) C%x(i,:) + en(i,:)*dl
