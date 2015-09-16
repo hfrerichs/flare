@@ -34,8 +34,11 @@ module m3dc1
 
   integer :: isrcA(n_sets_max), imagA(n_sets_max), iEQ, iPsi
 
+  logical, save :: loaded = .false.
+
   public :: &
      m3dc1_load, &
+     m3dc1_loaded, &
      m3dc1_broadcast, &
      m3dc1_get_Bf, &
      m3dc1_get_Bf_eq2D, &
@@ -98,6 +101,7 @@ module m3dc1
 
      write (6, 1005) i, amplitude(i), phase(i)
   enddo
+  loaded = .true.
 #else
   write (6, *) 'error: FLARE compiled without M3D-C1 support!'
   stop
@@ -111,6 +115,17 @@ module m3dc1
  1004 format (8x,'number of sub-sets:           ',i4)
  1005 format (8x,i4,' amplitude factor = ',f7.3,', phase [deg] = ',f7.3)
 end subroutine m3dc1_load
+!===============================================================================
+
+
+
+!===============================================================================
+  function m3dc1_loaded()
+  logical :: m3dc1_loaded
+
+  m3dc1_loaded = loaded
+
+  end function m3dc1_loaded
 !===============================================================================
 
 

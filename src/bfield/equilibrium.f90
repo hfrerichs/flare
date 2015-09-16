@@ -321,6 +321,7 @@ module equilibrium
   use run_control, only: Prefix
   use geqdsk
   use divamhd
+  use m3dc1
   use amhd
 
   integer, intent(in)  :: iu
@@ -363,7 +364,10 @@ module equilibrium
      call divamhd_load (Data_File, Ip, Bt, R0)
 
   case (EQ_M3DC1)
-     ! nothing to be done here
+     if (.not.m3dc1_loaded()) then
+        write (6, *) 'error: M3D-C1 data not loaded, cannot set up equilbrium!'
+        stop
+     endif
 
   case (EQ_AMHD)
      call amhd_load (iu, iconfig, Ip, Bt, R0)
