@@ -26,10 +26,13 @@ m3dc1.o: m3dc1.F90
 reconstruct.o: reconstruct.F90
 	$(FC) -c $(INC_DIR) $(EMC3_FLAG) -I ../$(EMC3_LINK_DIR) $<
 
-%.o: %.f*
+%.o: %.f
 	$(FC) -c $(INC_DIR) $<
 
-%.o: %.F*
+%.o: %.f90
+	$(FC) -c $(INC_DIR) $<
+
+%.o: %.F90
 	$(FC) -c $(INC_DIR) $<
 
 .PHONY: clean
