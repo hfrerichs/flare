@@ -8,6 +8,7 @@ OBJECTS =  \
                math.o\
                dataset.o\
                grid.o\
+               cspline.o\
                Q4.o\
                search.o\
                curve2D.o\

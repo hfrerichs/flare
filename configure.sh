@@ -93,9 +93,14 @@ echo "" >> include.mk
 
 
 # GNU Scientific Library
+FGSL_CFLAGS=`pkg-config --cflags fgsl`
+FGSL_LIBS=`pkg-config --libs fgsl`
+if [ "$FGSL_LIBS" == "" ]; then
+	echo "Warning: FGSL not found! Some tools may not work properly!"
+fi
 echo "# GNU Scientific Library"				>> include.mk
-echo "FGSL_CFLAGS    = `pkg-config --cflags fgsl`"	>> include.mk
-echo "FGSL_LIBS      = `pkg-config --libs fgsl`"	>> include.mk
+echo "FGSL_CFLAGS    = $FGSL_CFLAGS"			>> include.mk
+echo "FGSL_LIBS      = $FGSL_LIBS"			>> include.mk
 echo ""							>> include.mk
 
 
