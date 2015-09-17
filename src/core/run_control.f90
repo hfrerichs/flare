@@ -76,6 +76,7 @@ module run_control
 
 !=======================================================================
   subroutine load_run_control()
+  use math
 
   integer, parameter :: iu = 23
   character*255      :: homedir
@@ -98,6 +99,11 @@ module run_control
      endif
 
      Bfield_input_file = trim(Prefix)//'bfield.conf'
+
+
+     if (Trace_Coords == 3) then
+        Trace_Step = Trace_Step / 180.d0 * pi
+     endif
   endif
 
 

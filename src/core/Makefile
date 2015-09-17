@@ -6,6 +6,7 @@ OBJECTS =  \
                string.o\
                quicksort.o\
                math.o\
+               run_control.o\
                dataset.o\
                grid.o\
                Q4.o\
