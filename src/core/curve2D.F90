@@ -25,6 +25,12 @@ module curve2D
      ANGLE     = 1, &
      DISTANCE  = 2
 
+  ! operation modes for intersect_curve
+  integer, parameter, public :: &
+     SEGMENT   =  0, &
+     RAY       =  1, &
+     LINE      = -1
+
 
   type, public :: t_curve
      ! number of line segments (n_seg), number of coordinates (n_dim)

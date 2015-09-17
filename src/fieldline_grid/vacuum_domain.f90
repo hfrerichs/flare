@@ -132,6 +132,7 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   integer, parameter :: &
      UPSCALE_ORTHO = 1, &
      UPSCALE_CELL  = 2, &
+     ORTHO_ADJUST  = 3, &
      MANUAL        = -1
 
   real(real64) :: dl
@@ -143,6 +144,8 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
      Method = UPSCALE_ORTHO
   case('cell')
      Method = UPSCALE_CELL
+  case('orthogonal_adjust')
+     Method = ORTHO_ADJUST
   case('manual')
      Method = MANUAL
   case default
@@ -188,6 +191,8 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
       call vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
   case (UPSCALE_CELL)
       call vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
+  case (ORTHO_ADJUST)
+      call vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
   case (MANUAL)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   end select
@@ -570,6 +575,262 @@ end subroutine vacuum_domain_by_upscale_v2
 
   deallocate (icheck, icheck2)
   end function directional_extend
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
+  use iso_fortran_env
+  use emc3_grid
+  use curve2D
+  use run_control, only: Debug
+  implicit none
+
+  integer, intent(in)      :: iz, ir0, idir, ir2
+  real(real64), intent(in) :: dl
+
+  real(real64), dimension(:,:), allocatable :: v
+  type(t_curve) :: C1, C2, upscale_v3
+  real(real64)  :: rho
+  integer       :: it, ip, ir, ir1, ig, ig0
+
+
+  call C1%new(ZON_POLO(iz))
+  !call C2%new(ZON_POLO(iz))
+
+!  ! 1st toroidal slice
+!  it = 0
+!  do ip=0,SRF_POLO(iz)-1
+!     ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+!     C1%x(ip,1) = RG(ig)
+!     C1%x(ip,2) = ZG(ig)
+!  enddo
+!  call C1%left_hand_shift(-idir*dl)
+!  call C1%plot(filename='debug1.plt')
+!
+!  ! last toroidal slice
+!  it = SRF_TORO(iz)-1
+!  do ip=0,SRF_POLO(iz)-1
+!     ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+!     C2%x(ip,1) = RG(ig)
+!     C2%x(ip,2) = ZG(ig)
+!  enddo
+!  call C2%left_hand_shift(-idir*dl)
+!  call C2%plot(filename='debug2.plt')
+
+
+
+  allocate (v(0:SRF_POLO(iz)-1,2))
+  ir1 = ir0 + idir
+
+
+  do it=0,SRF_TORO(iz)-1
+     ! set up boundary nodes and orientation vectors
+     do ip=0,SRF_POLO(iz)-1
+        ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        C1%x(ip,1) = RG(ig)
+        C1%x(ip,2) = ZG(ig)
+        v(ip,1)   = RG(ig) - RG(ig-idir)
+        v(ip,2)   = ZG(ig) - ZG(ig-idir)
+     enddo
+
+
+     C2 = upscale_v3(C1, v, -idir*dl)
+
+
+     ! set up new grid nodes
+     do ip=0,SRF_POLO(iz)-1
+        ig0 = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        do ir=ir1,ir2,idir
+           rho = 1.d0 * (ir-ir0) / (ir2-ir1+idir)
+           ig  = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+           RG(ig) = RG(ig0) + rho * (C2%x(ip,1) - RG(ig0))
+           ZG(ig) = ZG(ig0) + rho * (C2%x(ip,2) - ZG(ig0))
+        enddo
+     enddo
+  enddo
+
+
+  ! cleanup
+  deallocate (v)
+
+end subroutine vacuum_domain_by_upscale_adjust
+!===============================================================================
+
+
+
+!===============================================================================
+  function upscale_v3(C, v, dl) result(Cout)
+  use iso_fortran_env
+  use curve2D
+  implicit none
+  type(t_curve), intent(in) :: C
+  real(real64),  intent(in) :: v(0:C%n_seg,2), dl
+  type(t_curve)             :: Cout
+
+  real(real64), dimension(:),   allocatable :: w
+  integer,      dimension(:,:), allocatable :: ip_fix
+  type(t_curve) :: Ctmp
+  real(real64)  :: x(2), x1(2), x2(2), sh, r
+  integer       :: ip, ip1, ip2, ish, i, n, n_fix
+
+  logical       :: debug = .false.
+
+
+  ! 1. initialize output
+  n = C%n_seg
+  allocate (w(0:n))
+  call Ctmp%copy(C)
+  call Ctmp%left_hand_shift(dl)
+  call Cout%new(n)
+
+
+  ! 2. find initial position on Ctmp for each node on C
+  w = -1.d0
+  do ip=0,n
+     x1 = C%x(ip,:)
+     x2 = x1 + v(ip,:)
+     if (intersect_curve(x1, x2, Ctmp, xh=x, sh=sh, ish=ish, intersect_mode=RAY)) then
+         if (debug) write (99, *) ip, 1.d0*ish+sh
+         w(ip) = ish+sh
+         Cout%x(ip,:) = x
+         if (debug) write (96, *) x
+     else
+         if (debug) write (99, *) ip, -1.2345d0
+     endif
+  enddo
+
+
+  ! 3. correct positions (w -> strictly monotonically increasing)
+  ! 3.1 fix lower boundary (if required)
+  ip = 0
+  do
+     if (w(ip) >= 0.d0  .or.  ip == n) exit
+     w(ip) = 0.d0
+
+     ip = ip+1
+  enddo
+
+  ! 3.2 fix upper boundary (if required)
+  ip = n
+  do
+     if (w(ip) >= 0.d0  .or.  ip == 0) exit
+     w(ip) = n
+
+     ip = ip-1
+  enddo
+
+  ! 3.3 fix inner nodes
+  ! 3.3.1 find misaligned zones (i.e. w not monotonically increasing)
+  ! ip_fix(:,1): first node of misaligned zone
+  ! ip_fix(:,2): last node of misaligned zone
+  allocate(ip_fix(n,2))
+  n_fix = 0
+  ip    = 1
+  ip1   = -1
+  ip2   = -1
+  do
+     ! stop at upper boundary
+     if (ip > n) exit
+
+     ! find beginning of non-monotonically increasing zone
+     if (w(ip) <= w(ip-1)) then
+        ! index of last good node
+        ip1 = ip - 1
+        do
+           ! reached upper boundary at a non-monotonically increasing segment
+           if (ip >= n) then
+              ip2 = ip
+              exit
+           endif
+
+           ! find end of non-monotonically increasing zone
+           if (w(ip) > w(ip-1)) then
+              ip2 = ip - 1
+              exit
+           endif
+
+           ! continue search
+           ip = ip + 1
+        enddo
+        if (debug) write (6, *) 'misaligned zone between nodes ', ip1, ' and ', ip2
+        n_fix           = n_fix + 1
+        ip_fix(n_fix,1) = ip1
+        ip_fix(n_fix,2) = ip2
+     endif
+
+     ip = ip+1
+  enddo
+
+  ! 3.3.2 adjust boundary indices for misaligned zones
+  ! adjust ip_fix(:,1) and ip_fix(:,2) so that
+  ! w(ip_fix(:,1)) < w (ip_fix(:,2))
+  do i=1,n_fix
+     ! adjust upper boundary
+     ip2 = ip_fix(i,2)
+     do
+        if (ip2 >= n) exit
+        if (w(ip2) > w(ip_fix(i,1))) exit
+        ip2 = ip2+1
+     enddo
+
+     ! adjust lower boundary
+     ip1 = ip_fix(i,1)
+     do
+        if (ip1 <= 0) exit
+        if (w(ip1) < w(ip_fix(i,2))) exit
+        ip1 = ip1-1
+     enddo
+
+     ip_fix(i,1) = ip1
+     ip_fix(i,2) = ip2
+  enddo
+  ! consistency check
+  do i=2,n_fix
+     if (ip_fix(i,1) < ip_fix(i-1,2)) then
+        write (6, *) 'error: cannot adjust boundary!'
+        do ip=1,n_fix
+           write (6, *) ip_fix(i,:)
+        enddo
+        do ip=0,n
+           write (99, *) w(ip)
+        enddo
+        stop
+     endif
+  enddo
+
+  ! 3.3.3 fix misaligned zones
+  !write (6, *) 'misaligned zones:'
+  do i=1,n_fix
+     !write (6, *) ip_fix(ip,:)
+     ip1 = ip_fix(i,1)
+     ip2 = ip_fix(i,2)
+     do ip=ip1+1,ip2-1
+        r     = 1.d0 * (ip-ip1) / (ip2-ip1)
+!        w(ip) = w(ip1) + r * (w(ip2)-w(ip1))
+        Cout%x(ip,:) = Cout%x(ip1,:) + r * (Cout%x(ip2,:)-Cout%x(ip1,:))
+        if (debug) write (95, *) Cout%x(ip,:)
+     enddo
+  enddo
+
+
+!  ! 4. set up corrected boundary nodes
+!  call Ctmp%setup_segment_sampling()
+!  do ip=0,n
+!     r = w(ip) / n
+!     if (debug) write (98, *) ip, r
+!     call Ctmp%sample_at(r, x)
+!     Cout%x(ip,:) = x
+!     if (debug) write (97, *) x
+!  enddo
+
+
+  ! 99. cleanup
+  deallocate (w, ip_fix)
+
+  end function upscale_v3
 !===============================================================================
 
 
