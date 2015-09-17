@@ -42,4 +42,4 @@ sf_jump.f:
 clean:
 	rm -rf *.o *.mod
 	for file in *f; do if [ -L $$file ]; then rm $$file; fi; done
-	rm check.f
+	rm -f check.f
