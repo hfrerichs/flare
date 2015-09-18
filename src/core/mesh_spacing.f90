@@ -198,6 +198,7 @@ module mesh_spacing
   this%S(1) = S_left
   this%S(2) = S_right
 
+  if (allocated(this%c)) deallocate(this%c)
   allocate (this%c(2))
   this%c(1) = eta1
   this%c(2) = rho1
