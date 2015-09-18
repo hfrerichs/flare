@@ -23,8 +23,7 @@ DEVEL_INC      = -I $(DEVEL_DIR)
 DEVEL_OBJ      = $(DEVEL_DIR)/*.o
 
 OBJECTS = \
-               parallel.o\
-               run_control.o
+               parallel.o
 
 
 .PHONY: all
@@ -41,10 +40,10 @@ all: $(OBJECTS)
 
 
 %.o: %.f90
-	$(FC) -c $<
+	$(FC) $(CORE_INC) -c $<
 
 %.o: %.F90
-	$(FC) -c $<
+	$(FC) $(CORE_INC) -c $<
 
 
 .PHONY: debug
