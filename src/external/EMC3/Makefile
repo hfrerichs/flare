@@ -13,6 +13,10 @@ all: $(EMC3_OBJ)
 PHYS_CONST.f:
 	ln -s $(EMC3_SRC_DIR)/../USER/PHYS_CONST.f
 
+GEOMETRY_PL.f:
+	cp $(EMC3_SRC_DIR)/GEOMETRY_PL.f .
+	patch GEOMETRY_PL.f GEOMETRY_PL.f.diff
+
 SURFACE_PL.f:
 	ln -s $(EMC3_SRC_DIR)/SURFACE_PL.f
 
@@ -29,6 +33,9 @@ ibm_iface.f:
 random.f:
 	ln -s $(EMC3_SRC_DIR)/../SERV/random.f
 
+real_to_ft.f:
+	sed '/NEUTRAL_TRANSPORT/d' $(EMC3_SRC_DIR)/../N0S/real_to_ft.f | sed 's/_N0//' > real_to_ft.f
+
 service.f:
 	ln -s $(EMC3_SRC_DIR)/../SERV/service.f
 
@@ -42,4 +49,4 @@ sf_jump.f:
 clean:
 	rm -rf *.o *.mod
 	for file in *f; do if [ -L $$file ]; then rm $$file; fi; done
-	rm -f check.f
+	rm -f GEOMETRY_PL.f check.f real_to_ft.f
