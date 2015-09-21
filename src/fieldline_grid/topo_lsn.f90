@@ -123,6 +123,9 @@ module topo_lsn
   call rpath(2)%generateX(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
   call rpath(2)%plot(filename='rpath_2.plt')
 
+
+  call check_domain()
+
   end subroutine setup_domain
   !=====================================================================
 

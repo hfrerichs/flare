@@ -131,6 +131,9 @@ module topo_cdn
   call rpath(4)%generateX(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
   call rpath(4)%plot(filename='rpath_4.plt')
 
+
+  call check_domain()
+
   end subroutine setup_domain
   !=====================================================================
 

@@ -145,6 +145,9 @@ module topo_ddn
   call rpath(5)%generateX(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
   call rpath(5)%plot(filename='rpath_5.plt')
 
+
+  call check_domain()
+
   end subroutine setup_domain
   !=====================================================================
 

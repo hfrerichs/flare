@@ -104,6 +104,29 @@ module divertor
 
 
   !=====================================================================
+  subroutine check_domain()
+  use fieldline_grid, only: layers, rpath, guiding_surface
+
+  real(real64) :: x(2), tau, L
+  integer      :: i
+
+
+  do i=0,layers-1
+     if (rpath(i)%intersect_curve(C_guide, x, tau)) then
+        write (6, *) 'WARNING: reference path for radial discretization (rpath_I.plt, I = ', i, ') crosses guiding surface!'
+
+        L = rpath(i)%length() * tau
+        write (6, *) 'd_SOL or d_PFR requires a value less than ', L
+        stop
+     endif
+  enddo
+
+  end subroutine check_domain
+  !=====================================================================
+
+
+
+  !=====================================================================
   subroutine divide_SOL2(F, eta, side, alpha, r, C)
   use math
   use flux_surface_2D
