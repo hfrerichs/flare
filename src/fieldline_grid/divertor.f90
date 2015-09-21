@@ -338,6 +338,7 @@ module divertor
   use run_control, only: Debug
   use mesh_spacing
   use flux_surface_2D
+  use fieldline_grid, only: nr_perturbed
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
   integer, intent(in) :: nr, np, ir1, ir2
@@ -352,7 +353,7 @@ module divertor
   do j=0,np
      xi = Sp%node(j,np)
      ! innermost surfaces
-     do i=0,1
+     do i=0,nr_perturbed-1
         call C(i)%sample_at(xi, x)
         M(i, j, :) = x
      enddo
@@ -361,7 +362,7 @@ module divertor
      x1 = M(ir1, j, :)
      x2 = M(ir2, j, :)
      do i=ir1+1,ir2-1
-        eta = Sr%node(i-1, nr-1) / Sr%node(ir2-1, nr-1)
+        eta = Sr%node(i-ir1, nr-1) / Sr%node(ir2-ir1, nr-1)
 
         M(i,j,:) = x1 + eta * (x2-x1)
      enddo

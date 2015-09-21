@@ -249,7 +249,7 @@ module topo_cdn
      ! 3. interpolated surfaces
      select case(discretization_method)
      case (POLOIDAL_ANGLE)
-        call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
+        call make_interpolated_surfaces(M_HPR, nr(0), np(0), nr_perturbed-1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
 
      case (ORTHOGONAL)
         call make_interpolated_surfaces_ortho(M_HPR, nr(0), np(0), 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, &
