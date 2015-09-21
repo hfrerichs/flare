@@ -43,6 +43,8 @@ module cspline
 
   this%n    = D%nrow
   this%ndim = D%ncol
+  if (allocated(this%S))   deallocate(this%S)
+  if (allocated(this%acc)) deallocate(this%acc)
   allocate (this%S(D%ncol), this%acc(D%ncol))
   if (present(periodic) .and. periodic) then
      do i=1,this%ndim
