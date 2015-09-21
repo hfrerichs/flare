@@ -656,6 +656,21 @@ module equilibrium
 
 
 !=======================================================================
+! Return minor radius [cm] at r=(R,Z [cm], phi [rad])
+!=======================================================================
+  function get_rmin(r) result(rmin)
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: rmin, Maxis(3)
+
+  Maxis = get_magnetic_axis(r(3))
+  rmin  = sqrt((r(1)-Maxis(1))**2 + (r(2)-Maxis(2))**2)
+
+  end function get_rmin
+!=======================================================================
+
+
+
+!=======================================================================
 ! Get cylindrical coordinates (R[cm], Z[cm], Phi[rad]) for flux
 ! coordinates (Theta[deg], PsiN, Phi[deg])
 !
