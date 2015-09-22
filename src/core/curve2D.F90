@@ -21,9 +21,11 @@ module curve2D
   private
 
 
+  ! sort and sampling parameters
   integer, parameter, public :: &
      ANGLE     = 1, &
-     DISTANCE  = 2
+     DISTANCE  = 2, &
+     SEGMENTS  = 3
 
   ! operation modes for intersect_curve
   integer, parameter, public :: &
@@ -68,6 +70,7 @@ module curve2D
      procedure :: flip
      procedure :: left_hand_shift
      procedure :: get_distance_to
+     procedure :: setup_sampling_by_method
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
      procedure :: setup_length_sampling_curvature_weighted
@@ -1072,6 +1075,30 @@ module curve2D
 
 
   end function get_distance_to
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_sampling_by_method(this, method, x)
+  class(t_curve), intent(inout) :: this
+  integer,        intent(in)    :: method
+  real(real64),   intent(in), optional :: x(2)
+
+
+  select case(method)
+  case(ANGLE)
+     call this%setup_angular_sampling(x)
+  case(ARCLENGTH)
+     call this%setup_length_sampling()
+  case(SEGMENTS)
+     call this%setup_segment_sampling()
+  case default
+     write (6, *) 'error in t_curve%setup_sampling: undefined method ', method
+     stop
+  end select
+
+  end subroutine setup_sampling_by_method
 !=======================================================================
 
 
