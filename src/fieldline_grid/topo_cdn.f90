@@ -19,7 +19,7 @@ module topo_cdn
   integer, parameter :: iud = 72
 
 
-  character(len=*), parameter :: ZONE_LABEL(0:layers_cdn-1) = (/ 'HPR ', 'SOL1', 'SOL2', 'PFR1', 'PFR2' /)
+  character(len=*), parameter :: ZONE_LABEL(0:layers_cdn-1) = (/ 'HPR   ', 'SOL(1)', 'SOL(2)', 'PFR(1)', 'PFR(2)' /)
 
 
   real(real64) :: dtheta
@@ -51,6 +51,7 @@ module topo_cdn
   ! 0. setup number of zones for disconnected double null topology
   layers = layers_cdn
   NZONET = blocks * layers
+  label(0:layers-1) = ZONE_LABEL
 
 
   write (6, 1000)

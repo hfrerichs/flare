@@ -17,6 +17,7 @@ module topo_lsn
   integer, parameter :: DEFAULT = 0
 
 
+  character(len=*), parameter :: ZONE_LABEL(0:layers_lsn-1) = (/ 'HPR', 'SOL', 'PFR' /)
 
 
   ! coordinates of X-point and magnetic axis
@@ -59,6 +60,7 @@ module topo_lsn
   ! 0. setup number of zones for lower single null topology
   layers = layers_lsn
   NZONET = blocks * layers
+  label(0:layers-1) = ZONE_LABEL
 
 
   write (6, 1000)

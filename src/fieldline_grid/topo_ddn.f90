@@ -20,7 +20,7 @@ module topo_ddn
   integer, parameter :: iud = 72
 
 
-  character(len=*), parameter :: ZONE_LABEL(0:layers_ddn-1) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFR1 ', 'PFR2 ' /)
+  character(len=*), parameter :: ZONE_LABEL(0:layers_ddn-1) = (/ 'HPR   ', 'SOL(0)', 'SOL(1)', 'SOL(2)', 'PFR(1)', 'PFR(2)' /)
 
 
   ! coordinates of X-point and magnetic axis
@@ -66,6 +66,7 @@ module topo_ddn
   ! 0. setup number of zones for disconnected double null topology
   layers = layers_ddn
   NZONET = blocks * layers
+  label(0:layers-1) = ZONE_LABEL
 
 
   write (6, 1000)

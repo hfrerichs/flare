@@ -105,7 +105,7 @@ module divertor
 
   !=====================================================================
   subroutine check_domain()
-  use fieldline_grid, only: layers, rpath, guiding_surface
+  use fieldline_grid, only: layers, rpath, guiding_surface, label
 
   real(real64) :: x(2), tau, L
   integer      :: i
@@ -116,7 +116,7 @@ module divertor
         write (6, *) 'WARNING: reference path for radial discretization (rpath_I.plt, I = ', i, ') crosses guiding surface!'
 
         L = rpath(i)%length() * tau
-        write (6, *) 'd_SOL or d_PFR requires a value less than ', L
+        write (6, *) 'parameter d_', trim(label(i)), ' < ', L, ' required!'
         stop
      endif
   enddo
