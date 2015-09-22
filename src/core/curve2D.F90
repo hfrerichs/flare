@@ -873,6 +873,8 @@ module curve2D
      d  = dsqrt(sum(el**2))
      if (d == 0.d0) then
         write (6, *) 'error in t_curve%left_hand_shift: duplicate nodes!'
+        write (6, *) 'x = ', Ctmp%x(k,:)
+        write (6, *) 'k = ', k, ' and ', k+1
         stop
      endif
      el = el / d
