@@ -113,14 +113,17 @@ module divertor
 
   do i=0,layers-1
      if (rpath(i)%intersect_curve(C_guide, x, tau)) then
-        write (6, *) 'WARNING: reference path for radial discretization (rpath_I.plt, I = ', i, ') crosses guiding surface!'
+        write (6, 9000) i
+        write (6, 9001)
 
         L = rpath(i)%length() * tau
-        write (6, *) 'parameter d_', trim(label(i)), ' < ', L, ' required!'
-        stop
+        write (6, 9002) trim(label(i)), L
      endif
   enddo
 
+ 9000 format('WARNING: reference path for radial discretization (rpath_I.plt, I = ',i0,') crosses guiding surface!')
+ 9001 format('This might cause a problem for adjusting the flux surface discretization to the strike point position!')
+ 9002 format('chosing d_', a, ' < ', f0.3, ' may be required!')
   end subroutine check_domain
   !=====================================================================
 
