@@ -606,7 +606,7 @@ module divertor
      ! right divertor leg
      call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
      call divertor_leg_discretization(F%t_curve, 1.d0-etaR(1), npR, DR)
-     M(i,:,:) = DR
+     M(i,0:npR,:) = DR
 
 
      ! left divertor leg
