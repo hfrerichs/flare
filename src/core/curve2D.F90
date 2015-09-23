@@ -14,6 +14,9 @@ module curve2D
 #else
   implicit none
 
+  integer, parameter, public :: &
+     ARCLENGTH = 2
+
   real(real64), parameter :: &
      pi   = 3.14159265358979323846264338328d0, &
      pi2  = 2.d0 * pi
