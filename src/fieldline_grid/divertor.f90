@@ -254,6 +254,7 @@ module divertor
 
   if (.not.C_leg%intersect_curve(C_cut, x, eta)) then
      write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     write (6, *) 'check divertor_leg.plt vs C_cutL.plt/C_cutR.plt!'
      call C_leg%plot(filename='divertor_leg.plt')
      stop
   endif
