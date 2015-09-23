@@ -270,11 +270,15 @@ module divertor
 
   type(t_spacing) :: Sguide
   real(real64)    :: xi, xi0, x(2)
-  integer         :: j
+  integer         :: j, ierr
 
 
   call divertor_leg_interface(C, C_guide, xi0)
-  call Sguide%init_spline_X1(eta, xi0)
+  call Sguide%init_spline_X1(eta, xi0, ierr)
+  if (ierr .ne. 0) then
+     write (6, *) 'using piecewise linear spacing function instead'
+     call Sguide%init_X1(eta, xi0)
+  endif
   do j=0,np
      xi     = Sguide%node(j,np)
      call C%sample_at(xi, x)
