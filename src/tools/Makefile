@@ -25,7 +25,8 @@ OBJECTS =  \
                FLR_analysis.o\
                melnikov_function.o\
                critical_point_analysis.o\
-               export_gfile.o
+               export_gfile.o\
+               quasi_surfaces.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR) -I ../$(GRIDGEN_DIR)

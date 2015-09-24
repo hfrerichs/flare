@@ -8,6 +8,7 @@ OBJECTS =  \
                poincare_set.o\
                flux_surface_2D.o\
                flux_surface_3D.o\
+               quasi_surface.o\
                separatrix.o\
                xpaths.o\
                flux_tube.o
