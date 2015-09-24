@@ -492,12 +492,22 @@ module divertor
   real(real64),  intent(in)   :: PsiN1
 
   type(t_xpath) :: R
-  real(real64)  :: eta, xi, x(2), x1(2), x2(2), theta
+  real(real64)  :: eta, xi, x(2), x1(2), x2(2), theta, PsiN0
   integer       :: i, ir1, j
 
 
   ir1 = nr_perturbed-1
   write (6, 1001) ir1+1, ir2-1
+
+  ! sanity check
+  PsiN0 = get_PsiN(M(ir2,j,:))
+  if (PsiN0 < PsiN1) then
+     write (6, *) 'PsiN_start = ', PsiN0
+     write (6, *) 'error: last unperturbed flux surface in grid must be completely outside of inner simulation boundary!'
+     write (6, *) 'try using a larger n_interpolate!'
+     stop
+  endif
+
   do j=0,np
      write (6, *) j
      x = M(ir2,j,:)
