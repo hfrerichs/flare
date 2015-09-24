@@ -8,7 +8,12 @@ base_dir="Database/Magnetic_Configuration"
 EMC3_dir=""
 
 fusion_io_dir=$M3DC1_INSTALL_DIR
-fusion_io_arch=`uname`
+if [ "$M3DC1_ARCH" == "" ]; then
+    fusion_io_arch=`uname`
+else
+    fusion_io_arch=$M3DC1_ARCH
+fi
+
 
 BIN_DIR=$HOME/bin
 
