@@ -250,36 +250,56 @@ module divertor
   ! target surface / guiding surface.
   ! Return relative coordinate (eta) of intersection on divertor leg.
   !=====================================================================
-  subroutine divertor_leg_interface(C_leg, C_cut, eta)
+  subroutine divertor_leg_interface(C_leg, C_cut, eta, ierr)
   use curve2D
-  type(t_curve), intent(in) :: C_leg, C_cut
-  real(real64), intent(out) :: eta
+  type(t_curve), intent(in)  :: C_leg, C_cut
+  real(real64),  intent(out) :: eta
+  integer,       intent(out) :: ierr
 
   real(real64) :: x(2)
 
 
+  ierr = 0
   if (.not.C_leg%intersect_curve(C_cut, x, eta)) then
      write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
      write (6, *) 'check divertor_leg.plt vs C_cutL.plt/C_cutR.plt!'
      call C_leg%plot(filename='divertor_leg.plt')
-     stop
+     ierr = 1
+     return
   endif
 
   end subroutine divertor_leg_interface
   !=====================================================================
-  subroutine divertor_leg_discretization(C, eta, np, D)
+  subroutine divertor_leg_discretization(C, eta, np, D, ierr_out)
   use mesh_spacing
   type(t_curve), intent(in)  :: C
   real(real64),  intent(in)  :: eta
   integer,       intent(in)  :: np
   real(real64),  intent(out) :: D(0:np,2)
+  integer,       intent(out), optional :: ierr_out
 
   type(t_spacing) :: Sguide
   real(real64)    :: xi, xi0, x(2)
   integer         :: j, ierr
 
 
-  call divertor_leg_interface(C, C_guide, xi0)
+  if (present(ierr_out)) ierr_out = 0
+  if (.not.C%intersect_curve(C_guide, x, xi0)) then
+     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     write (6, *) 'check divertor_leg.plt vs C_cutL.plt/C_cutR.plt!'
+     call C%plot(filename='divertor_leg.plt')
+     if (present(ierr_out)) then
+        ierr_out = 1
+        return
+     else
+        stop
+     endif
+  endif
+  !call divertor_leg_interface(C, C_guide, xi0, ierr)
+  !if (ierr .ne. 0) then
+  !   return
+  !endif
+
   call Sguide%init_spline_X1(eta, xi0, ierr)
   if (ierr .ne. 0) then
      write (6, *) 'using piecewise linear spacing function instead'
@@ -550,6 +570,7 @@ module divertor
   use xpaths
   use mesh_spacing
   use flux_surface_2D
+  use math
   use fieldline_grid, only: etaR, etaL
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
@@ -571,7 +592,8 @@ module divertor
      eta = Sr%node(i,nr)
      call rpath%sample_at(eta, x0)
      if (Debug) write (iud, *) x0
-     call F%generate_open(x0, C_cutL, C_cutR)
+     !call F%generate_open(x0, C_cutL, C_cutR)
+     call F%generate(x0, AltSurf_fw=C_cutL, AltSurf_bw=C_cutR, sampling=ARCLENGTH, retrace=.true.)
      call divide_SOL3(F, eta, CL, C0, CR, ix1, ix2, ierr)
      if (ierr > 0) then
         write (6, 9000) i, x0
@@ -584,7 +606,8 @@ module divertor
 
 
      ! right divertor leg
-     call divertor_leg_discretization(CR, 1.d0-etaR(1), npR, DR)
+     call divertor_leg_discretization(CR, 1.d0-etaR(1), npR, DR, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
      M(i,0:npR,:) = DR
 
 
@@ -596,12 +619,20 @@ module divertor
      enddo
 
      ! left divertor leg
-     call divertor_leg_discretization(CL, etaL(1), npL, DL)
+     call divertor_leg_discretization(CL, etaL(1), npL, DL, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
      M(i,npR+np0:npR+np0+npL,:) = DL
   enddo
 
  1020 format (8x,'generating scrape-off layer: ',i0,' -> ', i0)
  1021 format (8x,'d_SOL = ',f8.3)
+  contains
+  subroutine divertor_leg_discretization_error()
+     write (6, *) 'error occured in subroutine divertor_leg_discretization'
+     write (6, *) 'for flux surface "flux_surface.err"'
+     call F%plot(filename='flux_surface.err')
+     stop
+  end subroutine divertor_leg_discretization_error
   end subroutine make_flux_surfaces_SOL
   !=============================================================================
 

@@ -40,7 +40,7 @@ module flux_surface_2D
 ! Re-tracing of half-open surfaces is optional
 !=======================================================================
   recursive subroutine generate(this, r, direction, Trace_Step, N_steps, &
-      Trace_Method, AltSurf, theta_cut, retrace, sampling)
+      Trace_Method, AltSurf, theta_cut, retrace, sampling, AltSurf_bw, AltSurf_fw)
   use equilibrium
   use ode_solver
   use boundary
@@ -50,10 +50,11 @@ module flux_surface_2D
   
   integer, intent(in), optional       :: direction, N_steps, Trace_Method
   real(real64), intent(in), optional  :: Trace_Step, theta_cut
-  type(t_curve), intent(in), optional :: AltSurf
+  type(t_curve), target, intent(in), optional :: AltSurf, AltSurf_bw, AltSurf_fw
   logical, intent(in), optional       :: retrace
   integer, intent(in), optional       :: sampling
 
+  type(t_curve), pointer :: C_boundary
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
   real*8  :: yl(3), yc(3), thetal, thetac, dtheta, X(3), ds, r3(3)
@@ -97,6 +98,12 @@ module flux_surface_2D
   endif
 
 
+  ! set up user defined boundary
+  nullify(C_boundary)
+  if (present(AltSurf)) C_boundary => AltSurf
+  if (present(AltSurf_bw)) C_boundary => AltSurf_bw
+
+
   ! re-trace from boundary if flux surface is half-open?
   if (present(retrace)) retrace_from_boundary = retrace
 
@@ -112,6 +119,7 @@ module flux_surface_2D
 
   ! trace in forward and backward direction
   do idir=-1,1,2
+     if (idir == 1  .and.  present(AltSurf_fw)) C_boundary => AltSurf_fw
      if (n(idir) == 0) cycle
      ! set initial position
      call F%init_ODE(2, r, idir*ds, Bpol_sub, imethod)
@@ -127,9 +135,9 @@ module flux_surface_2D
         ! save current position
         tmp(idir*i,:) = yc(1:2)
 
-        ! check intersection user defined surface (AltSurf)
-        if (present(AltSurf)) then
-           if (intersect_curve(yl(1:2), yc(1:2), AltSurf, X(1:2))) then
+        ! check intersection with user defined surface (AltSurf)
+        if (associated(C_boundary)) then
+           if (intersect_curve(yl(1:2), yc(1:2), C_boundary, X(1:2))) then
               tmp(idir*i,:) = X(1:2)
               n(idir)       = i
               exit
@@ -176,7 +184,8 @@ module flux_surface_2D
      if (n(-1) < nmax) r3(1:2) = tmp(-n(-1),:) + 0.01d0*(tmp(-n(-1),:) - tmp(-n(-1)+1,:))
      if (n( 1) < nmax) r3(1:2) = tmp( n( 1),:) + 0.01d0*(tmp( n( 1),:) - tmp( n( 1)-1,:))
      deallocate (tmp)
-     call this%generate (r3(1:2), direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
+     call this%generate (r3(1:2), direction, Trace_Step, N_steps, Trace_Method, AltSurf, &
+        theta_cut, sampling=sampling, AltSurf_fw=AltSurf_fw, AltSurf_bw=AltSurf_bw)
   endif
 
 
