@@ -37,7 +37,7 @@ module divertor
 
   character(len=2) :: Sstr
   real(real64)     :: tmp(3)
-  integer          :: ix
+  integer          :: ix, ierr
 
 
   ! 1.a set up guiding surface for divertor legs (C_guide) ---------------------
@@ -72,13 +72,18 @@ module divertor
 
   ! 2.b check X-points
   do ix=1,nx
-     tmp(1:2) = Xp(ix)%load()
+     tmp(1:2) = Xp(ix)%load(ierr)
+     if (ierr .ne. 0) then
+        write (6, 9001) ix
+        stop
+     endif
      write (6, 2001) ix, tmp(1:2)
      write (6, 2002) Xp(ix)%theta/pi*180.d0
   enddo
   write (6, *)
  2001 format(8x,i0,'. X-point at: ',2f10.4)
  2002 format(11x,'-> poloidal angle [deg]: ',f10.4)
+ 9001 format('error: ',i0,'. X-point is not defined!')
 
   ! 2.c generate separatrix(ces)
   allocate(S(nx))

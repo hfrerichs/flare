@@ -1267,15 +1267,16 @@ module equilibrium
 
 
 !=======================================================================
-  function load(this) result(X)
+  function load(this, ierr) result(X)
   class(t_Xpoint) :: this
   real(real64)    :: X(2)
+  integer, intent(out) :: ierr
 
 
+  ierr = 0
   if (this%undefined) then
      X = -1.d0
-     write (6, *) 'error: X-point is not defined!'
-     stop
+     ierr = 1
   else
      X = this%X
   endif
