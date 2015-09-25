@@ -171,7 +171,7 @@ module divertor
 
 
   !=====================================================================
-  subroutine divide_SOL3(F, eta, CL, C0, CR, ix1, ix2)
+  subroutine divide_SOL3(F, eta, CL, C0, CR, ix1, ix2, ierr)
   use math
   use flux_surface_2D
   use equilibrium
@@ -181,6 +181,7 @@ module divertor
   type(t_curve),           intent(out) :: CL, CR
   type(t_flux_surface_2D), intent(out) :: C0
   integer,                 intent(in)  :: ix1, ix2
+  integer,                 intent(out) :: ierr
 
   real(real64) :: l, alpha, xiR, xiL, eta1, eta2, DthetaR, DthetaL
   real(real64) :: x(2), thetaR, thetaL
@@ -231,7 +232,7 @@ module divertor
 
   ! set up segments for sampling
   call CR%setup_length_sampling()
-  call C0%setup_sampling(Xp(jx1)%X, Xp(jx2)%X, Pmag, DthetaR, DthetaL)
+  call C0%setup_sampling(Xp(jx1)%X, Xp(jx2)%X, Pmag, DthetaR, DthetaL, ierr)
   call CL%setup_length_sampling()
 
   !call CL%plot(filename='CL.plt', append=.true.)
@@ -560,7 +561,7 @@ module divertor
   type(t_curve)           :: CL, CR
   type(t_spacing) :: Sdr, Sdl
   real(real64)  :: x0(2), x(2), eta, xi, xiR, xiL, DL(0:npL, 2), DR(0:npR, 2)
-  integer       :: i, j
+  integer       :: i, j, ierr
 
 
   write (6, 1020) ir1, ir2
@@ -571,7 +572,16 @@ module divertor
      call rpath%sample_at(eta, x0)
      if (Debug) write (iud, *) x0
      call F%generate_open(x0, C_cutL, C_cutR)
-     call divide_SOL3(F, eta, CL, C0, CR, ix1, ix2)
+     call divide_SOL3(F, eta, CL, C0, CR, ix1, ix2, ierr)
+     if (ierr > 0) then
+        write (6, 9000) i, x0
+        write (6, 9001)
+        call F%plot(filename='flux_surface.err')
+        stop
+     endif
+ 9000 format('an error occured for flux surface ',i0,' with reference point at ',f0.5,', ',f0.5)
+ 9001 format('flux surface is written to "flux_surface.err"')
+
 
      ! right divertor leg
      call divertor_leg_discretization(CR, 1.d0-etaR(1), npR, DR)

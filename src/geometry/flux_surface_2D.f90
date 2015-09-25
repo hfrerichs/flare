@@ -320,15 +320,17 @@ module flux_surface_2D
 ! angle of DthetaR (lower end) and DthetaL (upper end)
 ! Dtheta0: reference angular weight (pi2 for full loop)
 !===============================================================================
-  subroutine setup_sampling(this, x1, x2, xc, DthetaR, DthetaL)
+  subroutine setup_sampling(this, x1, x2, xc, DthetaR, DthetaL, ierr)
   use math
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: x1(2), x2(2), xc(2), DthetaR, DthetaL
+  integer,      intent(out), optional :: ierr
 
   real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w, Dtheta0
   integer      :: i, n, iseg1, iseg2
 
 
+  if (present(ierr)) ierr  = 0
   ! set reference weight automatically
   phi1  = datan2(x1(2)-xc(2), x1(1)-xc(1))
   phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
@@ -418,15 +420,23 @@ module flux_surface_2D
   w = sum(this%w)
   if (w < 1.d0 - 1.d-7) then
      write (6, *) 'error in t_flux_surface_2D%setup_sampling: unexpected sum of weights!'
-     write (6, *) 'parameters are:'
-     write (6, *) 'x1    = ', x1
-     write (6, *) 'x2    = ', x2
-     write (6, *) 'xc    = ', xc
-     write (6, *) 'DthetaR = ', DthetaR
-     write (6, *) 'DthetaL = ', DthetaL
-     write (6, *) 'Dtheta0 = ', Dtheta0
+     write (6, *) 'flux surface (segment) is written to "error.plt"'
+     write (6, *)
+     write (6, *) 'geometry parameters are:'
+     write (6, *) 'x1 (1st X-point)   =  ', x1
+     write (6, *) 'x2 (2nd X-point)   =  ', x2
+     write (6, *) 'xc (Magn. Axis)    =  ', xc
+     write (6, *) 'DthetaR (transition angle, lower end) [deg] =  ', DthetaR / pi * 180.d0
+     write (6, *) 'DthetaL (transition angle, upper end) [deg] =  ', DthetaL / pi * 180.d0
+     write (6, *) 'Dtheta0 (reference angular weight) [deg]    =  ', Dtheta0 / pi * 180.d0
+     write (6, *)
      call this%plot(filename='error.plt')
-     stop
+     if (present(ierr)) then
+        ierr = 1
+        return
+     else
+        stop
+     endif
   else
      do i=1,n
         this%w(i) = this%w(i-1) + this%w(i)
