@@ -92,6 +92,7 @@ module fieldline_grid
      d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
      d_PFR(2)            =   15.d0, &      ! radial width of private flux region
      d_N0(0:max_layers-1)=   10.d0, &      ! radial width of vacuum region
+     d_extend(-1:1)      =    2.d0, &      ! poloidal extension of divertor leg (used in close_grid_domain)
      d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
      alphaL(2)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
@@ -307,7 +308,7 @@ module fieldline_grid
 
   namelist /Grid_Layout/ &
      topology, symmetry, blocks, Block, &
-     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, &
+     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      n_interpolate, nr_perturbed, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &

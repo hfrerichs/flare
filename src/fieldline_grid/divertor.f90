@@ -693,13 +693,12 @@ module divertor
 !=======================================================================
   subroutine close_grid_domain(iz)
   use equilibrium
+  use fieldline_grid, only: d_extend
 
   integer, intent(in) :: iz
 
-  real(real64), parameter :: d_extend = 2.d0
 
-
-  integer      :: iside, j, j0(-1:1), k0(-1:1)
+  integer      :: i, iside, j, j0(-1:1), k0(-1:1)
   logical      :: debug = .false.
 
 
@@ -712,11 +711,12 @@ module divertor
   k0(-1) = SRF_TORO(iz)-1
   k0( 1) = 0
   do iside=-1,1,2
+     i = int(iside * Ip_sign * Bt_sign)
      ! poloidal index of reference surface
-     j = j0(int(iside * Ip_sign * Bt_sign))
+     j = j0(i)
 
      ! extend poloidal surface
-     call extend_poloidal_surface(d_extend)
+     call extend_poloidal_surface(d_extend(i))
 
      ! distribute nodes in toroidal direction
      call distribute_nodes()
