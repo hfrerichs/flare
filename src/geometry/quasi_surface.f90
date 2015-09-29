@@ -9,6 +9,9 @@ module quasi_surface
 
 
   type, extends(t_curve) :: t_quasi_surface
+     ! toroidal location
+     real(real64) :: Phi
+
      ! average poloidal flux on surface
      !real(real64) :: PsiN
 
@@ -20,6 +23,8 @@ module quasi_surface
 
      contains
      procedure :: generate
+     procedure :: smooth_plot
+! TODO: spline representation with weights from upt. flux surface
   end type t_quasi_surface
 
 
@@ -53,9 +58,10 @@ module quasi_surface
   integer      :: i, it, j, k, np_out
 
 
+  this%Phi = r(3)
   call homo_dist_P(n_sym, Trace_Step, r(3), r(1), r(2), tol, ntrac_p, &
                    Rtarg, Ztarg, np_min, np_out, H)
-  this%H = H
+  this%H   = H
 
 
   call this%new(np_out)
@@ -261,6 +267,51 @@ module quasi_surface
   H = H_min
 
   end function homogeneity
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine smooth_plot(this, filename, iu, nsample)
+  use equilibrium, only: get_PsiN, get_poloidal_angle
+  use math
+  use cspline
+  class(t_quasi_surface)                 :: this
+  character(len=*), intent(in), optional :: filename
+  integer,          intent(in), optional :: iu, nsample
+
+  type(t_cspline) :: S
+  real(real64)    :: t, x(2), theta, PsiN
+  integer         :: i, iu1, n
+
+
+  ! set unit number for output
+  iu1 = 50
+  if (present(iu)) iu1 = iu
+
+  ! set number of sample points
+  n   = 1000
+  if (present(nsample)) n = nsample
+
+  ! open output file
+  if (present(filename)) open  (iu1, file=filename)
+
+
+  call S%setup(this%nodes, periodic=.true.)
+  do i=0,n
+     t     = 1.d0 * i / n
+     x     = S%eval(t)
+     PsiN  = get_PsiN(x)
+     theta = get_poloidal_angle(x) / pi * 180.d0
+     if (theta < 0.d0) theta = theta + 360.d0
+     write (iu1, *) x, theta, PsiN
+  enddo
+
+
+  ! close output file
+  if (present(filename)) close (iu1)
+
+  end subroutine smooth_plot
 !=======================================================================
 
 end module quasi_surface

@@ -40,9 +40,10 @@ subroutine quasi_surfaces()
 
   write (6, 1001) N_sym
   write (6, 2001) R_start, R_end, N_steps
-  write (6, 3001)
+  write (6, 2002) tolerance
   open  (iu, file=Output_File)
-  write (iu, 2002)
+  write (iu, 3000)
+  write (6, 3001)
   do istep=0,N_steps
      ! reference point on magnetic surface
      r(1) = R_start + (R_end - R_start) * istep / N_steps
@@ -52,28 +53,21 @@ subroutine quasi_surfaces()
 
      ! generate magnetic surface at r
      call Q%generate(r, tolerance, N_sym, Trace_Step)
-     write (6, 3003) Q%Rout, Q%H
+     write (6, 3003) Q%n_seg, Q%Rout, Q%H
 
      ! smooth sampling of points on magnetic surface
-     call S%setup(Q%nodes, periodic=.true.)
-     do i=0,N_points
-        t       = 1.d0 * i / N_points
-        r(1:2)  = S%eval(t)
-        PsiN    = get_PsiN(r)
-        theta   = get_poloidal_angle(r) / pi * 180.d0
-        if (theta < 0.d0) theta = theta + 360.d0
-        write (iu, *) r(1:2), theta, PsiN
-     enddo
+     call Q%smooth_plot(iu=iu, nsample=N_points)
      write (iu, *)
   enddo
   close (iu)
 
  1001 format (8x,'Toroidal symmetry number:         ',i4)
  2001 format (8x,'Radial domain:',5x,'R_start = ',f6.2,5x, &
-              'R_end = ',f6.2,5x,'with ',i4,' steps'/)
- 2002 format ('# R [cm], Z [cm], Theta [deg], PsiN')
+              'R_end = ',f6.2,5x,'with ',i4,' steps')
+ 2002 format (8x,'Tolerance for radial position: tol = ',f0.4/)
+ 3000 format ('# R [cm], Z [cm], Theta [deg], PsiN')
  3001 format (8x,'#       R_initial [cm]     R_surface [cm]     Homogeneity')
  3002 format (8x,i0,7x,f0.4)
- 3003 format (35x,f0.4,8x,f0.4)
+ 3003 format (10x,'->',2x,i4,' segments',8x,f0.4,12x,f0.4)
 
 end subroutine quasi_surfaces
