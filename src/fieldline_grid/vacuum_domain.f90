@@ -634,9 +634,11 @@ subroutine vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
         v(ip,1)   = RG(ig) - RG(ig-idir)
         v(ip,2)   = ZG(ig) - ZG(ig-idir)
      enddo
+     if (Debug) call C1%plot(filename=debug_str(iz,it,1))
 
 
-     C2 = upscale_v3(C1, v, -idir*dl)
+     C2 = upscale_v3(C1, v, -idir*dl, 0)
+     if (Debug) call C2%plot(filename=debug_str(iz,it,2))
 
 
      ! set up new grid nodes
@@ -656,18 +658,38 @@ subroutine vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
   ! cleanup
   deallocate (v)
 
+  return
+  contains
+  !.....................................................................
+  function debug_str(iz, it, isuffix)
+  use string
+  integer, intent(in) :: iz, it, isuffix
+  character(len=80)   :: debug_str
+
+  character(len=*), parameter :: SUFFIX(2) = (/ 'raw', 'plt' /)
+
+
+  if (isuffix < 0  .or.  isuffix > 2) then
+     write (6, *) 'error in debug_str: 1 <= isuffix <= 2 required!'
+     stop
+  endif
+
+  debug_str = 'debug/VacuumBoundary_'//trim(str(iz))//'_'//trim(str(it))//'.'//SUFFIX(isuffix)
+  end function debug_str
+  !.....................................................................
 end subroutine vacuum_domain_by_upscale_adjust
 !===============================================================================
 
 
 
 !===============================================================================
-  function upscale_v3(C, v, dl) result(Cout)
+  function upscale_v3(C, v, dl, debug_mode) result(Cout)
   use iso_fortran_env
   use curve2D
   implicit none
   type(t_curve), intent(in) :: C
   real(real64),  intent(in) :: v(0:C%n_seg,2), dl
+  integer,       intent(in) :: debug_mode
   type(t_curve)             :: Cout
 
   real(real64), dimension(:),   allocatable :: w
@@ -679,27 +701,32 @@ end subroutine vacuum_domain_by_upscale_adjust
   logical       :: debug = .false.
 
 
+  ! 0. debug mode
+  if (debug_mode > 0) debug = .true.
+
+
   ! 1. initialize output
   n = C%n_seg
   allocate (w(0:n))
   call Ctmp%copy(C)
   call Ctmp%left_hand_shift(dl)
+  if (debug) call Ctmp%plot(filename='debug_1.plt')
   call Cout%new(n)
 
 
   ! 2. find initial position on Ctmp for each node on C
-  w = -1.d0
+  w = -1.2345d0
   do ip=0,n
      x1 = C%x(ip,:)
      x2 = x1 + v(ip,:)
      if (intersect_curve(x1, x2, Ctmp, xh=x, sh=sh, ish=ish, intersect_mode=RAY)) then
-         if (debug) write (99, *) ip, 1.d0*ish+sh
-         w(ip) = ish+sh
-         Cout%x(ip,:) = x
-         if (debug) write (96, *) x
+        w(ip)        = 1.d0 * (ish-1) + sh
+        Cout%x(ip,:) = x
+        if (debug) write (96, *) x
      else
-         if (debug) write (99, *) ip, -1.2345d0
      endif
+
+     if (debug) write (99, *) ip, w(ip)
   enddo
 
 
@@ -708,7 +735,8 @@ end subroutine vacuum_domain_by_upscale_adjust
   ip = 0
   do
      if (w(ip) >= 0.d0  .or.  ip == n) exit
-     w(ip) = 0.d0
+     w(ip)        = 0.d0
+     Cout%x(ip,:) = Ctmp%x(0,:)
 
      ip = ip+1
   enddo
@@ -717,7 +745,8 @@ end subroutine vacuum_domain_by_upscale_adjust
   ip = n
   do
      if (w(ip) >= 0.d0  .or.  ip == 0) exit
-     w(ip) = n
+     w(ip)        = n
+     Cout%x(ip,:) = Ctmp%x(n,:)
 
      ip = ip-1
   enddo
