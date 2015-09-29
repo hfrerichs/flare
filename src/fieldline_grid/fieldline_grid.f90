@@ -92,7 +92,7 @@ module fieldline_grid
      d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
      d_PFR(2)            =   15.d0, &      ! radial width of private flux region
      d_N0(0:max_layers-1)=   10.d0, &      ! radial width of vacuum region
-     d_extend(-1:1)      =    2.d0, &      ! poloidal extension of divertor leg (used in close_grid_domain)
+     d_extend(0:max_layers-1,-1:1) = 0.d0, &      ! poloidal extension of divertor leg (used in close_grid_domain)
      d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
      alphaL(2)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
@@ -164,6 +164,7 @@ module fieldline_grid
 
      ! additional domain for neutral particles
      real(real64) :: d_N0 = 0.d0
+     real(real64) :: d_extend(-1:1) = 0.d0
      character(len=80) :: N0_file, N0_method
 
      contains
@@ -213,8 +214,9 @@ module fieldline_grid
   this%p_surf_pl_trans_range(2) = this%np
 
   ! 3.2 set parameters for additional neutral domain
-  this%d_N0    = d_N0(ilayer)
-  this%N0_file = N0_file(ilayer)
+  this%d_N0      = d_N0(ilayer)
+  this%d_extend  = d_extend(ilayer,-1:1)
+  this%N0_file   = N0_file(ilayer)
   this%N0_method = N0_method(ilayer)
 
 

@@ -693,11 +693,12 @@ module divertor
 !=======================================================================
   subroutine close_grid_domain(iz)
   use equilibrium
-  use fieldline_grid, only: d_extend
+  use fieldline_grid, only: Zone
 
   integer, intent(in) :: iz
 
 
+  real(real64) :: d
   integer      :: i, iside, j, j0(-1:1), k0(-1:1)
   logical      :: debug = .false.
 
@@ -716,7 +717,8 @@ module divertor
      j = j0(i)
 
      ! extend poloidal surface
-     call extend_poloidal_surface(d_extend(i))
+     d = Zone(iz)%d_extend(i)
+     if (d > 0.d0) call extend_poloidal_surface(d)
 
      ! distribute nodes in toroidal direction
      call distribute_nodes()
