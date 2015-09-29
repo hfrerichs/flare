@@ -150,7 +150,7 @@ module quasi_surface
 
 
   real(real64) :: deviation(-5:5), Rin(-5:5)
-  real(real64) :: TRACE_L,R_B,R_TRY,D_B,D_TRY,HOMOGENEITY,STEP,R_MIN,D_MIN
+  real(real64) :: TRACE_L,R_B,R_TRY,D_B,D_TRY,STEP,R_MIN,D_MIN
   integer      :: IERR,I,I_MIN
   intrinsic    :: MINLOC,MINVAL
 
