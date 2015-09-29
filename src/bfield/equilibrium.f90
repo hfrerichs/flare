@@ -644,10 +644,25 @@ module equilibrium
 ! Return poloidal angle [rad] at r=(R,Z [cm], phi [rad])
 !=======================================================================
   function get_poloidal_angle(r) result(theta)
-  real*8, intent(in) :: r(3)
-  real*8             :: theta, Maxis(3)
+  real(real64), dimension(:), intent(in) :: r
+  real(real64)                           :: theta
 
-  Maxis = get_magnetic_axis(r(3))
+  real(real64) :: phi, Maxis(3)
+
+
+  select case(size(r))
+  case(2)
+     phi = 0.d0
+  case(3)
+     phi = r(3)
+  case default
+     write (6, *) 'error in get_poloidal_angle: invalid size of argument r0!'
+     write (6, *) 'size(r) = ', size(r)
+     stop
+  end select
+
+
+  Maxis = get_magnetic_axis(phi)
   theta = atan2(r(2) - Maxis(2), r(1) - Maxis(1))
 
   end function get_poloidal_angle
