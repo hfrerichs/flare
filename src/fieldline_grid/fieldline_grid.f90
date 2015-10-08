@@ -1466,6 +1466,7 @@ module fieldline_grid
   use iso_fortran_env
   use emc3_grid
   use bfield
+  use equilibrium, only: get_PsiN
   use math, only: pi
   implicit none
 
@@ -1478,6 +1479,8 @@ module fieldline_grid
   write (6, *) 'sampling magnetic field strength on grid ...'
   if (.not.allocated(BFSTREN)) allocate(BFSTREN(0:GRID_P_OS(NZONET)-1))
   BFSTREN = 0.d0
+  if (.not.allocated(PSI_N))   allocate(PSI_N(0:GRID_P_OS(NZONET)-1))
+  PSI_N   = 0.d0
 
 
   do iz=0,NZONET-1
@@ -1493,6 +1496,7 @@ module fieldline_grid
         Bf   = get_Bf_cyl(x)
 
         BFSTREN(ig) = sqrt(sum(Bf**2))
+        PSI_N(ig)   = get_PsiN(x)
      enddo
      enddo
   enddo
@@ -1503,6 +1507,10 @@ module fieldline_grid
 
   open  (iu, file='bfield.dat')
   write (iu, *) BFSTREN
+  close (iu)
+
+  open  (iu, file='psiN.dat')
+  write (iu, *) PSI_N
   close (iu)
 
   end subroutine sample_bfield_on_emc3_grid

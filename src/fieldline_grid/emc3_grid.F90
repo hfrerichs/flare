@@ -17,8 +17,8 @@ module emc3_grid
      P_SURF_PL_TRANS_RANGE
 
   real*8, dimension(:), allocatable, save :: &
-     RG,                  ZG,                PHI_PLANE, &
-     BFSTREN,        PSI_POLOIDAL
+     RG,                  ZG,                    PHI_PLANE, &
+     BFSTREN,             PSI_N
 
   logical, private, save :: already_loaded = .false.
 
