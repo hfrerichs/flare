@@ -158,7 +158,7 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
 
   type(t_flux_surface_2D)  :: F
   real(real64)       :: L, dl, Bpol, Bpolint, Bf(3), xi, r(3), y(3)
-  real(real64)       :: eps, kap(2), del(2), Ri, Ro, Rh, Rl, R0, Zh, Zl
+  real(real64)       :: eps, kap, del(2), Ri, Ro, Rh, Rl, R0, Zh, Zl, w, h
   integer            :: i, ierr
 
 
@@ -184,24 +184,33 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
 
   ! analyze shape of LCFS
   ! high point
-  i = maxloc(F%x(:,2), 1)
+  i  = maxloc(F%x(:,2), 1)
   Rh = F%x(i,1);   Zh = F%x(i,2)
   ! low point
-  i = minloc(F%x(:,2), 1)
+  i  = minloc(F%x(:,2), 1)
   Rl = F%x(i,1);   Zl = F%x(i,2)
   ! innermost point
-  i = minloc(F%x(:,1), 1)
+  i  = minloc(F%x(:,1), 1)
   Ri = F%x(i,1)
   ! outermost point
-  i = maxloc(F%x(:,1), 1)
+  i  = maxloc(F%x(:,1), 1)
   Ro = F%x(i,1)
+  if (Debug) then
+     open  (99, file='lcfs_box.dat')
+     write (99, *) Ri, Zl
+     write (99, *) Ro, Zl
+     write (99, *) Ro, Zh
+     write (99, *) Ri, Zh
+     close (99)
+  endif
 
   R0  = 0.5d0 * (Ro + Ri)
-  eps = (Ro - Ri) / (Ro + Ri)
+  w   = 0.5d0 * (Ro - Ri)
+  h   = 0.5d0 * (Zh - Zl)
+  eps = w / R0
+  kap = h / w
   del(1) = (R0 - Rh) / R0 / eps
   del(2) = (R0 - Rl) / R0 / eps
-  kap(1) = Zh / R0 / eps
-  kap(2) = -Zl / R0 / eps
   write (6, 9020) 1.d0/eps
   write (6, 9021) kap
   write (6, 9022) del
@@ -230,7 +239,7 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
  9013 format(8x,'surface area [m**2]           = ', f10.4)
  9014 format(8x,'plasma volume [m**3]          = ', f10.4)
  9020 format(8x,'aspect ratio                  = ', f10.4)
- 9021 format(8x,'elongation (upper, lower)     = ', 2f10.4)
+ 9021 format(8x,'elongation                    = ', f10.4)
  9022 format(8x,'triangularity (upper, lower)  = ', 2f10.4)
 end subroutine Ip_info
 !===============================================================================
