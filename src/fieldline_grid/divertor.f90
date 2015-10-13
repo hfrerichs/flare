@@ -198,6 +198,8 @@ module divertor
   eta1 = eta; eta2 = eta
   if (ix1 < 0) eta1 = eta1 + 1.d0
   if (ix2 < 0) eta2 = eta2 + 1.d0
+  !if (ix1 < 0) eta1 = 1.d0
+  !if (ix2 < 0) eta2 = 1.d0
 
 
   ! setup relative coordinates xiL, xiR for divertor legs
@@ -699,7 +701,7 @@ module divertor
 
 
   real(real64) :: d
-  integer      :: i, iside, j, j0(-1:1), k0(-1:1)
+  integer      :: i, iside, j, j0(-1:1), k, k0(-1:1)
   logical      :: debug = .false.
 
 
@@ -707,21 +709,25 @@ module divertor
   P_SURF_PL_TRANS_RANGE(2,iz) = ZON_POLO(iz)-1
 
 
-  j0(-1) = 0
-  j0( 1) = SRF_POLO(iz)-1
-  k0(-1) = SRF_TORO(iz)-1
-  k0( 1) = 0
-  do iside=-1,1,2
-     i = int(iside * Ip_sign * Bt_sign)
+  j0( 1) = 0
+  j0(-1) = SRF_POLO(iz)-1
+  k0( 1) = SRF_TORO(iz)-1
+  k0(-1) = 0
+  do i=-1,1,2
+     iside = int(i * Ip_sign * Bt_sign)
      ! poloidal index of reference surface
-     j = j0(i)
+     j = j0(iside)
+
+     ! toroidal index of reference surface
+     k = k0(i)
 
      ! extend poloidal surface
      d = Zone(iz)%d_extend(i)
-     if (d > 0.d0) call extend_poloidal_surface(d)
+     if (d > 0.d0) call extend_poloidal_surface(d, k)
+     if (d < 0.d0) call adjust_poloidal_surface_automatic(j, k, i)
 
      ! distribute nodes in toroidal direction
-     call distribute_nodes()
+     call distribute_nodes(k)
   enddo
 
 
@@ -729,14 +735,15 @@ module divertor
   !.....................................................................
 
   !.....................................................................
-  subroutine distribute_nodes()
+  subroutine distribute_nodes(k0)
+  integer, intent(in) :: k0
 
   real(real64) :: R1, Z1
   integer      :: i, ig, ig0, k
 
-  write (6, *) 'adjusting nodes to surface (iz, it, ip) = ', iz, k0(iside), j
+  write (6, *) 'adjusting nodes to surface (iz, it, ip) = ', iz, k0, j
   do i=0,SRF_RADI(iz)-1
-     ig0 = i + (j + k0(iside)*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     ig0 = i + (j + k0*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
      R1 = RG(ig0)
      Z1 = ZG(ig0)
 
@@ -752,17 +759,18 @@ module divertor
 
 
   !.....................................................................
-  subroutine extend_poloidal_surface(d_extend)
+  subroutine extend_poloidal_surface(d_extend, k)
   ! => straight connection between first and last radial node
   ! this should fix some problems for module MAPPING in EMC3
   ! TODO: find optimal/minimal value for d_extend
 
   real(real64), intent(in) :: d_extend
+  integer,      intent(in) :: k
 
 
   real(real64), dimension(:), allocatable :: w
   real(real64) :: R1, Z1, R2, Z2
-  integer :: i, k, ir1, ir2, ig, ig0
+  integer :: i, ir1, ir2, ig, ig0
 
 
   ir1 = 0
@@ -773,7 +781,6 @@ module divertor
 
   allocate (w(ir1:ir2))
   w = 0.d0
-  k = k0(iside)
 
 
   ! set up weight to maintain relative cell widths
@@ -819,6 +826,111 @@ module divertor
   deallocate(w)
 
   end subroutine extend_poloidal_surface
+  !.....................................................................
+  subroutine adjust_poloidal_surface_automatic(j, k, iside)
+  use math
+  integer, intent(in) :: j, k, iside
+
+  real(real64), dimension(:), allocatable :: w
+  real(real64) :: vt(2), d, dmax
+  integer      :: i, i2, ir1, ir2, ig, ig2, i2max
+
+
+  ! 0. initialize
+  ir1 = 0
+  ir2 = SRF_RADI(iz)-1
+  allocate (w(ir1:ir2))
+  w = 0.d0
+
+
+  ! 1. set up weight to maintain relative cell widths
+  do i=ir1+1,ir2
+     ig   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     w(i) = w(i-1) + sqrt((ZG(ig)-ZG(ig-1))**2 + (RG(ig)-RG(ig-1))**2)
+  enddo
+  w = w / w(ir2)
+
+
+  ! 2. check internal nodes
+  i = ir1
+  do
+     if (i == ir2) exit
+
+     ! tangent vector line from i->i+1
+     ig    = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+     ig2   = ig + 1
+     vt(1) = RG(ig2) - RG(ig)
+     vt(2) = ZG(ig2) - ZG(ig)
+     ! find max. deviation from line
+     dmax  = 0.d0
+     do i2 = i+2,ir2
+        ig2 = i2 + (j + k*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
+        d  = atan2(vt(2), vt(1)) - atan2(ZG(ig2)-ZG(ig), RG(ig2)-RG(ig))
+        if (abs(d) > pi) d = d - sign(pi2,d)
+        d  = - d * iside
+        if (d > dmax) then
+           dmax  = d
+           i2max = i2
+        endif
+     enddo
+
+     ! adjustment necessary?
+     if (dmax > 0.d0) then
+        call interpolate_nodes(i,i2max,j,k)
+        write (6, *) 'interpolate nodes: ', i, i2max, j, k
+        i = i2max
+        cycle
+     endif
+
+     i = i+1
+  enddo
+
+
+  ! 99. cleanup
+  deallocate (w)
+
+  end subroutine adjust_poloidal_surface_automatic
+  !.....................................................................
+  subroutine interpolate_nodes(ir1, ir2, j, k)
+  integer, intent(in) :: ir1, ir2, j, k
+
+  real(real64), dimension(:), allocatable :: w
+  real(real64) :: R1, R2, Z1, Z2
+  integer      :: i, ig
+
+
+  ! 0. initialize
+  allocate (w(ir1:ir2))
+  w  = 0.d0
+  ! first node
+  ig = ir1 + (j + k*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+  R1 = RG(ig); Z1 = ZG(ig)
+  ! last node
+  ig = ir2 + (j + k*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+  R2 = RG(ig); Z2 = ZG(ig)
+
+
+  ! 1. set up weight to maintain relative cell widths
+  do i=ir1+1,ir2
+     ig   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     w(i) = w(i-1) + sqrt((ZG(ig)-ZG(ig-1))**2 + (RG(ig)-RG(ig-1))**2)
+  enddo
+  w = w / w(ir2)
+
+
+  ! 2. interpolate nodes in between (and maintain relative cell width)
+  do i=ir1+1,ir2-1
+     ig = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+     RG(ig) = R1 + w(i) * (R2-R1)
+     ZG(ig) = Z1 + w(i) * (Z2-Z1)
+  enddo
+
+
+  ! 3. cleanup
+  deallocate(w)
+
+  end subroutine interpolate_nodes
   !.....................................................................
   end subroutine close_grid_domain
 !=======================================================================
