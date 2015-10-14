@@ -3,7 +3,7 @@
 !===============================================================================
 subroutine generate_separatrix
   use iso_fortran_env
-  use run_control, only: x_start, Output_File, Label
+  use run_control, only: x_start, Output_File, Output_Format, Label
   use equilibrium
   use separatrix
   use parallel
@@ -30,7 +30,11 @@ subroutine generate_separatrix
      write (6, *) i, Xp(i)%X
      write (c, '(i0)') i
      call S%generate(i, 2.d0)
-     call S%plot('separatrix_'//trim(Label)//'X'//trim(c), parts=.true.)
+     if (Output_Format == 1) then
+        call S%plot('separatrix_'//trim(Label)//'X'//trim(c), parts=.true.)
+     else
+        call S%plot('separatrix_'//trim(Label)//'X'//trim(c), parts=.false.)
+     endif
   enddo
 
 end subroutine generate_separatrix
