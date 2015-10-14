@@ -212,8 +212,8 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   del(1) = (R0 - Rh) / R0 / eps
   del(2) = (R0 - Rl) / R0 / eps
   write (6, 9020) 1.d0/eps
-  write (6, 9021) kap
-  write (6, 9022) del
+  write (6, 9021) kap, Zh/R0/eps, -Zl/R0/eps
+  write (6, 9022) 0.5d0*(del(1)+del(2)), del
   write (6, *)
 
 
@@ -239,8 +239,8 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
  9013 format(8x,'surface area [m**2]           = ', f10.4)
  9014 format(8x,'plasma volume [m**3]          = ', f10.4)
  9020 format(8x,'aspect ratio                  = ', f10.4)
- 9021 format(8x,'elongation                    = ', f10.4)
- 9022 format(8x,'triangularity (upper, lower)  = ', 2f10.4)
+ 9021 format(8x,'elongation (upper, lower)     = ', f10.4, 4x, '(', f10.4, ', ', f10.4, ')')
+ 9022 format(8x,'triangularity (upper, lower)  = ', f10.4, 4x, '(', f10.4, ', ', f10.4, ')')
 end subroutine Ip_info
 !===============================================================================
 
