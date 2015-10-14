@@ -18,6 +18,8 @@ module amhd
      eps          = 0.4d0, & ! inverse aspect ratio = normlized midplane minor radius
      del          = 0.4d0, & ! triangularity
      kap          = 1.8d0, & ! elongation
+     delX         = 0.0d0, & ! X-point triangularity
+     kapX         = 0.0d0, & ! X-point elongation
      A            = 0.d0, &
      xsep         = 0.d0, &  ! normalized position of lower X-point
      ysep         = 0.d0, &
@@ -32,7 +34,7 @@ module amhd
 
   namelist /AMHD_Input/ &
      eps, del, kap, A, xsep, ysep, xsep2, ysep2, scale_manual, up_down_symmetry, snowflake, &
-     Rx, Zx
+     Rx, Zx, delX, kapX
 
 
   ! derived parameters (from equilibrium shape coefficients)
@@ -123,8 +125,20 @@ module amhd
 
 
   ! set default position of X-point
-  if (xsep == 0.d0) xsep = 1.d0 - 1.1d0*del*eps
-  if (ysep == 0.d0) ysep = -1.1d0*kap*eps
+  if (xsep == 0.d0) then
+     if (delX == 0.d0) then
+        xsep = 1.d0 - 1.1d0*del*eps
+     else
+        xsep = 1.d0 - delX*eps
+     endif
+  endif
+  if (ysep == 0.d0) then
+     if (kapX == 0.d0) then
+        ysep = -1.1d0*kap*eps
+     else
+        ysep = -kapX*eps
+     endif
+  endif
   if (xsep2 == 0.d0) xsep2 = 0.54506
   if (ysep2 == 0.d0) ysep2 = -1.7701
   ! overwrite if real space coordinates are given
