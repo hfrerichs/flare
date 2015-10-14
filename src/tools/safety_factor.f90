@@ -3,6 +3,7 @@
 !
 ! Input (taken from run control file):
 !    R_start, R_end	Defines radial domain at the midplane (Z=0)
+!    Psi(2)             Alternative definition of radial domain by normalized poloidal flux
 !    N_steps            Number of discretization steps used to calculate q
 !    Phi_output		Toroidal coordinate [deg] from which field lines are traced
 !    N_mult             Number of pol. turns used for averaging
@@ -11,10 +12,11 @@
 !    Output_File
 !===============================================================================
 subroutine safety_factor
-  use run_control, only: R_start, R_end, N_steps, Phi_output, N_mult, &
+  use run_control, only: R_start, R_end, Psi, N_steps, Phi_output, N_mult, &
                          Trace_Step, Trace_Method, Trace_Coords, &
                          Output_File
   use parallel
+  use equilibrium
   use fieldline
   implicit none
 
@@ -24,7 +26,7 @@ subroutine safety_factor
 
   real*8, dimension(:,:), allocatable :: Qdata
   real*8  :: dR, r(3), y(3), X(3), Psi_av, Lc
-  integer :: i, n_av
+  integer :: i, ierr, n_av
 
 
   ! initialize
@@ -36,8 +38,30 @@ subroutine safety_factor
   endif
   allocate (Qdata(0:N_steps,4))
   Qdata = 0.d0
+  if (Psi(2) > 0.d0) then
+     y(1)    = 180.d0
+     y(2)    = Psi(2)
+     y(3)    = Phi_output / pi * 180.d0
+     r       = get_cylindrical_coordinates(y, ierr)
+     if (ierr > 0) then
+        write (6, *) 'error: cannot find real space coordinates for Psi = ', Psi(2)
+        stop
+     endif
+     R_end   = r(1)
+
+     y(1)    = 180.d0
+     y(2)    = Psi(1)
+     y(3)    = Phi_output / pi * 180.d0
+     r       = get_cylindrical_coordinates(y, ierr)
+     if (ierr > 0) then
+        write (6, *) 'error: cannot find real space coordinates for Psi = ', Psi(1)
+        stop
+     endif
+     R_start = r(1)
+  else
+     r(2)  = 0.d0
+  endif
   dR    = (R_end - R_start) / N_steps
-  r(2)  = 0.d0
   r(3)  = Phi_output
 
 
