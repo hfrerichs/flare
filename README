@@ -39,6 +39,23 @@ Execute "run_flare.sh" in your working directory. Required input files are:
 
 
 
+Parallelization:
+----------------
+
+Parallelization is supported for all magnetic field configurations except those based on M3D-C1 data.
+Parallelization is implemented in the following tools:
+-connection_length
+-field_line_loss
+-melnikov_function
+-poincare_plot
+-safety_factor
+-sample_bfield
+-separatrix_manifolds
+-transform_to_flux_coordinates
+
+
+
+
 Notes for particular architectures:
 -----------------------------------
 CHTC: load modules
