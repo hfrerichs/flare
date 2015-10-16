@@ -37,21 +37,27 @@ module separatrix
 !                -> Xp(iPx)%X: Coordinates of X-point (R[cm], Z[cm])
 ! orientation =  1: lower null
 !             = -1: upper null
+!
+! Optional input:
 ! theta_cut   =  poloidal cut-off angle (-> split core separatrix into left and right segments)
+! C_cutl,
+! C_cutr      =  cut-off surface for separatrix segments
 ! iconnect    =  number of X-point to which separatrix connects
 !                (-> used to set poloidal cut-off angle)
+! offset      =  offset from X-point to start tracing
+! trace_step  =  integration step size
 !===============================================================================
 
-  subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr, iconnect)
+  subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr, iconnect, offset, trace_step)
   use math
   use run_control, only: Debug
   class(t_separatrix)                 :: this
   integer,       intent(in)           :: iPx
-  real(real64),  intent(in), optional :: theta_cut
+  real(real64),  intent(in), optional :: theta_cut, offset, trace_step
   type(t_curve), intent(in), optional :: C_cutl, C_cutr
   integer,       intent(in), optional :: iconnect
 
-  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0, &
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, s1, &
                   theta_cutL, theta_cutR, dtheta
   integer      :: orientation
 
@@ -110,13 +116,25 @@ module separatrix
   endif
 
 
+  ! set offset from X-point
+  s1 = 0.1d0
+  if (present(offset)) then
+     s1 = offset
+  endif
+
+
+  ! set trace step
+  ds      = 1.d-2
+  if (present(trace_step)) then
+     ds   = trace_step
+  endif
+
+
   Px = Xp(iPx)%X ! Coordinates of X-point (R[cm], Z[cm])
   H  = Xp(iPx)%H ! Hessian matrix at X-point
   call H_eigenvectors(H, v1, v2)
-  ds0     = 0.1d0
-  v1      = ds0*v1; v2 = ds0*v2
+  v1      = s1*v1; v2 = s1*v2
   this%Px = Px
-  ds      = ds0**2
   if (Debug) then
      open  (97, file='right.tmp', position='append')
      write (97, *) Px

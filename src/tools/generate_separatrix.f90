@@ -3,7 +3,7 @@
 !===============================================================================
 subroutine generate_separatrix
   use iso_fortran_env
-  use run_control, only: x_start, Output_File, Output_Format, Label
+  use run_control, only: x_start, Output_File, Output_Format, Label, offset, Trace_Step
   use equilibrium
   use separatrix
   use parallel
@@ -11,7 +11,7 @@ subroutine generate_separatrix
 
   character(len=1)   :: c
   type(t_separatrix) :: S
-  real(real64) :: X(2)
+  real(real64) :: X(2), ts
   integer      :: i
 
 
@@ -23,13 +23,18 @@ subroutine generate_separatrix
   endif
 
 
+  ! set trace step
+  ts = Trace_Step
+  if (ts > offset/10.d0) ts = offset / 10.d0
+
+
   if (Label .ne. '') Label = trim(Label)//'_'
   do i=1,nx_max
      if (Xp(i)%undefined) cycle
 
      write (6, *) i, Xp(i)%X
      write (c, '(i0)') i
-     call S%generate(i, 2.d0)
+     call S%generate(i, 2.d0, offset=offset, trace_step=ts)
      if (Output_Format == 1) then
         call S%plot('separatrix_'//trim(Label)//'X'//trim(c), parts=.true.)
      else
