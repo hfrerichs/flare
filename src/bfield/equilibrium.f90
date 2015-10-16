@@ -1079,11 +1079,12 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine find_hyperbolic_points()
+  subroutine find_hyperbolic_points(nR, nZ)
+  integer, intent(in)  :: nR, nZ
+
+  integer, parameter   :: iu = 54
+
   real(real64)         :: Rbox(2), Zbox(2)
-
-  integer, parameter :: nR = 20, nZ = 20, iu = 54
-
   type(t_Xpoint) :: Xp
   real(real64)   :: x(2), H(2,2), xk(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
   real(real64)   :: DPsi, DPsi1, r3(3)

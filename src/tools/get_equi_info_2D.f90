@@ -3,6 +3,7 @@
 !===============================================================================
 subroutine get_equi_info_2D
   use iso_fortran_env
+  use run_control, only: N_R, N_Z
   use magnetic_axis
   use equilibrium, only: get_domain, find_hyperbolic_points, get_Psi, &
                          equilibrium_info, Psi_axis, Psi_sepx, i_equi, EQ_AMHD
@@ -29,7 +30,9 @@ subroutine get_equi_info_2D
 
   call get_domain (Rbox, Zbox)
 
-  call find_hyperbolic_points()
+  nR = 20;    if (N_R > 1) nR = N_R
+  nZ = 20;    if (N_Z > 1) nZ = N_Z
+  call find_hyperbolic_points(nR, nZ)
 
   ! magnetic axis
   r(3) = 0.d0
