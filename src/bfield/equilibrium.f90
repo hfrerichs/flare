@@ -359,7 +359,7 @@ module equilibrium
 ! load equilibrium data
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
+     call geqdsk_load (Data_File, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
   case (EQ_DIVAMHD)
      call divamhd_load (Data_File, Ip, Bt, R0)
 

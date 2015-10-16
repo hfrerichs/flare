@@ -33,7 +33,8 @@
       real*8, dimension(:), allocatable, target :: rlim, zlim
 
       real*8  :: Rdim, Zdim, Rcentr, Rleft, Zmid, Current,
-     .    Rmaxis, Zmaxis, Simag, Sibry, Bcentr
+     .    Rmaxis, Zmaxis, Simag, Sibry, Bcentr,
+     .    Bt_scale, Ip_scale
 
       integer :: nR, nZ, nbbbs, limitr
 
@@ -67,11 +68,12 @@
 !===============================================================================
 ! Load equilibrum data from file
 !===============================================================================
-      subroutine geqdsk_load (Data_File, use_PFC_, CurrentFix_, DL_,
-     .                        psi_axis, psi_sepx)
+      subroutine geqdsk_load (Data_File, Ip, Bt, use_PFC_, CurrentFix_,
+     .                        DL_, psi_axis, psi_sepx)
       use run_control, only: Spline_Order
       use bspline
       character*120, intent(in) :: Data_File
+      real*8,  intent(in)       :: Ip, Bt
       logical, intent(in), optional  :: use_PFC_, CurrentFix_
       integer, intent(in), optional  :: DL_
       real*8, intent(out), optional  :: psi_axis,psi_sepx
@@ -102,6 +104,19 @@
       call setup_magnetic_axis_2D (Rmaxis*1.d2, Zmaxis*1.d2)
 
 
+      ! equilibrium scale factors
+      Bt_scale = 1.d0
+      if (Bt .ne. 0.d0) then
+         Bt_scale = Bt / Bcentr
+         Bcentr   = Bcentr * Bt_scale
+      endif
+      Ip_scale = 1.d0
+      if (Ip .ne. 0.d0) then
+         Ip_scale = Ip / Current
+         Current  = Current * Ip_scale
+      endif
+
+
       ! runtime feedback of characteristic values
       write (6, 3000) adjustl(case_(1)), case_(2:6)
       write (6, *)
@@ -128,6 +143,11 @@
       read  (iu, 2020) (rbbbs(i), zbbbs(i), i=1,nbbbs)
       read  (iu, 2020) (rlim(i), zlim(i), i=1,limitr)
       close (iu)
+
+
+      ! apply equilibrium scale factors
+      fpol  = fpol  * Bt_scale
+      psirz = psirz * Ip_scale
 
 
 ! diagnostic output ............................................................
