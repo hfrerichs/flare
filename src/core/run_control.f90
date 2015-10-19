@@ -193,6 +193,8 @@ module run_control
      call field_line_loss
   case ('generate_separatrix')
      call generate_separatrix
+  case ('generate_rpath')
+     call generate_rpath()
   case ('footprint_grid')
      call footprint_grid
   case ('setup_distance_to_surface')
