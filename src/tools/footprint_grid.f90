@@ -106,7 +106,7 @@ subroutine footprint_grid
         w0      = S_axi(surf_id)%w(ish-1)
         w0      = w0 + sh * (S_axi(surf_id)%w(ish) - S_axi(surf_id)%w(ish-1))
 
-        L0_off  = R_start
+        L0_off  = R_start; if (N_mult < 0) L0_off = R_end
         w1      = w0 + N_mult * R_start/L
         w2      = w0 + N_mult * R_end/L
         R_start = min(w1, w2);  R_end   = max(w1, w2)
@@ -193,7 +193,7 @@ subroutine footprint_grid
      ! select diagnostic coordinate used for plotting (3rd column)
      select case (mod(Output_Format,10))
      case (1)	! length along surface in RZ-plane
-        L = t * L0  +  L0_off
+        L = N_mult * t * L0  +  L0_off
      case (2)
         L = x(1) ! R-coordinate
      case (3)
