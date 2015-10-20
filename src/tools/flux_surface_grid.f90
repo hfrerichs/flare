@@ -63,7 +63,8 @@ subroutine flux_surface_grid
               write (6, *) 'error: cannot find first point on surface ', i
               stop
            endif
-           write (6, 9000) Psi(1)   + i * dPsi, Theta(1) + j * dTheta
+           y(2) = Psi(1)   + i * dPsi
+           write (6, 9000) y(2), Theta(1) + j * dTheta
 
            ! generate flux surface from first point
            x(1:2) = G1%mesh(i,0,1:2)
@@ -73,7 +74,7 @@ subroutine flux_surface_grid
            call S%setup_angular_sampling()
            do j2=0,n_theta-1
               t    = 1.d0 * j2 / n_theta
-              y(1) = Theta(1) + j * dTheta
+              y(1) = Theta(1) + j2 * dTheta
               call S%sample_at(t, x(1:2))
               G1%mesh(i,j2,1:2) = x(1:2)
               G2%mesh(i,j2,1:2) = y(1:2)
