@@ -55,6 +55,17 @@ module separatrix
   integer      :: orientation
 
 
+  ! check iPx
+  if (iPx <= 0  .or.  iPx > nx_max) then
+     write (6, *) 'error: invalid X-point id ', iPx
+     stop
+  endif
+  if (Xp(iPx)%undefined) then
+     write (6, *) 'error: X-point ', iPx, ' is undefined!'
+     stop
+  endif
+
+
   ! set orientation (lower null vs. upper null)
   orientation = 1
   if (Xp(iPx)%X(2) > 0.d0) then
