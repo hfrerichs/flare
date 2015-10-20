@@ -56,17 +56,19 @@ subroutine flux_surface_grid
         !if (ierr > 0) x = get_cylindrical_coordinates (y, ierr, damping=0.01d0, iter=iterations)
         G_debug%x1(j+1) = j
         G_debug%x2(i+1) = i
+
+        ! failed to find cylindrical coordinates for y from function get_cylindrical_coordinates
         if (ierr > 0  .and.  .not.Debug) then
            if (j == 0) then
               write (6, *) 'error: cannot find first point on surface ', i
               stop
            endif
-           write (6, *) 'function get_cylindrical_coordinates failed at Psi, Theta = ', y(2), y(1)
+           write (6, 9000) Psi(1)   + i * dPsi, Theta(1) + j * dTheta
 
            ! generate flux surface from first point
            x(1:2) = G1%mesh(i,0,1:2)
            x(3)   = Phi_output
-           write (6, *) 'flux surface is generated from ', x(1:2), ' by field line tracing'
+           write (6, 9001) x(1:2)
            call S%generate_closed(x)
            call S%setup_angular_sampling()
            do j2=0,n_theta-1
@@ -89,26 +91,11 @@ subroutine flux_surface_grid
   enddo radial_loop
   call G1%store(filename=Grid_File)
   call G2%store(filename=Output_File)
- 3000 format (2e18.10)
   if (Debug) then
      call D%plot(filename='debug.dat')
      call G_debug%store(filename='debug.grid')
   endif
 
-
-!  x0(1) = 0.1278518850E+03
-!  x0(2) = -0.1030043743E+03
-!  xc    = get_magnetic_axis(0.d0)
-!  call S%generate(x0)
-!  call S%sort_loop(xc(1:2))
-!  call S%setup_angular_sampling(xc(1:2))
-!
-!  n = 100
-!  do i=0,n
-!     t = 1.d0*i/n
-!     t = Theta(1) + (Theta(2)-Theta(1)) * t
-!     t = t / 360.d0
-!     call S%sample_at(t, x)
-!  enddo
-
+ 9000 format ('function get_cylindrical_coordinates failed at Psi, Theta = ',f10.5,', ',f10.5)
+ 9001 format ('flux surface is generated from ',f10.5,', ',f10.5,' by field line tracing')
 end subroutine flux_surface_grid
