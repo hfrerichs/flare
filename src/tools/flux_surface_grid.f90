@@ -28,7 +28,7 @@ subroutine flux_surface_grid
   type(t_dataset)         :: D
   type(t_grid)            :: G1, G2, G_debug
   real(real64) :: x0(2), xc(3), t, x(3), y(3), dPsi, dTheta
-  integer :: i, j, ig, n, ierr, iterations
+  integer :: i, j, j2, ig, n, ierr, iterations
 
 
   if (firstP) then
@@ -46,24 +46,47 @@ subroutine flux_surface_grid
   call D%new(n,2)
   dTheta = 0.d0; if (n_theta > 1) dTheta = (Theta(2)-Theta(1)) / (n_theta - 1)
   dPsi   = 0.d0; if (n_psi   > 1) dPsi   = (Psi(2)  -Psi(1)  ) / (n_psi   - 1)
-  do i=0, n_psi-1
-     do j=0, n_theta-1
+  radial_loop: do i=0, n_psi-1
+     poloidal_loop: do j=0, n_theta-1
         y(2) = Psi(1)   + i * dPsi
         y(1) = Theta(1) + j * dTheta
         y(3) = Phi_output
 
         x = get_cylindrical_coordinates (y, ierr, iter=iterations)
         !if (ierr > 0) x = get_cylindrical_coordinates (y, ierr, damping=0.01d0, iter=iterations)
+        G_debug%x1(j+1) = j
+        G_debug%x2(i+1) = i
+        if (ierr > 0  .and.  .not.Debug) then
+           if (j == 0) then
+              write (6, *) 'error: cannot find first point on surface ', i
+              stop
+           endif
+           write (6, *) 'function get_cylindrical_coordinates failed at Psi, Theta = ', y(2), y(1)
+
+           ! generate flux surface from first point
+           x(1:2) = G1%mesh(i,0,1:2)
+           x(3)   = Phi_output
+           write (6, *) 'flux surface is generated from ', x(1:2), ' by field line tracing'
+           call S%generate_closed(x)
+           call S%setup_angular_sampling()
+           do j2=0,n_theta-1
+              t    = 1.d0 * j2 / n_theta
+              y(1) = Theta(1) + j * dTheta
+              call S%sample_at(t, x(1:2))
+              G1%mesh(i,j2,1:2) = x(1:2)
+              G2%mesh(i,j2,1:2) = y(1:2)
+           enddo
+
+           exit poloidal_loop
+        endif
+
         G1%mesh(i,j,1:2) = x(1:2)
         G2%mesh(i,j,1:2) = y(1:2)
         D%x(ig,1) = ierr
         D%x(ig,2) = iterations
         ig        = ig + 1
-
-        G_debug%x1(j+1) = j
-        G_debug%x2(i+1) = i
-     enddo
-  enddo
+     enddo poloidal_loop
+  enddo radial_loop
   call G1%store(filename=Grid_File)
   call G2%store(filename=Output_File)
  3000 format (2e18.10)
