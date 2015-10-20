@@ -1,8 +1,10 @@
+!===============================================================================
 ! Calculate (subharmonic) Melnikov function
 !
 ! ATTENTION: This subroutine is based on an axisymmetric equilibrium (BF_EQ2D) and
 !            a perturbation field from an explicit coil set (BF_COILS)
 !
+!===============================================================================
 subroutine melnikov_function
   use parallel
   use run_control, only: Grid_File, Output_File, Trace_Step
@@ -18,7 +20,7 @@ subroutine melnikov_function
   type(t_fieldline) :: F
   type(t_dataset)   :: D
   type(t_grid) :: G
-  real(real64) :: y(3), x(3), Bpert(3), DPsi, GradPsi(2), DPsi_int(-1:1), Bf(3), Bmod, dl
+  real(real64) :: y(3), x(3), Bpert(3), DPsi, GradPsi(2), DPsi_int(-1:1), Bf(3), Bmod, dl, PsiN
   integer      :: ig, idir
 
 
@@ -37,11 +39,11 @@ subroutine melnikov_function
   iconfig(BF_EQ2D) = 1
 
 
-  call D%new(G%nodes(), 2)
+  call D%new(G%nodes(), 4)
   grid_loop: do ig=mype,G%nodes()-1,nprs
      write (6, *) ig
-     y = G%node(ig+1, coordinates=CYLINDRICAL)
-
+     y        = G%node(ig+1, coordinates=CYLINDRICAL)
+     PsiN     = get_PsiN(y)
      DPsi_int = 0.d0
      do idir=-1,1,2
         call F%init(y, idir*Trace_Step, NM_AdamsBashforth4, CYLINDRICAL)
@@ -59,12 +61,15 @@ subroutine melnikov_function
            DPsi       = DPsi / Bmod * dl
            DPsi_int(idir) = DPsi_int(idir) + DPsi
 
-           if (abs(F%theta_int) .ge. pi) exit trace_loop
+           if (abs(F%theta_int) .ge. pi2) exit trace_loop
+           if (PsiN > 1.d0  .and.  F%intersect_boundary()) exit trace_loop
         enddo trace_loop
      enddo
 
      D%x(ig+1, 1) = DPsi_int(-1)
      D%x(ig+1, 2) = DPsi_int( 1)
+     D%x(ig+1, 3) = PsiN + DPsi_int(-1)
+     D%x(ig+1, 4) = PsiN + DPsi_int( 1)
   enddo grid_loop
   call D%mpi_allreduce()
 
