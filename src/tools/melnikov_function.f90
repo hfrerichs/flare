@@ -4,10 +4,17 @@
 ! ATTENTION: This subroutine is based on an axisymmetric equilibrium (BF_EQ2D) and
 !            a perturbation field from an explicit coil set (BF_COILS)
 !
+! Input (taken from run control file):
+!    Input_Format       1: default operation for close flux surfaces
+!                       >1: check for intersection with boundary
+!
+!    Trace_Step
+!    Grid_File
+!    Output_File
 !===============================================================================
 subroutine melnikov_function
   use parallel
-  use run_control, only: Grid_File, Output_File, Trace_Step
+  use run_control, only: Grid_File, Output_File, Trace_Step, Input_Format
   use grid
   use fieldline
   use dataset
@@ -62,7 +69,9 @@ subroutine melnikov_function
            DPsi_int(idir) = DPsi_int(idir) + DPsi
 
            if (abs(F%theta_int) .ge. pi2) exit trace_loop
-           if (PsiN > 1.d0  .and.  F%intersect_boundary()) exit trace_loop
+           if (Input_Format > 1) then
+              if (F%intersect_boundary()) exit trace_loop
+           endif
         enddo trace_loop
      enddo
 
