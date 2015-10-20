@@ -3,6 +3,7 @@
 !
 ! Input (taken from run control file):
 !    Grid_File          filename for grid to be generated
+!    Output_File        filename for deposition grid for EMC3-EIRENE
 !
 !    surf_id            select boundary surface on which the grid is generated
 !                       NOT IMPLEMENTED YET (set to 1)
@@ -12,11 +13,12 @@
 !        1 (default):   0 < R_start < R_end < 1 define relative position along boundary surface 
 !                       R_start, R_end > 1 define segment numbers and relative position on
 !                       segments along boundary surface
-!        3:             Right strike point
-!        4:             Left strike point   R_start, R_end distance from strike point
+!       I3:             Right strike point from X-point I
+!       I4:             Left strike point   R_start, R_end distance from strike point
 !
 !    N_sym              Toroidal extend for grid on axisymmetric surface: 360 deg / N_sym
-!    N_mult             Multiplier for plot coordinate (should be 1 or -1)
+!    N_mult             Multiplier for plot coordinate (should be 1 for right handed boundary
+!                       or -1 for left handed boundary)
 !
 !    Phi_output         Reference marker (toroidal direction) on surface
 !                       For axisymmetric surfaces: lower coordinate for toroidal domain
@@ -51,7 +53,7 @@ subroutine footprint_grid
 
   real(real64) :: x1(2), x2(2), sh, L, w0, w1, w2, L0_off = 0.d0
   logical      :: automatic_R = .true.
-  integer      :: surf_id, ish
+  integer      :: surf_id, ish, ix
 
 
   ! user input for grid generation
@@ -79,20 +81,23 @@ subroutine footprint_grid
 
 
   ! Find reference markers from strike point position
+  ix    = N_Psi / 10
+  N_psi = N_psi - ix*10
   select case(N_psi)
   case(3)
-     call S%generate(1, 2.d0)
+     call S%generate(ix, 2.d0)
 
      ! right divertor leg
      x1 = S%M3%x(1,:)
      x2 = S%M3%x(0,:);  x2 = x1 + 2.d0*(x2-x1)
 
   case(4)
-     call S%generate(1, 2.d0)
+     call S%generate(ix, 2.d0)
 
      ! left divertor leg
      x1 = S%M4%x(S%M4%n_seg-1,:)
      x2 = S%M4%x(S%M4%n_seg,:);  x2 = x1 + 2.d0*(x2-x1)
+     N_mult = -1 * N_mult
 
   case default
      automatic_R = .false.
@@ -129,7 +134,7 @@ subroutine footprint_grid
   integer, intent(in)      :: iele
   real(real64), intent(inout) :: R_start, R_end, offset
 
-  integer, parameter :: iu = 99
+  integer, parameter :: iu = 99, iuD = 36
 
   type(t_curve) :: C, Ctmp1, Ctmp2
   real(real64)  :: t, t1, x(2), x1(2), xn(2), L, L0, L1, alphan, phii
@@ -145,8 +150,10 @@ subroutine footprint_grid
   elseif (R_end > 1.d0) then
      n_start = int(floor(R_start)) - 1
      R_start = R_start - n_start - 1
+     R_start = 1.d0 - R_start   ! TODO: fix inconsistency in split3seg
      n_end   = int(floor(R_end)) - 1
      R_end   = R_end - n_end - 1
+     R_end   = 1.d0 - R_end     ! TODO: fix inconsistency in split3seg
      if (n_end > S_axi(iele)%n_seg) then
         write (6, *) 'error: R_end must not exceed ', S_axi(iele)%n_seg, '!'
         stop
@@ -185,7 +192,17 @@ subroutine footprint_grid
   write (iu, 2001) N_theta
   write (iu, 2002) N_phi
 
+  open  (iuD, file=Output_File)
+  write (iuD, FMT="(a,f6.2,a,f6.2)") "deposition: phi =", Phi_output, " -> ", &
+                                     Phi_output + 360.d0 / N_sym
+  write (iuD, *)
+  write (iuD, FMT='(3(I5,1x),3(F10.5,1x),a)') N_phi, N_theta, N_sym, &
+           0.0,0.0,0.0,"  : NPoints_tor  NPoints_pol  NPeriod  DR  DZ  DL"
+
   ! 1. write coordinates along boundary profile
+  do i=0,N_phi-1
+     phii = Phi_output + 360.d0 / N_sym * i / (N_phi-1)
+     write (iuD, 3002) phii
   do j=0,N_theta-1
      t = 1.d0 * j / (N_theta-1)
      call C%sample_at (t, x, x1)
@@ -208,6 +225,9 @@ subroutine footprint_grid
         L  = t1
      end select
 
+     write (iuD, 3003) x, L
+     if (i > 0) cycle
+
      ! default grid
      if (Output_Format.lt.10) then
         write (iu, 3003) x, L
@@ -221,6 +241,8 @@ subroutine footprint_grid
         write (iu, 3004) x, L, alphan
      endif
   enddo
+  enddo
+  close (iuD)
 
   ! 2. write coordinates in toroidal direction
   do i=0,N_phi-1
