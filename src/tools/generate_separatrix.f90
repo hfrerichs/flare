@@ -61,8 +61,20 @@ subroutine generate_separatrix
         call S%plot('separatrix_'//trim(Label)//'X'//trim(c), parts=.false.)
 
      ! generate grid on main part of separatrix
-     case(3)
-        S0 = connect(S%M1%t_curve, S%M2%t_curve)
+     case(3,11,12,13,14)
+        select case(Output_Format)
+        case(3)
+           S0 = connect(S%M1%t_curve, S%M2%t_curve)
+        case(11)
+           S0 = S%M1%t_curve
+        case(12)
+           S0 = S%M2%t_curve
+        case(13)
+           S0 = S%M3%t_curve
+        case(14)
+           S0 = S%M4%t_curve
+        end select
+
         write (6, 1000) S0%length()
         call S0%setup_length_sampling()
         call G%new(CYLINDRICAL, UNSTRUCTURED, FIXED_COORD3, N_theta+1)
