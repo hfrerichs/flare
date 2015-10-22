@@ -3,12 +3,13 @@
 !===============================================================================
 subroutine generate_separatrix
   use iso_fortran_env
-  use run_control, only: N_psi, N_theta, Output_File, Output_Format, Label, offset, Trace_Step
+  use run_control, only: N_psi, N_theta, Limit, Output_File, Output_Format, Label, offset, Trace_Step
   use equilibrium
   use separatrix
   use parallel
   use curve2D
   use grid
+  use math
   implicit none
 
   character(len=1)   :: c
@@ -50,7 +51,11 @@ subroutine generate_separatrix
      if (Xp(i)%undefined) cycle
      write (6, *) i, Xp(i)%X
      write (c, '(i0)') i
-     call S%generate(i, 2.d0, offset=offset, trace_step=ts)
+     if (Limit >=0.d0  .and.  Limit <= pi2) then
+        call S%generate(i, theta_cut=Limit , offset=offset, trace_step=ts)
+     else
+        call S%generate(i, offset=offset, trace_step=ts)
+     endif
      select case(Output_Format)
      ! plot all branches in separate files
      case(1)
