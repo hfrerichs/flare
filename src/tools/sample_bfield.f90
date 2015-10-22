@@ -7,7 +7,7 @@
 !    Output_File
 !    Output_Format      = 1: |B|, Cartesian components (Bx,By,Bz), PsiN
 !                       = 2: |B|, Cylindrical components (BR,BZ,Bphi), PsiN
-!                       = 3: (Output_Format 2), Bpol/Btor
+!                       = 3: Bpol, Btor, R
 !                       = 4: |grad PsiN|, e_Psi * e_B
 !                       = 5: divB
 !                       = 6: Psi, PsiN, dPsi_dR, dPsi_dZ
@@ -29,7 +29,7 @@ subroutine sample_bfield
 
   type(t_grid)    :: G
   type(t_dataset) :: D
-  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Psi, Bpol, rpol, divB, Beq(3)
+  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Psi, Bpol, divB, Beq(3)
   real(real64)    :: DPsiDR, DPsiDZ, ePsi(2), ePol(2)
   integer         :: ig, n
 
@@ -45,6 +45,7 @@ subroutine sample_bfield
 
      open  (iu, file=Output_File, err=5010)
      write (iu, 1000) COORDINATES(min(Output_Format,2))
+     write (iu, 1001) Output_Format
   endif
 
 
@@ -54,7 +55,7 @@ subroutine sample_bfield
 
   ! initialize output data
   n = 5
-  if (Output_Format == 3) n = 6
+  if (Output_Format == 3) n = 3
   if (Output_Format == 4) n = 2
   if (Output_Format == 5) n = 4
   if (Output_Format == 6) n = 4
@@ -93,7 +94,7 @@ subroutine sample_bfield
      ePol    = Beq(1:2) / Bpol
 
 
-     if (Output_Format <= 3) then
+     if (Output_Format < 3) then
         D%x(ig,1)   = Bmod
         D%x(ig,2:4) = Bf
         D%x(ig,5)   = PsiN
@@ -101,8 +102,9 @@ subroutine sample_bfield
      if (Output_Format == 3) then
         ! ratio of poloidal to toroidal field
         Bpol = sqrt(Bf(1)**2 + Bf(2)**2)
-        rpol = Bpol / Bf(3)
-        D%x(ig,6)   = rpol
+        D%x(ig,1)   = Bpol
+        D%x(ig,2)   = Bf(3)
+        D%x(ig,3)   = r(1)
      endif
      if (Output_Format == 4) then
         DPsiDR      = get_DPsiN(r, 1, 0)
@@ -153,6 +155,7 @@ subroutine sample_bfield
 
   return
  1000 format ('# Magnetic field components [Tesla], coordinate system: ', a12)
+ 1001 format ('# Output_Format = ', i0)
  5010 write (6,5011) Output_File
  5011 format ('error opening file for output: ', a120)
   stop
