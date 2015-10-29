@@ -114,6 +114,8 @@
       if (Ip .ne. 0.d0) then
          Ip_scale = Ip / Current
          Current  = Current * Ip_scale
+         Simag    = Simag * Ip_scale
+         Sibry    = Sibry * Ip_scale
       endif
 
 
