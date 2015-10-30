@@ -211,6 +211,8 @@ module run_control
      call melnikov_function()
   case ('generate_field_aligned_grid')
      call generate_field_aligend_grid(Run_Level(1), Run_Level(2))
+  case ('generate_3D_fieldline_grid')
+     call generate_field_aligend_grid(Run_Level(1), Run_Level(2))
   case ('critical_point_analysis')
      call critical_point_analysis(Grid_File, Output_File)
   case ('export_gfile')
