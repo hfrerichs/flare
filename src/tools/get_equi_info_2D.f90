@@ -105,6 +105,7 @@ subroutine get_equi_info_2D
   write (iu, 2008) sboundary
   write (iu, 2009)
   write (iu, 2010)
+  write (iu, 2011)
   close (iu)
 
 
@@ -137,8 +138,9 @@ subroutine get_equi_info_2D
  2006 format ('idl << EOF')
  2007 format ("plot_data, 'equi_info.grid', 'equi_info.data', 0, zrange=[0,2], clevels=[0.9, 1.0, 1.1], $")
  2008 format (a120)
- 2009 format ("ps_plot='equi_info.eps'")
- 2010 format ('EOF')
+ 2009 format ("utitle='Normalized Poloidal Flux', $")
+ 2010 format ("ps_plot='equi_info.eps'")
+ 2011 format ('EOF')
 end subroutine get_equi_info_2D
 !===============================================================================
 
