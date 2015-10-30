@@ -218,7 +218,7 @@ module equilibrium
 
 
 ! 2. load equilibrium data (if provided) ...............................
-  if (Data_File .ne. '') call load_equilibrium_data(iu, iconfig)
+  call load_equilibrium_data(iu, iconfig)
   call setup_equilibrium()
 
 
@@ -329,14 +329,19 @@ module equilibrium
 
   integer, parameter :: iu_scan = 17
 
+  character(len=120) :: filename
   character*80 :: s
 
 
-  Data_File = trim(Prefix)//Data_File
+  filename = trim(Prefix)//Data_File
 
 ! determine equilibrium type (if not provided) .........................
   if (i_equi == EQ_GUESS) then
-     open  (iu_scan, file=Data_file)
+     if (Data_File == '') then
+        write (6, *) 'error: cannot guess equilibrium type without data file!'
+        stop
+     endif
+     open  (iu_scan, file=filename)
      read  (iu_scan, '(a80)') s
      if (s(3:5) == 'TEQ'  .or.  s(3:6) == 'EFIT') then
         i_equi = EQ_GEQDSK
@@ -359,9 +364,9 @@ module equilibrium
 ! load equilibrium data
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (Data_File, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
+     call geqdsk_load (filename, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
   case (EQ_DIVAMHD)
-     call divamhd_load (Data_File, Ip, Bt, R0)
+     call divamhd_load (filename, Ip, Bt, R0)
 
   case (EQ_M3DC1)
      if (.not.m3dc1_loaded()) then
