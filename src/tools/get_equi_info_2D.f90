@@ -113,7 +113,7 @@ subroutine get_equi_info_2D
 
 
   ! calculate plasma current from plasma surface integral
-  call Ip_info (1.d-4, 400, Ip_int, Bpol)
+  call Ip_info (1.d-4, 400, Ip_int, Bpol, .true.)
   write (6, 9002) Ip_int
 
   ! calculate plasma beta
@@ -147,7 +147,7 @@ end subroutine get_equi_info_2D
 !===============================================================================
 ! calculate plasma current from plasma surface integral
 !===============================================================================
-subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
+subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar, screen_output)
   use iso_fortran_env
   use equilibrium, only: get_cylindrical_coordinates, get_Bf_eq2D
   use flux_surface_2D
@@ -158,6 +158,7 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   real(real64), intent(in)  :: delta_PsiN
   integer,      intent(in)  :: n_sample
   real(real64), intent(out) :: Ip, Bpolbar
+  logical,      intent(in)  :: screen_output
 
   type(t_flux_surface_2D)  :: F
   real(real64)       :: L, dl, Bpol, Bpolint, Bf(3), xi, r(3), y(3)
@@ -177,12 +178,14 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   if (Debug) call F%plot(filename='lcfs.plt')
   call F%setup_length_sampling()
   L       = F%length()
-  write (6, 9010)
-  write (6, 9011) L / 1.d2
-  write (6, 9012) F%area() / 1.d4
-  write (6, 9013) F%surface() / 1.d4
-  write (6, 9014) F%volume() / 1.d6
-  write (6, *)
+  if (screen_output) then
+     write (6, 9010)
+     write (6, 9011) L / 1.d2
+     write (6, 9012) F%area() / 1.d4
+     write (6, 9013) F%surface() / 1.d4
+     write (6, 9014) F%volume() / 1.d6
+     write (6, *)
+  endif
 
 
   ! analyze shape of LCFS
@@ -214,10 +217,12 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   kap = h / w
   del(1) = (R0 - Rh) / R0 / eps
   del(2) = (R0 - Rl) / R0 / eps
-  write (6, 9020) 1.d0/eps
-  write (6, 9021) kap, Zh/R0/eps, -Zl/R0/eps
-  write (6, 9022) 0.5d0*(del(1)+del(2)), del
-  write (6, *)
+  if (screen_output) then
+     write (6, 9020) 1.d0/eps
+     write (6, 9021) kap, Zh/R0/eps, -Zl/R0/eps
+     write (6, 9022) 0.5d0*(del(1)+del(2)), del
+     write (6, *)
+  endif
 
 
   ! calculate plasma current from surface integral

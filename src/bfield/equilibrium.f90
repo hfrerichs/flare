@@ -151,6 +151,7 @@ module equilibrium
   ! Broadcast data for parallel execution
   procedure(), pointer :: broadcast_equilibrium
   procedure(), pointer :: equilibrium_info
+  procedure(), pointer :: post_setup_equilibrium
 !...............................................................................
 
 
@@ -213,6 +214,7 @@ module equilibrium
   get_pressure     => default_pressure
   export_boundary  => null()
   equilibrium_info => null()
+  post_setup_equilibrium        => null()
   equilibrium_provides_boundary => default_equilibrium_provides_boundary
   call initialize_magnetic_axis()
 
@@ -301,6 +303,10 @@ module equilibrium
      Psi_sepx = get_Psi(r)
   endif
   write (6, 5000) Psi_sepx
+
+
+  ! 6. post-setup
+  if (associated(post_setup_equilibrium)) call post_setup_equilibrium(Psi_axis, Psi_sepx)
 
 
   return
@@ -428,6 +434,7 @@ module equilibrium
      get_pressure                  => amhd_get_pressure
      get_domain                    => amhd_get_domain
      broadcast_equilibrium         => amhd_broadcast
+     post_setup_equilibrium        => amhd_post_setup_equilibrium
   end select
 
   end subroutine setup_equilibrium

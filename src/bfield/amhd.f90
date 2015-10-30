@@ -45,6 +45,7 @@ module amhd
 
   public :: &
      amhd_load, &
+     amhd_post_setup_equilibrium, &
      amhd_get_Bf, &
      amhd_get_Psi, &
      amhd_get_DPsi, &
@@ -248,6 +249,24 @@ module amhd
   PSI0_scale = Bpol / Bf(2) * scale_manual
 
   end subroutine setup_amhd
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine amhd_post_setup_equilibrium(Psi_axis, Psi_sepx)
+  real(real64), intent(inout) :: Psi_axis, Psi_sepx
+
+  real(real64) :: Ip_int, Bpol, rescale
+
+
+  call Ip_info (1.d-4, 400, Ip_int, Bpol, .false.)
+  rescale    = Ip / Ip_int
+  PSI0_scale = PSI0_scale * rescale
+  Psi_axis   = Psi_axis   * rescale
+  Psi_sepx   = Psi_sepx   * rescale
+
+  end subroutine amhd_post_setup_equilibrium
 !===============================================================================
 
 
