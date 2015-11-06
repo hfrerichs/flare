@@ -183,45 +183,6 @@ module separatrix
 
 
 !=======================================================================
-! calculate eigenvectors v1,v2 of Hessian matrix of pol. magn. flux at x
-!=======================================================================
-  subroutine H_eigenvectors (H, v1, v2)
-  real(real64), intent(in)  :: H(2,2)
-  real(real64), intent(out) :: v1(2), v2(2)
-
-  real(real64) :: r(3), psi_xx, psi_xy, psi_yy, l1, l2, ac2, ac4, b2
-
-
-  psi_xx = H(1,1) / (Psi_sepx-Psi_axis)
-  psi_xy = H(1,2) / (Psi_sepx-Psi_axis)
-  psi_yy = H(2,2) / (Psi_sepx-Psi_axis)
-
-
-  ! get eigenvalues l1,l2 of Hessian at X-point
-  ac2 = 0.5d0  * (psi_xx + psi_yy)
-  ac4 = 0.25d0 * (psi_xx - psi_yy)**2
-  b2  = psi_xy**2
-  l1  = ac2 + dsqrt(ac4 + b2)
-  l2  = ac2 - dsqrt(ac4 + b2)
-
-
-  ! construct normalized eigenvectors
-  ! ISSUE: this might not work if the X-point is straight below the magnetic axis!
-  v1(1) = 1.d0
-  v1(2) = - (psi_xx - l1) / psi_xy
-  v1    = v1 / sqrt(sum(v1**2))
-
-! construct v2 so that it is pointing upwards
-  v2(2) = 1.d0
-  v2(1) = - psi_xy / (psi_xx - l2)
-  v2    = v2 / sqrt(sum(v2**2))
-
-  end subroutine H_eigenvectors
-!=======================================================================
-
-
-
-!=======================================================================
   subroutine plot(this, filename_prefix, parts)
   class(t_separatrix)          :: this
   character(len=*), intent(in) :: filename_prefix
