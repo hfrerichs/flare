@@ -14,6 +14,7 @@ module run_control
   character(len=120) :: &
      Machine        = ' ', &        ! select input directory (1st part)
      Configuration  = ' ', &        ! select input directory (2nd part)
+     Boundary       = '', &
      Run_Type       = ' ', &        ! select sub-program to execute
      Label          = '', &
      Output_File    = 'output.txt', &
@@ -50,23 +51,25 @@ module run_control
 
 
   logical :: &
-     Debug          = .false.
+     Debug          = .false., &
+     use_boundary_from_equilibrium   = .true.
 
 
 
   ! internal variables
   character*120 :: Prefix, &
+                   Boundary_Prefix, &
                    Bfield_input_file
 
 
   namelist /RunControl/ &
-     Machine, Configuration, &
+     Machine, Configuration, Boundary, &
      Run_Type, Output_File, Label, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, N_steps, Limit, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, &
      Spline_Order, Run_Level, &
-     Debug
+     Debug, use_boundary_from_equilibrium
 
   contains
 !=======================================================================
@@ -86,12 +89,17 @@ module run_control
      read  (iu, RunControl, end=5000)
      close (iu)
 
+     Boundary_Prefix = ''
      if (Machine .ne. ' ') then
         write (6, *) 'Machine:                ', trim(Machine)
         write (6, *) 'Configuration:          ', trim(Configuration)
         call getenv("HOME", homedir)
         Prefix = trim(homedir)//'/'//base_dir//'/'//trim(Machine)//'/'// &
                  trim(Configuration)//'/'
+        if (Boundary .ne. '') then
+           Boundary_Prefix = trim(homedir)//'/'//base_dir//'/'// &
+                             trim(Machine)//'/'//trim(Boundary)//'/'
+        endif
      else
         Prefix = './'
      endif

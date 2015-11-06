@@ -171,7 +171,7 @@ module equilibrium
 ! Load equilibrium configuration
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
-  use run_control, only: Prefix, Debug
+  use run_control, only: Prefix, Debug, use_boundary_from_equilibrium
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
@@ -217,6 +217,7 @@ module equilibrium
   post_setup_equilibrium        => null()
   equilibrium_provides_boundary => default_equilibrium_provides_boundary
   call initialize_magnetic_axis()
+  use_boundary = (use_boundary .and. use_boundary_from_equilibrium)
 
 
 ! 2. load equilibrium data (if provided) ...............................
