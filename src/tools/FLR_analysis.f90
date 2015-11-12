@@ -377,6 +377,7 @@ end subroutine FLR_analysis
   use dataset
   use grid
   use string
+  use run_control, only: Output_Format
   implicit none
 
   integer, intent(in) :: iz, ir(2), ip(2)
@@ -474,6 +475,8 @@ end subroutine FLR_analysis
 !        dt(idir) = sum(ePol*dist)
      enddo
      D%x(ig,1) = get_poloidal_angle(xi)
+     select case (Output_Format)
+     case(1)
      D%x(ig,2) = dx(-1)
      D%x(ig,3) = dx( 1)
      D%x(ig,4) = dr(-1)
@@ -481,6 +484,16 @@ end subroutine FLR_analysis
      D%x(ig,6) = dt(-1)
      D%x(ig,7) = dt( 1)
      D%x(ig,8) = flux_tube_length(iz, i, j)
+
+     case(2)
+     D%x(ig,2) = dr(-1)
+     D%x(ig,3) = dr( 1)
+     D%x(ig,8) = flux_tube_length(iz, i, j)
+     D%x(ig,4) = (dr( 1) - dr(-1)) / D%x(ig,8)
+     D%x(ig,5) = (dt( 1) - dt(-1)) / D%x(ig,8)
+     D%x(ig,6) = (dx( 1) + dx(-1)) / D%x(ig,8)
+     D%x(ig,7) = 0.d0
+     end select
      ig        = ig + 1
   enddo
   enddo
