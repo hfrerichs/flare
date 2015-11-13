@@ -106,6 +106,7 @@ module equilibrium
      Psi_sepx = 1.d0, &
      Psi_axis = 0.d0
 
+  real(real64), private :: EQBox(2,2)
 
 
 
@@ -378,6 +379,9 @@ module equilibrium
   use m3dc1
   use amhd
 
+  real(real64)         :: Rbox(2), Zbox(2)
+
+
   ! select case equilibrium
   select case (i_equi)
   case (EQ_GEQDSK)
@@ -409,6 +413,11 @@ module equilibrium
      get_domain                    => amhd_get_domain
      broadcast_equilibrium         => amhd_broadcast
   end select
+
+
+  call get_domain(Rbox, Zbox)
+  EQBox(1,:) = Rbox
+  EQBox(2,:) = Zbox
 
   end subroutine setup_equilibrium
 !=======================================================================
@@ -838,6 +847,19 @@ module equilibrium
   endif
 
   end subroutine default_get_domain
+!=======================================================================
+  function outside_domain(x)
+  real(real64), intent(in) :: x(2)
+  logical                  :: outside_domain
+
+
+  outside_domain = .false.
+  if (x(1) < EQBox(1,1)  .or.  x(1) > EQBox(1,2)  .or. &
+      x(2) < EQBox(2,1)  .or.  x(2) > EQBox(2,2)) then
+     outside_domain = .true.
+  endif
+
+  end function
 !=======================================================================
 
 
