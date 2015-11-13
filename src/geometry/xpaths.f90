@@ -53,7 +53,7 @@ module xpaths
 !             = 3: descent PsiN to core
 !             = 4: descent PsiN to PFR
 !=======================================================================
-  subroutine generateX(this, iPx, orientation, limit_type, limit_val, sampling)
+  subroutine generateX(this, iPx, orientation, limit_type, limit_val, sampling, debug)
   use ode_solver
   use equilibrium
   use run_control, only: Trace_Method, N_steps
@@ -61,9 +61,18 @@ module xpaths
   integer,      intent(in) :: iPx, orientation, limit_type
   real(real64), intent(in) :: limit_val
   integer,      intent(in), optional :: sampling
+  logical,      intent(in), optional :: debug
 
   type(t_ODE)  :: Path
   real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), dl
+  logical      :: screen_output
+
+
+  ! optional input
+  screen_output = .false.
+  if (present(debug)) then
+     screen_output = debug
+  endif
 
 
   ! 0. initialize
@@ -94,7 +103,11 @@ module xpaths
 
 
   ! 2. generate path from x0
-  call this%generate(x0, orientation, limit_type, limit_val, Px, sampling)
+  if (screen_output) then
+     write (6, *) 'xpath%generateX:       X-point at ', Px
+     write (6, *) 'xpath%generateX: initial point at ', x0
+  endif
+  call this%generate(x0, orientation, limit_type, limit_val, Px, sampling, debug=debug)
 
   end subroutine generateX
 !=======================================================================
@@ -106,7 +119,7 @@ module xpaths
 ! direction = 1,2: ascent PsiN
 !           = 3,4: descent PsiN
 !=======================================================================
-  subroutine generate(this, xinit, direction, limit_type, limit_val, x0, sampling, C_limit)
+  subroutine generate(this, xinit, direction, limit_type, limit_val, x0, sampling, C_limit, debug)
   use ode_solver
   use equilibrium
   use run_control, only: Trace_Method, N_steps
@@ -116,6 +129,7 @@ module xpaths
   real(real64),  intent(in), optional :: x0(2)
   integer,       intent(in), optional :: sampling
   type(t_curve), intent(in), optional :: C_limit
+  logical,       intent(in), optional :: debug
 
   integer, parameter :: n_tmp0 = 1000
 
@@ -123,6 +137,14 @@ module xpaths
   type(t_ODE)  :: Path
   real(real64) :: y(3), ds, t, Psi0, PsiN, L
   integer      :: i, n_seg, is, n_tmp, sampling_method
+  logical      :: screen_output
+
+
+  ! optional input
+  screen_output = .false.
+  if (present(debug)) then
+     screen_output = debug
+  endif
 
 
   ! 0. check input
@@ -142,6 +164,10 @@ module xpaths
      write (6, *) 'limit_type = ', limit_type
      stop
   end select
+  if (screen_output) then
+     write (6, *) 'xpath%generate: limit_type = ', limit_type
+     write (6, *) 'xpath%generate: limit_val  = ', limit_val
+  endif
 
 
   ! 1. initialize
@@ -192,6 +218,14 @@ module xpaths
      tmp(i,1:2)  = Path%next_step()
      tmp(i,  3)  = get_PsiN(tmp(i,1:2))
      L           = L  + abs(ds)
+     if (outside_domain(tmp(i,1:2))) then
+        write (6, *) 'error in xpath%generate: path leaves equilibrium domain at ', tmp(i,1:2)
+        write (6, *) 'xinit      = ', xinit
+        write (6, *) 'direction  = ', direction
+        write (6, *) 'limit_type = ', limit_type
+        write (6, *) 'limit_val  = ', limit_val
+        stop
+     endif
 
      ! last step?
      select case(limit_type)
@@ -226,6 +260,9 @@ module xpaths
   this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
   this%PsiN(1) = tmp(1,3)
   this%PsiN(2) = tmp(i,3)
+  if (screen_output) then
+     write (6, *) 'xpath%generate:       PsiN = ', this%PsiN
+  endif
 
 
   ! 4. setup sampling
