@@ -140,11 +140,11 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
 
 
   select case(Zone(iz)%N0_method)
-  case('orthogonal','')
+  case('orthogonal')
      Method = UPSCALE_ORTHO
   case('cell')
      Method = UPSCALE_CELL
-  case('orthogonal_adjust')
+  case('orthogonal_adjust','')
      Method = ORTHO_ADJUST
   case('manual')
      Method = MANUAL
@@ -820,12 +820,18 @@ end subroutine vacuum_domain_by_upscale_adjust
   do i=2,n_fix
      if (ip_fix(i,1) < ip_fix(i-1,2)) then
         write (6, *) 'error: cannot adjust boundary!'
+        write (6, *) 'check weights.plt, C.plt, Ctmp.plt and Cout.plt'
         do ip=1,n_fix
            write (6, *) ip_fix(i,:)
         enddo
+        open  (99, file='weights.plt')
         do ip=0,n
            write (99, *) w(ip)
         enddo
+        close (99)
+        call C%plot(filename='C.plt')
+        call Ctmp%plot(filename='Ctmp.plt')
+        call Cout%plot(filename='Cout.plt')
         stop
      endif
   enddo
