@@ -258,8 +258,9 @@ module xpaths
 
   ! 3. adjust last node to match boundary condition
   this%x(n_seg,:) = (1.d0-t)*this%x(n_seg-1,:) + t*this%x(n_seg,:)
-  this%PsiN(1) = tmp(1,3)
-  this%PsiN(2) = (1.d0-t)*tmp(i-1,3) + t*tmp(i,3)
+  tmp(i,3)        = (1.d0-t)*tmp(i-1,3)        + t*tmp(i,3)
+  this%PsiN(1)    = tmp(1,3)
+  this%PsiN(2)    = tmp(i,3)
   if (screen_output) then
      write (6, *) 'xpath%generate:       PsiN = ', this%PsiN
   endif
