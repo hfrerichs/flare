@@ -268,6 +268,9 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
 
      ! adjust ends
      call adjust_boundary(C)
+     if (Debug) then
+        call C%plot(filename='debug/VacuumBoundary_'//trim(str(iz))//'_'//trim(str(it))//'.adjust')
+     endif
      call C%setup_length_sampling()
 
 
@@ -692,22 +695,23 @@ end subroutine vacuum_domain_by_upscale_adjust
   integer,       intent(in) :: debug_mode
   type(t_curve)             :: Cout
 
-  real(real64), dimension(:),   allocatable :: w
+  real(real64), dimension(:),   allocatable :: w, w_save
   integer,      dimension(:,:), allocatable :: ip_fix
   type(t_curve) :: Ctmp
   real(real64)  :: x(2), x1(2), x2(2), sh, r
   integer       :: ip, ip1, ip2, ish, i, n, n_fix
 
-  logical       :: debug = .false.
+  logical       :: debug
 
 
   ! 0. debug mode
+  debug = .false.
   if (debug_mode > 0) debug = .true.
 
 
   ! 1. initialize output
   n = C%n_seg
-  allocate (w(0:n))
+  allocate (w(0:n), w_save(0:n))
   call Ctmp%copy(C)
   call Ctmp%left_hand_shift(dl)
   if (debug) call Ctmp%plot(filename='debug_1.plt')
@@ -716,6 +720,7 @@ end subroutine vacuum_domain_by_upscale_adjust
 
   ! 2. find initial position on Ctmp for each node on C
   w = -1.2345d0
+  if (debug) open (99, file='weight.dbg')
   do ip=0,n
      x1 = C%x(ip,:)
      x2 = x1 + v(ip,:)
@@ -728,6 +733,9 @@ end subroutine vacuum_domain_by_upscale_adjust
 
      if (debug) write (99, *) ip, w(ip)
   enddo
+  if (debug) close (99)
+  if (debug) call Cout%plot(filename='debug_1a.plt')
+  w_save = w
 
 
   ! 3. correct positions (w -> strictly monotonically increasing)
@@ -746,7 +754,7 @@ end subroutine vacuum_domain_by_upscale_adjust
   do
      if (w(ip) >= 0.d0  .or.  ip == 0) exit
      w(ip)        = n
-     Cout%x(ip,:) = Ctmp%x(n,:)
+     Cout%x(ip,:) = Ctmp%x(Ctmp%n_seg,:)
 
      ip = ip-1
   enddo
@@ -826,7 +834,7 @@ end subroutine vacuum_domain_by_upscale_adjust
         enddo
         open  (99, file='weights.plt')
         do ip=0,n
-           write (99, *) w(ip)
+           write (99, *) w(ip), w_save(ip)
         enddo
         close (99)
         call C%plot(filename='C.plt')
@@ -840,6 +848,7 @@ end subroutine vacuum_domain_by_upscale_adjust
   !write (6, *) 'misaligned zones:'
   do i=1,n_fix
      !write (6, *) ip_fix(ip,:)
+     if (debug) write (6, *) 'fix zone between nodes ', ip_fix(i,1), ' and ', ip_fix(i,2)
      ip1 = ip_fix(i,1)
      ip2 = ip_fix(i,2)
      do ip=ip1+1,ip2-1
@@ -863,7 +872,7 @@ end subroutine vacuum_domain_by_upscale_adjust
 
 
   ! 99. cleanup
-  deallocate (w, ip_fix)
+  deallocate (w, w_save, ip_fix)
 
   end function upscale_v3
 !===============================================================================
