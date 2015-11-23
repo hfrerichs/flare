@@ -387,15 +387,22 @@ module xpaths
 
 
 !=======================================================================
-  subroutine sample_at_PsiN(this, PsiN, x)
+  subroutine sample_at_PsiN(this, PsiN, x, enforce_boundary)
   class(t_xpath)            :: this
   real(real64), intent(in)  :: PsiN
   real(real64), intent(out) :: x(2)
+  logical,      intent(in), optional :: enforce_boundary
 
   real(real64) :: eta
 
 
   eta = (PsiN - this%PsiN(1)) / (this%PsiN(2) - this%PsiN(1))
+  if (present(enforce_boundary)) then
+     if (enforce_boundary) then
+        if (eta > 1.d0) eta = 1.d0
+        if (eta < 0.d0) eta = 0.d0
+     endif
+  endif
   call this%sample_at(eta, x)
 
   end subroutine sample_at_PsiN
