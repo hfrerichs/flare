@@ -714,6 +714,7 @@ end subroutine vacuum_domain_by_upscale_adjust
   allocate (w(0:n), w_save(0:n))
   call Ctmp%copy(C)
   call Ctmp%left_hand_shift(dl)
+  call Ctmp%setup_segment_sampling()
   if (debug) call Ctmp%plot(filename='debug_1.plt')
   call Cout%new(n)
 
@@ -753,7 +754,7 @@ end subroutine vacuum_domain_by_upscale_adjust
   ip = n
   do
      if (w(ip) >= 0.d0  .or.  ip == 0) exit
-     w(ip)        = n
+     w(ip)        = Ctmp%n_seg
      Cout%x(ip,:) = Ctmp%x(Ctmp%n_seg,:)
 
      ip = ip-1
@@ -853,8 +854,10 @@ end subroutine vacuum_domain_by_upscale_adjust
      ip2 = ip_fix(i,2)
      do ip=ip1+1,ip2-1
         r     = 1.d0 * (ip-ip1) / (ip2-ip1)
-!        w(ip) = w(ip1) + r * (w(ip2)-w(ip1))
-        Cout%x(ip,:) = Cout%x(ip1,:) + r * (Cout%x(ip2,:)-Cout%x(ip1,:))
+        w(ip) = w(ip1) + r * (w(ip2)-w(ip1))
+        !Cout%x(ip,:) = Cout%x(ip1,:) + r * (Cout%x(ip2,:)-Cout%x(ip1,:))
+        call Ctmp%sample_at(w(ip)/Ctmp%n_seg, x)
+        Cout%x(ip,:) = x
         if (debug) write (95, *) Cout%x(ip,:)
      enddo
   enddo
