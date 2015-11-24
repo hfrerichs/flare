@@ -26,6 +26,7 @@ module base_mesh
      !procedure :: connect_partial_to
      procedure :: setup_boundary_nodes
      procedure :: make_orthogonal_grid
+     procedure :: make_interpolated_mesh
      procedure :: make_divertor_grid
      ! procedure :: merge(M1, M2, ...)
   end type t_base_mesh
@@ -239,16 +240,16 @@ module base_mesh
 !=======================================================================
 ! Make (quasi) orthogonal grid
 !=======================================================================
-  subroutine make_orthogonal_grid(this, rrange, prange, periodic)
+  subroutine make_orthogonal_grid(this, rrange, prange, periodic, addX)
   use equilibrium, only: get_PsiN
   class(t_base_mesh)  :: this
-  integer, intent(in), optional :: rrange(2), prange(2)
+  integer, intent(in), optional :: rrange(2), prange(2), addX(2)
   logical, intent(in), optional :: periodic
 
   real(real64), dimension(:,:,:), pointer :: M
   type(t_xpath) :: R
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final
-  integer       :: ir, ir0, ir1, ir2, ir_final, ip, ip0, ip1, ip2, ipp, direction
+  integer       :: ir, ir0, ir1, ir2, ir_final, ip, ip0, ip1, ip2, ipp, direction, ix, ipx
 
 
   M => this%mesh
@@ -279,7 +280,6 @@ module base_mesh
      ip1 = prange(1)
      ip2 = prange(2)
   endif
-  write (6, *) 'poloidal range: ', ip0, ip1, ip2
 
 
   ! set radial range
@@ -301,7 +301,6 @@ module base_mesh
      ir1 = rrange(1)
      ir2 = rrange(2)
   endif
-  write (6, *) 'radial range: ', ir0, ir1, ir2
 
 
   ! setup reference PsiN values
@@ -319,9 +318,23 @@ module base_mesh
   PsiN_final = PsiN(ir_final)
 
 
+  ! additional X-point to take into account
+  ipx = -1
+  if (present(addX)) then
+     ix  = addX(1)
+     ipx = addX(2)
+  endif
+
+
   ! set up nodes in poloidal range ip1->ip2 and radial range ir1->ir2
+  write (6, 1000) ir0, ir1, ir2, ip0, ip1, ip2
   do ip=ip1,ip2
-     call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
+     call progress(ip-ip1, ip2-ip1, 0.1d0)
+     if (ip == ipx) then
+        call R%generateX(ix,         direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
+     else
+        call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
+     endif
 
      do ir=ir1,ir2
         call R%sample_at_PsiN(PsiN(ir), x, enforce_boundary=.true.)
@@ -337,10 +350,74 @@ module base_mesh
   endif
   endif
 
+
+ 1000 format(8x,'generate orthogonal mesh: (',i0,': ',i0,' -> ',i0,') x (',i0,': ',i0,' -> ',i0,')')
  9000 format('error in t_base_mesh%make_orthogonal_grid')
  9001 format('invalid poloidal reference index ', i0)
  9002 format('invalid radial reference index ', i0)
   end subroutine make_orthogonal_grid
+!=======================================================================
+
+
+
+!=======================================================================
+! Generate interpolated mesh to inner simulation boundary (2 -> ir2)
+!=======================================================================
+  subroutine make_interpolated_mesh(this, ir2, Sr, C, PsiN1_max)
+  use equilibrium, only: get_PsiN, Xp
+  use mesh_spacing
+  class(t_base_mesh)          :: this
+  integer,         intent(in) :: ir2
+  type(t_spacing), intent(in) :: Sr
+  type(t_curve),   intent(in) :: C(0:1)
+  real(real64),    intent(in) :: PsiN1_max
+
+  real(real64), dimension(:,:,:), pointer :: M
+  type(t_xpath) :: Rtmp
+  real(real64)  :: PsiN2, eta, x(2)
+  integer       :: i, ir1, j, nr, np
+
+
+  M  => this%mesh
+  nr  = this%nr
+  ir1 = 1
+  write (6, 1001) ir1+1, ir2-1
+
+  ! sanity check
+  PsiN2 = get_PsiN(M(ir2,0,:)) ! radial location of innermost unperturbed flux surface
+  if (PsiN2 < PsiN1_max) then
+     write (6, 9000) ir2, PsiN2
+     write (6, 9001) PsiN1_max
+     stop
+  endif
+
+  np = this%np
+  do j=0,np
+     call progress(j, np, 0.1d0)
+     x = M(ir2,j,:)
+     call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1_max, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
+
+     ! interpolated surfaces
+     do i=ir1,ir2-1
+        eta = 1.d0 - Sr%node(i-1, nr-1) / Sr%node(ir2-1, nr-1)
+        call Rtmp%sample_at(eta, x)
+
+        M(i,j,:) = x
+     enddo
+
+     ! innermost surface
+     x = M(ir1,j,:)
+     call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, -1.d0, C_limit=C(0))
+     M(0,j,:) = Rtmp%boundary_node(UPPER)
+  enddo
+
+ 1001 format(8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
+             i0, ' -> ', i0)
+ 9000 format('error: last unperturbed flux surface at radial index ', i0, ' is at PsiN = ', &
+             f0.3, ' but it must be completely outside of inner simulation boundary!'// &
+             'try using a larger n_interpolate!')
+ 9001 format('outer most point on inner simulation boundary is at PsiN = ', f0.3)
+  end subroutine make_interpolated_mesh
 !=======================================================================
 
 
@@ -742,6 +819,7 @@ module base_mesh
   subroutine generate_base_mesh(iblock)
   use fieldline_grid
   use mesh_spacing
+  use inner_boundary
   integer, intent(in) :: iblock
 
   type(t_base_mesh)   :: M(0:layers-1)
@@ -777,11 +855,13 @@ module base_mesh
 
   ! generate "closed" domain
   call Sr%init(radial_spacing(0))
+  call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
   if (connectX(1) == 1  .or. connectX(1) < 0) then
-     call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
      call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/))
   else
+     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/), addX=(/abs(connectX(1)), npR(0)/))
   endif
+  call M(0)%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
 
 
 
