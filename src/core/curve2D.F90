@@ -27,7 +27,7 @@ module curve2D
   ! sort and sampling parameters
   integer, parameter, public :: &
      ANGLE     = 1, &
-     DISTANCE  = 2, &
+     DISTANCE  = ARCLENGTH, &
      SEGMENTS  = 3
 
   ! operation modes for intersect_curve
@@ -35,6 +35,10 @@ module curve2D
      SEGMENT   =  0, &
      RAY       =  1, &
      LINE      = -1
+
+  integer, parameter, public :: &
+     LOWER     = -1, &
+     UPPER     =  1
 
 
   type, public :: t_curve
@@ -66,6 +70,7 @@ module curve2D
      procedure :: copy
      procedure :: broadcast
      procedure :: plot
+     procedure :: boundary_node
      procedure :: sort_loop
      procedure :: sort_by_angle
      procedure :: sort_by_distance
@@ -86,6 +91,7 @@ module curve2D
      procedure :: area
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve
+     procedure :: remove_node
   end type t_curve
 
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
@@ -528,6 +534,30 @@ module curve2D
   endif
 
   end subroutine plot
+!=======================================================================
+
+
+
+!=======================================================================
+  function boundary_node(this, boundary) result(x)
+  class(t_curve)      :: this
+  integer, intent(in) :: boundary
+  real(real64)        :: x(this%n_dim)
+
+
+  select case(boundary)
+  case(LOWER)
+     x = this%x(0,:)
+  case(UPPER)
+     x = this%x(this%n_seg,:)
+  case default
+     x = 0.d0
+     write (6, 9000)
+     stop
+  end select
+
+ 9000 format('error in t_curve%boundary_node: invalid boundary id ', i0)
+  end function boundary_node
 !=======================================================================
 
 
@@ -1737,6 +1767,34 @@ module curve2D
   this%w = this%w / this%w(n)
 
   end subroutine setup_length_sampling_curvature_weighted
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine remove_node(this, i)
+  class(t_curve)      :: this
+  integer, intent(in) :: i
+
+  real(real64), dimension(:,:), allocatable :: tmp
+  integer :: n
+
+
+  if (i < 0  .or.  i > this%n_seg) then
+     write (6, *) 'error in subroutine t_curve%remove_node:'
+     write (6, *) 'invalid node number ', i
+     stop
+  endif
+
+
+  n = this%n_seg - 1
+  allocate (tmp(0:n,2))
+  if (i > 0)   tmp(0:i-1,:) = this%x(0:i-1,:)
+  if (i < n+1) tmp(i:n,:)   = this%x(i+1:n+1,:)
+  call this%new(n)
+  this%x       = tmp
+
+  end subroutine remove_node
 !=======================================================================
 
 end module curve2D
