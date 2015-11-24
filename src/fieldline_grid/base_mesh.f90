@@ -38,6 +38,7 @@ module base_mesh
   type(t_separatrix), dimension(:),   allocatable :: S
   type(t_xpath),      dimension(:,:), allocatable :: R
   integer,            dimension(:),   allocatable :: connectX
+  type(t_curve) :: S0, S0L, S0R
   integer       :: nX
 
   ! guiding surface
@@ -181,7 +182,7 @@ module base_mesh
 
   real(real64), dimension(:,:,:), pointer :: M
   real(real64) :: tau, x(2)
-  integer      :: ir, ip, i11, i22
+  integer      :: ir, ip, i11, i22, idir
 
 
   M => this%mesh
@@ -202,6 +203,7 @@ module base_mesh
   end select
 
 
+  idir = 1
   select case(boundary_type)
   case(RADIAL)
      this%ir0 = ir
@@ -209,11 +211,11 @@ module base_mesh
      i22      = this%np
      if (present(i1)) i11 = i1
      if (present(i2)) i22 = i2
-     do ip=i11,i22
+     if (i22 < i11) idir = -1
+     do ip=i11,i22,idir
         tau = spacings%node(ip-i11, i22-i11)
         call C_boundary%sample_at(tau, x)
         M(ir, ip, :) = x
-        write (6, *) ir, ip, x
      enddo
   case(POLOIDAL)
      this%ip0 = ip
@@ -221,7 +223,8 @@ module base_mesh
      i22      = this%nr
      if (present(i1)) i11 = i1
      if (present(i2)) i22 = i2
-     do ir=i11,i22
+     if (i22 < i11) idir = -1
+     do ir=i11,i22,idir
         tau = spacings%node(ir-i11, i22-i11)
         call C_boundary%sample_at(tau, x)
         M(ir, ip, :) = x
@@ -236,15 +239,16 @@ module base_mesh
 !=======================================================================
 ! Make (quasi) orthogonal grid
 !=======================================================================
-  subroutine make_orthogonal_grid(this, rrange, prange)
+  subroutine make_orthogonal_grid(this, rrange, prange, periodic)
   use equilibrium, only: get_PsiN
   class(t_base_mesh)  :: this
   integer, intent(in), optional :: rrange(2), prange(2)
+  logical, intent(in), optional :: periodic
 
   real(real64), dimension(:,:,:), pointer :: M
   type(t_xpath) :: R
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final
-  integer       :: ir, ir0, ir1, ir2, ir_final, ip0, ip, ip1, ip2, direction
+  integer       :: ir, ir0, ir1, ir2, ir_final, ip, ip0, ip1, ip2, ipp, direction
 
 
   M => this%mesh
@@ -255,13 +259,21 @@ module base_mesh
   if (ip0 == 0) then
      ip1 = 1
      ip2 = this%np
+     ipp = this%np
   elseif (ip0 == this%np) then
      ip1 = 0
      ip2 = this%np - 1
+     ipp = 0
   else
      write (6, 9000)
      write (6, 9001) ip0
      stop
+  endif
+  if (present(periodic)) then
+  if (periodic) then
+     ip1 = 1
+     ip2 = this%np - 1
+  endif
   endif
   if (present(prange)) then
      ip1 = prange(1)
@@ -316,6 +328,14 @@ module base_mesh
         M(ir,ip,:) = x
      enddo
   enddo
+
+
+  ! set up periodic boundaries
+  if (present(periodic)) then
+  if (periodic) then
+     M(:,ipp,:) = M(:,ip0,:)
+  endif
+  endif
 
  9000 format('error in t_base_mesh%make_orthogonal_grid')
  9001 format('invalid poloidal reference index ', i0)
@@ -539,7 +559,7 @@ module base_mesh
   use inner_boundary
   use string
 
-  integer, intent(in) :: nX_, connectX_(nX)
+  integer, intent(in) :: nX_, connectX_(nX_)
 
   character(len=2) :: Sstr
   real(real64)     :: dx, tmp(3), theta_cut, PsiN
@@ -614,6 +634,19 @@ module base_mesh
      call S(ix)%M4%setup_length_sampling()
   enddo
  2003 format('S',i0)
+  if (connectX(1) == 1) then
+     ! connect core segments of separatrix
+     S0 = connect(S(1)%M1%t_curve, S(1)%M2%t_curve)
+     call S0%setup_length_sampling()
+  elseif (connectX(1) > 1) then
+     ! connect branches for left and right core segment of separatrix
+     S0R = connect(S(1)%M1%t_curve, S(2)%M2%t_curve)
+     S0L = connect(S(2)%M1%t_curve, S(1)%M2%t_curve)
+  else
+     ! setup left and right branch of core separatrix if second X-point is used for guidance
+     S0R = S(1)%M1%t_curve
+     S0L = S(1)%M2%t_curve
+  endif
 
 
   ! 4.2 generate radial paths from X-points ----------------------------
@@ -692,7 +725,7 @@ module base_mesh
 
  3000 format(3x,'- Setting up radial paths for block-structured decomposition')
  3010 format(8x,'generating core segment for X-point ', i0)
- 3020 format(8x,'generating SOL segment for X-point ', i0, '(length = ', f0.3, ' cm)')
+ 3020 format(8x,'generating SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
  3021 format(8x,'generating left SOL segment for X-points ', i0, ', ', i0, ' (length = ', f0.3, ' cm)')
  3022 format(8x,'generating right SOL segment for X-points ', i0, ', ', i0, ' (length = ', f0.3, ' cm)')
  3023 format(8x,'generating left SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
@@ -708,16 +741,55 @@ module base_mesh
 !=======================================================================
   subroutine generate_base_mesh(iblock)
   use fieldline_grid
+  use mesh_spacing
   integer, intent(in) :: iblock
 
+  type(t_base_mesh)   :: M(0:layers-1)
+  type(t_spacing)     :: Sp, SpL, SpR, Sr
 
+  real(real64) :: phi
+  integer      :: il, iz, iz0
+
+
+  ! initialize block
+  iz0 = iblock * layers
   call load_local_resolution(iblock)
 
+  phi = Block(iblock)%phi_base / 180.d0 * pi
+  do il=0,layers-1
+     call M(il)%initialize(nr(il), np(il), phi)
+  enddo
 
-  ! generate mesh for "core"-interface domain
+
+  ! generate core-interface
   if (connectX(1) == 1) then
+     ! single zone
+     call Sp%init(poloidal_spacing(0))
+     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0, Sp)
+  else
+     ! left and right sub-zones
+     call SpL%init(poloidal_spacing(0))
+     call SpR%init(poloidal_spacing(1))
+     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0R, SpR, 0,      npR(0))
+     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0L, SpL, npR(0), np(0) )
+  endif
+
+
+  ! generate "closed" domain
+  call Sr%init(radial_spacing(0))
+  if (connectX(1) == 1  .or. connectX(1) < 0) then
+     call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
+     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/))
   else
   endif
+
+
+
+  ! write output files
+  do il=0,layers-1
+     iz = iz0 + il
+     call write_base_grid(M(il)%t_grid, iz)
+  enddo
 
   end subroutine generate_base_mesh
 !=======================================================================
