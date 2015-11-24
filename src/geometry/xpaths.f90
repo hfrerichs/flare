@@ -137,7 +137,7 @@ module xpaths
   type(t_ODE)  :: Path
   real(real64) :: y(3), ds, t, Psi0, PsiN, L
   integer      :: i, n_seg, is, n_tmp, sampling_method
-  logical      :: screen_output
+  logical      :: screen_output, run_check
 
 
   ! optional input
@@ -245,7 +245,17 @@ module xpaths
 
      ! 3. limiting contour given, but at least to PsiN=limit_val
      case(LIMIT_CURVE)
-        if ((limit_val - tmp(i,3))*(limit_val - tmp(1,3)) < 0.d0) then
+        run_check = .false.
+        if (limit_val < 0.d0) then
+           ! always check intersection if limit_val < 0
+           run_check = .true.
+
+        elseif ((limit_val - tmp(i,3))*(limit_val - tmp(1,3)) < 0.d0) then
+           ! only check intersection if path crosses PsiN = limit_val
+           run_check = .true.
+        endif
+
+        if (run_check) then
            if (intersect_curve(tmp(i-1,1:2), tmp(i,1:2), C_limit, th=t)) exit
         endif
 
