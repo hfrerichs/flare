@@ -1,18 +1,20 @@
 module base_mesh
   use iso_fortran_env
   use grid
+  use curve2D
+  use separatrix
+  use xpaths
   implicit none
   private
 
   integer, parameter, public :: &
      RADIAL         = 1, &
      POLOIDAL       = 2, &
-     LOWER          = 1, &
      LOWER_TO_UPPER = 1, &
-     UPPER          = 2, &
      UPPER_TO_LOWER = 2
 
 
+  ! orthogonal, flux surface aligned mesh with strike point adjustment
   type, extends(t_grid), public :: t_base_mesh
      integer :: nr, np
      integer :: &
@@ -27,6 +29,24 @@ module base_mesh
      procedure :: make_divertor_grid
      ! procedure :: merge(M1, M2, ...)
   end type t_base_mesh
+
+
+  ! magnetic axis
+  real(real64)  :: Pmag(2)
+
+  ! X-point(s), separatrix(ces) and radial paths
+  type(t_separatrix), dimension(:),   allocatable :: S
+  type(t_xpath),      dimension(:,:), allocatable :: R
+  integer,            dimension(:),   allocatable :: connectX
+  integer       :: nX
+
+  ! guiding surface
+  type(t_curve) :: C_guide
+
+
+  public :: setup_geometry
+  !public :: setup_topology
+  public :: generate_base_mesh
 
   contains
 !=======================================================================
@@ -216,16 +236,15 @@ module base_mesh
 !=======================================================================
 ! Make (quasi) orthogonal grid
 !=======================================================================
-  subroutine make_orthogonal_grid(this, prange)
+  subroutine make_orthogonal_grid(this, rrange, prange)
   use equilibrium, only: get_PsiN
-  use xpaths
   class(t_base_mesh)  :: this
-  integer, intent(in), optional :: prange(2)
+  integer, intent(in), optional :: rrange(2), prange(2)
 
   real(real64), dimension(:,:,:), pointer :: M
   type(t_xpath) :: R
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final
-  integer       :: ir, ir0, ir1, ir2, ip0, ip, ip1, ip2, direction
+  integer       :: ir, ir0, ir1, ir2, ir_final, ip0, ip, ip1, ip2, direction
 
 
   M => this%mesh
@@ -251,34 +270,44 @@ module base_mesh
   write (6, *) 'poloidal range: ', ip0, ip1, ip2
 
 
-  ! setup reference PsiN values
-  do ir=0,this%nr
-     x        = M(ir,ip0,:)
-     PsiN(ir) = get_PsiN(x)
-  enddo
-
-
   ! set radial range
   ir0 = this%ir0
   if (ir0 == 0) then
      ir1        = 1
      ir2        = this%nr
      direction  = ASCENT
-     PsiN_final = PsiN(this%nr)
   elseif (ir0 == this%nr) then
      ir1        = 0
      ir2        = this%nr - 1
      direction  = DESCENT
-     PsiN_final = PsiN(0)
   else
      write (6, 9000)
      write (6, 9002) ir0
      stop
   endif
+  if (present(rrange)) then
+     ir1 = rrange(1)
+     ir2 = rrange(2)
+  endif
   write (6, *) 'radial range: ', ir0, ir1, ir2
 
 
-  ! set up nodes in poloidal range ip1->ip2
+  ! setup reference PsiN values
+  do ir=ir1,ir2
+     x        = M(ir,ip0,:)
+     PsiN(ir) = get_PsiN(x)
+  enddo
+
+  select case(direction)
+  case(ASCENT)
+     ir_final = ir2
+  case(DESCENT)
+     ir_final = ir1
+  end select
+  PsiN_final = PsiN(ir_final)
+
+
+  ! set up nodes in poloidal range ip1->ip2 and radial range ir1->ir2
   do ip=ip1,ip2
      call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
 
@@ -363,7 +392,6 @@ module base_mesh
   use fieldline_grid, only: t_zone
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
   use curve2D
-  use divertor, only: C_guide
   use mesh_spacing
   use flux_surface_2D
   class(t_base_mesh)           :: this
@@ -493,6 +521,205 @@ module base_mesh
  9020 format('ERROR: aligned strike point mesh extends beyond upstream reference point ', &
              'at radial index ', i0)
   end subroutine make_divertor_grid
+!=======================================================================
+
+
+
+!=======================================================================
+! Set up geometry of computational domain:
+! Magnetic axis, X-points, separatrix(ces) and radial paths from X-points
+! SHOULD THIS BE MOVED TO MODULE fieldline_grid?
+!=======================================================================
+  subroutine setup_geometry(nX_, connectX_)
+  use fieldline_grid, only: guiding_surface, d_SOL, d_PFR
+  use boundary,       only: S_axi, n_axi
+  use equilibrium,    only: get_magnetic_axis, get_poloidal_angle, get_PsiN, Xp
+  use math
+  use separatrix
+  use inner_boundary
+  use string
+
+  integer, intent(in) :: nX_, connectX_(nX)
+
+  character(len=2) :: Sstr
+  real(real64)     :: dx, tmp(3), theta_cut, PsiN
+  integer          :: ix, ierr, iSOL, iPFR, jx, k, orientation
+
+
+  ! 1. set up guiding surface for divertor legs (C_guide) --------------
+  if (guiding_surface .ne. '') then
+     write (6, 1000)
+     call C_guide%load(guiding_surface)
+  else if (n_axi > 0) then
+     write (6, 1001)
+     call C_guide%copy(S_axi(1))
+  else
+     write (6, *) 'error: cannot determine divertor geometry!'
+     write (6, *) 'neither guiding_surface is set, nor is an axisymmetric surface defined.'
+     stop
+  endif
+ 1000 format(8x,'User defined guiding surface for divertor strike points')
+ 1001 format(8x,'First axisymmetric surface used for divertor strike points')
+
+
+  ! 2. CRITICAL POINTS -------------------------------------------------
+  ! 2.a set up magnetic axis (Pmag) ------------------------------------
+  tmp = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+  write (6, 2000) Pmag
+ 2000 format(8x,'Magnetic axis at: ',2f10.4)
+
+
+  ! 2.b check X-points -------------------------------------------------
+  nX = nX_
+  do ix=1,nX
+     tmp(1:2) = Xp(ix)%load(ierr)
+     if (ierr .ne. 0) then
+        write (6, 9001) ix
+        stop
+     endif
+     write (6, 2001) ix, tmp(1:2)
+     write (6, 2002) Xp(ix)%theta/pi*180.d0
+  enddo
+  write (6, *)
+ 2001 format(8x,i0,'. X-point at: ',2f10.4)
+ 2002 format(11x,'-> poloidal angle [deg]: ',f10.4)
+ 9001 format('error: ',i0,'. X-point is not defined!')
+
+
+  ! 3. inner boundaries for plasma transport domain (EMC3) -------------
+  call load_inner_boundaries(Xp(1)%theta)
+  write (6, *)
+
+
+  ! 4.1 generate separatrix(ces) ---------------------------------------
+  allocate (connectX(nX), S(nX), R(nX,4))
+  connectX = connectX_
+  do ix=1,nX
+     ! find cut-off poloidal angle for guiding X-point
+     jx = connectX(ix)
+     if (jx < 0  .and.  abs(jx).ne.ix) then
+        orientation = DESCENT_CORE ! TODO: find orientation from PsiN(ix)-PsiN(abs(connectX(ix)))
+        call R(abs(jx),orientation)%generateX(abs(jx), orientation, LIMIT_PSIN, Xp(ix)%PsiN())
+        theta_cut = get_poloidal_angle(R(abs(jx),orientation)%boundary_node(UPPER))
+
+        call S(ix)%generate(ix, C_cutl=C_guide, C_cutR=C_guide, theta_cut=theta_cut)
+     else
+        call S(ix)%generate(ix, C_cutl=C_guide, C_cutR=C_guide, iconnect=jx)
+     endif
+     write (Sstr, 2003) ix; call S(ix)%plot(trim(Sstr), parts=.true.)
+
+     call S(ix)%M1%setup_length_sampling()
+     call S(ix)%M2%setup_length_sampling()
+     call S(ix)%M3%setup_length_sampling()
+     call S(ix)%M4%setup_length_sampling()
+  enddo
+ 2003 format('S',i0)
+
+
+  ! 4.2 generate radial paths from X-points ----------------------------
+  write (6, 3000)
+  iSOL = 0
+  iPFR = 0
+  do ix=1,nX
+     jx = connectX(ix)
+
+
+     ! "core-interface"
+     if (ix == 1  .or.  jx > 0) then
+        write (6, 3010) ix
+        call R(ix, DESCENT_CORE)%generateX(ix, DESCENT_CORE, LIMIT_PSIN, PsiN_in)
+     else
+        if (R(ix, DESCENT_CORE)%n_seg < 0) then
+           write (6, *) "WARNING: rpath segment ", ix, DESCENT_CORE, " is not set up!"
+           stop
+        endif
+     endif
+
+
+     ! scrape-off layer
+     if (jx == ix) then
+        ! single SOL, left and right branch on same flux surface
+        iSOL = iSOL + 1
+        write (6, 3020) ix, d_SOL(iSOL)
+        call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        PsiN = get_PsiN(R(ix, ASCENT_LEFT)%boundary_node(boundary=UPPER))
+        call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
+
+     elseif (jx > ix) then
+        ! connected X-points, left and right branch on individual flux surfaces
+        iSOL = iSOL + 1
+        write (6, 3021) ix, jx, d_SOL(iSOL)
+        call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        PsiN = get_PsiN(R(ix, ASCENT_LEFT)%boundary_node(boundary=UPPER))
+        call R(jx, ASCENT_RIGHT)%generateX(jx, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
+
+        iSOL = iSOL + 1
+        write (6, 3022) ix, jx, d_SOL(iSOL)
+        call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(iSOL))
+        PsiN = get_PsiN(R(ix, ASCENT_RIGHT)%boundary_node(boundary=UPPER))
+        call R(jx, ASCENT_LEFT)%generateX(jx, ASCENT_LEFT, LIMIT_PSIN, PsiN)
+
+     elseif (jx == -ix) then
+        ! outer SOL with left and right branch on individual flux surfaces
+        iSOL = iSOL + 1
+        write (6, 3023) ix, d_SOL(iSOL)
+        call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+
+        iSOL = iSOL + 1
+        write (6, 3024) ix, d_SOL(iSOL)
+        call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(iSOL))
+
+     elseif (jx < 0) then
+        ! this SOL's boundary is another separatrix
+        PsiN = Xp(abs(jx))%PsiN()
+        write (6, 3025) ix, abs(jx), PsiN
+        call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_PSIN, PsiN)
+        call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
+     endif
+
+
+     ! private flux region
+     iPFR = iPFR + 1
+     write (6, 3030) ix, d_PFR(iPFR)
+     call R(ix, DESCENT_PFR)%generateX(ix, DESCENT_PFR, LIMIT_LENGTH, d_PFR(iPFR))
+
+
+     ! plot paths
+     do k=1,4
+        call R(ix, k)%plot(filename='rpath_'//trim(str(ix))//'_'//trim(str(k))//'.plt')
+     enddo
+  enddo
+
+ 3000 format(3x,'- Setting up radial paths for block-structured decomposition')
+ 3010 format(8x,'generating core segment for X-point ', i0)
+ 3020 format(8x,'generating SOL segment for X-point ', i0, '(length = ', f0.3, ' cm)')
+ 3021 format(8x,'generating left SOL segment for X-points ', i0, ', ', i0, ' (length = ', f0.3, ' cm)')
+ 3022 format(8x,'generating right SOL segment for X-points ', i0, ', ', i0, ' (length = ', f0.3, ' cm)')
+ 3023 format(8x,'generating left SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 3024 format(8x,'generating right SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 3025 format(8x,'generating SOL segment for X-point ', i0, ' up to separatrix from X-point ', &
+                i0, ' at PsiN = ', f0.3)
+ 3030 format(8x,'generating PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+  end subroutine setup_geometry
+!=======================================================================
+
+
+!=======================================================================
+!=======================================================================
+  subroutine generate_base_mesh(iblock)
+  use fieldline_grid
+  integer, intent(in) :: iblock
+
+
+  call load_local_resolution(iblock)
+
+
+  ! generate mesh for "core"-interface domain
+  if (connectX(1) == 1) then
+  else
+  endif
+
+  end subroutine generate_base_mesh
 !=======================================================================
 
 end module base_mesh
