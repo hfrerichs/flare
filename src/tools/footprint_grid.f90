@@ -137,7 +137,7 @@ subroutine footprint_grid
   integer, parameter :: iu = 99, iuD = 36
 
   type(t_curve) :: C, Ctmp1, Ctmp2
-  real(real64)  :: t, t1, x(2), x1(2), xn(2), L, L0, L1, alphan, phii
+  real(real64)  :: t, t1, x(2), x1(2), xn(2), L, L0, L1, alphan, phii, dphi
   integer :: i, j, n_start, n_end
 
 
@@ -245,8 +245,10 @@ subroutine footprint_grid
   close (iuD)
 
   ! 2. write coordinates in toroidal direction
+  dphi = 0.d0
+  if (N_phi > 1) dphi = 360.d0 / N_sym / (N_phi-1)
   do i=0,N_phi-1
-     phii = Phi_output + 360.d0 / N_sym * i / (N_phi-1)
+     phii = Phi_output + dphi * i
      write (iu, 3002) phii
   enddo
   close (iu)
