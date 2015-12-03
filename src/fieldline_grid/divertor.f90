@@ -7,6 +7,7 @@ module divertor
 
   integer, parameter :: iud     = 72
 
+  integer, parameter :: NO_X    = -1
 
   ! magnetic separatrix
   type(t_separatrix), dimension(:), allocatable :: S
@@ -27,17 +28,20 @@ module divertor
   ! based on nx X-points Xp(1:nx) from module equilibrium
   ! and how they connect to each other (connectX(ix) = number of X-point to which separatrix from X-point ix connects to)
   !=====================================================================
-  subroutine setup_geometry(nx, connectX)
+  subroutine setup_geometry(nx, connectX, orientationX)
   use math
   use equilibrium
   use boundary
-  use fieldline_grid, only: guiding_surface, d_cutL, d_cutR
+  use fieldline_grid, only: guiding_surface, d_cutL, d_cutR, discretization_method, POLOIDAL_ANGLE, ORTHOGONAL
   use inner_boundary
+  use xpaths
   integer, intent(in) :: nx, connectX(nx)
+  integer, intent(in), optional :: orientationX(nx)
 
+  type(t_xpath)    :: R
   character(len=2) :: Sstr
-  real(real64)     :: tmp(3)
-  integer          :: ix, ierr
+  real(real64)     :: tmp(3), theta_cut
+  integer          :: ix, ierr, orientation
 
 
   ! 1.a set up guiding surface for divertor legs (C_guide) ---------------------
@@ -88,7 +92,22 @@ module divertor
   ! 2.c generate separatrix(ces)
   allocate(S(nx))
   do ix=1,nx
-     call S(ix)%generate(ix, C_cutL=C_cutL, C_cutR=C_cutR, iconnect=connectX(ix))
+     ! find cut-off poloidal angle for guiding separatrix
+     if (connectX(ix) < 0  .and.  abs(connectX(ix)).ne.ix) then
+        select case(discretization_method)
+        case (POLOIDAL_ANGLE)
+           theta_cut = Xp(abs(connectX(ix)))%theta
+        case (ORTHOGONAL)
+           orientation = DESCENT_CORE
+           if (present(orientationX)) orientation = orientationX(ix)
+           call R%generateX(abs(connectX(ix)), orientation, LIMIT_PSIN, Xp(ix)%PsiN())
+           theta_cut = get_poloidal_angle(R%x(R%n_seg,:))
+        end select
+
+        call S(ix)%generate(ix, C_cutL=C_cutL, C_cutR=C_cutR, theta_cut=theta_cut)
+     else
+        call S(ix)%generate(ix, C_cutL=C_cutL, C_cutR=C_cutR, iconnect=connectX(ix))
+     endif
      write (Sstr, 2003) ix; call S(ix)%plot(trim(Sstr), parts=.true.)
 
      call S(ix)%M1%setup_length_sampling()
@@ -454,16 +473,20 @@ module divertor
 
   ! set direction
   direction = DESCENT
-  if (ir1 > ir0) direction = ASCENT
+  if (ir1 > ir0) direction = ASCENT_RIGHT
 
 
   ! set up nodes along rpath and radial coordinate PsiN
-  if (ir2 .ge. ir1) then
+  if (ir2 .ge. ir1  .and.  ip2 > ip1) then
      write (6, 1010) ir2, ir1, ip1, ip2
      write (6, 1011) rpath%length()
   endif
   do ir=ir1,ir2
-     eta = 1.d0 - Sr%node(ir-1,nr-1)
+     if (direction == ASCENT  .or.  direction == ASCENT_RIGHT) then
+        eta = Sr%node(ir-ir0,nr-ir0)
+     else
+        eta = 1.d0 - Sr%node(ir-1,nr-1)
+     endif
      call rpath%sample_at(eta, x)
      PsiN(ir) = get_PsiN(x)
      M(ir,ip0,:) = x
@@ -472,6 +495,7 @@ module divertor
 
   ! set up nodes in poloidal range ip1->ip2
   do ip=ip1,ip2
+     if (ip2 > ip1) call progress(ip-ip1, ip2-ip1, 1.d-1)
      call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
 
      do ir=ir1,ir2
@@ -481,7 +505,7 @@ module divertor
   enddo
 
 
-  ! set up nodes at poloidal index ix
+  ! set up nodes at poloidal index ipx
   if (ipx >= 0) then
      call R%generateX(ix, direction, LIMIT_PSIN, rpath%PsiN(2), sampling=SAMPLE_PSIN)
      do ir=ir1,ir2
@@ -528,7 +552,7 @@ module divertor
   write (6, 1001) ir1+1, ir2-1
 
   ! sanity check
-  PsiN0 = get_PsiN(M(ir2,j,:))
+  PsiN0 = get_PsiN(M(ir2,0,:))
   if (PsiN0 < PsiN1) then
      write (6, *) 'PsiN_start = ', PsiN0
      write (6, *) 'error: last unperturbed flux surface in grid must be completely outside of inner simulation boundary!'
@@ -637,6 +661,67 @@ module divertor
   end subroutine divertor_leg_discretization_error
   end subroutine make_flux_surfaces_SOL
   !=============================================================================
+  subroutine make_flux_surfaces_SOLo(M, nr, npL, np0, npR, ir1, ir2, ip0, ipx, ix, rpath, Sr, debug)
+  use xpaths
+  use mesh_spacing
+  use flux_surface_2D
+  use math
+  use fieldline_grid, only: etaR, etaL
+
+  real(real64), dimension(:,:,:), pointer, intent(inout) :: M
+  integer,         intent(in) :: nr, npL, np0, npR, ir1, ir2, ip0, ipx, ix
+  type(t_xpath),   intent(in) :: rpath
+  type(t_spacing), intent(in) :: Sr
+  logical,         intent(in), optional :: debug
+
+  type(t_spacing) :: Sp
+  type(t_flux_surface_2D) :: FR, FL
+  real(real64) :: x0(2), DL(0:npL, 2), DR(0:npR, 2)
+  integer      :: i, ierr, ip1, ip2
+  integer :: np
+
+
+  write (6, 1020) ir1, ir2
+  write (6, 1021) rpath%length()
+  np = npL + np0 + npR
+
+
+  ip1 = npR
+  ip2 = npR+np0
+  if (ipx == ip1) ip1 = ip1+1
+  if (ip0 == ip1) ip1 = ip1+1
+  if (ipx == ip2) ip2 = ip2-1
+  if (ip0 == ip2) ip2 = ip2-1
+  call make_ortho_grid(M, nr, np, 0, ir1, ir2, ip0, ip1, ip2, ipx, ix, rpath, Sr, Sp, debug=debug)
+  do i=ir1,ir2
+     write (6, *) i
+
+     ! right divertor leg
+     x0 = M(i,npR,:)
+     call FR%generate(x0, direction=LEFT_HANDED, AltSurf=C_cutR, sampling=ARCLENGTH, retrace=.true.)
+     call divertor_leg_discretization(FR%t_curve, 1.d0-etaR(1), npR, DR, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
+     M(i,0:npR,:) = DR
+
+     ! left divertor leg
+     x0 = M(i,npR+np0,:)
+     call FL%generate(x0, direction=RIGHT_HANDED, AltSurf=C_cutL, sampling=ARCLENGTH, retrace=.true.)
+     call divertor_leg_discretization(FL%t_curve, etaL(1), npL, DL, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
+     M(i,npR+np0:npR+np0+npL,:) = DL
+  enddo
+
+ 1020 format (8x,'generating scrape-off layer: ',i0,' -> ', i0)
+ 1021 format (8x,'d_SOL = ',f8.3)
+  contains
+  subroutine divertor_leg_discretization_error()
+     write (6, *) 'error occured in subroutine divertor_leg_discretization'
+     stop
+  end subroutine divertor_leg_discretization_error
+  end subroutine make_flux_surfaces_SOLo
+  !=============================================================================
+
+
 
   !=============================================================================
   ! private flux region
@@ -696,13 +781,13 @@ module divertor
   subroutine close_grid_domain(iz)
   use equilibrium
   use fieldline_grid, only: Zone
+  use run_control, only: Debug
 
   integer, intent(in) :: iz
 
 
   real(real64) :: d
   integer      :: i, iside, j, j0(-1:1), k, k0(-1:1)
-  logical      :: debug = .false.
 
 
   P_SURF_PL_TRANS_RANGE(1,iz) = 1
@@ -754,6 +839,7 @@ module divertor
      enddo
      if (debug) write (96+iside, *) R1, Z1
   enddo
+  if (debug) write (96+iside, *)
   end subroutine distribute_nodes
   !.....................................................................
 
