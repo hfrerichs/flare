@@ -20,7 +20,8 @@ Then compile and install the code using:
 Requirements:
 -------------
 
-FGSL (FORTRAN interface to the GNU Scientific Library) is required by the analytical ("one size fits all") equilibrium module.
+-FGSL (FORTRAN interface to the GNU Scientific Library)
+-GSL (GNU Scientific Library): make sure you have 'libgsl0-dev' installed as well
 
 
 
