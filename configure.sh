@@ -126,36 +126,36 @@ echo "" >> include.mk
 
 
 # checking for coupling to EMC3 ------------------------------------------------
-if [ "$emc3_dir" == "" ]; then
-	NOTE='Compiling without support for fieldline-grid input (based on EMC3 sources)'
-	echo $NOTE | tee -a $LOG_FILE
-else
-	NOTE='Compiling with support for fieldline-grid input (based on EMC3 sources)'
-	echo $NOTE | tee -a $LOG_FILE
-	echo "# $NOTE" >> include.mk
-	echo "EMC3_FLAG      = -DEMC3" >> include.mk
-        echo "EMC3_SRC_DIR   = $emc3_dir/MAIN" >> include.mk
-	if [ ! -d "$emc3_dir/MAIN" ]; then
-		echo "error: EMC3 source files not found!"
-		exit
-	fi
-	echo "EMC3_OBJ       = \
-               PHYS_CONST.o\
-               GEOMETRY_PL.o\
-               SURFACE_PL.o\
-               MAPPING.o\
-               check.o\
-               ibm_iface.o\
-               random.o\
-               real_to_ft.o\
-               service.o\
-               sf_def_user.o\
-               sf_jump.o" >> include.mk
-	echo "EMC3_OBJ_LONG  = \$(addprefix \$(EMC3_LINK_DIR)/,\$(EMC3_OBJ))" >> include.mk
-	echo "" >> include.mk
-
-
-fi
+#if [ "$emc3_dir" == "" ]; then
+#	NOTE='Compiling without support for fieldline-grid input (based on EMC3 sources)'
+#	echo $NOTE | tee -a $LOG_FILE
+#else
+#	NOTE='Compiling with support for fieldline-grid input (based on EMC3 sources)'
+#	echo $NOTE | tee -a $LOG_FILE
+#	echo "# $NOTE" >> include.mk
+#	echo "EMC3_FLAG      = -DEMC3" >> include.mk
+#        echo "EMC3_SRC_DIR   = $emc3_dir/MAIN" >> include.mk
+#	if [ ! -d "$emc3_dir/MAIN" ]; then
+#		echo "error: EMC3 source files not found!"
+#		exit
+#	fi
+#	echo "EMC3_OBJ       = \
+#               PHYS_CONST.o\
+#               GEOMETRY_PL.o\
+#               SURFACE_PL.o\
+#               MAPPING.o\
+#               check.o\
+#               ibm_iface.o\
+#               random.o\
+#               real_to_ft.o\
+#               service.o\
+#               sf_def_user.o\
+#               sf_jump.o" >> include.mk
+#	echo "EMC3_OBJ_LONG  = \$(addprefix \$(EMC3_LINK_DIR)/,\$(EMC3_OBJ))" >> include.mk
+#	echo "" >> include.mk
+#
+#
+#fi
 # ------------------------------------------------------------------------------
 
 
