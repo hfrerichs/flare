@@ -5,4 +5,9 @@ module system
   real(real64), parameter :: &
      epsilon_r64 = epsilon(real(1.0,real64))
 
+  integer, parameter :: &
+     STRICT      = 0, &
+     FREE        = 1
+
+
 end module system

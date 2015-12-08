@@ -9,20 +9,21 @@ module equilibrium
 
 
   character(len=*), parameter :: &
-     S_GEQDSK     = 'geqdsk', &
-     S_DIVAMHD    = 'divamhd', &
-     S_JETEQ      = 'jeteq', &
-     S_M3DC1      = 'm3dc1', &
-     S_AMHD       = 'amhd'
+     S_GEQDSK       = 'geqdsk', &
+     S_GEQDSK_FREE  = 'geqdsk*', &
+     S_DIVAMHD      = 'divamhd', &
+     S_JETEQ        = 'jeteq', &
+     S_M3DC1        = 'm3dc1', &
+     S_AMHD         = 'amhd'
 
   integer, parameter :: &
-     EQ_GUESS     = -1, &
-     EQ_UNDEFINED = 0, &
-     EQ_GEQDSK    = 1, &
-     EQ_DIVAMHD   = 2, &
-     EQ_JET       = 3, &
-     EQ_M3DC1     = 4, &
-     EQ_AMHD      = 5
+     EQ_GUESS       = -1, &
+     EQ_UNDEFINED   = 0, &
+     EQ_GEQDSK      = 1, &
+     EQ_DIVAMHD     = 2, &
+     EQ_JET         = 3, &
+     EQ_M3DC1       = 4, &
+     EQ_AMHD        = 5
 
 
   integer, parameter :: nX_max = 10
@@ -162,6 +163,8 @@ module equilibrium
 
   integer :: ipanic = 0
 
+  integer, private :: i_format
+
   contains
 !=======================================================================
 
@@ -172,12 +175,17 @@ module equilibrium
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
   use run_control, only: Prefix, Debug
+  use system
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
   integer              :: ix
   real(real64)         :: r(3), x0(2)
   real(real64)         :: Rbox(2), Zbox(2)
+
+
+! 0. initialize
+  i_format = STRICT
 
 
 ! 1. read user configuration
@@ -190,15 +198,18 @@ module equilibrium
 ! 1.b find equilibrium type
   select case(Data_Format)
   case (S_GEQDSK)
-     i_equi = EQ_GEQDSK
+     i_equi   = EQ_GEQDSK
+  case (S_GEQDSK_FREE)
+     i_equi   = EQ_GEQDSK
+     i_format = FREE
   case (S_DIVAMHD)
-     i_equi = EQ_DIVAMHD
+     i_equi   = EQ_DIVAMHD
   case (S_M3DC1)
-     i_equi = EQ_M3DC1
+     i_equi   = EQ_M3DC1
   case (S_AMHD)
-     i_equi = EQ_AMHD
+     i_equi   = EQ_AMHD
   case ('')
-     i_equi = EQ_GUESS
+     i_equi   = EQ_GUESS
   case default
      write (6, *) 'error: ', Data_Format, ' is not a valid equilibrium type!'
      stop
@@ -370,7 +381,7 @@ module equilibrium
 ! load equilibrium data
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (filename, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
+     call geqdsk_load (filename, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx, Header_Format=i_format)
   case (EQ_DIVAMHD)
      call divamhd_load (filename, Ip, Bt, R0)
 

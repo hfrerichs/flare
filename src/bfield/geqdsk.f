@@ -69,34 +69,51 @@
 ! Load equilibrum data from file
 !===============================================================================
       subroutine geqdsk_load (Data_File, Ip, Bt, use_PFC_, CurrentFix_,
-     .                        DL_, psi_axis, psi_sepx)
+     .                        DL_, psi_axis, psi_sepx, Header_Format)
       use run_control, only: Spline_Order
       use bspline
+      use system
       character*120, intent(in) :: Data_File
       real*8,  intent(in)       :: Ip, Bt
       logical, intent(in), optional  :: use_PFC_, CurrentFix_
-      integer, intent(in), optional  :: DL_
+      integer, intent(in), optional  :: DL_, Header_Format
       real*8, intent(out), optional  :: psi_axis,psi_sepx
 
       integer, parameter :: iu = 17
 
       real*8, dimension(:), allocatable :: Rtmp, Ztmp, Psintmp
 
+      character(len=80) :: tmp
       character*8  :: case_(6)
-      integer :: i, j, idum
+      integer :: i, j, idum, iformat
       real*8  :: xdum, PsiC, PsiL, PsiR, rCurrentFix
       logical :: lL, lR, concaveup
 
 
+      iformat = STRICT
       if (present(use_PFC_)) use_wall = use_PFC_
       if (present(CurrentFix_)) CurrentFix = CurrentFix_
       if (present(DL_)) DiagnosticLevel = DL_
+      if (present(Header_Format)) iformat = Header_Format
+      select case(iformat)
+      case(STRICT,FREE)
+      case default
+         write (6, 9000) iformat
+         stop
+      end select
+ 9000 format('error: header format ', i0, ' not defined!')
       nord = Spline_Order
 
       open  (iu, file=Data_File)
 
       ! read equilibrium configuration
-      read  (iu, 2000) (case_(i),i=1,6), idum, nR, nZ
+      select case(iformat)
+      case(STRICT)
+         read  (iu, 2000) (case_(i),i=1,6), idum, nR, nZ
+      case(FREE)
+         read  (iu, 2001) (case_(i),i=1,6), tmp
+         read  (tmp, *) idum, nR, nZ
+      end select
       read  (iu, 2020) Rdim, Zdim, Rcentr, Rleft, Zmid
       read  (iu, 2020) Rmaxis, Zmaxis, Simag, Sibry, Bcentr
       read  (iu, 2020) Current, Simag, xdum, Rmaxis, xdum
@@ -261,6 +278,7 @@ c-----------------------------------------------------------------------
       if (present(psi_sepx)) psi_sepx = Sibry
       return
  2000 format (6a8,3i4)
+ 2001 format (6a8,a80)
  2020 format (5e16.9)
  2022 format (2i5)
  2024 format (i5,e16.9,i5)
