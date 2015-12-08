@@ -69,7 +69,7 @@ module xpaths
   ! 0. initialize
   Px = Xp(iPx)%X
   H  = Xp(iPx)%H
-  call H_eigenvectors(H, v1, v2)
+  call H_eigenvectors(H, v1, v2) ! v1: ascending,right   v2: descending,upward
   ! offset from X-point for tracing
   dl    = Px(1) / 1.d3
   ! position of X-point with respect to midplane
@@ -121,7 +121,7 @@ module xpaths
 
   real(real64), dimension(:,:), allocatable :: tmp, tmp_tmp
   type(t_ODE)  :: Path
-  real(real64) :: y(3), ds, t, Psi0, PsiN, L
+  real(real64) :: y(3), ds, t, Psi0, PsiN, L, Rbox(2), Zbox(2)
   integer      :: i, n_seg, is, n_tmp, sampling_method
 
 
@@ -170,6 +170,7 @@ module xpaths
   tmp(i,1:2) = xinit
   tmp(i,  3) = get_PsiN(xinit)
 
+  call get_domain (Rbox, Zbox)
 
   ! 2. generate grad PsiN path
   call Path%init_ODE(2, xinit, ds, ePsi_sub, Trace_Method)
@@ -216,6 +217,13 @@ module xpaths
         endif
 
      end select
+
+     ! check equilibrium domain
+     if (tmp(i,1).lt.Rbox(1) .or. tmp(i,1).gt.Rbox(2) .or. &
+         tmp(i,2).lt.Zbox(1) .or. tmp(i,2).gt.Zbox(2)) then
+        t = 1.d0
+        exit
+     endif
   enddo
   n_seg = i-1
   call this%new(n_seg)
