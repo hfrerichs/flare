@@ -30,10 +30,12 @@ module amhd
      scale_manual = 1.d0
   logical      :: &
      up_down_symmetry = .true., &
+     xpoint           = .true., &
      snowflake        = .false.
 
   namelist /AMHD_Input/ &
-     eps, del, kap, A, xsep, ysep, xsep2, ysep2, scale_manual, up_down_symmetry, snowflake, &
+     eps, del, kap, A, xsep, ysep, xsep2, ysep2, scale_manual, &
+     up_down_symmetry, xpoint, snowflake, &
      Rx, Zx, delX, kapX
 
 
@@ -163,11 +165,11 @@ module amhd
   ! 2. inner equatorial point
   vpsi   = Psi_osfa(1.d0 - eps, 0.d0)
   M(:,2) = vpsi(1:n);  b(2)   = -vpsi(0)
-  ! 3. X-point
-  vpsi   = Psi_osfa(xsep, ysep)
+  ! 3. high point
+  vpsi = Psi_osfa(1.d0 - del*eps, kap*eps)
   M(:,3) = vpsi(1:n);  b(3)   = -vpsi(0)
-  ! 4. BZ=0 at X-point
-  vpsi   = Psix_osfa(xsep, ysep)
+  ! 4. high point maximum
+  vpsi = Psix_osfa(1.d0 - del*eps, kap*eps)
   M(:,4) = vpsi(1:n);  b(4)   = -vpsi(0)
   ! 5. outer equatorial point curvature
   vpsi   = Psiyy_osfa(1.d0 + eps, 0.d0)
@@ -181,9 +183,23 @@ module amhd
   vpsi   = Psix_osfa(1.d0 - eps, 0.d0)
   M(:,6) = M(:,6) + N2*vpsi(1:n)
   b(6)   = b(6)   - N2*vpsi(0)
-  ! 7. BR=0 at X-point
-  vpsi   = Psiy_osfa(xsep, ysep)
+  ! 7. high point curvature
+  vpsi = Psixx_osfa(1.d0 - del*eps, kap*eps)
   M(:,7) = vpsi(1:n);  b(7)   = -vpsi(0)
+  vpsi = Psiy_osfa(1.d0 - del*eps, kap*eps)
+  M(:,7) = M(:,7) + N3*vpsi(1:n)
+  b(7)   = b(7)   - N3*vpsi(0)
+  if (xpoint) then
+     ! 3. X-point
+     vpsi   = Psi_osfa(xsep, ysep)
+     M(:,3) = vpsi(1:n);  b(3)   = -vpsi(0)
+     ! 4. BZ=0 at X-point
+     vpsi   = Psix_osfa(xsep, ysep)
+     M(:,4) = vpsi(1:n);  b(4)   = -vpsi(0)
+     ! 7. BR=0 at X-point
+     vpsi   = Psiy_osfa(xsep, ysep)
+     M(:,7) = vpsi(1:n);  b(7)   = -vpsi(0)
+  endif
   if (.not.up_down_symmetry) then
      ! 8. high point
      vpsi = Psi_osfa(1.d0 - del*eps, kap*eps)
@@ -244,7 +260,7 @@ module amhd
   r(1) = R0 * (1.d0-eps)
   r(2) = 0.d0
   r(3) = 0.d0
-  Bf   = amhd_get_Bf(r)
+  Bf   = amhd_get_Bf(r) ! Gauss
   Bpol = Ip * 2.d5 / R0 / eps
   PSI0_scale = Bpol / Bf(2) * scale_manual
 
