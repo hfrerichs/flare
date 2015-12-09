@@ -17,19 +17,17 @@
 !       I4:             Left strike point   R_start, R_end distance from strike point
 !
 !    N_sym              Toroidal extend for grid on axisymmetric surface: 360 deg / N_sym
-!    N_mult             Multiplier for plot coordinate (should be 1 for right handed boundary
-!                       or -1 for left handed boundary)
+!    Side               Multiplier for plot coordinate (should be -1 for right-handed/ccw
+!                       boundary nodes or 1 for left-handed/cw boundary nodes)
 !
 !    Phi_output         Reference marker (toroidal direction) on surface
 !                       For axisymmetric surfaces: lower coordinate for toroidal domain
 !
-!    offset             Radial offset (on left hand side) from boundary surface
+!    offset             Radial offset (on right hand side) from boundary surface
 !
 !    N_theta, N_phi     Polidal and toroidal resolution
 !
 !    Output_Format = IJ
-!        I = 0          standard output
-!        I > 1          add direction of normal vector for axisymmetric surfaces
 !        J              Plotting coordinate:
 !                       1 (default): length along surface contour segment in RZ-plane
 !                       2: R-coordinate
@@ -37,11 +35,13 @@
 !                       4: relative length along surface contour segment in RZ-plane
 !                       5: length along FULL surface contour in RZ-plane
 !                       6: relative length along FULL surface contour in RZ-plane
+!        I = 0          standard output
+!        I > 1          add direction of normal vector for axisymmetric surfaces
 !===============================================================================
 subroutine footprint_grid
   use iso_fortran_env
   use run_control, only: Grid_File, Output_File, Output_Format, N_theta, N_phi, offset, &
-                         R_start, R_end, Phi_Output, N_sym, N_psi, N_mult
+                         R_start, R_end, Phi_Output, N_sym, N_psi, Side
   use parallel
   use separatrix
   use boundary
@@ -88,16 +88,16 @@ subroutine footprint_grid
      call S%generate(ix, 2.d0)
 
      ! right divertor leg
-     x1 = S%M3%x(1,:)
-     x2 = S%M3%x(0,:);  x2 = x1 + 2.d0*(x2-x1)
+     x1   = S%M3%x(1,:)
+     x2   = S%M3%x(0,:);  x2 = x1 + 2.d0*(x2-x1)
+     Side = -1 * Side
 
   case(4)
      call S%generate(ix, 2.d0)
 
      ! left divertor leg
-     x1 = S%M4%x(S%M4%n_seg-1,:)
-     x2 = S%M4%x(S%M4%n_seg,:);  x2 = x1 + 2.d0*(x2-x1)
-     N_mult = -1 * N_mult
+     x1   = S%M4%x(S%M4%n_seg-1,:)
+     x2   = S%M4%x(S%M4%n_seg,:);  x2 = x1 + 2.d0*(x2-x1)
 
   case default
      automatic_R = .false.
@@ -111,9 +111,9 @@ subroutine footprint_grid
         w0      = S_axi(surf_id)%w(ish-1)
         w0      = w0 + sh * (S_axi(surf_id)%w(ish) - S_axi(surf_id)%w(ish-1))
 
-        L0_off  = R_start; if (N_mult < 0) L0_off = R_end
-        w1      = w0 + N_mult * R_start/L
-        w2      = w0 + N_mult * R_end/L
+        L0_off  = R_start; if (Side < 0) L0_off = R_end
+        w1      = w0 + Side * R_start/L
+        w2      = w0 + Side * R_end/L
         R_start = min(w1, w2);  R_end   = max(w1, w2)
      else
         write (6, *) 'error: cannot find intersection between separatrix leg and boundary!'
@@ -180,7 +180,7 @@ subroutine footprint_grid
 
 
   ! shift footprint base off of surface
-  call C%left_hand_shift(offset)
+  call C%left_hand_shift(-offset)
 
 
   call C%setup_length_sampling()
@@ -210,7 +210,7 @@ subroutine footprint_grid
      ! select diagnostic coordinate used for plotting (3rd column)
      select case (mod(Output_Format,10))
      case (1)	! length along surface in RZ-plane
-        L = N_mult * t * L0  +  L0_off
+        L = Side * t * L0  +  L0_off
      case (2)
         L = x(1) ! R-coordinate
      case (3)
@@ -356,7 +356,7 @@ subroutine footprint_grid
      phi = S_quad(iele)%sample_phi(tau)
      C   = S_quad(iele)%slice(phi)
 
-     call C%left_hand_shift(offset)
+     call C%left_hand_shift(-offset)
      call C%setup_length_sampling()
 
      do j=0,n_theta

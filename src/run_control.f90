@@ -46,6 +46,7 @@ module run_control
      Run_Level(2)   = 0, &
      Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
      Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
+     Side           = 1, &
      Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
      Spline_Order   = 5, &
@@ -66,7 +67,7 @@ module run_control
      Machine, Configuration, &
      Run_Type, Output_File, Label, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
-     R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
+     R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Spline_Order, Run_Level, &
      Debug
@@ -130,6 +131,7 @@ module run_control
   call broadcast_inte_s (N_Z             )
   call broadcast_inte_s (Trace_Method    )
   call broadcast_inte_s (Trace_Coords    )
+  call broadcast_inte_s (Side            )
   call broadcast_inte_s (Input_Format    )
   call broadcast_inte_s (Output_Format   )
   call broadcast_inte_s (Panic_Level     )
