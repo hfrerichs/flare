@@ -107,6 +107,7 @@ module equilibrium
      Psi_sepx = 1.d0, &
      Psi_axis = 0.d0
 
+  real(real64), private :: EQBox(2,2)
 
 
 
@@ -174,7 +175,7 @@ module equilibrium
 ! Load equilibrium configuration
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
-  use run_control, only: Prefix, Debug
+  use run_control, only: Prefix, Debug, use_boundary_from_equilibrium
   use system
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
@@ -228,6 +229,7 @@ module equilibrium
   post_setup_equilibrium        => null()
   equilibrium_provides_boundary => default_equilibrium_provides_boundary
   call initialize_magnetic_axis()
+  use_boundary = (use_boundary .and. use_boundary_from_equilibrium)
 
 
 ! 2. load equilibrium data (if provided) ...............................
@@ -414,6 +416,9 @@ module equilibrium
   use m3dc1
   use amhd
 
+  real(real64)         :: Rbox(2), Zbox(2)
+
+
   ! select case equilibrium
   select case (i_equi)
   case (EQ_GEQDSK)
@@ -447,6 +452,11 @@ module equilibrium
      broadcast_equilibrium         => amhd_broadcast
      post_setup_equilibrium        => amhd_post_setup_equilibrium
   end select
+
+
+  call get_domain(Rbox, Zbox)
+  EQBox(1,:) = Rbox
+  EQBox(2,:) = Zbox
 
   end subroutine setup_equilibrium
 !=======================================================================
@@ -682,13 +692,43 @@ module equilibrium
 ! Return poloidal angle [rad] at r=(R,Z [cm], phi [rad])
 !=======================================================================
   function get_poloidal_angle(r) result(theta)
-  real*8, intent(in) :: r(3)
-  real*8             :: theta, Maxis(3)
+  real(real64), dimension(:), intent(in) :: r
+  real(real64)                           :: theta
 
-  Maxis = get_magnetic_axis(r(3))
+  real(real64) :: phi, Maxis(3)
+
+
+  select case(size(r))
+  case(2)
+     phi = 0.d0
+  case(3)
+     phi = r(3)
+  case default
+     write (6, *) 'error in get_poloidal_angle: invalid size of argument r0!'
+     write (6, *) 'size(r) = ', size(r)
+     stop
+  end select
+
+
+  Maxis = get_magnetic_axis(phi)
   theta = atan2(r(2) - Maxis(2), r(1) - Maxis(1))
 
   end function get_poloidal_angle
+!=======================================================================
+
+
+
+!=======================================================================
+! Return minor radius [cm] at r=(R,Z [cm], phi [rad])
+!=======================================================================
+  function get_rmin(r) result(rmin)
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: rmin, Maxis(3)
+
+  Maxis = get_magnetic_axis(r(3))
+  rmin  = sqrt((r(1)-Maxis(1))**2 + (r(2)-Maxis(2))**2)
+
+  end function get_rmin
 !=======================================================================
 
 
@@ -704,7 +744,7 @@ module equilibrium
 ! optional output:
 ! iter:		number of iterations performed
 !=======================================================================
-  function get_cylindrical_coordinates(y, ierr, r0, iter) result(r)
+  function get_cylindrical_coordinates(y, ierr, r0, order, damping, iter) result(r)
   use iso_fortran_env
   use math
   implicit none
@@ -713,19 +753,36 @@ module equilibrium
   integer,      intent(out)           :: ierr
   real(real64), intent(in),  optional :: r0(3)
   real(real64)                        :: r(3)
+  integer,      intent(in),  optional :: order
+  real(real64), intent(in),  optional :: damping
   integer,      intent(out), optional :: iter
 
   integer, parameter :: imax = 100
   real(real64), parameter :: tolerance = 1.d-10
-  real(real64), parameter :: damping   = 1.0d0
 
   real(real64) :: dpsi_dR, dpsi_dZ, dpsi_dl, dpsi_dl2, H(2,2), P, Q
-  real(real64) :: M(3), Theta, PsiN, er(2), beta, delta
+  real(real64) :: M(3), Theta, PsiN, er(2), beta, delta, d
 
-  integer :: i
+  integer :: i, o
 
 
   ierr  = 0
+
+
+  ! set order of approximation
+  o = 2
+  if (present(order)) o = order
+  if (o < 1  .or.  o > 2) then
+     write (6, *) 'error in subroutine get_cylindrical_coordinates:'
+     write (6, *) 'invalid parameter order = ', o
+     stop
+  endif
+
+
+  ! set damping factor
+  d = 1.d0
+  if (present(damping)) d = damping
+
 
   ! set start point for approximation
   if (present(r0)) then
@@ -756,18 +813,30 @@ module equilibrium
      dpsi_dl2= H(1,1)*er(1)**2  +  2.d0*H(1,2)*er(1)*er(2)  +  H(2,2)*er(2)**2
 
      ! 1st order approximation
-     delta   = beta / dpsi_dl * damping
+     delta   = beta / dpsi_dl * d
+     Q       = 0.d0
      ! 2nd order approximation
-     P       = - dpsi_dl / dpsi_dl2
-     Q       = P**2 + 2.d0 * beta / dpsi_dl2
+     if (o == 2) then
+        P       = - dpsi_dl / dpsi_dl2
+        Q       = P**2 + 2.d0 * beta / dpsi_dl2
+     endif
      if (Q > 0.d0) then
         delta = P - sign(sqrt(Q),P)
      else
         ierr = -1
+        ! if (present(ierr)) then
+        !    ierr = -1
+        ! else
+        !    write (6, *) 'error: ...
+        !    stop
+        ! endif
      endif
 
      r(1:2)  = r(1:2) + delta * er
      PsiN    = get_PsiN(r)
+     if (PsiN > max(1.d0,y(2))) then
+        r(1:2)  = r(1:2) - delta * er * (PsiN - max(1.d0,y(2))) / beta
+     endif
      Theta   = get_poloidal_angle(r) / pi*180.d0
      if (Theta < 0) Theta = Theta + 360.d0
 
@@ -817,6 +886,19 @@ module equilibrium
   endif
 
   end subroutine default_get_domain
+!=======================================================================
+  function outside_domain(x)
+  real(real64), intent(in) :: x(2)
+  logical                  :: outside_domain
+
+
+  outside_domain = .false.
+  if (x(1) < EQBox(1,1)  .or.  x(1) > EQBox(1,2)  .or. &
+      x(2) < EQBox(2,1)  .or.  x(2) > EQBox(2,2)) then
+     outside_domain = .true.
+  endif
+
+  end function
 !=======================================================================
 
 
@@ -1262,15 +1344,16 @@ module equilibrium
 
 
 !=======================================================================
-  function load(this) result(X)
+  function load(this, ierr) result(X)
   class(t_Xpoint) :: this
   real(real64)    :: X(2)
+  integer, intent(out) :: ierr
 
 
+  ierr = 0
   if (this%undefined) then
      X = -1.d0
-     write (6, *) 'error: X-point is not defined!'
-     stop
+     ierr = 1
   else
      X = this%X
   endif
@@ -1291,6 +1374,45 @@ module equilibrium
   end function t_Xpoint__PsiN
 !=======================================================================
 
+
+
+
+!=======================================================================
+! calculate eigenvectors v1,v2 of Hessian matrix of pol. magn. flux at x
+!=======================================================================
+  subroutine H_eigenvectors (H, v1, v2)
+  real(real64), intent(in)  :: H(2,2)
+  real(real64), intent(out) :: v1(2), v2(2)
+
+  real(real64) :: r(3), psi_xx, psi_xy, psi_yy, l1, l2, ac2, ac4, b2
+
+
+  psi_xx = H(1,1) / (Psi_sepx-Psi_axis)
+  psi_xy = H(1,2) / (Psi_sepx-Psi_axis)
+  psi_yy = H(2,2) / (Psi_sepx-Psi_axis)
+
+
+  ! get eigenvalues l1,l2 of Hessian at X-point
+  ac2 = 0.5d0  * (psi_xx + psi_yy)
+  ac4 = 0.25d0 * (psi_xx - psi_yy)**2
+  b2  = psi_xy**2
+  l1  = ac2 + dsqrt(ac4 + b2)
+  l2  = ac2 - dsqrt(ac4 + b2)
+
+
+  ! construct normalized eigenvectors
+  ! ISSUE: this might not work if the X-point is straight below the magnetic axis!
+  v1(1) = 1.d0
+  v1(2) = - (psi_xx - l1) / psi_xy
+  v1    = v1 / sqrt(sum(v1**2))
+
+! construct v2 so that it is pointing upwards
+  v2(2) = 1.d0
+  v2(1) = - psi_xy / (psi_xx - l2)
+  v2    = v2 / sqrt(sum(v2**2))
+
+  end subroutine H_eigenvectors
+!=======================================================================
 
 
 

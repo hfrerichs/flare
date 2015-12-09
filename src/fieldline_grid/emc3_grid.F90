@@ -17,8 +17,8 @@ module emc3_grid
      P_SURF_PL_TRANS_RANGE
 
   real*8, dimension(:), allocatable, save :: &
-     RG,                  ZG,                PHI_PLANE, &
-     BFSTREN,        PSI_POLOIDAL
+     RG,                  ZG,                    PHI_PLANE, &
+     BFSTREN,             PSI_N
 
   logical, private, save :: already_loaded = .false.
 
@@ -60,7 +60,7 @@ module emc3_grid
   integer, parameter :: iu = 24
 
   character(len=72)  :: readfi
-  integer :: i, iz, ir, itmp, n
+  integer :: i, iz, ir, ip, itmp, n
 
 
   write (6, 1000)
@@ -105,8 +105,8 @@ module emc3_grid
   do iz=0,NZONET-1
      R_SURF_PL_TRANS_RANGE(1,iz) = SRF_RADI(iz)-1
      R_SURF_PL_TRANS_RANGE(2,iz) = 0
-     P_SURF_PL_TRANS_RANGE(1,iz) = 0
-     P_SURF_PL_TRANS_RANGE(2,iz) = SRF_POLO(iz)-1
+     P_SURF_PL_TRANS_RANGE(1,iz) = SRF_POLO(iz)-1
+     P_SURF_PL_TRANS_RANGE(2,iz) = 0
   enddo
 
 
@@ -126,8 +126,11 @@ module emc3_grid
   call scrape(iu, readfi)
   read (readfi, *) n
   do i=1,n
-     read (iu, *) readfi
-     read (iu, *) readfi
+     read  (iu, *) ip, iz, itmp
+     write (6,  *) ip, iz, itmp
+     read  (iu, *) readfi
+     P_SURF_PL_TRANS_RANGE(1,iz) = min(P_SURF_PL_TRANS_RANGE(1,iz), ip)
+     P_SURF_PL_TRANS_RANGE(2,iz) = max(P_SURF_PL_TRANS_RANGE(2,iz), ip)
   enddo
 
   ! 3. toroidal
@@ -149,6 +152,17 @@ module emc3_grid
      read  (iu, *) readfi
      R_SURF_PL_TRANS_RANGE(1,iz) = min(R_SURF_PL_TRANS_RANGE(1,iz), ir)
      R_SURF_PL_TRANS_RANGE(2,iz) = max(R_SURF_PL_TRANS_RANGE(2,iz), ir)
+  enddo
+
+  ! 2. poloidal
+  call scrape(iu, readfi)
+  read (readfi, *) n
+  do i=1,n
+     read  (iu, *) ip, iz, itmp
+     write (6,  *) ip, iz, itmp
+     read  (iu, *) readfi
+     P_SURF_PL_TRANS_RANGE(1,iz) = min(P_SURF_PL_TRANS_RANGE(1,iz), ip)
+     P_SURF_PL_TRANS_RANGE(2,iz) = max(P_SURF_PL_TRANS_RANGE(2,iz), ip)
   enddo
 
   close (iu)

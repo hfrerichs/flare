@@ -1,5 +1,6 @@
 module run_control
   use parallel
+  use numerics
   implicit none
   include '../config.h'
 
@@ -13,6 +14,7 @@ module run_control
   character(len=120) :: &
      Machine        = ' ', &        ! select input directory (1st part)
      Configuration  = ' ', &        ! select input directory (2nd part)
+     Boundary       = '', &
      Run_Type       = ' ', &        ! select sub-program to execute
      Label          = '', &
      Output_File    = 'output.txt', &
@@ -20,7 +22,6 @@ module run_control
 
   real*8 :: &
      x_start(3)     = 0.d0, &       ! initial position for field line tracing
-     Trace_Step     = 1.d0, &       ! step size for field line tracing
      Limit          = 2.d4, &       ! maximum distance for field line tracing (in one direction)
      R_start        = 0.d0, &       ! radial start- and
      R_end          = 0.d0, &       ! end position (e.g. for Poincare plots)
@@ -29,7 +30,8 @@ module run_control
      Phi_output     = 0.d0, &       ! Reference plane for Poincare plots
      Theta(2)       = 0.d0, &
      Psi(2)         = 0.d0, &
-     offset         = 1.d-2
+     offset         = 1.d-2, &
+     tolerance      = 0.2d0
 
 
   integer :: &
@@ -43,8 +45,7 @@ module run_control
      N_R            = 1, &          ! Resolution in R direction
      N_Z            = 1, &          ! Resolution in Z direction
      Run_Level(2)   = 0, &
-     Trace_Method   = 3, &          ! Method for field line tracing (see module fieldline)
-     Trace_Coords   = 2, &          ! Coordinate system for field line tracing (see module fieldline)
+     Side           = 1, &
      Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
      Spline_Order   = 5, &
@@ -52,23 +53,25 @@ module run_control
 
 
   logical :: &
-     Debug          = .false.
+     Debug          = .false., &
+     use_boundary_from_equilibrium   = .true.
 
 
 
   ! internal variables
   character*120 :: Prefix, &
+                   Boundary_Prefix, &
                    Bfield_input_file
 
 
   namelist /RunControl/ &
-     Machine, Configuration, &
+     Machine, Configuration, Boundary, &
      Run_Type, Output_File, Label, Grid_File, Input_Format, Output_Format, Panic_Level, &
-     x_start, Trace_Step, Trace_Method, Trace_Coords, N_steps, Limit, &
-     R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
-     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, &
+     x_start, N_steps, Limit, &
+     R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
+     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Spline_Order, Run_Level, &
-     Debug
+     Debug, use_boundary_from_equilibrium
 
   contains
 !=======================================================================
@@ -88,12 +91,17 @@ module run_control
      read  (iu, RunControl, end=5000)
      close (iu)
 
+     Boundary_Prefix = ''
      if (Machine .ne. ' ') then
         write (6, *) 'Machine:                ', trim(Machine)
         write (6, *) 'Configuration:          ', trim(Configuration)
         call getenv("HOME", homedir)
         Prefix = trim(homedir)//'/'//base_dir//'/'//trim(Machine)//'/'// &
                  trim(Configuration)//'/'
+        if (Boundary .ne. '') then
+           Boundary_Prefix = trim(homedir)//'/'//base_dir//'/'// &
+                             trim(Machine)//'/'//trim(Boundary)//'/'
+        endif
      else
         Prefix = './'
      endif
@@ -101,19 +109,17 @@ module run_control
      Bfield_input_file = trim(Prefix)//'bfield.conf'
 
 
-     if (Trace_Coords == 3) then
-        Trace_Step = Trace_Step / 180.d0 * pi
-     endif
+     ! post-processing of user-defined variables
+     Phi_output = Phi_output / 180.d0 * pi
   endif
 
 
-  ! broadcase data to other processors
+  ! broadcast data to other processors
   call wait_pe()
   call broadcast_char   (Run_Type   , 120)
   call broadcast_char   (Grid_File  , 120)
   call broadcast_char   (Output_File, 120)
   call broadcast_real   (x_start    ,   3)
-  call broadcast_real_s (Trace_Step      )
   call broadcast_real_s (Limit           )
   call broadcast_real_s (R_start         )
   call broadcast_real_s (R_end           )
@@ -123,6 +129,7 @@ module run_control
   call broadcast_real   (Theta      ,   2)
   call broadcast_real   (Psi        ,   2)
   call broadcast_real_s (offset          )
+  call broadcast_real_s (tolerance       )
   call broadcast_inte_s (N_steps         )
   call broadcast_inte_s (N_points        )
   call broadcast_inte_s (N_sym           )
@@ -132,8 +139,7 @@ module run_control
   call broadcast_inte_s (N_phi           )
   call broadcast_inte_s (N_R             )
   call broadcast_inte_s (N_Z             )
-  call broadcast_inte_s (Trace_Method    )
-  call broadcast_inte_s (Trace_Coords    )
+  call broadcast_inte_s (Side            )
   call broadcast_inte_s (Input_Format    )
   call broadcast_inte_s (Output_Format   )
   call broadcast_inte_s (Panic_Level     )
@@ -217,6 +223,8 @@ module run_control
      call critical_point_analysis(Grid_File, Output_File)
   case ('export_gfile')
      call export_gfile()
+  case ('quasi_surfaces')
+     call quasi_surfaces()
   case default
 !     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
 !        read (Run_Type(40:42), *) i

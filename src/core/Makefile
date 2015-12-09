@@ -6,9 +6,11 @@ OBJECTS =  \
                string.o\
                quicksort.o\
                math.o\
+               numerics.o\
                run_control.o\
                dataset.o\
                grid.o\
+               cspline.o\
                Q4.o\
                search.o\
                curve2D.o\

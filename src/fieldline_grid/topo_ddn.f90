@@ -20,7 +20,7 @@ module modtopo_ddn
   integer, parameter :: iud = 72
 
 
-  character(len=*), parameter :: ZONE_LABEL(0:layers_ddn-1) = (/ 'HPR  ', 'SOL1 ', 'SOL2a', 'SOL2b', 'PFR1 ', 'PFR2 ' /)
+  character(len=*), parameter :: ZONE_LABEL(0:layers_ddn-1) = (/ 'HPR   ', 'SOL(0)', 'SOL(1)', 'SOL(2)', 'PFR(1)', 'PFR(2)' /)
 
 
   ! coordinates of X-point and magnetic axis
@@ -66,6 +66,7 @@ module modtopo_ddn
   ! 0. setup number of zones for disconnected double null topology
   layers = layers_ddn
   NZONET = blocks * layers
+  label(0:layers-1) = ZONE_LABEL
 
 
   write (6, 1000)
@@ -120,14 +121,25 @@ module modtopo_ddn
   dtheta = Xp(2)%theta - Xp(1)%theta
 
 
-  call S(1)%M1%setup_angular_sampling(Pmag)
-  call S(1)%M2%setup_angular_sampling(Pmag)
+  select case(discretization_method)
+  case(POLOIDAL_ANGLE)
+     call S(1)%M1%setup_angular_sampling(Pmag)
+     call S(1)%M2%setup_angular_sampling(Pmag)
+  case(ORTHOGONAL)
+     call S(1)%M1%setup_length_sampling()
+     call S(1)%M2%setup_length_sampling()
+  end select
 
 
   ! 4. setup paths for discretization in radial direction
   ! 4.0 HPR
-  dx    = get_d_HPR(Xp(1)%X, Pmag)
-  call rpath(0)%setup_linear(Xp(1)%X, dx)
+  select case(discretization_method)
+  case(POLOIDAL_ANGLE)
+     dx    = get_d_HPR(Xp(1)%X, Pmag)
+     call rpath(0)%setup_linear(Xp(1)%X, dx)
+  case(ORTHOGONAL)
+     call rpath(0)%generateX(1, DESCENT_CORE, LIMIT_PSIN, PsiN_in)
+  end select
   call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 SOL
   call rpath(1)%generateX(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
@@ -144,6 +156,9 @@ module modtopo_ddn
   ! 4.5 PFR2
   call rpath(5)%generateX(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
   call rpath(5)%plot(filename='rpath_5.plt')
+
+
+  call check_domain()
 
   end subroutine setup_domain
   !=====================================================================
@@ -164,7 +179,7 @@ module modtopo_ddn
 
   type(t_spacing) :: Sp_HPR, Sp1, Sp2
   real(real64)    :: phi
-  integer         :: i, iz, iz0, iblock, connectX(nx)
+  integer         :: i, iz, iz0, iblock, connectX(nx), orientationX(nx)
 
 
   write (6, 1000)
@@ -175,7 +190,9 @@ module modtopo_ddn
   ! 0. initialize geometry
   connectX(1) = -2 ! primary X-point connects to itself, but poloidal angle
   connectX(2) = -2 ! from secondary X-point is used to split segments
-  call setup_geometry(nx, connectX)
+  orientationX(1) = DESCENT_CORE
+  orientationX(2) = 0
+  call setup_geometry(nx, connectX, orientationX)
   call setup_domain()
   !.....................................................................
 
@@ -239,19 +256,47 @@ module modtopo_ddn
 
      ! 2. unperturbed FLUX SURFACES
      ! 2.a high pressure region (HPR)
+     select case(discretization_method)
+     case(POLOIDAL_ANGLE)
      call make_flux_surfaces_HPR(M_HPR, nr(0), np(0), 2+n_interpolate, nr(0)-1, rpath(0), Zone(iz0)%Sr, Sp_HPR)
 
+     case(ORTHOGONAL)
+     call make_ortho_grid(M_HPR, nr(0), np(0), nr(0), 2+n_interpolate, nr(0)-1, &
+                      0, 1, np(0)-1, NO_X, 0, rpath(0), Zone(iz0)%Sr, Sp_HPR, periodic=.true.)
+
+     end select
+
+
+
      ! 2.b scrape-off layer (SOL)
+     select case(discretization_method)
+     case(POLOIDAL_ANGLE)
      call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp_HPR)
      call make_flux_surfaces_SOL(M_SOL2a,nr(2), npR(2), npR(0), npR(1), 1, nr(2), rpath(2), -1, 2, Zone(iz0+2)%Sr, Sp1)
      call make_flux_surfaces_SOL(M_SOL2b,nr(3), npL(1), npL(0), npL(2), 1, nr(3), rpath(3), 2, -1, Zone(iz0+3)%Sr, Sp2)
+
+     case(ORTHOGONAL)
+
+     call make_flux_surfaces_SOLo(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1), npR(1)+np(0), npR(1), 1, rpath(1), Zone(iz0+1)%Sr)
+     call update_separatrix2()
+
+     call make_flux_surfaces_SOLo(M_SOL2a,nr(2), npR(2), npR(0), npR(1),1, nr(2), npR(1)+npR(0), NO_X,1, rpath(2), Zone(iz0+2)%Sr)
+     call make_flux_surfaces_SOLo(M_SOL2b,nr(3), npL(1), npL(0), npL(2),1, nr(3), npL(2), NO_X, 1, rpath(3), Zone(iz0+3)%Sr)
+     end select
+
 
      ! 2.c private flux region (PFR)
      call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
      call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 1, nr(5), rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
 
      ! 3. interpolated surfaces
-     call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
+     select case(discretization_method)
+     case(POLOIDAL_ANGLE)
+        call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
+     case(ORTHOGONAL)
+        call make_interpolated_surfaces_ortho(M_HPR, nr(0), np(0), 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, &
+                                           C_in(iblock,:), DPsiN1(iblock,1))
+     end select
 
 
      ! output
@@ -365,6 +410,28 @@ module modtopo_ddn
   M_SOL2b(   0 , 0:npL(2), :) = DL2
 
   end subroutine make_separatrix2
+  !.....................................................................
+
+  !.....................................................................
+  subroutine update_separatrix2
+  integer :: i
+
+  ! X-point
+  M_SOL1(nr(1), npR(1)+npR(0), :) = S(2)%M1%x(0,:)
+
+  ! right segment
+  M_SOL2a(   0 , 0:npR(1)+npR(0), :) = M_SOL1 (nr(1), 0:npR(1)+npR(0), :)
+!  do i=0,npR(1)+npR(0)
+!     write (80, *) M_SOL2a(   0 , i, :)
+!  enddo
+
+  ! left segment
+  M_SOL2b(   0 ,        npL(2):       npL(2)+npL(0)+npL(1), :) = &
+  M_SOL1 (nr(1), npR(1)+npR(0):npR(1)+npR(0)+npL(0)+npL(1), :)
+!  do i=npL(2),npL(2)+npL(0)+npL(1)
+!     write (81, *) M_SOL2b(   0 , i, :)
+!  enddo
+  end subroutine update_separatrix2
   !.....................................................................
 
   end subroutine make_base_grids_ddn

@@ -42,7 +42,7 @@ module flux_surface_2D
 ! Re-tracing of half-open surfaces is optional
 !=======================================================================
   recursive subroutine generate(this, r, direction, Trace_Step, N_steps, &
-      Trace_Method, AltSurf, theta_cut, retrace, sampling)
+      Trace_Method, AltSurf, theta_cut, retrace, sampling, AltSurf_bw, AltSurf_fw)
   use magnetic_axis
   use equilibrium, only: length_scale, get_PsiN, get_poloidal_angle
   use ode_solver
@@ -53,10 +53,11 @@ module flux_surface_2D
   
   integer, intent(in), optional       :: direction, N_steps, Trace_Method
   real(real64), intent(in), optional  :: Trace_Step, theta_cut
-  type(t_curve), intent(in), optional :: AltSurf
+  type(t_curve), target, intent(in), optional :: AltSurf, AltSurf_bw, AltSurf_fw
   logical, intent(in), optional       :: retrace
   integer, intent(in), optional       :: sampling
 
+  type(t_curve), pointer :: C_boundary
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
   real*8  :: yl(3), yc(3), thetal, thetac, dtheta, X(3), ds, r3(3)
@@ -100,6 +101,12 @@ module flux_surface_2D
   endif
 
 
+  ! set up user defined boundary
+  nullify(C_boundary)
+  if (present(AltSurf)) C_boundary => AltSurf
+  if (present(AltSurf_bw)) C_boundary => AltSurf_bw
+
+
   ! re-trace from boundary if flux surface is half-open?
   if (present(retrace)) retrace_from_boundary = retrace
 
@@ -115,6 +122,7 @@ module flux_surface_2D
 
   ! trace in forward and backward direction
   do idir=-1,1,2
+     if (idir == 1  .and.  present(AltSurf_fw)) C_boundary => AltSurf_fw
      if (n(idir) == 0) cycle
      ! set initial position
      call F%init_ODE(2, r, idir*ds, Bpol_sub, imethod)
@@ -130,9 +138,9 @@ module flux_surface_2D
         ! save current position
         tmp(idir*i,:) = yc(1:2)
 
-        ! check intersection user defined surface (AltSurf)
-        if (present(AltSurf)) then
-           if (intersect_curve(yl(1:2), yc(1:2), AltSurf, X(1:2))) then
+        ! check intersection with user defined surface (AltSurf)
+        if (associated(C_boundary)) then
+           if (intersect_curve(yl(1:2), yc(1:2), C_boundary, X(1:2))) then
               tmp(idir*i,:) = X(1:2)
               n(idir)       = i
               exit
@@ -179,7 +187,8 @@ module flux_surface_2D
      if (n(-1) < nmax) r3(1:2) = tmp(-n(-1),:) + 0.01d0*(tmp(-n(-1),:) - tmp(-n(-1)+1,:))
      if (n( 1) < nmax) r3(1:2) = tmp( n( 1),:) + 0.01d0*(tmp( n( 1),:) - tmp( n( 1)-1,:))
      deallocate (tmp)
-     call this%generate (r3(1:2), direction, Trace_Step, N_steps, Trace_Method, AltSurf, theta_cut)
+     call this%generate (r3(1:2), direction, Trace_Step, N_steps, Trace_Method, AltSurf, &
+        theta_cut, sampling=sampling, AltSurf_fw=AltSurf_fw, AltSurf_bw=AltSurf_bw)
   endif
 
 
@@ -324,15 +333,17 @@ module flux_surface_2D
 ! angle of DthetaR (lower end) and DthetaL (upper end)
 ! Dtheta0: reference angular weight (pi2 for full loop)
 !===============================================================================
-  subroutine setup_sampling(this, x1, x2, xc, DthetaR, DthetaL)
+  subroutine setup_sampling(this, x1, x2, xc, DthetaR, DthetaL, ierr)
   use math
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: x1(2), x2(2), xc(2), DthetaR, DthetaL
+  integer,      intent(out), optional :: ierr
 
   real(real64) :: x(2), phi, dphi, dphi1, dphi2, phi1, phi2, s, f0, g0, w, Dtheta0
   integer      :: i, n, iseg1, iseg2
 
 
+  if (present(ierr)) ierr  = 0
   ! set reference weight automatically
   phi1  = datan2(x1(2)-xc(2), x1(1)-xc(1))
   phi2  = datan2(x2(2)-xc(2), x2(1)-xc(1))
@@ -422,15 +433,23 @@ module flux_surface_2D
   w = sum(this%w)
   if (w < 1.d0 - 1.d-7) then
      write (6, *) 'error in t_flux_surface_2D%setup_sampling: unexpected sum of weights!'
-     write (6, *) 'parameters are:'
-     write (6, *) 'x1    = ', x1
-     write (6, *) 'x2    = ', x2
-     write (6, *) 'xc    = ', xc
-     write (6, *) 'DthetaR = ', DthetaR
-     write (6, *) 'DthetaL = ', DthetaL
-     write (6, *) 'Dtheta0 = ', Dtheta0
+     write (6, *) 'flux surface (segment) is written to "error.plt"'
+     write (6, *)
+     write (6, *) 'geometry parameters are:'
+     write (6, *) 'x1 (1st X-point)   =  ', x1
+     write (6, *) 'x2 (2nd X-point)   =  ', x2
+     write (6, *) 'xc (Magn. Axis)    =  ', xc
+     write (6, *) 'DthetaR (transition angle, lower end) [deg] =  ', DthetaR / pi * 180.d0
+     write (6, *) 'DthetaL (transition angle, upper end) [deg] =  ', DthetaL / pi * 180.d0
+     write (6, *) 'Dtheta0 (reference angular weight) [deg]    =  ', Dtheta0 / pi * 180.d0
+     write (6, *)
      call this%plot(filename='error.plt')
-     stop
+     if (present(ierr)) then
+        ierr = 1
+        return
+     else
+        stop
+     endif
   else
      do i=1,n
         this%w(i) = this%w(i-1) + this%w(i)

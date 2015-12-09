@@ -67,7 +67,8 @@ module fieldline_grid
      poloidal_spacing(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface                  = '', &
-     N0_file(0:max_layers-1)          = ''
+     N0_file(0:max_layers-1)          = '', &
+     N0_method(0:max_layers-1)        = ''
 
 
   integer :: &
@@ -91,6 +92,7 @@ module fieldline_grid
      d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
      d_PFR(2)            =   15.d0, &      ! radial width of private flux region
      d_N0(0:max_layers-1)=   10.d0, &      ! radial width of vacuum region
+     d_extend(0:max_layers-1,-1:1) = -1.d0, &      ! poloidal extension of divertor leg (used in close_grid_domain)
      d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
      alphaL(2)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
@@ -99,6 +101,9 @@ module fieldline_grid
      etaR(2)             =    0.8d0, &     !    (L)eft and (R)ight segments
      Dtheta_sampling     =    20.d0, &     ! Transition between angular and length weighted sampling of flux surfaces
      Dtheta_separatrix   =     0.d0        ! ... same on separatrix
+
+  logical :: &
+     extend_alpha_SOL2   =  .true.
 
 
 
@@ -162,7 +167,8 @@ module fieldline_grid
 
      ! additional domain for neutral particles
      real(real64) :: d_N0 = 0.d0
-     character(len=80) :: N0_file
+     real(real64) :: d_extend(-1:1) = 0.d0
+     character(len=80) :: N0_file, N0_method
 
      contains
      procedure :: setup
@@ -170,7 +176,8 @@ module fieldline_grid
   type(t_zone) :: Zone(0:max_zones-1)
 
 
-  type(t_xpath) :: rpath(0:max_layers-1)
+  character(len=32) :: label(0:max_layers-1) = ''
+  type(t_xpath)     :: rpath(0:max_layers-1)
   logical      :: default_decomposition
   real(real64) :: Delta_phi_sim
   integer      :: layers
@@ -210,8 +217,10 @@ module fieldline_grid
   this%p_surf_pl_trans_range(2) = this%np
 
   ! 3.2 set parameters for additional neutral domain
-  this%d_N0    = d_N0(ilayer)
-  this%N0_file = N0_file(ilayer)
+  this%d_N0      = d_N0(ilayer)
+  this%d_extend  = d_extend(ilayer,-1:1)
+  this%N0_file   = N0_file(ilayer)
+  this%N0_method = N0_method(ilayer)
 
 
   ! 4. boundaries and zone type
@@ -302,20 +311,20 @@ module fieldline_grid
 
   type(t_block_input) :: Block(0:max_blocks-1)
 
-  namelist /Grid_Layout/ &
+  namelist /FieldlineGrid_Input/ &
      topology, symmetry, blocks, Block, &
-     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, &
+     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      n_interpolate, nr_perturbed, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
-     d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
+     d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
      Dtheta_sampling, Dtheta_separatrix, &
      discretization_method, guiding_surface
 
 
   ! 1. read user configuration from input file
-  open  (iu, file=config_file, err=9000)
-  read  (iu, Grid_Layout, err=9000)
+  open  (iu, file='run_input', err=9000)
+  read  (iu, FieldlineGrid_Input, err=9000, end=9100)
   close (iu)
   if (blocks > max_blocks) then
      write (6, *) 'error: number of blocks exceeds maximum'
@@ -341,6 +350,8 @@ module fieldline_grid
   return
  1000 format(3x,'- Topology of configuration: ',a)
  9000 write (6, *) 'error while reading input file ', trim(config_file), '!'
+  stop
+ 9100 write (6, *) 'error: cannot find FieldlineGrid_Input namelist in run control file!'
   stop
   end subroutine setup_grid_configuration
 !=======================================================================
@@ -403,7 +414,11 @@ module fieldline_grid
 
   ! 3. set lower boundary of simulation domain
   ! DEFAULT: neg. half of first block
-  if (phi0 == -360.d0) phi0 = -Block(0)%width / 2.d0
+  if (phi0 == -360.d0) then
+     phi0 = -Block(0)%width / 2.d0
+  else
+     default_decomposition = .false.
+  endif
 
 
   ! 4a. set absolute position of blocks
@@ -503,10 +518,15 @@ module fieldline_grid
 
 
 !=======================================================================
-  subroutine setup_emc3_grid_layout
+  subroutine initialize_emc3_grid()
   use emc3_grid
+  use grid
+  use string
+  use system
 
-  integer :: iz
+  type(t_grid) :: G
+  real(real64) :: phi
+  integer :: iz, it, itz, ip, ip0, ir, ir0, ig, nr1, nr2, np1, np2
 
 
   ! 1a. allocate grid resolution arrays
@@ -544,7 +564,66 @@ module fieldline_grid
                    RG(0:GRID_P_OS(NZONET)-1), &
                    ZG(0:GRID_P_OS(NZONET)-1))
 
-  end subroutine setup_emc3_grid_layout
+
+  ! 4. load field lines
+  do iz=0,NZONET-1
+     call G%load('fieldlines_'//trim(str(iz))//'.dat', silent=.true.)
+
+
+     ! 4.1 check input
+     ! 4.1.1 radial resolution
+     nr1 = R_SURF_PL_TRANS_RANGE(1,iz)
+     nr2 = R_SURF_PL_TRANS_RANGE(2,iz)
+     if (G%n1-1 /= nr2-nr1) then
+        write (6, *) 'error: mismatching radial resolution: ', G%n1
+        write (6, *) 'expected index range for aligned grid: ', nr1, '->', nr2
+        stop
+     endif
+     ! 4.1.2 poloidal resolution
+     np1 = P_SURF_PL_TRANS_RANGE(1,iz)
+     np2 = P_SURF_PL_TRANS_RANGE(2,iz)
+     if (G%n2-1 /= np2-np1) then
+        write (6, *) 'error: mismatching poloidal resolution: ', G%n2
+        write (6, *) 'expected index range for aligned grid: ', np1, '->', np2
+        stop
+     endif
+     ! 4.1.3 toroidal resolution
+     nt = Zone(iz)%nt
+     if (G%n3-1 /= nt) then
+        write (6, *) 'error: mismatching toroidal resolution: ', G%n3
+        write (6, *) 'expected resolution is: ', nt
+        stop
+     endif
+
+
+     ! 4.2 set position of slices
+     do it=0,nt
+        phi = Zone(iz)%phi(it)
+        if (abs(phi-G%x3(it)) > machine_precision) then
+           write (6, *) 'error: mismatching toroidal positions: ', phi, G%x3(it)
+           stop
+        endif
+
+        itz = it + PHI_PL_OS(iz)
+        PHI_PLANE(itz) = phi / 180.d0 * pi
+     enddo
+
+
+     ! 4.3 setup grid from field lines
+     ir0 = R_SURF_PL_TRANS_RANGE(1,iz)
+     ip0 = P_SURF_PL_TRANS_RANGE(1,iz)
+     do it=0,nt
+     do ip=0,G%n2-1
+     do ir=0,G%n1-1
+        ig = ir0 + ir + (ip0 + ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        RG(ig) = G%mesh3D(ir,ip,it,1)
+        ZG(ig) = G%mesh3D(ir,ip,it,2)
+     enddo
+     enddo
+     enddo
+  enddo
+
+  end subroutine initialize_emc3_grid
 !=======================================================================
 
 
@@ -1392,6 +1471,7 @@ module fieldline_grid
   use iso_fortran_env
   use emc3_grid
   use bfield
+  use equilibrium, only: get_PsiN
   use math, only: pi
   implicit none
 
@@ -1404,6 +1484,8 @@ module fieldline_grid
   write (6, *) 'sampling magnetic field strength on grid ...'
   if (.not.allocated(BFSTREN)) allocate(BFSTREN(0:GRID_P_OS(NZONET)-1))
   BFSTREN = 0.d0
+  if (.not.allocated(PSI_N))   allocate(PSI_N(0:GRID_P_OS(NZONET)-1))
+  PSI_N   = 0.d0
 
 
   do iz=0,NZONET-1
@@ -1419,6 +1501,7 @@ module fieldline_grid
         Bf   = get_Bf_cyl(x)
 
         BFSTREN(ig) = sqrt(sum(Bf**2))
+        PSI_N(ig)   = get_PsiN(x)
      enddo
      enddo
   enddo
@@ -1429,6 +1512,10 @@ module fieldline_grid
 
   open  (iu, file='bfield.dat')
   write (iu, *) BFSTREN
+  close (iu)
+
+  open  (iu, file='psiN.dat')
+  write (iu, *) PSI_N
   close (iu)
 
   end subroutine sample_bfield_on_emc3_grid

@@ -17,6 +17,7 @@ module modtopo_lsn
   integer, parameter :: DEFAULT = 0
 
 
+  character(len=*), parameter :: ZONE_LABEL(0:layers_lsn-1) = (/ 'HPR', 'SOL', 'PFR' /)
 
 
   ! coordinates of X-point and magnetic axis
@@ -59,6 +60,7 @@ module modtopo_lsn
   ! 0. setup number of zones for lower single null topology
   layers = layers_lsn
   NZONET = blocks * layers
+  label(0:layers-1) = ZONE_LABEL
 
 
   write (6, 1000)
@@ -117,16 +119,14 @@ module modtopo_lsn
   call rpath(0)%setup_linear(Px, dx)
   call rpath(0)%plot(filename='rpath_0.plt')
   ! 4.1 SOL
-  dx(1) = Px(2) - Pmag(2)
-  dx(2) = Pmag(1) - Px(1)
-  dx    = dx / sqrt(sum(dx**2)) * d_SOL(1)
-  call rpath(1)%setup_linear(Px, dx)
+  call rpath(1)%generateX(1, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
   call rpath(1)%plot(filename='rpath_1.plt')
   ! 4.2 PFR
-  dx    = Px - Pmag
-  dx    = dx / sqrt(sum(dx**2)) * d_PFR(1)
-  call rpath(2)%setup_linear(Px, dx)
+  call rpath(2)%generateX(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
   call rpath(2)%plot(filename='rpath_2.plt')
+
+
+  call check_domain()
 
   end subroutine setup_domain
   !=====================================================================

@@ -140,10 +140,16 @@ module mesh_spacing
 
 
 !=======================================================================
-  subroutine init_spline_x1(this, eta1, xi1)
+  subroutine init_spline_x1(this, eta1, xi1, ierr)
   class(t_spacing)         :: this
   real(real64), intent(in) :: eta1, xi1
+  integer,      intent(out), optional :: ierr
 
+  real(real64), parameter  :: beta = 2.d0
+  real(real64) :: a1, b1, a2, b2, c2
+
+
+  if (present(ierr)) ierr = 0
 
   this%mode = SPLINE_X1
   this%nc   = 2
@@ -152,6 +158,32 @@ module mesh_spacing
   this%c(1) = eta1
   this%c(2) = xi1
 
+  a2 = (1.d0 - xi1) / (1.d0 - eta1)**2 - 1.d0 / beta / (1.d0 - eta1)
+  b2 = 1.d0 / beta - 2.d0 * eta1 * a2
+  c2 = 1.d0 - a2 - b2
+
+  b1 = 2.d0 * xi1 / eta1 - 1.d0 / beta
+  a1 = (xi1 - eta1 * b1) / eta1**2
+  ! check if slope at eta=0 is positive
+  if (xi1 < eta1 / 2.d0 / beta) then
+     write (6, *) 'error: spacing function is ill-defined!'
+     write (6, *) 'eta1, xi1, b1 = ', eta1, xi1, b1
+     if (present(ierr)) then
+        ierr = 1
+     else
+        stop
+     endif
+  endif
+  ! check if slope at eta=1 is positive
+  if (2.d0 * (1.d0-xi1) / (1.d0-eta1) - 1.d0/beta  .le.  0.d0) then
+     write (6, *) 'error: spacing function is ill-defined!'
+     write (6, *) 'eta1, xi1, a2, b2, c2 = ', eta1, xi1, a2, b2, c2
+     if (present(ierr)) then
+        ierr = 2
+     else
+        stop
+     endif
+  endif
   end subroutine init_spline_x1
 !=======================================================================
 
@@ -201,6 +233,7 @@ module mesh_spacing
   this%S(1) = S_left
   this%S(2) = S_right
 
+  if (allocated(this%c)) deallocate(this%c)
   allocate (this%c(2))
   this%c(1) = eta1
   this%c(2) = rho1
@@ -401,9 +434,17 @@ module mesh_spacing
 
   b1 = 2.d0 * xi1 / eta1 - 1.d0 / beta
   a1 = (xi1 - eta1 * b1) / eta1**2
+  ! TODO: this is already checked in init_spline_X1 and could be removed
+  ! check if slope at eta=0 is positive
   if (xi1 < eta1 / 2.d0 / beta) then
      write (6, *) 'error: spacing function is ill-defined!'
      write (6, *) 'eta1, xi1, b1 = ', eta1, xi1, b1
+     stop
+  endif
+  ! check if slope at eta=1 is positive
+  if (2.d0 * (1.d0-xi1) / (1.d0-eta1) - 1.d0/beta  .le.  0.d0) then
+     write (6, *) 'error: spacing function is ill-defined!'
+     write (6, *) 'eta1, xi1, a2, b2, c2 = ', eta1, xi1, a2, b2, c2
      stop
   endif
 

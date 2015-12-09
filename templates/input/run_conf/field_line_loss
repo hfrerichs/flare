@@ -1,0 +1,22 @@
+&RunControl
+
+  Machine        =  'NSTX'
+  Configuration  =  '116313/QF/3kA'
+
+  Run_Type       =  'field_line_loss'
+
+
+  N_Psi          = 1         ! Number of flux surfaces
+  Psi(1)         = 0.8d0     ! Lower and
+  Psi(2)         = 0.9999d0  ! upper radial boundary
+
+
+  N_sym          =  3        ! Toroidal symmetry
+  N_phi          = 120       ! Toroidal resolution on flux surface (within 360/N_sym deg)
+  N_theta        = 360       ! Poloidal resolution on flux surface
+
+
+  Limit          = 1.d2      ! Reference length for field line tracing [cm]
+  N_steps        = 100       ! Calculate loss fraction at N_steps steps of 'Limit' (default = 1)
+
+/

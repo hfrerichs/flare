@@ -26,6 +26,7 @@ OBJECTS =  \
                melnikov_function.o\
                critical_point_analysis.o\
                export_gfile.o\
+               quasi_surfaces.o\
                generate_rpath.o
 
 

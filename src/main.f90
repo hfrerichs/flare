@@ -1,6 +1,7 @@
 program main
   use iso_fortran_env
   use parallel
+  use numerics
   use run_control
   use bfield
   use equilibrium
@@ -22,6 +23,7 @@ program main
 
 
   call cpu_time(t1)
+  call load_numerics()
   call load_run_control()
 
   call setup_bfield_configuration()

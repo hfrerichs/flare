@@ -3,40 +3,59 @@
 !
 ! Input (taken from run control file):
 !    Grid_File          filename for grid to be generated
+!    Output_File        filename for deposition grid for EMC3-EIRENE
 !
 !    surf_id            select boundary surface on which the grid is generated
 !                       NOT IMPLEMENTED YET (set to 1)
 !
 !    R_start, R_end     Reference markers on boundary surface
-
+!    N_psi
+!        1 (default):   - 0 <= R_start < R_end <= 1 define normalized positions along
+!                        boundary surface
+!                       - R_start, R_end > 1 define segment numbers and normalized
+!                       positions on segments along boundary surface
+!       I3:             Right strike point from X-point I
+!       I4:             Left strike point   R_start, R_end distance from strike point
+!
 !    N_sym              Toroidal extend for grid on axisymmetric surface: 360 deg / N_sym
+!    Side               Multiplier for plot coordinate (should be -1 for right-handed/ccw
+!                       boundary nodes or 1 for left-handed/cw boundary nodes)
 !
 !    Phi_output         Reference marker (toroidal direction) on surface
 !                       For axisymmetric surfaces: lower coordinate for toroidal domain
 !
-!    offset             Radial offset (on left hand side) from boundary surface
+!    offset             Radial offset (on right hand side) from boundary surface
 !
 !    N_theta, N_phi     Polidal and toroidal resolution
 !
 !    Output_Format = IJ
+!        J              Plotting coordinate:
+!                       1 (default): length along surface contour segment in RZ-plane
+!                       2: R-coordinate
+!                       3: Z-coordinate
+!                       4: relative length along surface contour segment in RZ-plane
+!                       5: length along FULL surface contour in RZ-plane
+!                       6: relative length along FULL surface contour in RZ-plane
 !        I = 0          standard output
 !        I > 1          add direction of normal vector for axisymmetric surfaces
-!        J              Plotting coordinate:
-!                       0: length along surface contour segment in RZ-plane
-!                       1: R-coordinate
-!                       2: Z-coordinate
-!                       3: relative length along surface contour segment in RZ-plane
-!                       4: length along FULL surface contour in RZ-plane
-!                       5: relative length along FULL surface contour in RZ-plane
 !===============================================================================
 subroutine footprint_grid
   use iso_fortran_env
   use run_control, only: Grid_File, Output_File, Output_Format, N_theta, N_phi, offset, &
-                         R_start, R_end, Phi_Output, N_sym
+                         R_start, R_end, Phi_Output, N_sym, N_psi, Side
   use parallel
+  use separatrix
+  use boundary
   implicit none
 
   integer, parameter :: iu = 32, iu2 = 33
+
+  type(t_separatrix) :: S
+
+  real(real64) :: x1(2), x2(2), sh, L, w0, w1, w2, L0_off = 0.d0
+  logical      :: automatic_R = .true.
+  integer      :: surf_id, ish, ix
+
 
   ! user input for grid generation
   integer :: &
@@ -54,11 +73,57 @@ subroutine footprint_grid
      return
   endif
 
+  surf_id = 1
+
+
   open  (iu, file='run_input')
   read  (iu, Grid_Input, end=1000)
  1000 close (iu)
 
-  call footprint_grid_axi(1, R_start, R_end, offset)
+
+  ! Find reference markers from strike point position
+  ix    = N_Psi / 10
+  N_psi = N_psi - ix*10
+  select case(N_psi)
+  case(3)
+     call S%generate(ix, 2.d0)
+
+     ! right divertor leg
+     x1   = S%M3%x(1,:)
+     x2   = S%M3%x(0,:);  x2 = x1 + 2.d0*(x2-x1)
+     Side = -1 * Side
+
+  case(4)
+     call S%generate(ix, 2.d0)
+
+     ! left divertor leg
+     x1   = S%M4%x(S%M4%n_seg-1,:)
+     x2   = S%M4%x(S%M4%n_seg,:);  x2 = x1 + 2.d0*(x2-x1)
+
+  case default
+     automatic_R = .false.
+  end select
+
+
+  call S_axi(surf_id)%setup_length_sampling()
+  if (automatic_R) then
+     if (intersect_curve(x1, x2, S_axi(surf_id), sh=sh, ish=ish)) then
+        L       = S_axi(surf_id)%length()
+        w0      = S_axi(surf_id)%w(ish-1)
+        w0      = w0 + sh * (S_axi(surf_id)%w(ish) - S_axi(surf_id)%w(ish-1))
+
+        L0_off  = R_start; if (Side < 0) L0_off = R_end
+        w1      = w0 + Side * R_start/L
+        w2      = w0 + Side * R_end/L
+        R_start = min(w1, w2);  R_end   = max(w1, w2)
+     else
+        write (6, *) 'error: cannot find intersection between separatrix leg and boundary!'
+        stop
+     endif
+  endif
+
+
+  call footprint_grid_axi(surf_id, R_start, R_end, offset)
   !call footprint_grid_Q(1)
   contains
 !=======================================================================
@@ -68,22 +133,32 @@ subroutine footprint_grid
   use run_control, only: Debug
 
   integer, intent(in)      :: iele
-  real(real64), intent(in) :: R_start, R_end, offset
+  real(real64), intent(inout) :: R_start, R_end, offset
 
-  integer, parameter :: iu = 99
+  integer, parameter :: iu = 99, iuD = 36
 
   type(t_curve) :: C, Ctmp1, Ctmp2
-  real(real64)  :: t, t1, x(2), x1(2), xn(2), L, L0, L1, alphan, phii
-  integer :: i, j
+  real(real64)  :: t, t1, x(2), x1(2), xn(2), L, L0, L1, alphan, phii, dphi
+  integer :: i, j, n_start, n_end
 
 
   ! check input
+  n_start = -1
+  n_end   = -1
   if (R_start >= R_end) then
      write (6, *) 'error: R_start < R_end required for footprint grid!'
      stop
   elseif (R_end > 1.d0) then
-     write (6, *) 'error: R_end must not exceed 1!'
-     stop
+     n_start = int(floor(R_start)) - 1
+     R_start = R_start - n_start - 1
+     R_start = 1.d0 - R_start   ! TODO: fix inconsistency in split3seg
+     n_end   = int(floor(R_end)) - 1
+     R_end   = R_end - n_end - 1
+     R_end   = 1.d0 - R_end     ! TODO: fix inconsistency in split3seg
+     if (n_end > S_axi(iele)%n_seg) then
+        write (6, *) 'error: R_end must not exceed ', S_axi(iele)%n_seg, '!'
+        stop
+     endif
   elseif (R_start < 0.d0) then
      write (6, *) 'error: R_start must not be smaller than 0!'
      stop
@@ -95,15 +170,18 @@ subroutine footprint_grid
 
 
   ! split of relevant segments
-  call S_axi(iele)%setup_length_sampling()
-  call S_axi(iele)%split3(R_start, R_end, Ctmp1, C, Ctmp2)
+  if (n_start == -1) then
+     call S_axi(iele)%split3(R_start, R_end, Ctmp1, C, Ctmp2)
+  else
+     call S_axi(iele)%split3seg(n_start, n_end, R_start, R_end, Ctmp1, C, Ctmp2)
+  endif
   if (Debug) then
      call C%plot(filename='footprint_base.plt')
   endif
 
 
   ! shift footprint base off of surface
-  call C%left_hand_shift(offset)
+  call C%left_hand_shift(-offset)
 
 
   call C%setup_length_sampling()
@@ -115,28 +193,41 @@ subroutine footprint_grid
   write (iu, 2001) N_theta
   write (iu, 2002) N_phi
 
+  open  (iuD, file=Output_File)
+  write (iuD, FMT="(a,f6.2,a,f6.2)") "deposition: phi =", Phi_output, " -> ", &
+                                     Phi_output + 360.d0 / N_sym
+  write (iuD, *)
+  write (iuD, FMT='(3(I5,1x),3(F10.5,1x),a)') N_phi, N_theta, N_sym, &
+           0.0,0.0,0.0,"  : NPoints_tor  NPoints_pol  NPeriod  DR  DZ  DL"
+
   ! 1. write coordinates along boundary profile
+  do i=0,N_phi-1
+     phii = Phi_output + 360.d0 / N_sym * i / (N_phi-1)
+     write (iuD, 3002) phii
   do j=0,N_theta-1
      t = 1.d0 * j / (N_theta-1)
      call C%sample_at (t, x, x1)
 
      ! select diagnostic coordinate used for plotting (3rd column)
      select case (mod(Output_Format,10))
-     case (0)	! length along surface in RZ-plane
-        L = t * L0
-     case (1)
-        L = x(1) ! R-coordinate
+     case (1)	! length along surface in RZ-plane
+        L = Side * t * L0  +  L0_off
      case (2)
+        L = x(1) ! R-coordinate
+     case (3)
         L = x(2) ! Z-coordinate
-     case (3)	! relative length along surface profile in RZ-plane
+     case (4)	! relative length along surface profile in RZ-plane
         L = t
-     case (4)	! full surface contour (absolute length)
+     case (5)	! full surface contour (absolute length)
         t1 = R_start + t * (R_end - R_start)
         L  = t1 * L1
-     case (5)	! full surface contour (relative length)
+     case (6)	! full surface contour (relative length)
         t1 = R_start + t * (R_end - R_start)
         L  = t1
      end select
+
+     write (iuD, 3003) x, L
+     if (i > 0) cycle
 
      ! default grid
      if (Output_Format.lt.10) then
@@ -151,10 +242,14 @@ subroutine footprint_grid
         write (iu, 3004) x, L, alphan
      endif
   enddo
+  enddo
+  close (iuD)
 
   ! 2. write coordinates in toroidal direction
+  dphi = 0.d0
+  if (N_phi > 1) dphi = 360.d0 / N_sym / (N_phi-1)
   do i=0,N_phi-1
-     phii = Phi_output + 360.d0 / N_sym * i / (N_phi-1)
+     phii = Phi_output + dphi * i
      write (iu, 3002) phii
   enddo
   close (iu)
@@ -262,7 +357,7 @@ subroutine footprint_grid
      phi = S_quad(iele)%sample_phi(tau)
      C   = S_quad(iele)%slice(phi)
 
-     call C%left_hand_shift(offset)
+     call C%left_hand_shift(-offset)
      call C%setup_length_sampling()
 
      do j=0,n_theta
