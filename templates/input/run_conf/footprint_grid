@@ -1,0 +1,24 @@
+&RunControl
+
+   Machine       =   'NSTX'
+   Configuration =   '135111'
+
+
+   Run_Type      =   'footprint_grid'
+   N_psi         =   24		! = IJ, I: X-point id
+				!       J: 3=right strike point, 4=left strike point
+
+   ! Grid domain
+   N_sym         =    9		! Toroidal symmetry number -> grid domain = 360 deg / N_sym
+   Phi_Output    =   -20.d0	! Offset for toroidal domain
+
+   N_mult        =    -1	! adjustment for "left-handed" boundary surfaces
+   R_start       =    -5.d0	! Distance from strike point location
+   R_end         =     25.d0
+
+
+   ! Grid resolution
+   N_phi         =  120		! in toroidal direction
+   N_theta       =  300		! in poloidal direction, i.e. along wall/divertor target
+/
+
