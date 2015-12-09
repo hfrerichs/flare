@@ -130,22 +130,22 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   integer, intent(in) :: iz, nr_vac, boundary
 
   integer, parameter :: &
-     UPSCALE_ORTHO = 1, &
-     UPSCALE_CELL  = 2, &
-     ORTHO_ADJUST  = 3, &
-     MANUAL        = -1
+     SCALE_BOUNDARY   = 1, &
+     CELL_EXTEND      = 2, &
+     RAY_ADJUST_SCALE = 3, &
+     MANUAL           = -1
 
   real(real64) :: dl
   integer      :: Method, ir0, idir, ir2
 
 
   select case(Zone(iz)%N0_method)
-  case('orthogonal')
-     Method = UPSCALE_ORTHO
-  case('cell')
-     Method = UPSCALE_CELL
-  case('orthogonal_adjust','')
-     Method = ORTHO_ADJUST
+  case('scale_boundary')
+     Method = SCALE_BOUNDARY
+  case('cell_extend')
+     Method = CELL_EXTEND
+  case('ray_adjust_scale','')
+     Method = RAY_ADJUST_SCALE
   case('manual')
      Method = MANUAL
   case default
@@ -187,12 +187,12 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
  1000 format(8x,'zone ',i0,': ',i0,' vacuum cell(s) at ',a,' boundary, D = ',f8.3)
 
   select case (Method)
-  case (UPSCALE_ORTHO)
-      call vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
-  case (UPSCALE_CELL)
-      call vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
-  case (ORTHO_ADJUST)
-      call vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
+  case (SCALE_BOUNDARY)
+      call scale_boundary_proc(iz, ir0, idir, ir2, dl)
+  case (CELL_EXTEND)
+      call cell_extend_proc(iz, ir0, idir, ir2, dl)
+  case (RAY_ADJUST_SCALE)
+      call ray_adjust_scale_proc(iz, ir0, idir, ir2, dl)
   case (MANUAL)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   end select
@@ -203,7 +203,10 @@ end subroutine setup_vacuum_domain
 
 
 !===============================================================================
-subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
+! scale boundary of plasma transport domain by dl
+! keep node spacings
+!===============================================================================
+subroutine scale_boundary_proc(iz, ir0, idir, ir2, dl)
   use iso_fortran_env
   use emc3_grid
   use curve2D
@@ -348,13 +351,15 @@ subroutine vacuum_domain_by_upscale(iz, ir0, idir, ir2, dl)
  1002 format(8x,'no adjustment on ',a5,' end')
   end subroutine adjust_boundary
   !---------------------------------------------------------------------
-end subroutine vacuum_domain_by_upscale
+end subroutine scale_boundary_proc
 !===============================================================================
 
 
 
 !===============================================================================
-subroutine vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
+! create boundary by "extending" cells by dl
+!===============================================================================
+subroutine cell_extend_proc(iz, ir0, idir, ir2, dl)
   use iso_fortran_env
   use emc3_grid
   use curve2D
@@ -410,7 +415,7 @@ subroutine vacuum_domain_by_upscale_v2(iz, ir0, idir, ir2, dl)
   deallocate (v)
 
 
-end subroutine vacuum_domain_by_upscale_v2
+end subroutine cell_extend_proc
 
 
   function directional_extend(C, v, debug) result(Cout)
@@ -583,7 +588,10 @@ end subroutine vacuum_domain_by_upscale_v2
 
 
 !===============================================================================
-subroutine vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
+! scale boundary of plasma transport domain by dl (same as scale_boundary_proc)
+! but find node spacing in extension to last plasma cells
+!===============================================================================
+subroutine ray_adjust_scale_proc(iz, ir0, idir, ir2, dl)
   use iso_fortran_env
   use emc3_grid
   use curve2D
@@ -594,7 +602,7 @@ subroutine vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
   real(real64), intent(in) :: dl
 
   real(real64), dimension(:,:), allocatable :: v
-  type(t_curve) :: C1, C2, upscale_v3
+  type(t_curve) :: C1, C2, scale_with_ray_adjust_nodes
   real(real64)  :: rho
   integer       :: it, ip, ir, ir1, ig, ig0
 
@@ -640,7 +648,7 @@ subroutine vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
      if (Debug) call C1%plot(filename=debug_str(iz,it,1))
 
 
-     C2 = upscale_v3(C1, v, -idir*dl, 0)
+     C2 = scale_with_ray_adjust_nodes(C1, v, -idir*dl, 0)
      if (Debug) call C2%plot(filename=debug_str(iz,it,2))
 
 
@@ -680,13 +688,13 @@ subroutine vacuum_domain_by_upscale_adjust(iz, ir0, idir, ir2, dl)
   debug_str = 'debug/VacuumBoundary_'//trim(str(iz))//'_'//trim(str(it))//'.'//SUFFIX(isuffix)
   end function debug_str
   !.....................................................................
-end subroutine vacuum_domain_by_upscale_adjust
+end subroutine ray_adjust_scale_proc
 !===============================================================================
 
 
 
 !===============================================================================
-  function upscale_v3(C, v, dl, debug_mode) result(Cout)
+  function scale_with_ray_adjust_nodes(C, v, dl, debug_mode) result(Cout)
   use iso_fortran_env
   use curve2D
   implicit none
@@ -877,7 +885,7 @@ end subroutine vacuum_domain_by_upscale_adjust
   ! 99. cleanup
   deallocate (w, w_save, ip_fix)
 
-  end function upscale_v3
+  end function scale_with_ray_adjust_nodes
 !===============================================================================
 
 
