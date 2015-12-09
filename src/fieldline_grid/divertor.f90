@@ -692,7 +692,7 @@ module divertor
   if (ip0 == ip1) ip1 = ip1+1
   if (ipx == ip2) ip2 = ip2-1
   if (ip0 == ip2) ip2 = ip2-1
-  call make_ortho_grid(M, nr, np, 0, ir1, ir2, ip0, ip1, ip2, ipx, ix, rpath, Sr, Sp, debug=debug)
+  call make_ortho_grid(M, nr, np, 0, ir1, ir2, ip0, ip1, ip2, ipx, ix, rpath, Sr, Sp)
   do i=ir1,ir2
      write (6, *) i
 
