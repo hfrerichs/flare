@@ -311,7 +311,7 @@ module fieldline_grid
 
   type(t_block_input) :: Block(0:max_blocks-1)
 
-  namelist /Grid_Layout/ &
+  namelist /FieldlineGrid_Input/ &
      topology, symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
@@ -323,8 +323,8 @@ module fieldline_grid
 
 
   ! 1. read user configuration from input file
-  open  (iu, file=config_file, err=9000)
-  read  (iu, Grid_Layout, err=9000)
+  open  (iu, file='run_input', err=9000)
+  read  (iu, FieldlineGrid_Input, err=9000, end=9100)
   close (iu)
   if (blocks > max_blocks) then
      write (6, *) 'error: number of blocks exceeds maximum'
@@ -350,6 +350,8 @@ module fieldline_grid
   return
  1000 format(3x,'- Topology of configuration: ',a)
  9000 write (6, *) 'error while reading input file ', trim(config_file), '!'
+  stop
+ 9100 write (6, *) 'error: cannot find FieldlineGrid_Input namelist in run control file!'
   stop
   end subroutine setup_grid_configuration
 !=======================================================================
