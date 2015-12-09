@@ -6,6 +6,8 @@ OBJECTS =  \
                string.o\
                quicksort.o\
                math.o\
+               numerics.o\
+               run_control.o\
                dataset.o\
                grid.o\
                cspline.o\
@@ -24,10 +26,10 @@ INC_DIR = -I .. -I ../$(EXTERNAL_DIR)
 .PHONY: all
 all: $(OBJECTS)
 
-%.o: %.f*
+%.o: %.f90
 	$(FC) -c $(INC_DIR) $<
 
-%.o: %.F*
+%.o: %.F90
 	$(FC) -c $(INC_DIR) $<
 
 .PHONY: clean

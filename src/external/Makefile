@@ -3,7 +3,7 @@ include ../../include.mk
 
 OBJECTS =  \
                bspline90_22.o\
-               dlsode.o
+               $(ODE_OBJECTS)
 
 EMC3_DIR = EMC3
 
@@ -12,7 +12,7 @@ EMC3_DIR = EMC3
 all: $(OBJECTS)
 	cd $(EMC3_DIR); $(MAKE) FC='$(FC)'
 
-%.o: %.f*
+%.o: %.f90
 	$(FC) -c $<
 
 .PHONY: clean

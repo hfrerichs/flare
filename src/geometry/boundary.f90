@@ -61,12 +61,13 @@ module boundary
 
 !=======================================================================
   subroutine load_boundary()
-  use run_control
+  use run_control, only: Prefix, Boundary_Prefix
   use equilibrium
+  include '../config.h'
 
   integer, parameter :: iu = 24
 
-  character*120 :: boundary_dir(3)
+  character*120 :: boundary_dir(4)
   character*80  :: header
   integer :: io, i, j, irun, n
 
@@ -74,9 +75,10 @@ module boundary
   write (6, *) 'Boundaries (divertor targets, limiters, vessel): '
 
 
-  boundary_dir(1) = trim(Prefix)
-  boundary_dir(2) = trim(Prefix)//trim(Boundary_sub_dir)//'/'
-  boundary_dir(3) = './'
+  boundary_dir(1) = trim(Boundary_Prefix)
+  boundary_dir(2) = trim(Prefix)
+  boundary_dir(3) = trim(Prefix)//trim(Boundary_sub_dir)//'/'
+  boundary_dir(4) = './'
 
   ! irun = 1: get number of components for each boundary type
   !        2: read data
@@ -100,11 +102,12 @@ module boundary
      endif
 
 
-     ! i = 1. check base directory for input
-     !     2. check Boundary_sub_dir for input
-     !     3. check local directory for input (if not equivalent to base directory)
-     do i=1,3
-        if (i == 3  .and.  boundary_dir(1) == './') exit
+     ! i = 1. check boundarye directory for input
+     !     2. check base directory (magnetic configuration) for input
+     !     3. check Boundary_sub_dir for input
+     !     4. check local directory for input (if not equivalent to base directory)
+     do i=1,4
+        if (i == 4  .and.  boundary_dir(2) == './') exit
 
         ! read namelist input
         open  (iu, file=trim(boundary_dir(i))//Boundary_input_file, status='old', iostat=io)

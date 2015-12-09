@@ -98,7 +98,7 @@ module quasi_surface
   integer,                       intent(out) :: IERR
 
   type(t_fieldline) :: F
-  real(real64)      :: HL, PHI, R3(3)
+  real(real64)      :: HL, PHI, R3(3), dl
   integer           :: NFL, I, j
 
 
@@ -110,7 +110,7 @@ module quasi_surface
   call F%init(R3, HL, NM_AdamsBashforthMoulton, FL_ANGLE)
   DO I=1,NP 
      do j=1,NFL
-        call F%trace_1step()
+        dl = F%trace_1step()
      enddo
      RT(I) = F%yc(1); ZT(I) = F%yc(2)
   ENDDO

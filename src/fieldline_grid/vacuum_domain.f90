@@ -51,7 +51,7 @@ subroutine setup_core_domain(iz, nr_core)
 
 
   integer, parameter :: &
-     MAGNETIC_AXIS    = 1, &
+     MAGNETIC_AXIS0   = 1, &
      GEOMETRIC_CENTER = 2
 
 
@@ -83,7 +83,7 @@ subroutine setup_core_domain(iz, nr_core)
   contains
   !---------------------------------------------------------------------
   function get_r0(phi)
-  use equilibrium, only: get_magnetic_axis
+  use magnetic_axis, only: get_magnetic_axis
   real(real64), intent(in) :: phi
   real(real64)             :: get_r0(2)
 
@@ -94,7 +94,7 @@ subroutine setup_core_domain(iz, nr_core)
   get_r0 = 0.d0
 
   select case(method)
-  case(MAGNETIC_AXIS)
+  case(MAGNETIC_AXIS0)
      r3     = get_magnetic_axis(phi)
      get_r0 = r3(1:2)
 

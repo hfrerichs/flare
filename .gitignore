@@ -1,0 +1,9 @@
+bin/flare_bin*
+configure.log
+config.h
+include*
+*.o
+*.mod
+*.swp
+templates/plot/plot_data.pro
+templates/plot/plot_lc.pro

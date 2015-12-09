@@ -13,7 +13,8 @@ module separatrix
      type(t_flux_surface_2D) :: M1, M2, M3, M4
      real(real64) :: Px(2)
      contains
-     procedure :: generate, plot
+     procedure :: generate
+     procedure :: plot
   end type t_separatrix
 
   public :: ePsi_sub, H_eigenvectors
@@ -36,21 +37,27 @@ module separatrix
 !                -> Xp(iPx)%X: Coordinates of X-point (R[cm], Z[cm])
 ! orientation =  1: lower null
 !             = -1: upper null
+!
+! Optional input:
 ! theta_cut   =  poloidal cut-off angle (-> split core separatrix into left and right segments)
+! C_cutl,
+! C_cutr      =  cut-off surface for separatrix segments
 ! iconnect    =  number of X-point to which separatrix connects
 !                (-> used to set poloidal cut-off angle)
+! offset      =  offset from X-point to start tracing
+! trace_step  =  integration step size
 !===============================================================================
 
-  subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr, iconnect)
+  subroutine generate (this, iPx, theta_cut, C_cutl, C_cutr, iconnect, offset, trace_step)
   use math
   use run_control, only: Debug
   class(t_separatrix)                 :: this
   integer,       intent(in)           :: iPx
-  real(real64),  intent(in), optional :: theta_cut
+  real(real64),  intent(in), optional :: theta_cut, offset, trace_step
   type(t_curve), intent(in), optional :: C_cutl, C_cutr
   integer,       intent(in), optional :: iconnect
 
-  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, ds0, &
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), ds, s1, &
                   theta_cutL, theta_cutR, dtheta
   integer      :: orientation
 
@@ -120,13 +127,25 @@ module separatrix
   endif
 
 
+  ! set offset from X-point
+  s1 = 0.1d0
+  if (present(offset)) then
+     s1 = offset
+  endif
+
+
+  ! set trace step
+  ds      = 1.d-2
+  if (present(trace_step)) then
+     ds   = trace_step
+  endif
+
+
   Px = Xp(iPx)%X ! Coordinates of X-point (R[cm], Z[cm])
   H  = Xp(iPx)%H ! Hessian matrix at X-point
   call H_eigenvectors(H, v1, v2)
-  ds0     = 0.1d0
-  v1      = ds0*v1; v2 = ds0*v2
+  v1      = s1*v1; v2 = s1*v2
   this%Px = Px
-  ds      = ds0**2
   if (Debug) then
      open  (97, file='right.tmp', position='append')
      write (97, *) Px
@@ -170,45 +189,6 @@ module separatrix
   this%M4%x(0,:) = Px
 
   end subroutine generate
-!=======================================================================
-
-
-
-!=======================================================================
-! calculate eigenvectors v1,v2 of Hessian matrix of pol. magn. flux at x
-!=======================================================================
-  subroutine H_eigenvectors (H, v1, v2)
-  real(real64), intent(in)  :: H(2,2)
-  real(real64), intent(out) :: v1(2), v2(2)
-
-  real(real64) :: r(3), psi_xx, psi_xy, psi_yy, l1, l2, ac2, ac4, b2
-
-
-  psi_xx = H(1,1) / (Psi_sepx-Psi_axis)
-  psi_xy = H(1,2) / (Psi_sepx-Psi_axis)
-  psi_yy = H(2,2) / (Psi_sepx-Psi_axis)
-
-
-  ! get eigenvalues l1,l2 of Hessian at X-point
-  ac2 = 0.5d0  * (psi_xx + psi_yy)
-  ac4 = 0.25d0 * (psi_xx - psi_yy)**2
-  b2  = psi_xy**2
-  l1  = ac2 + dsqrt(ac4 + b2)
-  l2  = ac2 - dsqrt(ac4 + b2)
-
-
-  ! construct normalized eigenvectors
-  ! ISSUE: this might not work if the X-point is straight below the magnetic axis!
-  v1(1) = 1.d0
-  v1(2) = - (psi_xx - l1) / psi_xy
-  v1    = v1 / sqrt(sum(v1**2))
-
-! construct v2 so that it is pointing upwards
-  v2(2) = 1.d0
-  v2(1) = - psi_xy / (psi_xx - l2)
-  v2    = v2 / sqrt(sum(v2**2))
-
-  end subroutine H_eigenvectors
 !=======================================================================
 
 

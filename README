@@ -1,0 +1,66 @@
+FLARE - Field Line Analysis and Reconstruction Environment
+==========================================================
+
+
+Installation:
+-------------
+
+Generate a configuration file with the following command (running "./configure.sh --help" will list optional arguments):
+
+	./configure.sh
+
+Then compile and install the code using:
+
+	make
+	make install
+
+
+
+
+Requirements:
+-------------
+
+-FGSL (FORTRAN interface to the GNU Scientific Library)
+-GSL (GNU Scientific Library): make sure you have 'libgsl0-dev' installed as well
+
+
+
+
+How to use FLARE:
+-----------------
+
+Execute "run_flare.sh" in your working directory. Required input files are:
+
+	bfield.conf	defines the magnetic configuretion
+
+	boundary.conf	defines the plasma boundary (divertor elements, limiters, main chamber, ...)
+
+	run.conf	defines which sub-programs to run and allows to set input parameter
+
+
+
+
+Parallelization:
+----------------
+
+Parallelization is supported for all magnetic field configurations except those based on M3D-C1 data.
+Parallelization is implemented in the following tools:
+-connection_length
+-field_line_loss
+-melnikov_function
+-poincare_plot
+-safety_factor
+-sample_bfield
+-separatrix_manifolds
+-transform_to_flux_coordinates
+
+
+
+
+Notes for particular architectures:
+-----------------------------------
+CHTC: load modules
+  1) compile/intel             2) mpi/intel/openmpi-1.6.4
+local installation of FGSL:
+	-set PKG_CONFIG_PATH for compilation of FLARE
+	-set LD_LIBRARY_PATH for execution of FLARE

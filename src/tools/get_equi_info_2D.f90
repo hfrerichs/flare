@@ -3,7 +3,10 @@
 !===============================================================================
 subroutine get_equi_info_2D
   use iso_fortran_env
-  use equilibrium
+  use run_control, only: N_R, N_Z
+  use magnetic_axis
+  use equilibrium, only: get_domain, find_hyperbolic_points, get_Psi, &
+                         equilibrium_info, Psi_axis, Psi_sepx, i_equi, EQ_AMHD
   use boundary
   use parallel
   implicit none
@@ -27,7 +30,9 @@ subroutine get_equi_info_2D
 
   call get_domain (Rbox, Zbox)
 
-  call find_hyperbolic_points()
+  nR = 20;    if (N_R > 1) nR = N_R
+  nZ = 20;    if (N_Z > 1) nZ = N_Z
+  call find_hyperbolic_points(nR, nZ)
 
   ! magnetic axis
   r(3) = 0.d0
@@ -100,11 +105,16 @@ subroutine get_equi_info_2D
   write (iu, 2008) sboundary
   write (iu, 2009)
   write (iu, 2010)
+  write (iu, 2011)
   close (iu)
 
 
+  ! equilibrium type specific information
+  if (associated(equilibrium_info)) call equilibrium_info()
+
+
   ! calculate plasma current from plasma surface integral
-  call Ip_info (1.d-4, 400, Ip_int, Bpol)
+  call Ip_info (1.d-4, 400, Ip_int, Bpol, .true.)
   write (6, 9002) Ip_int
 
   ! calculate plasma beta
@@ -128,8 +138,9 @@ subroutine get_equi_info_2D
  2006 format ('idl << EOF')
  2007 format ("plot_data, 'equi_info.grid', 'equi_info.data', 0, zrange=[0,2], clevels=[0.9, 1.0, 1.1], $")
  2008 format (a120)
- 2009 format ("ps_plot='equi_info.eps'")
- 2010 format ('EOF')
+ 2009 format ("utitle='Normalized Poloidal Flux', $")
+ 2010 format ("ps_plot='equi_info.eps'")
+ 2011 format ('EOF')
 end subroutine get_equi_info_2D
 !===============================================================================
 
@@ -138,7 +149,7 @@ end subroutine get_equi_info_2D
 !===============================================================================
 ! calculate plasma current from plasma surface integral
 !===============================================================================
-subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
+subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar, screen_output)
   use iso_fortran_env
   use equilibrium, only: get_cylindrical_coordinates, get_Bf_eq2D
   use flux_surface_2D
@@ -149,9 +160,11 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   real(real64), intent(in)  :: delta_PsiN
   integer,      intent(in)  :: n_sample
   real(real64), intent(out) :: Ip, Bpolbar
+  logical,      intent(in)  :: screen_output
 
   type(t_flux_surface_2D)  :: F
   real(real64)       :: L, dl, Bpol, Bpolint, Bf(3), xi, r(3), y(3)
+  real(real64)       :: eps, kap, del(2), Ri, Ro, Rh, Rl, R0, Zh, Zl, w, h
   integer            :: i, ierr
 
 
@@ -167,14 +180,54 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   if (Debug) call F%plot(filename='lcfs.plt')
   call F%setup_length_sampling()
   L       = F%length()
-  write (6, 9010)
-  write (6, 9011) L / 1.d2
-  write (6, 9012) F%area() / 1.d4
-  write (6, 9013) F%surface() / 1.d4
-  write (6, 9014) F%volume() / 1.d6
-  write (6, *)
+  if (screen_output) then
+     write (6, 9010)
+     write (6, 9011) L / 1.d2
+     write (6, 9012) F%area() / 1.d4
+     write (6, 9013) F%surface() / 1.d4
+     write (6, 9014) F%volume() / 1.d6
+     write (6, *)
+  endif
 
 
+  ! analyze shape of LCFS
+  ! high point
+  i  = maxloc(F%x(:,2), 1)
+  Rh = F%x(i,1);   Zh = F%x(i,2)
+  ! low point
+  i  = minloc(F%x(:,2), 1)
+  Rl = F%x(i,1);   Zl = F%x(i,2)
+  ! innermost point
+  i  = minloc(F%x(:,1), 1)
+  Ri = F%x(i,1)
+  ! outermost point
+  i  = maxloc(F%x(:,1), 1)
+  Ro = F%x(i,1)
+  if (Debug) then
+     open  (99, file='lcfs_box.dat')
+     write (99, *) Ri, Zl
+     write (99, *) Ro, Zl
+     write (99, *) Ro, Zh
+     write (99, *) Ri, Zh
+     close (99)
+  endif
+
+  R0  = 0.5d0 * (Ro + Ri)
+  w   = 0.5d0 * (Ro - Ri)
+  h   = 0.5d0 * (Zh - Zl)
+  eps = w / R0
+  kap = h / w
+  del(1) = (R0 - Rh) / R0 / eps
+  del(2) = (R0 - Rl) / R0 / eps
+  if (screen_output) then
+     write (6, 9020) 1.d0/eps
+     write (6, 9021) kap, Zh/R0/eps, -Zl/R0/eps
+     write (6, 9022) 0.5d0*(del(1)+del(2)), del
+     write (6, *)
+  endif
+
+
+  ! calculate plasma current from surface integral
   dl      = L / n_sample
   Bpolint = 0.d0
   do i=0,n_sample-1
@@ -189,11 +242,15 @@ subroutine Ip_info(delta_PsiN, n_sample, Ip, Bpolbar)
   Ip      = Bpolint / (4.d-1 * pi)
   Bpolbar = Bpolint / (L/1.d2)
 
+
  9010 format(3x,'- Plasma boundary:')
  9011 format(8x,'poloidal cirumference [m]     = ', f10.4)
  9012 format(8x,'poloidal cross-section [m**2] = ', f10.4)
  9013 format(8x,'surface area [m**2]           = ', f10.4)
  9014 format(8x,'plasma volume [m**3]          = ', f10.4)
+ 9020 format(8x,'aspect ratio                  = ', f10.4)
+ 9021 format(8x,'elongation (upper, lower)     = ', f10.4, 4x, '(', f10.4, ', ', f10.4, ')')
+ 9022 format(8x,'triangularity (upper, lower)  = ', f10.4, 4x, '(', f10.4, ', ', f10.4, ')')
 end subroutine Ip_info
 !===============================================================================
 

@@ -23,8 +23,7 @@ DEVEL_INC      = -I $(DEVEL_DIR)
 DEVEL_OBJ      = $(DEVEL_DIR)/*.o
 
 OBJECTS = \
-               parallel.o\
-               run_control.o
+               parallel.o
 
 
 .PHONY: all
@@ -36,15 +35,15 @@ all: $(OBJECTS)
 	cd $(GRIDGEN_DIR); $(MAKE) FC='$(FC)'
 	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
 	cd $(DEVEL_DIR); $(MAKE) FC='$(FC)'
-	$(FC) -c $(GEOMETRY_INC) $(BFIELD_INC) main.f90
+	$(FC) -c $(EXTERNAL_INC) $(CORE_INC) $(GEOMETRY_INC) $(BFIELD_INC) main.f90
 	$(FC) -o ../bin/$(PROGRAM) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
 
 
-%.o: %.f*
-	$(FC) -c $<
+%.o: %.f90
+	$(FC) $(CORE_INC) -c $<
 
-%.o: %.F*
-	$(FC) -c $<
+%.o: %.F90
+	$(FC) $(CORE_INC) -c $<
 
 
 .PHONY: debug

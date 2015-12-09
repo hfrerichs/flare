@@ -33,7 +33,8 @@
       real*8, dimension(:), allocatable, target :: rlim, zlim
 
       real*8  :: Rdim, Zdim, Rcentr, Rleft, Zmid, Current,
-     .    Rmaxis, Zmaxis, Simag, Sibry, Bcentr
+     .    Rmaxis, Zmaxis, Simag, Sibry, Bcentr,
+     .    Bt_scale, Ip_scale
 
       integer :: nR, nZ, nbbbs, limitr
 
@@ -49,7 +50,8 @@
      6    geqdsk_get_pressure,
      7    geqdsk_get_domain,
      8    geqdsk_provides_boundary,
-     9    geqdsk_export_boundary
+     9    geqdsk_export_boundary,
+     .    geqdsk_info
 !     a    sample_psi1_EQDSK, get_D1Psi_geqdsk,
 !     b    sample_psi2_EQDSK, get_D2Psi_geqdsk,
 !     4    equi_info_EQDSK, get_equi_domain_EQDSK, magnetic_axis_geqdsk,
@@ -66,39 +68,72 @@
 !===============================================================================
 ! Load equilibrum data from file
 !===============================================================================
-      subroutine geqdsk_load (Data_File, use_PFC_, CurrentFix_, DL_,
-     .                        psi_axis, psi_sepx)
+      subroutine geqdsk_load (Data_File, Ip, Bt, use_PFC_, CurrentFix_,
+     .                        DL_, psi_axis, psi_sepx, Header_Format)
       use run_control, only: Spline_Order
       use bspline
+      use system
       character*120, intent(in) :: Data_File
+      real*8,  intent(in)       :: Ip, Bt
       logical, intent(in), optional  :: use_PFC_, CurrentFix_
-      integer, intent(in), optional  :: DL_
+      integer, intent(in), optional  :: DL_, Header_Format
       real*8, intent(out), optional  :: psi_axis,psi_sepx
 
       integer, parameter :: iu = 17
 
       real*8, dimension(:), allocatable :: Rtmp, Ztmp, Psintmp
 
+      character(len=80) :: tmp
       character*8  :: case_(6)
-      integer :: i, j, idum
+      integer :: i, j, idum, iformat
       real*8  :: xdum, PsiC, PsiL, PsiR, rCurrentFix
       logical :: lL, lR, concaveup
 
 
+      iformat = STRICT
       if (present(use_PFC_)) use_wall = use_PFC_
       if (present(CurrentFix_)) CurrentFix = CurrentFix_
       if (present(DL_)) DiagnosticLevel = DL_
+      if (present(Header_Format)) iformat = Header_Format
+      select case(iformat)
+      case(STRICT,FREE)
+      case default
+         write (6, 9000) iformat
+         stop
+      end select
+ 9000 format('error: header format ', i0, ' not defined!')
       nord = Spline_Order
 
       open  (iu, file=Data_File)
 
       ! read equilibrium configuration
-      read  (iu, 2000) (case_(i),i=1,6), idum, nR, nZ
+      select case(iformat)
+      case(STRICT)
+         read  (iu, 2000) (case_(i),i=1,6), idum, nR, nZ
+      case(FREE)
+         read  (iu, 2001) (case_(i),i=1,6), tmp
+         read  (tmp, *) idum, nR, nZ
+      end select
       read  (iu, 2020) Rdim, Zdim, Rcentr, Rleft, Zmid
       read  (iu, 2020) Rmaxis, Zmaxis, Simag, Sibry, Bcentr
       read  (iu, 2020) Current, Simag, xdum, Rmaxis, xdum
       read  (iu, 2020) Zmaxis, xdum, Sibry, xdum, xdum
       call setup_magnetic_axis_2D (Rmaxis*1.d2, Zmaxis*1.d2)
+
+
+      ! equilibrium scale factors
+      Bt_scale = 1.d0
+      if (Bt .ne. 0.d0) then
+         Bt_scale = Bt / Bcentr
+         Bcentr   = Bcentr * Bt_scale
+      endif
+      Ip_scale = 1.d0
+      if (Ip .ne. 0.d0) then
+         Ip_scale = Ip / Current
+         Current  = Current * Ip_scale
+         Simag    = Simag * Ip_scale
+         Sibry    = Sibry * Ip_scale
+      endif
 
 
       ! runtime feedback of characteristic values
@@ -127,6 +162,11 @@
       read  (iu, 2020) (rbbbs(i), zbbbs(i), i=1,nbbbs)
       read  (iu, 2020) (rlim(i), zlim(i), i=1,limitr)
       close (iu)
+
+
+      ! apply equilibrium scale factors
+      fpol  = fpol  * Bt_scale
+      psirz = psirz * Ip_scale
 
 
 ! diagnostic output ............................................................
@@ -238,6 +278,7 @@ c-----------------------------------------------------------------------
       if (present(psi_sepx)) psi_sepx = Sibry
       return
  2000 format (6a8,3i4)
+ 2001 format (6a8,a80)
  2020 format (5e16.9)
  2022 format (2i5)
  2024 format (i5,e16.9,i5)
@@ -671,6 +712,24 @@ c-------------------------------------------------------------------------------
       return
  1000 format (5e16.8)
       end subroutine jt_profile
+c-------------------------------------------------------------------------------
+
+
+
+c-------------------------------------------------------------------------------
+      subroutine geqdsk_info()
+
+      integer :: i
+      open  (99, file='q.dat')
+      open  (98, file='P.dat')
+      do i=1,nR
+          write (99, *) (i-1.d0) / (nR-1.d0), qpsi(i)
+          write (98, *) (i-1.d0) / (nR-1.d0), pres(i)
+      enddo
+      close (99)
+      close (98)
+
+      end subroutine geqdsk_info
 c-------------------------------------------------------------------------------
 
       end module geqdsk

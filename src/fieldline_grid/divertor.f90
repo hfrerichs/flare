@@ -30,7 +30,8 @@ module divertor
   !=====================================================================
   subroutine setup_geometry(nx, connectX, orientationX)
   use math
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: Xp, get_poloidal_angle
   use boundary
   use fieldline_grid, only: guiding_surface, d_cutL, d_cutR, discretization_method, POLOIDAL_ANGLE, ORTHOGONAL
   use inner_boundary
@@ -533,7 +534,7 @@ module divertor
   use mesh_spacing
   use flux_surface_2D
   use math
-  use equilibrium
+  use equilibrium, only: Xp, get_PsiN
   use xpaths
   use fieldline_grid, only: nr_perturbed
 

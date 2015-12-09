@@ -14,15 +14,18 @@
 !    Trace_Step, Trace_Method, Trace_Coords as ususal
 !
 !    Output_File
+!    Grid_File
 !===============================================================================
 subroutine field_line_loss
   use iso_fortran_env
   use flux_surface_2D
   use flux_surface_3D
-  use run_control, only: N_sym, N_phi, N_theta, Psi, N_psi, N_steps, Limit, Output_File, Debug
+  use run_control, only: N_sym, N_phi, N_theta, Psi, N_psi, N_steps, Limit, &
+                         Output_File, Grid_File, Debug
   use equilibrium
   use fieldline
   use parallel
+  use grid
   implicit none
 
   integer, parameter      :: iu = 80
@@ -30,6 +33,7 @@ subroutine field_line_loss
   integer, dimension(:,:), allocatable :: iloss
   type(t_flux_surface_2D) :: S2D
   type(t_flux_surface_3D) :: S3D
+  type(t_grid) :: G
   real(real64) :: r(3), y(3), DPsi
   integer      :: i, ierr, j, n
 
@@ -71,6 +75,7 @@ subroutine field_line_loss
      open  (iu, file=Output_File)
      write (iu, 2000)
   endif
+  call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, N_Psi, N_theta)
 
 
   ! initialize output variables
@@ -98,6 +103,7 @@ subroutine field_line_loss
      call S2D%generate_closed(r(1:2))
      if (Debug) call S2D%plot(filename='flux_surfaces.plt', append=.true.)
      call S3D%generate_from_axisymmetric_surface(S2D, N_sym, N_phi, N_theta)
+     G%mesh(i,:,1:2) = S3D%slice(0)%x(1:N_theta,1:2)
 
   
      ! 3. calculate field line losses from this unperturbed flux surface
@@ -113,6 +119,7 @@ subroutine field_line_loss
 
   ! finalize
   if (firstP) then
+     call G%store(Grid_File)
      close (iu)
   endif
   deallocate (iloss)

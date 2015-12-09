@@ -174,8 +174,7 @@ subroutine poincare_plot
 
      ! start field line tracing
      trace_loop: do
-        call F%trace_1step()
-        lc = lc + Trace_Step
+        lc = lc + F%trace_1step()
 
 
         ! check intersection with Poincare plane

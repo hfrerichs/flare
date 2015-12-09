@@ -8,6 +8,7 @@ all:
 
 .PHONY: install
 install:
+	test -d $(BIN_DIR) || mkdir $(BIN_DIR)
 	ln -s $(PWD)/bin/run_flare.sh $(BIN_DIR)
 	ln -s $(PWD)/bin/$(PROGRAM) $(BIN_DIR)
 	ln -s $(PWD)/bin/$(PROGRAM_DEBUG) $(BIN_DIR)

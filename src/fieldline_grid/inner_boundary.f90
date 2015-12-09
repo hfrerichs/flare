@@ -17,7 +17,8 @@ module inner_boundary
 
   !=====================================================================
   subroutine load_inner_boundaries (theta0)
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: get_PsiN
   use math
   use run_control, only: Debug
   real(real64), intent(in), optional :: theta0

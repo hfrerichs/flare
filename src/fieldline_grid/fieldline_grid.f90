@@ -1381,7 +1381,7 @@ module fieldline_grid
   type(t_grid) :: G
   type(t_fieldline) :: F
   type(t_dataset)   :: D
-  real(real64) :: x1(2), x2(2), x3(2), x4(2), phi, y(3), ts, Lc, Lcsav
+  real(real64) :: x1(2), x2(2), x3(2), x4(2), phi, y(3), ts, Lc, Lcsav, dl
   integer      :: ig(4), i, idir, n, nsuccess
 
 
@@ -1424,7 +1424,7 @@ module fieldline_grid
         call F%init(y, idir*ts, NM_AdamsBashforth4, FL_ARC)
 
         trace_loop: do
-           call F%trace_1step()
+           dl = F%trace_1step()
            Lc = F%phi_int * 180.d0 / pi
 
            if (abs(Lc) > Limit) exit trace_loop

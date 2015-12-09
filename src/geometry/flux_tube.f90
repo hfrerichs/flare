@@ -42,7 +42,8 @@ module flux_tube
      procedure :: generate => generate_cross_section
      procedure :: load
      procedure :: area
-     procedure :: Rcenter, Zcenter
+     procedure :: Rcenter
+     procedure :: Zcenter
      procedure :: generate_mesh
   end type t_cross_section
 
@@ -395,7 +396,7 @@ module flux_tube
   type(t_curve)            :: FR
 
   type(t_fieldline)        :: F
-  real(real64) :: dphi, x(3)
+  real(real64) :: dphi, dl, x(3)
   integer      :: i, j
 
 
@@ -410,7 +411,7 @@ module flux_tube
   call F%init(x, dphi, NM_AdamsBashforth4, FL_ANGLE)
   do j=1,this%nphi
      do i=1,nsub
-        call F%trace_1step()
+        dl = F%trace_1step()
      enddo
      FR%x(j,:) = F%rc(1:2)
   enddo

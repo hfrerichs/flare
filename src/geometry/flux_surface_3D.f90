@@ -29,7 +29,11 @@ module flux_surface_3D
      type (t_interpolate3D) :: distance
 
      contains
-     procedure :: new, load, generate, plot, destroy
+     procedure :: new
+     procedure :: load
+     procedure :: generate
+     procedure :: plot
+     procedure :: destroy
      procedure :: generate_from_axisymmetric_surface
      procedure :: get_distance_to
      procedure :: load_distance_to
@@ -113,7 +117,8 @@ module flux_surface_3D
 ! solver      id of ODE solver
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, poloidal_coordinate)
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: get_PsiN
   use mesh_spacing
   class(t_flux_surface_3D) :: this
   real(real64), intent(in) :: y0(3)
@@ -343,11 +348,10 @@ module flux_surface_3D
         Lc = 0.d0
         m  = 1
         trace_loop: do
-           call F%trace_1step()
-           Lc = Lc + Trace_Step
+           Lc = Lc + F%trace_1step()
 
            ! stop field line tracing at limit nlimit*Limit
-           if (Lc > m*Limit) m = m+1
+           if (abs(Lc) > m*Limit) m = m+1
            if (m > nlimit) exit trace_loop
 
            ! check intersection with boundary

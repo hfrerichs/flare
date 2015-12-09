@@ -91,7 +91,8 @@ c-----------------------------------------------------------------------
          endif
 
          read (iun, 1001) vv80
-         read (iun,*)  n1, n2
+         read (iun,*)  n1
+         n2      = 0
          n_poly1 = n_poly1 + n1
          n_poly2 = n_poly2 + n2
          close (iun)
@@ -130,12 +131,14 @@ c-----------------------------------------------------------------------
          endif
          read (iun, 1001) vv80
          write (6, 1002) vv80
-         read (iun,*)  n1, n2
+         read (iun,*)  n1
+         n2 = 0
          write (6, 1003) n1+n2
 
          do ip=1,n1+n2
             np = np + 1
-            read  (iun,*) ns, I_poly, nperio
+            read  (iun,*) ns, I_poly
+            nperio                  = 1
             polygon_data(np)%n_seg  = ns
             polygon_data(np)%I_poly = I_poly * I_scale(i)
             allocate (polygon_data(np)%X(0:ns),

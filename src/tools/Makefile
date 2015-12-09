@@ -26,7 +26,8 @@ OBJECTS =  \
                melnikov_function.o\
                critical_point_analysis.o\
                export_gfile.o\
-               quasi_surfaces.o
+               quasi_surfaces.o\
+               generate_rpath.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR) -I ../$(GRIDGEN_DIR)
@@ -35,10 +36,10 @@ INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR)
 .PHONY: all
 all: $(OBJECTS)
 
-%.o: %.f*
+%.o: %.f90
 	$(FC) -c $(INC_DIR) $<
 
-%.o: %.F*
+%.o: %.F90
 	$(FC) -c $(INC_DIR) $<
 
 .PHONY: clean

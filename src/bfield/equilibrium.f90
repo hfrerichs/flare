@@ -3,32 +3,33 @@
 !===============================================================================
 module equilibrium
   use iso_fortran_env
-  use curve2D
   use magnetic_axis
+  use curve2D
   implicit none
 
 
   character(len=*), parameter :: &
-     S_GEQDSK     = 'geqdsk', &
-     S_DIVAMHD    = 'divamhd', &
-     S_JETEQ      = 'jeteq', &
-     S_M3DC1      = 'm3dc1', &
-     S_AMHD       = 'amhd'
+     S_GEQDSK       = 'geqdsk', &
+     S_GEQDSK_FREE  = 'geqdsk*', &
+     S_DIVAMHD      = 'divamhd', &
+     S_JETEQ        = 'jeteq', &
+     S_M3DC1        = 'm3dc1', &
+     S_AMHD         = 'amhd'
 
   integer, parameter :: &
-     EQ_GUESS     = -1, &
-     EQ_UNDEFINED = 0, &
-     EQ_GEQDSK    = 1, &
-     EQ_DIVAMHD   = 2, &
-     EQ_JET       = 3, &
-     EQ_M3DC1     = 4, &
-     EQ_AMHD      = 5
+     EQ_GUESS       = -1, &
+     EQ_UNDEFINED   = 0, &
+     EQ_GEQDSK      = 1, &
+     EQ_DIVAMHD     = 2, &
+     EQ_JET         = 3, &
+     EQ_M3DC1       = 4, &
+     EQ_AMHD        = 5
 
 
   integer, parameter :: nX_max = 10
 
 
-  type t_Xpoint
+  type t_Xpoint ! critical point
      real(real64) :: R_estimate = 0.d0, Z_estimate = 0.d0
      real(real64) :: X(2) = -1.d0, Psi, H(2,2), theta
      logical      :: undefined = .true.
@@ -58,7 +59,7 @@ module equilibrium
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
 
 
-  type(t_Xpoint) :: Xp(nX_max), Magnetic_Axis
+  type(t_Xpoint) :: Xp(nX_max), M
 
 
   logical :: &
@@ -70,7 +71,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, Magnetic_Axis, &
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, M, &
      Magnetic_Axis_File
 !...............................................................................
 
@@ -118,22 +119,22 @@ module equilibrium
 ! Interfaces for functions/subroutines from specific equilibrium types         .
 
   ! get equilibrium magnetic field in cylindrical coordinates
-  procedure(default_get_Bf), pointer :: get_Bf_eq2D  => default_get_Bf
-  procedure(default_get_JBf), pointer :: get_JBf_eq2D  => default_get_JBf
+  procedure(default_get_Bf), pointer  :: get_Bf_eq2D
+  procedure(default_get_JBf), pointer :: get_JBf_eq2D
 
   ! get poloidal magnetic flux
-  procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
+  procedure(default_get_Psi), pointer :: get_Psi
 
   ! get derivative of poloidal magnetic flux
-  procedure(default_get_DPsi), pointer :: get_DPsi => default_get_DPsi
+  procedure(default_get_DPsi), pointer :: get_DPsi
 
 !  ! return poloidal magnetic flux at magnetic axis
 !  procedure(Psi_axis_interface), pointer :: Psi_axis
   ! pressure profile
-  procedure(default_pressure), pointer :: get_pressure => default_pressure
+  procedure(default_pressure), pointer :: get_pressure
 
   ! Return boundaries [cm] of equilibrium domain
-  procedure(default_get_domain), pointer :: get_domain => default_get_domain
+  procedure(default_get_domain), pointer :: get_domain
 
   ! inquire boundary setup from equilibrium data
   interface
@@ -146,12 +147,13 @@ module equilibrium
      type(t_curve), intent(out) :: S
      end subroutine export_curve
   end interface
-  procedure(logical_inquiry), pointer :: &
-     equilibrium_provides_boundary => default_equilibrium_provides_boundary
+  procedure(logical_inquiry), pointer :: equilibrium_provides_boundary
   procedure(export_curve), pointer    :: export_boundary
 
   ! Broadcast data for parallel execution
   procedure(), pointer :: broadcast_equilibrium
+  procedure(), pointer :: equilibrium_info
+  procedure(), pointer :: post_setup_equilibrium
 !...............................................................................
 
 
@@ -162,6 +164,8 @@ module equilibrium
 
   integer :: ipanic = 0
 
+  integer, private :: i_format
+
   contains
 !=======================================================================
 
@@ -171,13 +175,18 @@ module equilibrium
 ! Load equilibrium configuration
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
-  use run_control, only: Prefix, Debug
+  use run_control, only: Prefix, Debug, use_boundary_from_equilibrium
+  use system
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
   integer              :: ix
   real(real64)         :: r(3), x0(2)
   real(real64)         :: Rbox(2), Zbox(2)
+
+
+! 0. initialize
+  i_format = STRICT
 
 
 ! 1. read user configuration
@@ -190,15 +199,18 @@ module equilibrium
 ! 1.b find equilibrium type
   select case(Data_Format)
   case (S_GEQDSK)
-     i_equi = EQ_GEQDSK
+     i_equi   = EQ_GEQDSK
+  case (S_GEQDSK_FREE)
+     i_equi   = EQ_GEQDSK
+     i_format = FREE
   case (S_DIVAMHD)
-     i_equi = EQ_DIVAMHD
+     i_equi   = EQ_DIVAMHD
   case (S_M3DC1)
-     i_equi = EQ_M3DC1
+     i_equi   = EQ_M3DC1
   case (S_AMHD)
-     i_equi = EQ_AMHD
+     i_equi   = EQ_AMHD
   case ('')
-     i_equi = EQ_GUESS
+     i_equi   = EQ_GUESS
   case default
      write (6, *) 'error: ', Data_Format, ' is not a valid equilibrium type!'
      stop
@@ -206,24 +218,35 @@ module equilibrium
 
 
 ! set default values
-  export_boundary => null()
+  get_Bf_eq2D      => default_get_Bf
+  get_JBf_eq2D     => default_get_JBf
+  get_Psi          => default_get_Psi
+  get_DPsi         => default_get_DPsi
+  get_domain       => default_get_domain
+  get_pressure     => default_pressure
+  export_boundary  => null()
+  equilibrium_info => null()
+  post_setup_equilibrium        => null()
+  equilibrium_provides_boundary => default_equilibrium_provides_boundary
+  call initialize_magnetic_axis()
+  use_boundary = (use_boundary .and. use_boundary_from_equilibrium)
 
 
 ! 2. load equilibrium data (if provided) ...............................
-  if (Data_File .ne. '') call load_equilibrium_data(iu, iconfig)
+  call load_equilibrium_data(iu, iconfig)
   call setup_equilibrium()
 
 
 ! 3. setup magnetic axis ...............................................
   ! 3.1 find magnetic axis from estimated position
-  if (Magnetic_Axis%R_estimate > 0.d0) then
-     x0(1)             = Magnetic_Axis%R_estimate
-     x0(2)             = Magnetic_Axis%Z_estimate
-     Magnetic_Axis%X   = find_x(x0)
+  if (M%R_estimate > 0.d0) then
+     x0(1)    = M%R_estimate
+     x0(2)    = M%Z_estimate
+     M%X      = find_x(x0)
 
-     r(1:2)            = Magnetic_Axis%X; r(3) = 0.d0
-     Magnetic_Axis%Psi = get_Psi(r)
-     Psi_Axis          = Magnetic_Axis%Psi
+     r(1:2)   = M%X; r(3) = 0.d0
+     M%Psi    = get_Psi(r)
+     Psi_Axis = M%Psi
      call setup_magnetic_axis_2D (r(1), r(2))
   endif
 
@@ -295,6 +318,10 @@ module equilibrium
   write (6, 5000) Psi_sepx
 
 
+  ! 6. post-setup
+  if (associated(post_setup_equilibrium)) call post_setup_equilibrium(Psi_axis, Psi_sepx)
+
+
   return
  1000 iconfig = 0
  1001 format (3x,'- Equilibrium configuration:')
@@ -313,6 +340,7 @@ module equilibrium
   use run_control, only: Prefix
   use geqdsk
   use divamhd
+  use m3dc1
   use amhd
 
   integer, intent(in)  :: iu
@@ -320,14 +348,19 @@ module equilibrium
 
   integer, parameter :: iu_scan = 17
 
+  character(len=120) :: filename
   character*80 :: s
 
 
-  Data_File = trim(Prefix)//Data_File
+  filename = trim(Prefix)//Data_File
 
 ! determine equilibrium type (if not provided) .........................
   if (i_equi == EQ_GUESS) then
-     open  (iu_scan, file=Data_file)
+     if (Data_File == '') then
+        write (6, *) 'error: cannot guess equilibrium type without data file!'
+        stop
+     endif
+     open  (iu_scan, file=filename)
      read  (iu_scan, '(a80)') s
      if (s(3:5) == 'TEQ'  .or.  s(3:6) == 'EFIT') then
         i_equi = EQ_GEQDSK
@@ -350,15 +383,19 @@ module equilibrium
 ! load equilibrium data
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (Data_File, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx)
+     call geqdsk_load (filename, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx, Header_Format=i_format)
   case (EQ_DIVAMHD)
-     call divamhd_load (Data_File, Ip, Bt, R0)
+     call divamhd_load (filename, Ip, Bt, R0)
 
   case (EQ_M3DC1)
-     ! nothing to be done here
+     if (.not.m3dc1_loaded()) then
+        write (6, *) 'error: M3D-C1 data not loaded, cannot set up equilbrium!'
+        stop
+     endif
 
   case (EQ_AMHD)
      call amhd_load (iu, iconfig, Ip, Bt, R0)
+     if (M%R_estimate <= 0.d0) M%R_estimate = R0
 
   case default
      write (6, *) 'error: cannot determine equilibrium type!'
@@ -394,6 +431,7 @@ module equilibrium
      equilibrium_provides_boundary => geqdsk_provides_boundary
      export_boundary               => geqdsk_export_boundary
      broadcast_equilibrium         => geqdsk_broadcast
+     equilibrium_info              => geqdsk_info
   case (EQ_DIVAMHD)
      get_Bf_eq2D                   => divamhd_get_Bf
      get_Psi                       => divamhd_get_Psi
@@ -412,6 +450,7 @@ module equilibrium
      get_pressure                  => amhd_get_pressure
      get_domain                    => amhd_get_domain
      broadcast_equilibrium         => amhd_broadcast
+     post_setup_equilibrium        => amhd_post_setup_equilibrium
   end select
 
 
@@ -1146,11 +1185,12 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine find_hyperbolic_points()
+  subroutine find_hyperbolic_points(nR, nZ)
+  integer, intent(in)  :: nR, nZ
+
+  integer, parameter   :: iu = 54
+
   real(real64)         :: Rbox(2), Zbox(2)
-
-  integer, parameter :: nR = 20, nZ = 20, iu = 54
-
   type(t_Xpoint) :: Xp
   real(real64)   :: x(2), H(2,2), xk(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
   real(real64)   :: DPsi, DPsi1, r3(3)
@@ -1337,26 +1377,65 @@ module equilibrium
 
 
 
+!=======================================================================
+! calculate eigenvectors v1,v2 of Hessian matrix of pol. magn. flux at x
+!=======================================================================
+  subroutine H_eigenvectors (H, v1, v2)
+  real(real64), intent(in)  :: H(2,2)
+  real(real64), intent(out) :: v1(2), v2(2)
+
+  real(real64) :: r(3), psi_xx, psi_xy, psi_yy, l1, l2, ac2, ac4, b2
+
+
+  psi_xx = H(1,1) / (Psi_sepx-Psi_axis)
+  psi_xy = H(1,2) / (Psi_sepx-Psi_axis)
+  psi_yy = H(2,2) / (Psi_sepx-Psi_axis)
+
+
+  ! get eigenvalues l1,l2 of Hessian at X-point
+  ac2 = 0.5d0  * (psi_xx + psi_yy)
+  ac4 = 0.25d0 * (psi_xx - psi_yy)**2
+  b2  = psi_xy**2
+  l1  = ac2 + dsqrt(ac4 + b2)
+  l2  = ac2 - dsqrt(ac4 + b2)
+
+
+  ! construct normalized eigenvectors
+  ! ISSUE: this might not work if the X-point is straight below the magnetic axis!
+  v1(1) = 1.d0
+  v1(2) = - (psi_xx - l1) / psi_xy
+  v1    = v1 / sqrt(sum(v1**2))
+
+! construct v2 so that it is pointing upwards
+  v2(2) = 1.d0
+  v2(1) = - psi_xy / (psi_xx - l2)
+  v2    = v2 / sqrt(sum(v2**2))
+
+  end subroutine H_eigenvectors
+!=======================================================================
+
+
+
 
 
 
 !=======================================================================
-  function pol_flux(r) result(psi)
-  real*8, intent(in) :: r(3)
-  real*8             :: psi
-
-  end function pol_flux
+!  function pol_flux(r) result(psi)
+!  real*8, intent(in) :: r(3)
+!  real*8             :: psi
+!
+!  end function pol_flux
 !=======================================================================
 
 
 !=======================================================================
-  subroutine Bf_pol_sub (n, s, y, f)
-  integer, intent(in) :: n
-  real*8, intent(in)  :: s, y(n)
-  real*8, intent(out) :: f(n)
-
-  ! n = 2, y(1) = R, y(2) = Z
-  end subroutine Bf_pol_sub
+!  subroutine Bf_pol_sub (n, s, y, f)
+!  integer, intent(in) :: n
+!  real*8, intent(in)  :: s, y(n)
+!  real*8, intent(out) :: f(n)
+!
+!  ! n = 2, y(1) = R, y(2) = Z
+!  end subroutine Bf_pol_sub
 !=======================================================================
 
 end module equilibrium

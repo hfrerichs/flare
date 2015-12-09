@@ -24,7 +24,7 @@ module m3dc1
   integer, parameter :: n_sets_max = 16
 
   integer :: n_sets = 0
-  character*80 :: filename(n_sets_max)
+  character(len=256) :: filename(n_sets_max)
   real*8       :: amplitude(n_sets_max) = 1.d0
   real*8       :: phase(n_sets_max)     = 0.d0	! offset in deg
 
@@ -34,8 +34,11 @@ module m3dc1
 
   integer :: isrcA(n_sets_max), imagA(n_sets_max), iEQ, iPsi
 
+  logical, save :: loaded = .false.
+
   public :: &
      m3dc1_load, &
+     m3dc1_loaded, &
      m3dc1_broadcast, &
      m3dc1_get_Bf, &
      m3dc1_get_Bf_eq2D, &
@@ -55,7 +58,7 @@ module m3dc1
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
-  character*80 :: Input_File
+  character(len=256) :: Input_File
   integer :: ierr, i
   real*8  :: f
 
@@ -98,6 +101,7 @@ module m3dc1
 
      write (6, 1005) i, amplitude(i), phase(i)
   enddo
+  loaded = .true.
 #else
   write (6, *) 'error: FLARE compiled without M3D-C1 support!'
   stop
@@ -111,6 +115,17 @@ module m3dc1
  1004 format (8x,'number of sub-sets:           ',i4)
  1005 format (8x,i4,' amplitude factor = ',f7.3,', phase [deg] = ',f7.3)
 end subroutine m3dc1_load
+!===============================================================================
+
+
+
+!===============================================================================
+  function m3dc1_loaded()
+  logical :: m3dc1_loaded
+
+  m3dc1_loaded = loaded
+
+  end function m3dc1_loaded
 !===============================================================================
 
 
@@ -135,7 +150,7 @@ end subroutine m3dc1_load
   call broadcast_real   (amplitude, n_sets_max)
   call broadcast_real   (phase,     n_sets_max)
   do i=1,n_sets_max
-     call broadcast_char(filename(i), 80)
+     call broadcast_char(filename(i), 256)
   enddo
 
   return

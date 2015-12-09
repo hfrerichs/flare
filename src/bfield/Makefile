@@ -14,7 +14,7 @@ OBJECTS =  \
                interpolateB.o\
                bfield.o
 
-INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(CORE_DIR)
+INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR)
 
 
 .PHONY: all
@@ -23,10 +23,16 @@ all: $(OBJECTS)
 m3dc1.o: m3dc1.F90
 	$(FC) -c $(INC_DIR) $(M3DC1_FLAG) $(M3DC1_INC) $<
 
-%.o: %.f*
+reconstruct.o: reconstruct.F90
+	$(FC) -c $(INC_DIR) $(EMC3_FLAG) -I ../$(EMC3_LINK_DIR) $<
+
+%.o: %.f
 	$(FC) -c $(INC_DIR) $<
 
-%.o: %.F*
+%.o: %.f90
+	$(FC) -c $(INC_DIR) $<
+
+%.o: %.F90
 	$(FC) -c $(INC_DIR) $<
 
 .PHONY: clean

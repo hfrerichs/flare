@@ -19,10 +19,13 @@ INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR) -I ../$(BFIELD_DIR)
 .PHONY: all
 all: $(OBJECTS)
 
-%.o: %.f*
+%.o: %.f
 	$(FC) -c $(INC_DIR) $<
 
-%.o: %.F*
+%.o: %.f90
+	$(FC) -c $(INC_DIR) $<
+
+%.o: %.F90
 	$(FC) -c $(INC_DIR) $<
 
 .PHONY: clean

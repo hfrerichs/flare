@@ -6,17 +6,16 @@ module magnetic_axis
   use bspline
   implicit none
 
-  private
 
   ! for axisymmetric (2D) configuration
-  real(real64) :: &
+  real(real64), private :: &
      R_axis = -1.d0, &
      Z_axis =  0.d0
 
   ! for non-axisymmetric (3D) configuration
-  integer, parameter :: nord = 5
-  real(real64), dimension(:), allocatable :: Phinot, Rcoeff, Zcoeff
-  integer :: &
+  integer, parameter, private :: nord = 5
+  real(real64), dimension(:), allocatable, private :: Phinot, Rcoeff, Zcoeff
+  integer, private :: &
      N_phi  = 0, &
      N_sym  = 0
 
@@ -24,20 +23,33 @@ module magnetic_axis
   ! +1: positive direction, i.e. counter-clockwise
   ! -1: negative direction, i.e. clockwise
   !  0: no equilibrium defined
-  integer, public :: &
+  integer :: &
      Bt_sign  = 0, &
      Ip_sign  = 0
 
 
-  procedure(magnetic_axis_default), pointer :: get_magnetic_axis => magnetic_axis_default
+  procedure(magnetic_axis_default), pointer :: get_magnetic_axis => null()
 
-  public :: &
-     setup_magnetic_axis_2D, &
-     load_magnetic_axis_3D, &
-     broadcast_magnetic_axis, &
-     get_magnetic_axis
+!  public :: &
+!     initialize_magnetic_axis, &
+!     setup_magnetic_axis_2D, &
+!     load_magnetic_axis_3D, &
+!     broadcast_magnetic_axis, &
+!     magnetic_axis_default, &
+!     get_magnetic_axis
 
   contains
+!=======================================================================
+
+
+
+!=======================================================================
+! Initialize: set up default function
+!=======================================================================
+  subroutine initialize_magnetic_axis()
+
+  get_magnetic_axis => magnetic_axis_default
+  end subroutine initialize_magnetic_axis
 !=======================================================================
 
 

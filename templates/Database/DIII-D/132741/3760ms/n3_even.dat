@@ -1,0 +1,5 @@
+THIS IS A DUMMY FILE!!!!!
+12			! number of coils
+202     1.000		! 1st coil: number of segments, coil current [A]
+1.2     3.4     5.6	! X,Y,Z coordinates [cm] of nodes
+...
