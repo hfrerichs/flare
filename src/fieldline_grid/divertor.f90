@@ -195,7 +195,8 @@ module divertor
   use math
   use flux_surface_2D
   use equilibrium
-  use fieldline_grid, only: Dtheta_sampling, Dtheta_separatrix, alphaL, alphaR
+  use fieldline_grid, only: Dtheta_sampling, Dtheta_separatrix, alphaL, alphaR, &
+                            extend_alpha_SOL2
   type(t_flux_surface_2D), intent(in)  :: F
   real(real64),            intent(in)  :: eta
   type(t_curve),           intent(out) :: CL, CR
@@ -216,10 +217,13 @@ module divertor
 
   ! in outer SOL set eta'=1+eta for divertor legs from inner SOL
   eta1 = eta; eta2 = eta
-  if (ix1 < 0) eta1 = eta1 + 1.d0
-  if (ix2 < 0) eta2 = eta2 + 1.d0
-  !if (ix1 < 0) eta1 = 1.d0
-  !if (ix2 < 0) eta2 = 1.d0
+  if (extend_alpha_SOL2) then
+     if (ix1 < 0) eta1 = eta1 + 1.d0
+     if (ix2 < 0) eta2 = eta2 + 1.d0
+  else
+     if (ix1 < 0) eta1 = 1.d0
+     if (ix2 < 0) eta2 = 1.d0
+  endif
 
 
   ! setup relative coordinates xiL, xiR for divertor legs

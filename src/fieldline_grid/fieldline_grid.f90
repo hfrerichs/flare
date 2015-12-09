@@ -102,6 +102,9 @@ module fieldline_grid
      Dtheta_sampling     =    20.d0, &     ! Transition between angular and length weighted sampling of flux surfaces
      Dtheta_separatrix   =     0.d0        ! ... same on separatrix
 
+  logical :: &
+     extend_alpha_SOL2   =  .true.
+
 
 
   ! user defined input for individual blocks
@@ -314,7 +317,7 @@ module fieldline_grid
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      n_interpolate, nr_perturbed, &
      radial_spacing, poloidal_spacing, toroidal_spacing, &
-     d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, &
+     d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
      Dtheta_sampling, Dtheta_separatrix, &
      discretization_method, guiding_surface
 
