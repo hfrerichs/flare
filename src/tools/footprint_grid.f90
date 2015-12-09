@@ -10,9 +10,10 @@
 !
 !    R_start, R_end     Reference markers on boundary surface
 !    N_psi
-!        1 (default):   0 < R_start < R_end < 1 define relative position along boundary surface 
-!                       R_start, R_end > 1 define segment numbers and relative position on
-!                       segments along boundary surface
+!        1 (default):   - 0 <= R_start < R_end <= 1 define normalized positions along
+!                        boundary surface
+!                       - R_start, R_end > 1 define segment numbers and normalized
+!                       positions on segments along boundary surface
 !       I3:             Right strike point from X-point I
 !       I4:             Left strike point   R_start, R_end distance from strike point
 !
