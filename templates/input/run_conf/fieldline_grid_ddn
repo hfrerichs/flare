@@ -1,0 +1,132 @@
+!===============================================================================
+&RunControl
+
+   Machine       =   'NSTX'
+   Configuration =   '116313/QF'
+
+
+   Run_Type      =   'generate_3D_fieldline_grid'
+
+
+   ! run levels:
+   ! 1: Set up inner simulation boundary
+   ! 2: Generate 2D base grids
+   ! 3: Trace field line from base nodes
+   ! 4: Generate vacuum and core domain (for EIRENE only) and set up 3D grid
+   ! 5: Sample magnetic field strength on grid
+   ! 6: Generate plate definitions for EMC3
+   Run_Level(1)  =   2    ! begin at this run level
+   Run_Level(2)  =   2    ! end at this run level
+
+/
+!===============================================================================
+
+
+
+!===============================================================================
+&FieldlineGrid_Input
+
+  !---------------------------------------------------------------------
+  ! 0. Grid layout
+
+  topology            =  'ddn'
+  symmetry            =     9	! toroidal symmetry (i.e. 3 => 120 deg)
+  blocks              =     1	! number of toroidal blocks in simulation domain
+  !---------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------
+  ! 1. Inner simulation boundary
+                                     ! reference points (R[cm], Z[cm], phi[deg])
+  x_in1(1)            =   39.486d0   ! on 1st innermost flux surface
+  !x_in1(2)            =    0.d0
+  !x_in1(3)            =    0.d0
+
+  x_in2(1)            =   39.386d0   ! and 2nd innermost flux surface
+  !x_in2(2)            =    0.d0
+  !x_in2(3)            =    0.d0
+  !---------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------
+  ! 2. Base mesh
+
+  ! radial width of plasma domain [cm]
+  d_SOL(1)            =   20.d0	    ! left outer SOL
+  d_SOL(2)            =   20.d0	    ! right outer SOL
+  d_PFR(1)            =   14.5d0	    ! lower PFR
+  d_PFR(2)            =   8.5d0	    ! upper PFR
+
+
+  ! grid resolution and cell spacing (for all toroidal blocks)
+  ! - radial direction
+  nr(0)               =   10         ! high-pressure/confined region (HPR)
+  nr(1)               =   48         ! inner/primary scrape-off layer
+  nr(2)               =   12         ! left outer/secondary SOL
+  nr(3)               =   12         ! right outer/secondary SOL
+  nr(4)               =   12         ! lower PFR
+  nr(5)               =   12         ! upper PFR
+  radial_spacing(4)   = 'file:r_beta_PFR.txt'
+
+
+  ! - poloidal direction
+  npL(0)              =  360		! (L)elt and (R)ight part of HPR
+  npR(0)              =  460
+  npL(1)              =   80		! (L)eft and (R)ight divertor leg (main X-point)
+  npR(1)              =   80
+  npL(2)              =   16		! (L)eft and (R)ight divertor leg (secondary X-point)
+  npR(2)              =   16
+  !poloidal_spacing(1) = 'file:p_beta1.txt'
+
+
+  ! - toroidal direction
+  nt                  =   20
+
+
+  ! Guiding surface to generate discretization of strike points
+  !guiding_surface    =   'boundary_1.txt'
+
+  ! transition between angular- and length-weighted discretization of SOL flux surfaces
+  Dtheta_sampling     =    15.d0	! poloidal offset [deg] from X-point
+  Dtheta_separatrix   =    2.d0
+
+  ! extend flux surfaces beyond wall so that there is no gap in the 3D field line grid
+  d_cutL(1)           =    3.d0	! cut-off length for flux surfaces behind the wall
+  d_cutR(1)           =    3.d0	!    (L)eft and (R)ight segments
+  d_cutL(2)           =    3.d0	!    (1)st and (2)nd X-point
+  d_cutR(2)           =    3.d0	!
+
+  ! transition between "upstream" and "downstream" part of SOL
+  ! (relative to length of separatrix leg)
+  alphaL(1)           =    0.8d0
+  alphaR(1)           =    0.9d0
+  alphaL(2)           =    0.8d0
+  alphaR(2)           =    0.8d0
+  extend_alpha_SOL2   =  .false. ! continue adjustment of primary SOL into seconday SOL
+  !---------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------
+  ! 3. Trace field lines
+
+  ! No additional input required here
+  !---------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------
+  ! 4. Vacuum and core domain (for EIRENE only)
+  !---------------------------------------------------------------------
+
+  ! radial width of vacuum region [cm]
+  d_N0(2)             =    8.d0	! left outer SOL
+  d_N0(3)             =    8.d0	! right outer SOL
+  d_N0(4)             =    5.d0	! lower PFR
+  d_N0(5)             =    5.d0	! upper PFR
+
+  ! radial resolution in vacuum and core domain
+  nr_EIRENE_core      = 1
+  nr_EIRENE_vac       = 1
+  !---------------------------------------------------------------------
+
+/
+!===============================================================================
