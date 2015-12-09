@@ -140,11 +140,11 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
 
 
   select case(Zone(iz)%N0_method)
-  case('scale_boundary')
+  case('scale_boundary','')
      Method = SCALE_BOUNDARY
   case('cell_extend')
      Method = CELL_EXTEND
-  case('ray_adjust_scale','')
+  case('ray_adjust_scale')
      Method = RAY_ADJUST_SCALE
   case('manual')
      Method = MANUAL
