@@ -19,7 +19,7 @@ module modtopo_cdn
   integer, parameter :: iud = 72
 
 
-  character(len=*), parameter :: ZONE_LABEL(0:layers_cdn-1) = (/ 'HPR ', 'SOL1', 'SOL2', 'PFR1', 'PFR2' /)
+  character(len=*), parameter :: ZONE_LABEL(0:layers_cdn-1) = (/ 'HPR   ', 'SOL(1)', 'SOL(2)', 'PFR(1)', 'PFR(2)' /)
 
 
   real(real64) :: dtheta
@@ -51,6 +51,7 @@ module modtopo_cdn
   ! 0. setup number of zones for disconnected double null topology
   layers = layers_cdn
   NZONET = blocks * layers
+  label(0:layers-1) = ZONE_LABEL
 
 
   write (6, 1000)
@@ -130,6 +131,9 @@ module modtopo_cdn
   ! 4.4 PFR2
   call rpath(4)%generateX(2, DESCENT_PFR, LIMIT_LENGTH, d_PFR(2))
   call rpath(4)%plot(filename='rpath_4.plt')
+
+
+  call check_domain()
 
   end subroutine setup_domain
   !=====================================================================
@@ -249,7 +253,7 @@ module modtopo_cdn
      ! 3. interpolated surfaces
      select case(discretization_method)
      case (POLOIDAL_ANGLE)
-        call make_interpolated_surfaces(M_HPR, nr(0), np(0), 1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
+        call make_interpolated_surfaces(M_HPR, nr(0), np(0), nr_perturbed-1, 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, C_in(iblock,:))
 
      case (ORTHOGONAL)
         call make_interpolated_surfaces_ortho(M_HPR, nr(0), np(0), 2+n_interpolate, Zone(iz0)%Sr, Sp_HPR, &

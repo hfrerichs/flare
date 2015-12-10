@@ -72,7 +72,7 @@ module inner_boundary
      ! calculate mean and variance of PsiN on (perturbed) flux surface
      n = C_in(iblock,nr_perturbed-1)%n_seg
      do i=1,n
-        PsiN_x            = get_PsiN(C_in(iblock,1)%x(i,:))
+        PsiN_x            = get_PsiN(C_in(iblock,nr_perturbed-1)%x(i,:))
         delta             = PsiN_x - PsiN1(iblock)
         PsiN1(iblock)     = PsiN1(iblock) + delta/i
         DPsiN1(iblock, 0) = DPsiN1(iblock,0) + delta*(PsiN_x - PsiN1(iblock))
@@ -84,6 +84,7 @@ module inner_boundary
      DPsiN1(iblock,0) = sqrt(DPsiN1(iblock,0) / (n - 1.d0))
      write (6, 1002), iblock, PsiN1(iblock), DPsiN1(iblock,0), DPsiN1(iblock,-1), DPsiN1(iblock,1)
   enddo
+  PsiN_in = PsiN_in / blocks
 
  1000 format (3x,'- Inner simulation boundaries:')
  1001 format (8x,'Block   PsiN_mean                Min(PsiN)   Max(PsiN)')

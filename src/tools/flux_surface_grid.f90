@@ -24,15 +24,11 @@ subroutine flux_surface_grid
   use grid
   implicit none
 
-  integer, parameter :: &
-     iu1 = 41, &
-     iu2 = 42
-
   type(t_flux_surface_2D) :: S
   type(t_dataset)         :: D
-  type(t_grid)            :: G_debug
-  real(real64) :: x0(2), xc(3), t, x(3), y(3)
-  integer :: i, j, ig, n, ierr, iterations
+  type(t_grid)            :: G1, G2, G_debug
+  real(real64) :: x0(2), xc(3), t, x(3), y(3), dPsi, dTheta
+  integer :: i, j, j2, ig, n, ierr, iterations
 
 
   if (firstP) then
@@ -41,65 +37,66 @@ subroutine flux_surface_grid
   endif
 
 
-  open  (iu1, file=Grid_File)
-  write (iu1, 1000)
-  write (iu1, 1001) n_theta * n_psi
-  write (iu1, 1002) Phi_Output
- 1000 format ('# grid_id = 213     (irregular RZ grid)')
- 1001 format ('# resolution:        n_grid  =  ',i10)
- 1002 format ('# toroidal position: phi     =  ',f6.2)
-
-  open  (iu2, file=Output_File)
-  write (iu2, 2000)
-  write (iu2, 2001) n_theta * n_psi
-  write (iu2, 2002) Phi_Output
- 2000 format ('# grid_id = 013     (irregular theta-psin grid)')
- 2001 format ('# resolution:        n_grid  =  ',i10)
- 2002 format ('# toroidal position: phi     =  ',f6.2)
+  call G1%new(CYLINDRICAL, MESH_2D, TOROIDAL_SLICE, n_psi, n_theta, fixed_coord_value=Phi_Output)
+  call G2%new(LOCAL,       MESH_2D, TOROIDAL_SLICE, n_psi, n_theta, fixed_coord_value=Phi_Output)
 
   call G_debug%new(LOCAL, STRUCTURED, FIXED_COORD3, n_theta, n_psi)
   n  = n_theta * n_psi
   ig = 1
   call D%new(n,2)
-  do i=0, n_psi-1
-     do j=0, n_theta-1
-        y(2) = Psi(1) + 1.d0*i/(n_psi-1) * (Psi(2)-Psi(1))
-        y(1) = Theta(1) + 1.d0*j/(n_theta-1) * (Theta(2)-Theta(1))
+  dTheta = 0.d0; if (n_theta > 1) dTheta = (Theta(2)-Theta(1)) / (n_theta - 1)
+  dPsi   = 0.d0; if (n_psi   > 1) dPsi   = (Psi(2)  -Psi(1)  ) / (n_psi   - 1)
+  radial_loop: do i=0, n_psi-1
+     poloidal_loop: do j=0, n_theta-1
+        y(2) = Psi(1)   + i * dPsi
+        y(1) = Theta(1) + j * dTheta
         y(3) = Phi_output
 
         x = get_cylindrical_coordinates (y, ierr, iter=iterations)
-        write (iu1, 3000) x(1:2)
-        write (iu2, 3000) y(1:2)
+        !if (ierr > 0) x = get_cylindrical_coordinates (y, ierr, damping=0.01d0, iter=iterations)
+        G_debug%x1(j+1) = j
+        G_debug%x2(i+1) = i
+
+        ! failed to find cylindrical coordinates for y from function get_cylindrical_coordinates
+        if (ierr > 0  .and.  .not.Debug) then
+           if (j == 0) then
+              write (6, *) 'error: cannot find first point on surface ', i
+              stop
+           endif
+           y(2) = Psi(1)   + i * dPsi
+           write (6, 9000) y(2), Theta(1) + j * dTheta
+
+           ! generate flux surface from first point
+           x(1:2) = G1%mesh(i,0,1:2)
+           x(3)   = Phi_output
+           write (6, 9001) x(1:2)
+           call S%generate_closed(x)
+           call S%setup_angular_sampling()
+           do j2=0,n_theta-1
+              t    = 1.d0 * j2 / n_theta
+              y(1) = Theta(1) + j2 * dTheta
+              call S%sample_at(t, x(1:2))
+              G1%mesh(i,j2,1:2) = x(1:2)
+              G2%mesh(i,j2,1:2) = y(1:2)
+           enddo
+
+           exit poloidal_loop
+        endif
+
+        G1%mesh(i,j,1:2) = x(1:2)
+        G2%mesh(i,j,1:2) = y(1:2)
         D%x(ig,1) = ierr
         D%x(ig,2) = iterations
         ig        = ig + 1
-
-        G_debug%x1(j+1) = j
-        G_debug%x2(i+1) = i
-     enddo
-  enddo
-  close (iu1)
-  close (iu2)
- 3000 format (2e18.10)
+     enddo poloidal_loop
+  enddo radial_loop
+  call G1%store(filename=Grid_File)
+  call G2%store(filename=Output_File)
   if (Debug) then
      call D%plot(filename='debug.dat')
      call G_debug%store(filename='debug.grid')
   endif
 
-
-!  x0(1) = 0.1278518850E+03
-!  x0(2) = -0.1030043743E+03
-!  xc    = get_magnetic_axis(0.d0)
-!  call S%generate(x0)
-!  call S%sort_loop(xc(1:2))
-!  call S%setup_angular_sampling(xc(1:2))
-!
-!  n = 100
-!  do i=0,n
-!     t = 1.d0*i/n
-!     t = Theta(1) + (Theta(2)-Theta(1)) * t
-!     t = t / 360.d0
-!     call S%sample_at(t, x)
-!  enddo
-
+ 9000 format ('function get_cylindrical_coordinates failed at Psi, Theta = ',f10.5,', ',f10.5)
+ 9001 format ('flux surface is generated from ',f10.5,', ',f10.5,' by field line tracing')
 end subroutine flux_surface_grid

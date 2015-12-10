@@ -14,6 +14,9 @@ module curve2D
 #else
   implicit none
 
+  integer, parameter, public :: &
+     ARCLENGTH = 2
+
   real(real64), parameter :: &
      pi   = 3.14159265358979323846264338328d0, &
      pi2  = 2.d0 * pi
@@ -21,9 +24,21 @@ module curve2D
   private
 
 
+  ! sort and sampling parameters
   integer, parameter, public :: &
      ANGLE     = 1, &
-     DISTANCE  = 2
+     DISTANCE  = ARCLENGTH, &
+     SEGMENTS  = 3
+
+  ! operation modes for intersect_curve
+  integer, parameter, public :: &
+     SEGMENT   =  0, &
+     RAY       =  1, &
+     LINE      = -1
+
+  integer, parameter, public :: &
+     LOWER     = -1, &
+     UPPER     =  1
 
 
   type, public :: t_curve
@@ -55,6 +70,7 @@ module curve2D
      procedure :: copy
      procedure :: broadcast
      procedure :: plot
+     procedure :: boundary_node
      procedure :: sort_loop
      procedure :: sort_by_angle
      procedure :: sort_by_distance
@@ -62,6 +78,7 @@ module curve2D
      procedure :: flip
      procedure :: left_hand_shift
      procedure :: get_distance_to
+     procedure :: setup_sampling_by_method
      procedure :: setup_angular_sampling
      procedure :: setup_length_sampling
      procedure :: setup_length_sampling_curvature_weighted
@@ -76,12 +93,13 @@ module curve2D
      procedure :: area
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve
+     procedure :: remove_node
   end type t_curve
 
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
 
 
-  public :: intersect_curve, make_2D_curve, connect
+  public :: intersect_curve, intersect_lines, make_2D_curve, connect
   public :: SILENT, VERBOSE
 
   contains
@@ -523,6 +541,30 @@ module curve2D
 
 
 !=======================================================================
+  function boundary_node(this, boundary) result(x)
+  class(t_curve)      :: this
+  integer, intent(in) :: boundary
+  real(real64)        :: x(this%n_dim)
+
+
+  select case(boundary)
+  case(LOWER)
+     x = this%x(0,:)
+  case(UPPER)
+     x = this%x(this%n_seg,:)
+  case default
+     x = 0.d0
+     write (6, 9000)
+     stop
+  end select
+
+ 9000 format('error in t_curve%boundary_node: invalid boundary id ', i0)
+  end function boundary_node
+!=======================================================================
+
+
+
+!=======================================================================
 ! sort points on a closed curve 'C' with regard to center/reference point 'xc'
 ! and direction 'd'
 !=======================================================================
@@ -869,6 +911,8 @@ module curve2D
      d  = dsqrt(sum(el**2))
      if (d == 0.d0) then
         write (6, *) 'error in t_curve%left_hand_shift: duplicate nodes!'
+        write (6, *) 'x = ', Ctmp%x(k,:)
+        write (6, *) 'k = ', k, ' and ', k+1
         stop
      endif
      el = el / d
@@ -1066,6 +1110,30 @@ module curve2D
 
 
   end function get_distance_to
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_sampling_by_method(this, method, x)
+  class(t_curve), intent(inout) :: this
+  integer,        intent(in)    :: method
+  real(real64),   intent(in), optional :: x(2)
+
+
+  select case(method)
+  case(ANGLE)
+     call this%setup_angular_sampling(x)
+  case(ARCLENGTH)
+     call this%setup_length_sampling()
+  case(SEGMENTS)
+     call this%setup_segment_sampling()
+  case default
+     write (6, *) 'error in t_curve%setup_sampling: undefined method ', method
+     stop
+  end select
+
+  end subroutine setup_sampling_by_method
 !=======================================================================
 
 
@@ -1701,6 +1769,34 @@ module curve2D
   this%w = this%w / this%w(n)
 
   end subroutine setup_length_sampling_curvature_weighted
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine remove_node(this, i)
+  class(t_curve)      :: this
+  integer, intent(in) :: i
+
+  real(real64), dimension(:,:), allocatable :: tmp
+  integer :: n
+
+
+  if (i < 0  .or.  i > this%n_seg) then
+     write (6, *) 'error in subroutine t_curve%remove_node:'
+     write (6, *) 'invalid node number ', i
+     stop
+  endif
+
+
+  n = this%n_seg - 1
+  allocate (tmp(0:n,2))
+  if (i > 0)   tmp(0:i-1,:) = this%x(0:i-1,:)
+  if (i < n+1) tmp(i:n,:)   = this%x(i+1:n+1,:)
+  call this%new(n)
+  this%x       = tmp
+
+  end subroutine remove_node
 !=======================================================================
 
 end module curve2D

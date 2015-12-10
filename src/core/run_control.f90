@@ -30,7 +30,8 @@ module run_control
      Phi_output     = 0.d0, &       ! Reference plane for Poincare plots
      Theta(2)       = 0.d0, &
      Psi(2)         = 0.d0, &
-     offset         = 1.d-2
+     offset         = 1.d-2, &
+     tolerance      = 0.2d0
 
 
   integer :: &
@@ -44,6 +45,7 @@ module run_control
      N_R            = 1, &          ! Resolution in R direction
      N_Z            = 1, &          ! Resolution in Z direction
      Run_Level(2)   = 0, &
+     Side           = 1, &
      Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
      Spline_Order   = 5, &
@@ -66,8 +68,8 @@ module run_control
      Machine, Configuration, Boundary, &
      Run_Type, Output_File, Label, Grid_File, Input_Format, Output_Format, Panic_Level, &
      x_start, N_steps, Limit, &
-     R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, &
-     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, &
+     R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
+     Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Spline_Order, Run_Level, &
      Debug, use_boundary_from_equilibrium
 
@@ -127,6 +129,7 @@ module run_control
   call broadcast_real   (Theta      ,   2)
   call broadcast_real   (Psi        ,   2)
   call broadcast_real_s (offset          )
+  call broadcast_real_s (tolerance       )
   call broadcast_inte_s (N_steps         )
   call broadcast_inte_s (N_points        )
   call broadcast_inte_s (N_sym           )
@@ -136,6 +139,7 @@ module run_control
   call broadcast_inte_s (N_phi           )
   call broadcast_inte_s (N_R             )
   call broadcast_inte_s (N_Z             )
+  call broadcast_inte_s (Side            )
   call broadcast_inte_s (Input_Format    )
   call broadcast_inte_s (Output_Format   )
   call broadcast_inte_s (Panic_Level     )
@@ -219,6 +223,8 @@ module run_control
      call critical_point_analysis(Grid_File, Output_File)
   case ('export_gfile')
      call export_gfile()
+  case ('quasi_surfaces')
+     call quasi_surfaces()
   case default
 !     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
 !        read (Run_Type(40:42), *) i

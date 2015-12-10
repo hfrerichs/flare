@@ -298,7 +298,7 @@ pro plot_data_on_mesh, grid_file, data_file, idata, $
 	ps_plot=ps_plot, ct=ct, white0=white0, xsize=xsize, ysize=ysize, $
 	xcells=xcells, ycells=ycells, $
 	xrange=xrange, yrange=yrange, zrange=zrange, $
-	units=units
+	units=units, multi_plot=multi_plot
 	common	grid
 	common	data
 	common	cb_plot
@@ -316,7 +316,28 @@ pro plot_data_on_mesh, grid_file, data_file, idata, $
 	read_data, data_file
 
 
+	new_plot	= 1
+	last_plot	= 1
+	if (keyword_set(multi_plot)) then begin
+	case multi_plot of
+	'begin': begin
+		new_plot	= 1
+		last_plot	= 0
+	end
+	'add': begin
+		new_plot	= 0
+		last_plot	= 0
+	end
+	'end': begin
+		new_plot	= 0
+		last_plot	= 1
+	end
+	endcase
+	endif
+
+	if (new_plot) then begin
 	open_device, ps_plot=ps_plot, ct=ct, white0=white0, xsize=xsize, ysize=ysize
+	endif
 
 
 	if (keyword_set(zrange)) then begin
@@ -342,6 +363,7 @@ pro plot_data_on_mesh, grid_file, data_file, idata, $
 	colors	= 1.0*findgen(n_clevels)/(n_clevels-1) * n_colors + color_min
 
 
+	if (new_plot) then begin
 	; x-range
 	if (keyword_set(xrange)) then begin
 		xrange_plot	= xrange
@@ -357,7 +379,10 @@ pro plot_data_on_mesh, grid_file, data_file, idata, $
 
 	; initialize plot window
 	plot, xrange_plot, yrange_plot, xstyle=1, ystyle=1, /nodata, $
+		 charsize=char_size, $
+		 charthick=char_thick, $
 		xmargin=[XL_Margin, XR_Margin]
+	endif
 
 	; cell range
 	i1	= 0L
@@ -425,13 +450,16 @@ pro plot_data_on_mesh, grid_file, data_file, idata, $
 	bar_dummy	= transpose(levels#[1,1])
 	colBarStr	= z_title
 
+	if (last_plot) then begin
 	contour, bar_dummy, [0,1], levels, /fill, levels=levels, $
 		 ystyle=1, xstyle=4, xmargin=[XL_Margin_CBar,XR_Margin_Cbar], /noerase, $
 		 ytitle=utitle, c_colors=colors, $
-		 charsize=char_size, charthick=char_thick, $
+		 charsize=char_size, $
+		 charthick=char_thick, $
 		 ytickname=zticks, ytickinterval=ztickinterval
 
 
 	close_device, ps_plot=ps_plot
+	endif
 end; plot_data_on_mesh
 ;-----------------------------------------------------------------------
