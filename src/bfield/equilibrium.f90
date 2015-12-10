@@ -899,10 +899,10 @@ module equilibrium
 !=======================================================================
   function correct_PsiN(r0, PsiN_target, ierr, ds, delta_PsiN, iterations, debug) result(rc)
   use math
-  real(real64), intent(inout) :: r0(2)
-  real(real64), intent(in)    :: PsiN_target
-  integer,      intent(out)   :: ierr
-  real(real64)                :: rc(2)
+  real(real64), intent(in)  :: r0(2)
+  real(real64), intent(in)  :: PsiN_target
+  integer,      intent(out) :: ierr
+  real(real64)              :: rc(2)
   real(real64), intent(in),  optional :: ds, delta_PsiN
   integer,      intent(out), optional :: iterations
   integer,      intent(in),  optional :: debug
@@ -1467,6 +1467,8 @@ module equilibrium
 
 
 !=======================================================================
+! run analysis of Jacobian at X-point
+!
 ! lambda1, v1	eigenvalue and eigenvector in unstable direction
 ! lambda2, v2   eigenvalue and eigenvector in stable direction
 ! eigenvectors are facing towards the magnetic axis
@@ -1533,6 +1535,9 @@ module equilibrium
      write (96, *) this%X
      write (96, *) this%X + v2
      close (96)
+     open  (95, file='lambda.tmp')
+     write (95, *) lambda1, lambda2
+     close (95)
   endif
 
   end subroutine analysis
