@@ -900,6 +900,66 @@ module equilibrium
 
   end function
 !=======================================================================
+  function leave_equilibrium_domain(r1, r2, X) result(leave)
+  real(real64), dimension(:),        intent(in)  :: r1, r2
+  real(real64), dimension(size(r1)), intent(out) :: X
+  logical                                        :: leave
+
+  real(real64) :: phi1, phi2, tv, th, t
+
+  if (size(r1) .ne. size(r2)) then
+     write (6, 9000)
+     write (6, 9001)
+     stop
+  endif
+
+  select case(size(r1))
+  case(2)
+     phi1 = 0.d0;  phi2 = 0.d0
+  case(3)
+     phi1 = r1(3); phi2 = r2(3)
+  case default
+     write (6, 9000)
+     write (6, 9002) size(r1)
+     stop
+  end select
+
+  leave = .false.
+  tv    = 2.d0
+  th    = 2.d0
+  ! check left vertical boundary
+  if (r1(1) > EQBox(1,1)  .and.  r2(1) < EQBox(1,1)) then
+     tv    = (EQBox(1,1)-r1(1)) / (r2(1) - r1(1))
+     leave = .true.
+  endif
+  ! check right vertical boundary
+  if (r1(1) < EQBox(1,2)  .and.  r2(1) > EQBox(1,2)) then
+     tv    = (EQBox(1,2)-r1(1)) / (r2(1) - r1(1))
+     leave = .true.
+  endif
+  ! check lower horizontal boundary
+  if (r1(2) > EQBox(2,1)  .and.  r2(2) < EQBox(2,1)) then
+     th    = (EQBox(2,1)-r1(2)) / (r2(2) - r1(2))
+     leave = .true.
+  endif
+  ! check upper horizontal boundary
+  if (r1(2) < EQBox(2,2)  .and.  r2(2) > EQBox(2,2)) then
+     th    = (EQBox(2,2)-r1(2)) / (r2(2) - r1(2))
+     leave = .true.
+  endif
+
+  X = 0.d0
+  if (leave) then
+     t = min(tv, th)
+     X(1:2) = r1(1:2) + t * (r2(1:2) - r1(1:2))
+     X(3)   = phi1    + t * (phi2    - phi1)
+  endif
+
+ 9000 format('error in leave_equilibrium_domain:')
+ 9001 format('arguments r1 and r2 must have the same size!')
+ 9002 format('invalide argument size ', i0)
+  end function leave_equilibrium_domain
+!=======================================================================
 
 
 
