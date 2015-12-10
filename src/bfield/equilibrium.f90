@@ -690,6 +690,7 @@ module equilibrium
 
 !=======================================================================
 ! Return poloidal angle [rad] at r=(R,Z [cm], phi [rad])
+! default toroidal position: phi = 0
 !=======================================================================
   function get_poloidal_angle(r) result(theta)
   real(real64), dimension(:), intent(in) :: r
@@ -1338,6 +1339,10 @@ module equilibrium
 
 
 !=======================================================================
+! lambda1, v1	eigenvalue and eigenvector in unstable direction
+! lambda2, v2   eigenvalue and eigenvector in stable direction
+! eigenvectors are facing towards the magnetic axis
+!
 ! ierr = 0: successfull
 !        1: eigenvalues are non-real
 !=======================================================================
@@ -1348,7 +1353,7 @@ module equilibrium
   real(real64), intent(out) :: lambda1, lambda2, v1(2), v2(2)
   integer,      intent(out) :: ierr
 
-  real(real64) :: A(2,2), P, Q, phi(2)
+  real(real64) :: A(2,2), P, Q, phi(2), delta
 
 
   ierr = 0
@@ -1375,7 +1380,11 @@ module equilibrium
   lambda2 = P - sqrt(Q)
 
   phi(1) = atan2(-A(1,1) + lambda1, A(1,2)); if (phi(1) < 0.d0) phi(1) = phi(1) + pi
+  delta  = phi(1) - this%theta
+  if (abs(delta) < pi/2.d0) phi(1) = phi(1) - sign(pi, delta)
   phi(2) = atan2(-A(1,1) + lambda2, A(1,2)); if (phi(2) < 0.d0) phi(2) = phi(2) + pi
+  delta  = phi(2) - this%theta
+  if (abs(delta) < pi/2.d0) phi(2) = phi(2) - sign(pi, delta)
 
   v1(1) = cos(phi(1))
   v1(2) = sin(phi(1))
@@ -1439,6 +1448,8 @@ module equilibrium
 
 !=======================================================================
 ! calculate eigenvectors v1,v2 of Hessian matrix of pol. magn. flux at x
+! v1 points in ascending PsiN direction to the right
+! v2 points in descending PsiN direction upwards
 !=======================================================================
   subroutine H_eigenvectors (H, v1, v2)
   real(real64), intent(in)  :: H(2,2)
