@@ -12,7 +12,6 @@
 !===============================================================================
 
 module ode_solver
-  use iso_fortran_env
   implicit none
 
   integer, parameter :: NM_Euler                 = 1
@@ -32,8 +31,6 @@ module ode_solver
      real*8, dimension(:), allocatable :: yc
      real*8                            :: sc
 
-     ! integrator id
-     integer :: isolver
 
      ! internal data ...............................
      ! for Adams-Bashforth
@@ -51,11 +48,8 @@ module ode_solver
      ! function vector f
      procedure(f_ifce), pointer, nopass :: evaluate_f
 
-     ! perform one integration step (fixed step size)
-     procedure(next_step_implementation), pointer :: next_step
-
-     ! perform one integration step ds
-     procedure(step_ds_dummy), pointer :: step_ds
+     ! perform one integration step dt
+     procedure(step_ifce), pointer :: next_step
 
      contains
      procedure :: init_ODE => initialize_ODE
@@ -69,6 +63,12 @@ module ode_solver
         real*8, intent(in)  :: s, y(n)
         real*8, intent(out) :: f(n)
      end subroutine f_ifce
+
+     function step_ifce (this)
+        import :: t_ODE
+        class(t_ODE), intent(inout) :: this
+        real*8 :: step_ifce(this%n)
+     end function step_ifce
   end interface
 
 
@@ -114,24 +114,20 @@ module ode_solver
   this%evaluate_f => f
 
 
-  this%isolver    = isolver
-  this%next_step  => next_step_implementation
   select case(isolver)
   case (NM_Euler)
-     this%step_ds         => step_EULER_ds
+     this%next_step       => Euler_method
   case (NM_RungeKutta4)
-     this%step_ds         => step_RK4_ds
+     this%next_step       => RK4_method
   case (NM_AdamsBashforth4)
      call init_AB4_method(this)
      this%next_step       => AB4_method
-     this%step_ds         => step_ds_dummy
   case (NM_AdamsBashforthMoulton)
      call init_ABM_method(this)
      this%next_step       => ABM_method
-     this%step_ds         => step_ds_dummy
   case (NM_DLSODE)
      call init_DLSODE(this)
-     this%step_ds         => DLSODE_couple
+     this%next_step       => DLSODE_couple
   case default
      write (6, *) 'integration method ', isolver, ' is not supported!'
      stop
@@ -143,54 +139,22 @@ module ode_solver
 
 
 !=======================================================================
-  function step_ds_dummy (this, ds) result(yc)
-  class(t_ODE), intent(inout) :: this
-  real(real64), intent(in)    :: ds
-  real(real64)                :: yc(this%n)
-
-
-  yc = 0.d0
-  write (6, 9000) this%isolver
-  stop
-
- 9000 format('error: variable step size not implemented for integrator ', i0)
-  end function step_ds_dummy
-!=======================================================================
-
-
-
-!=======================================================================
-  function next_step_implementation(this) result(yc)
-  class(t_ODE), intent(inout) :: this
-  real(real64)                :: yc(this%n)
-
-
-  yc = this%step_ds(this%ds)
-
-  end function next_step_implementation
-!=======================================================================
-
-
-
-!=======================================================================
 ! explicit Euler method
 !=======================================================================
-  function step_Euler_ds(this, ds) result(yc)
+  function Euler_method (this)
   class(t_ODE), intent(inout) :: this
-  real(real64), intent(in)    :: ds
-  real(real64)                :: yc(this%n)
+  real*8 :: Euler_method(this%n)
 
-
-  real(real64) :: f(this%n), dy(this%n)
+  real*8 :: f(this%n), dy(this%n)
 
   call this%evaluate_f(this%n, this%sc, this%yc, f)
-  dy = f * ds
+  dy = f * this%ds
 
-  this%sc = this%sc + ds
-  this%yc = this%yc + dy
-  yc      = this%yc
+  this%sc      = this%sc + this%ds
+  this%yc      = this%yc + dy
+  Euler_method = this%yc
 
-  end function step_Euler_ds
+  end function Euler_method
 !=======================================================================
 
 
@@ -198,10 +162,9 @@ module ode_solver
 !=======================================================================
 ! 4th order Runge-Kutta method
 !=======================================================================
-  function step_RK4_ds(this, ds) result(yc)
+  function RK4_method (this)
   class(t_ODE), intent(inout) :: this
-  real(real64), intent(in)    :: ds
-  real(real64)                :: yc(this%n)
+  real*8 :: RK4_method(this%n)
 
   real*8 :: y0(this%n), dy0(this%n), y1(this%n), dy1(this%n), &
             y2(this%n), dy2(this%n), y3(this%n), dy3(this%n), &
@@ -210,29 +173,29 @@ module ode_solver
   ! step 1
   y0 = this%yc; s = this%sc
   call this%evaluate_f(this%n, s, y0, f)
-  dy0 = f * ds
+  dy0 = f * this%ds
 
   ! step 2
-  y1 = y0 + 0.5d0 * dy0; s = s + 0.5d0 * ds
+  y1 = y0 + 0.5d0 * dy0; s = s + 0.5d0 * this%ds
   call this%evaluate_f(this%n, s, y1, f)
-  dy1 = f * ds
+  dy1 = f * this%ds
 
   ! step 3
   y2 = y0 + 0.5d0 * dy1
   call this%evaluate_f(this%n, s, y2, f)
-  dy2 = f * ds
+  dy2 = f * this%ds
 
   ! step 4
-  y3 = y0 + dy2; s = s + 0.5d0 * ds
+  y3 = y0 + dy2; s = s + 0.5d0 * this%ds
   call this%evaluate_f(this%n, s, y3, f)
-  dy3 = f * ds
+  dy3 = f * this%ds
 
   ! collect
   this%yc    = y0 + (dy0 + 2.d0*dy1 + 2.d0*dy2 + dy3) / 6.d0
   this%sc    = s
-  yc         = this%yc
+  RK4_method = this%yc
 
-  end function step_RK4_ds
+  end function RK4_method
 !=======================================================================
 
 
@@ -244,7 +207,7 @@ module ode_solver
   class(t_ODE), intent(inout) :: this
 
   real*8  :: y(this%n), y0(this%n), dy(this%n,5), f(this%n), s0
-  real*8  :: t1(this%n), t3(this%n), t4(this%n), ds1
+  real*8  :: t1(this%n), t3(this%n), t4(this%n)
   integer :: ik
 
 
@@ -256,12 +219,13 @@ module ode_solver
   call this%evaluate_f(this%n, this%sc, this%yc, f)
   dy(:,5) = f
   
-  ds1     = -this%ds
+  this%ds = -this%ds
   do ik=4,1,-1
-     y = step_RK4_ds(this, ds1)
+     y = RK4_method(this)
      call this%evaluate_f(this%n, this%sc, this%yc, f)
      dy(:,ik) = f
   enddo
+  this%ds = -this%ds
   this%yc = y0
   this%sc = s0
 
@@ -277,9 +241,9 @@ module ode_solver
 
   end subroutine init_AB4_method
 !=======================================================================
-  function AB4_method (this) result(yc)
+  function AB4_method (this)
   class(t_ODE), intent(inout) :: this
-  real(real64)                :: yc(this%n)
+  real*8 :: AB4_method(this%n)
 
   real*8, parameter :: &
      c1 = 0.5d0, &
@@ -307,7 +271,7 @@ module ode_solver
      this%ax(:,i) = this%ax(:,i-1) - this%ax(:,i)
   enddo
 
-  yc      = this%yc
+  AB4_method = this%yc
 
   end function AB4_method
 !=======================================================================
@@ -326,9 +290,9 @@ module ode_solver
 
   end subroutine init_ABM_method
 !=======================================================================
-  function ABM_method (this) result(yc)
+  function ABM_method (this)
   class(t_ODE), intent(inout) :: this
-  real(real64)                :: yc(this%n)
+  real*8 :: ABM_method(this%n)
 
   real*8, parameter :: &
      c1 = -0.5d0, &
@@ -356,7 +320,7 @@ module ode_solver
   enddo
   this%ax = this%bx
 
-  yc      = this%yc
+  ABM_method = this%yc
   end function ABM_method
 !=======================================================================
 
@@ -407,14 +371,13 @@ module ode_solver
 
   end subroutine init_DLSODE
 !=======================================================================
-  function DLSODE_couple(this, ds) result(yc)
+  function DLSODE_couple(this)
   class(t_ODE), intent(inout) :: this
-  real(real64), intent(in)    :: ds
-  real(real64)                :: yc(this%n)
+  real*8 :: DLSODE_couple(this%n)
 
 
 #ifdef DLSODE
-  call dlsode (this%evaluate_f, 3, this%yc, this%sc, this%sc+ds, &
+  call dlsode (this%evaluate_f, 3, this%yc, this%sc, this%sc+this%ds, &
                1, this%rtol, this%atol, 1, this%istate, 0, this%rwork, &
                this%nrwork, this%iwork, this%niwork, JAC_DLSODE, this%mf)
 #endif
@@ -425,7 +388,7 @@ module ode_solver
      stop
   endif
 
-  yc = this%yc
+  DLSODE_couple = this%yc
   end function DLSODE_couple
 !=======================================================================
 
