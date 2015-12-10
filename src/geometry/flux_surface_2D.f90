@@ -258,7 +258,6 @@ module flux_surface_2D
   real(real64), dimension(:,:), allocatable :: xtmp, xtmp_tmp
   type(t_ODE)  :: F
   real(real64) :: L, ds, X(3), dX, t, thetal, thetac, dtheta
-  real(real64) :: curv, dalpha, ds_min, ds_max
   integer      :: i, idir, ix, nchunks, ntmp, boundary_id
   logical      :: check_boundary
 
@@ -306,12 +305,6 @@ module flux_surface_2D
   xtmp(i,1:2) = xinit
   this%PsiN   = get_PsiN(xinit)
 
-  ! 1.4 adaptive trace step
-  dalpha      = pi/1800.d0 ! resolve 0.1 deg of local curvature
-  ds_min      = 1.d-6      ! minimum step size
-  ds_max      = 1.d0       ! maximum step size
-
-
   !---------------------------------------------------------------------
 
 
@@ -340,9 +333,7 @@ module flux_surface_2D
         ds       = idir * trace_step
      else
         ! calculate local curvature
-        curv     = get_flux_surface_curvature(xtmp(i-1,1:2))
-        ds       = curv * dalpha
-        ds       = idir * max(min(abs(ds), ds_max), ds_min)
+        ds       = idir * adaptive_step_size(xtmp(i-1,1:2))
      endif
 
 
@@ -412,6 +403,30 @@ module flux_surface_2D
  9001 format('invalid direction ', i0, '!')
   end subroutine generate_branch
 !=======================================================================
+
+
+
+!=======================================================================
+  function adaptive_step_size(r) result(ds)
+  use equilibrium, only: get_flux_surface_curvature
+  use math
+  real(real64), intent(in) :: r(2)
+  real(real64)             :: ds
+
+  real(real64) :: dalpha, ds_min, ds_max
+
+
+  ! internal parameters
+  dalpha = pi/1800.d0 ! resolve 0.1 deg of local curvature
+  ds_min = 1.d-6      ! minimum step size
+  ds_max = 1.d0       ! maximum step size
+
+  ds     = get_flux_surface_curvature(r) * dalpha
+  ds     = max(min(abs(ds), ds_max), ds_min)
+
+  end function adaptive_step_size
+!=======================================================================
+
 
 
 !=======================================================================
