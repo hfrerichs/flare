@@ -149,11 +149,11 @@ module separatrix
   if (Debug) then
      open  (97, file='right.tmp', position='append')
      write (97, *) Px
-     write (97, *) Px + v1*orientation + v2
+     write (97, *) Px + v1*orientation + v2*orientation
      close (97)
      open  (96, file='left.tmp', position='append')
      write (96, *) Px
-     write (96, *) Px - v1*orientation + v2
+     write (96, *) Px - v1*orientation + v2*orientation
      close (96)
      open  (95, file='v1.tmp', position='append')
      write (95, *) Px
