@@ -9,13 +9,18 @@ module flux_surface_2D
 
   integer, parameter, public :: &
      RIGHT_HANDED =  1, &
-     LEFT_HANDED  = -1
+     LEFT_HANDED  = -1, &
+     FORWARD      =  1, &
+     BACKWARD     = -1, &
+     CCW          =  1001, &
+     CW           = -1001
 
   type, extends(t_curve) :: t_flux_surface_2D
      real(real64) :: PsiN
 
      contains
-     procedure :: generate
+     procedure :: generate ! to be replaced by generate_branch
+     procedure :: generate_branch
      procedure :: generate_closed
      procedure :: generate_open
      procedure :: setup_sampling
@@ -211,6 +216,189 @@ module flux_surface_2D
 
 
 !=======================================================================
+! Generate flux surface branch from reference point xinit = (R,Z [cm])
+!
+! direction =
+!    FORWARD         in forward Bpol direction
+!    BACKWARD        in backward Bpol direction
+!    CCW             in counter-clockwise direction
+!    CW              in clockwise direction
+!
+! x0                 add 0th point (e.g. X-point)
+! stop_at_boundary   stop tracing an configuration boundary (defined in
+!                    module boundary)
+! theta_cutoff       stop tracing at poloidal angle [rad]
+! cutoff_boundary    stop tracing at this boundary
+! cutoff_X           stop tracing at this distance from an X-point
+!
+! return ierr =
+!    0               successful generation of flux surface branch
+!    -1              flux surface branch leaves equilibrium domain
+!    -2              flux surface branch connects to X-point
+!=======================================================================
+  subroutine generate_branch(this, xinit, direction, ierr, x0, &
+                             stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X)
+  use ode_solver
+  use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, leave_equilibrium_domain, nx_max, Xp
+  use boundary
+  use math
+  use curve2D
+  class(t_flux_surface_2D)  :: this
+  real(real64),  intent(in)  :: xinit(2)
+  integer,       intent(in)  :: direction
+  integer,       intent(out) :: ierr
+  real(real64),  intent(in), optional :: x0(2), theta_cutoff, cutoff_X
+  logical,       intent(in), optional :: stop_at_boundary
+  type(t_curve), intent(in), optional :: cutoff_boundary
+
+  integer, parameter       :: chunk_size = 1024
+
+  real(real64), dimension(:,:), allocatable :: xtmp, xtmp_tmp
+  type(t_ODE)  :: F
+  real(real64) :: L, ds, X(3), dX, t, thetal, thetac, dtheta
+  integer      :: i, idir, ix, nchunks, ntmp, boundary_id
+  logical      :: check_boundary
+
+
+  ! 0. set up defaults for optional input
+  ! 0.1. stop tracing at boundary?
+  check_boundary = .true.
+  if (present(stop_at_boundary)) then
+     check_boundary = stop_at_boundary
+  endif
+
+
+  ! 1. initialize ------------------------------------------------------
+  ! 1.1 trace direction
+  select case(direction)
+  case(FORWARD)
+     idir = 1
+  case(BACKWARD)
+     idir = -1
+  case(CCW)
+     idir = -Ip_sign
+  case(CW)
+     idir = Ip_sign
+  case default
+     write (6, 9000)
+     write (6, 9001) direction
+     stop
+  end select
+
+  ! 1.2 temporary data array
+  nchunks = 1
+  ntmp    = chunk_size
+  allocate (xtmp(ntmp, 2))
+
+
+  ! 1.3 set 0th data point (if present)
+  i = 0
+  L = 0.d0
+  if (present(x0)) then
+     i           = 1
+     xtmp(1,1:2) = x0
+     L           = sqrt(sum((xinit-x0)**2))
+  endif
+  ! set 1st data point
+  i           = i + 1
+  xtmp(i,1:2) = xinit
+  this%PsiN   = get_PsiN(xinit)
+  !---------------------------------------------------------------------
+
+
+  ! 2. generate flux surface branch
+  ierr = 0
+  call F%init_ODE(2, xinit, 0.d0, epol_sub, NM_RUNGEKUTTA4)
+  trace_loop: do
+     i = i + 1
+
+     ! A. increase temporary array, if necessary
+     if (i > ntmp) then
+        allocate (xtmp_tmp(ntmp, 2))
+        xtmp_tmp       = xtmp
+        deallocate (xtmp)
+
+        nchunks        = nchunks + 1
+        allocate (xtmp(nchunks*chunk_size, 2))
+        xtmp(1:ntmp,:) = xtmp_tmp
+        ntmp           = ntmp + chunk_size
+        deallocate (xtmp_tmp)
+     endif
+
+
+     ! B. calculate next trace step size
+     ds = idir * 1.d0
+
+
+     ! C. trace one step
+     xtmp(i,1:2) = F%step_ds(ds)
+     L           = L + abs(ds)
+     thetac      = get_poloidal_angle(xtmp(i,1:2))
+
+
+     ! D. boundary check
+     ! D.1 check configuration boundary
+     if (check_boundary) then
+     if (intersect_boundary(xtmp(i-1,1:2), xtmp(i,1:2), X, boundary_id)) then
+        xtmp(i,1:2) = X(1:2)
+        exit
+     endif
+     endif
+     ! D.2 check equilibrium boundary
+     if (leave_equilibrium_domain(xtmp(i-1,1:2), xtmp(i,1:2), X(1:2))) then
+        xtmp(i,1:2) = X(1:2)
+        ierr        = -1
+        exit
+     endif
+     ! D.3 check cut-off poloidal angle
+     if (present(theta_cutoff)) then
+        dtheta = thetac - thetal
+        if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
+        if ((thetal+dtheta-theta_cutoff)*(thetal-theta_cutoff) < 0.d0) then
+           xtmp(i,:) = xtmp(i-1,:) + abs((thetal-theta_cutoff)/dtheta)*(xtmp(i,:)-xtmp(i-1,:))
+           exit
+        endif
+     endif
+     ! D.4 check cut-off boundary
+     if (present(cutoff_boundary)) then
+     if (intersect_curve(xtmp(i-1,1:2), xtmp(i,1:2), cutoff_boundary, X(1:2))) then
+        xtmp(i,1:2) = X(1:2)
+        exit
+     endif
+     endif
+     ! D.5 check proximity to X-points
+     if (present(cutoff_X)) then
+        do ix=1,nx_max
+           if (Xp(ix)%undefined) cycle
+
+           dX = sqrt(sum((xtmp(i,1:2) - Xp(ix)%X)**2))
+           if (dX < cutoff_X) then
+              xtmp(i,1:2) = Xp(ix)%X
+              ierr        = -2
+              exit trace_loop
+           endif
+        enddo
+     endif
+
+
+     ! Z. prepare for next step
+     thetal = thetac
+  enddo trace_loop
+  call this%new(i-1)
+  this%x(:,:) = xtmp(1:i,1:2)
+  call this%setup_length_sampling()
+
+
+  ! 99. cleanup
+  deallocate(xtmp)
+
+ 9000 format('error in t_flux_surface_2D%generate_branch:')
+ 9001 format('invalid direction ', i0, '!')
+  end subroutine generate_branch
+!=======================================================================
+
+
+!=======================================================================
   subroutine generate_closed(this, r, direction, Trace_Step, N_steps, Trace_Method, AltSurf, retrace)
   use equilibrium
   class(t_flux_surface_2D) :: this
@@ -297,6 +485,23 @@ module flux_surface_2D
   f       = - Bf(1:2)/Bpol / Ip_sign
 
   end subroutine Bpol_sub
+!=======================================================================
+  subroutine epol_sub (n, t, y, f)
+  use equilibrium, only: get_Bf_eq2D
+  integer,      intent(in)  :: n
+  real(real64), intent(in)  :: t, y(n)
+  real(real64), intent(out) :: f(n)
+
+  real(real64) :: Bf(3), Bpol, y3(3)
+
+
+  y3(1:2) = y
+  y3(3)   = 0.d0
+  Bf      = get_Bf_eq2D(y3)
+  Bpol    = sqrt(Bf(1)**2 + Bf(2)**2)
+  f       = Bf(1:2)/Bpol
+
+  end subroutine epol_sub
 !=======================================================================
 
 
