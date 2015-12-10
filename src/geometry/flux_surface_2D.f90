@@ -236,18 +236,20 @@ module flux_surface_2D
 !    -1              flux surface branch leaves equilibrium domain
 !    -2              flux surface branch connects to X-point
 !=======================================================================
-  subroutine generate_branch(this, xinit, direction, ierr, x0, &
+  subroutine generate_branch(this, xinit, direction, ierr, &
+                             x0, trace_step, &
                              stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X)
   use ode_solver
-  use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, leave_equilibrium_domain, nx_max, Xp
+  use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, &
+      leave_equilibrium_domain, nx_max, Xp, get_flux_surface_curvature
   use boundary
   use math
   use curve2D
-  class(t_flux_surface_2D)  :: this
+  class(t_flux_surface_2D)   :: this
   real(real64),  intent(in)  :: xinit(2)
   integer,       intent(in)  :: direction
   integer,       intent(out) :: ierr
-  real(real64),  intent(in), optional :: x0(2), theta_cutoff, cutoff_X
+  real(real64),  intent(in), optional :: x0(2), trace_step, theta_cutoff, cutoff_X
   logical,       intent(in), optional :: stop_at_boundary
   type(t_curve), intent(in), optional :: cutoff_boundary
 
@@ -256,6 +258,7 @@ module flux_surface_2D
   real(real64), dimension(:,:), allocatable :: xtmp, xtmp_tmp
   type(t_ODE)  :: F
   real(real64) :: L, ds, X(3), dX, t, thetal, thetac, dtheta
+  real(real64) :: curv, dalpha, ds_min, ds_max
   integer      :: i, idir, ix, nchunks, ntmp, boundary_id
   logical      :: check_boundary
 
@@ -286,10 +289,9 @@ module flux_surface_2D
   end select
 
   ! 1.2 temporary data array
-  nchunks = 1
-  ntmp    = chunk_size
+  nchunks     = 1
+  ntmp        = chunk_size
   allocate (xtmp(ntmp, 2))
-
 
   ! 1.3 set 0th data point (if present)
   i = 0
@@ -303,6 +305,13 @@ module flux_surface_2D
   i           = i + 1
   xtmp(i,1:2) = xinit
   this%PsiN   = get_PsiN(xinit)
+
+  ! 1.4 adaptive trace step
+  dalpha      = pi/1800.d0 ! resolve 0.1 deg of local curvature
+  ds_min      = 1.d-6      ! minimum step size
+  ds_max      = 1.d0       ! maximum step size
+
+
   !---------------------------------------------------------------------
 
 
@@ -327,7 +336,14 @@ module flux_surface_2D
 
 
      ! B. calculate next trace step size
-     ds = idir * 1.d0
+     if (present(trace_step)) then
+        ds       = idir * trace_step
+     else
+        ! calculate local curvature
+        curv     = get_flux_surface_curvature(xtmp(i-1,1:2))
+        ds       = curv * dalpha
+        ds       = idir * max(min(abs(ds), ds_max), ds_min)
+     endif
 
 
      ! C. trace one step
