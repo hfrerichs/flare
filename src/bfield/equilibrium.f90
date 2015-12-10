@@ -859,6 +859,98 @@ module equilibrium
 
 
 !=======================================================================
+! from r0, go in gradPsiN direction to match PsiN_target
+!=======================================================================
+  function correct_PsiN(r0, PsiN_target, ierr, ds, delta_PsiN, iterations, debug) result(rc)
+  use math
+  real(real64), intent(inout) :: r0(2)
+  real(real64), intent(in)    :: PsiN_target
+  integer,      intent(out)   :: ierr
+  real(real64)                :: rc(2)
+  real(real64), intent(in),  optional :: ds, delta_PsiN
+  integer,      intent(out), optional :: iterations
+  integer,      intent(in),  optional :: debug
+
+  integer, parameter                  :: imax = 100
+  real(real64), parameter             :: damping = 0.2d0
+
+
+  real(real64) :: PsiN, dPsiN, dPsi_dR, dPsi_dZ, ePsi(2), H(2,2), dPsi_dl, dPsi_dl2, P, Q, delta, tolerance
+  integer      :: iter
+  logical      :: debug_output
+
+
+  ! 0. set up optional input
+  ! 0.1 accuracy
+  tolerance = 1.d-10
+  if (present(delta_PsiN)) tolerance = delta_PsiN
+
+  ! 0.2 debugging
+  debug_output = .false.
+  if (present(debug)) then
+     debug_output = .true.
+     if (debug < 10  .or.  debug > 99) then
+        write (6, *) 'error: unit number for debugging must be in [10,99]!'
+        stop
+     endif
+  endif
+
+
+  ! 1. initialize
+  rc    = r0
+  PsiN  = get_PsiN(rc)
+  ierr  = 0
+
+
+  ! 2. iterative search for PsiN_target
+  do iter=1,imax
+     dPsiN    = PsiN_target - PsiN
+
+     ! are we there yet?
+     if (abs(dPsiN) < tolerance) exit
+
+     ! if not, go in this direction
+     dPsi_dR  = get_DPsiN(rc, 1, 0)
+     dPsi_dZ  = get_DPsiN(rc, 0, 1)
+     ePsi(1)  = dPsi_dR / sqrt(dPsi_dR**2 + dPsi_dZ**2)
+     ePsi(2)  = dPsi_dZ / sqrt(dPsi_dR**2 + dPsi_dZ**2)
+
+     ! Hessian
+     H        = get_HN(rc)
+     dPsi_dl  = dPsi_dR*ePsi(1) + dPsi_dZ*ePsi(2)
+     dPsi_dl2 = H(1,1)*ePsi(1)**2  +  2.d0*H(1,2)*ePsi(1)*ePsi(2)  +  H(2,2)*ePsi(2)**2
+
+     ! 1st order approximation
+     delta    = dPsiN / dPsi_dl * damping
+     ! 2nd order approximation
+     P        = - dPsi_dl / dPsi_dl2
+     Q        = P**2 + 2.d0 * dPsiN / dPsi_dl2
+     if (Q > 0.d0) then
+        delta = P - sign(sqrt(Q),P)
+     else
+        ierr  = -1
+     endif
+
+     if (debug_output) then
+        write (debug, *) rc, delta, dPsi_dl, dPsi_dl2
+     endif
+     rc       = rc + delta * ePsi
+     PsiN     = get_PsiN(rc)
+  enddo
+
+
+  ! 3. update output variables
+  ! 3.1 exceed required accuracy?
+  if (iter > imax) ierr = 1
+  ! 3.2 output number of iterations
+  if (present(iterations)) iterations = iter
+
+  end function correct_PsiN
+!=======================================================================
+
+
+
+!=======================================================================
   function default_pressure(Psi) result(P)
   real(real64), intent(in) :: Psi
   real(real64)             :: P
