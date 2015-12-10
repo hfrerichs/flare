@@ -735,6 +735,42 @@ module equilibrium
 
 
 !=======================================================================
+! return local curvature of flux surface (in R-Z plane)
+!=======================================================================
+  function get_flux_surface_curvature(r) result(curv)
+  real(real64), dimension(:), intent(in) :: r
+  real(real64)                           :: curv
+
+  real(real64) :: v(2), x1, y1, gradx1(2), grady1(2), x2, y2, kappa
+
+  if (size(r) < 2  .or. size(r) > 3) then
+     write (6, 9000)
+     write (6, 9001) size(r)
+     stop
+  endif
+
+
+  v(1)      = - get_DPsiN(r, 0, 1)
+  v(2)      =   get_DPsiN(r, 1, 0)
+  x1        = v(1)
+  y1        = v(2)
+  gradx1(1) = - get_DPsiN(r, 1, 1)
+  gradx1(2) = - get_DPsiN(r, 0, 2)
+  grady1(2) =   get_DPsiN(r, 2, 0)
+  grady1(2) = - gradx1(1)
+  x2        = sum(v * gradx1)
+  y2        = sum(v * grady1)
+  kappa     = (x1*y2 - y1*x2) / (x1**2 + y1**2)**1.5d0
+  curv      = 1.d0/kappa
+
+ 9000 format('error in get_flux_surface_curvature:')
+ 9001 format('invalid size(r) = ', i0, '!')
+  end function get_flux_surface_curvature
+!=======================================================================
+
+
+
+!=======================================================================
 ! Get cylindrical coordinates (R[cm], Z[cm], Phi[rad]) for flux
 ! coordinates (Theta[deg], PsiN, Phi[deg])
 !
