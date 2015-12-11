@@ -20,6 +20,7 @@ module dataset
      contains
      procedure :: load
      procedure :: plot
+     procedure :: store => plot
      procedure :: new
      procedure :: destroy
      procedure :: mpi_allreduce
