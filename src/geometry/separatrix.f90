@@ -211,7 +211,8 @@ module separatrix
 
 
   ! set up defaults for optional input
-  debug_output = .false.
+  debug_output  = .false.
+  screen_output = .false.
   if (present(debug)) debug_output  = debug
   if (present(debug)) screen_output = debug
 
