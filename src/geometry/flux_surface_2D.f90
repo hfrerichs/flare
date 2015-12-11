@@ -30,6 +30,7 @@ module flux_surface_2D
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
+  public :: adaptive_step_size
 
   contains
 !=======================================================================
@@ -335,6 +336,24 @@ module flux_surface_2D
         ! calculate local curvature
         ds       = idir * adaptive_step_size(xtmp(i-1,1:2))
      endif
+     ! D.5 check proximity to X-points
+     if (present(cutoff_X)) then
+        do ix=1,nx_max
+           if (Xp(ix)%undefined) cycle
+
+           dX = sqrt(sum((xtmp(i-1,1:2) - Xp(ix)%X)**2)) ! present distance from X-point
+
+           ! stop tracing near X-point
+           if (dX < cutoff_X) then
+              xtmp(i,1:2) = Xp(ix)%X
+              ierr        = -2
+              exit trace_loop
+           endif
+
+           ! else, adapt step size near X-point
+           if (abs(ds) > dX/2.d0) ds = idir * dX/2.d0
+        enddo
+     endif
 
 
      ! C. trace one step
@@ -372,19 +391,6 @@ module flux_surface_2D
         xtmp(i,1:2) = X(1:2)
         exit
      endif
-     endif
-     ! D.5 check proximity to X-points
-     if (present(cutoff_X)) then
-        do ix=1,nx_max
-           if (Xp(ix)%undefined) cycle
-
-           dX = sqrt(sum((xtmp(i,1:2) - Xp(ix)%X)**2))
-           if (dX < cutoff_X) then
-              xtmp(i,1:2) = Xp(ix)%X
-              ierr        = -2
-              exit trace_loop
-           endif
-        enddo
      endif
 
 
