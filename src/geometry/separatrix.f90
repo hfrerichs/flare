@@ -10,10 +10,11 @@ module separatrix
   private
   type, public :: t_separatrix
   !type, extends(t_curve), public :: t_separatrix
-     type(t_flux_surface_2D) :: M1, M2, M3, M4
+     type(t_flux_surface_2D) :: M1, M2, M3, M4, B(4)
      real(real64) :: Px(2)
      contains
      procedure :: generate
+     procedure :: generate_new
      procedure :: plot
   end type t_separatrix
 
@@ -189,6 +190,99 @@ module separatrix
   this%M4%x(0,:) = Px
 
   end subroutine generate
+!=======================================================================
+
+
+
+!=======================================================================
+! Generate separatrix for X-point ix
+!=======================================================================
+  subroutine generate_new (this, ix, trace_step, offset, debug)
+  use equilibrium
+  use ode_solver
+  class(t_separatrix)                 :: this
+  integer,       intent(in)           :: ix
+  real(real64),  intent(in), optional :: trace_step, offset
+  logical,       intent(in), optional :: debug
+
+  real(real64) :: lambda1, lambda2, v1(2), v2(2), Px(2), xi(2), s1, scut
+  integer      :: ierr, Mierr(4)
+  logical      :: debug_output, screen_output
+
+
+  ! set up defaults for optional input
+  debug_output = .false.
+  if (present(debug)) debug_output  = debug
+  if (present(debug)) screen_output = debug
+
+  if (screen_output)  write (6, *) 't_separatrix%generate_new'
+
+
+  ! calculate eigenvalues and eigenvectors of Jacobian at X-point
+  if (ix > nx_max) then
+     write (6, *) 'error in t_separatrix%generate: invalid X-point id = ', ix
+     stop
+  endif
+  if (Xp(ix)%undefined) then
+     write (6, *) 'error in t_separatrix%generate: X-point ', ix, ', undefined!'
+     stop
+  endif
+  call Xp(ix)%analysis(lambda1, lambda2, v1, v2, ierr)
+  if (ierr .ne. 0) then
+     write (6, *) 'error in t_separatrix%generate:'
+     write (6, *) 'X-point analysis returned ierr = ', ierr
+     stop
+  endif
+
+
+  ! set offset from X-point
+  s1 = 0.1d0
+  if (present(offset)) then
+     s1 = offset
+  endif
+  scut = 0.9d0 * s1 ! cut-off distance when approaching an X-point
+
+
+
+  Px = Xp(ix)%X ! Coordinates of X-point (R[cm], Z[cm])
+
+  ! branch 1: in unstable direction, towards magnetic axis
+  xi = find_xinit(v1)
+  call this%M1%generate_branch(xi,  FORWARD, Mierr(1), x0=Px, cutoff_X=scut,trace_step=trace_step)
+
+  ! branch 2: in stable direction, towards magnetic axis
+  xi = find_xinit(v2)
+  call this%M2%generate_branch(xi, BACKWARD, Mierr(2), x0=Px, cutoff_X=scut,trace_step=trace_step)
+
+  ! branch 3: in unstable direction, away from magnetic axis
+  xi = find_xinit(-v1)
+  call this%M3%generate_branch(xi,  FORWARD, Mierr(3), x0=Px, cutoff_X=scut,trace_step=trace_step)
+
+  ! branch 4: in stable direction, away from magnetic axis
+  xi = find_xinit(-v2)
+  call this%M4%generate_branch(xi, BACKWARD, Mierr(4), x0=Px, cutoff_X=scut,trace_step=trace_step)
+
+  if (screen_output) then
+     write (6, *) 'Mierr = ', Mierr
+  endif
+  contains
+  !.....................................................................
+  function find_xinit(voff) result(xinit)
+  real(real64), intent(in) :: voff(2)
+  real(real64)             :: xinit(2)
+
+  integer :: ierr
+
+
+  xinit = correct_PsiN(Px+s1*voff, Xp(ix)%PsiN(), ierr)
+  if (ierr > 0) then
+     write (6, *) 'error in find_xinit: correct_PsiN returned ierr > 0!'
+     stop
+  endif
+
+  end function find_xinit
+  !.....................................................................
+  end subroutine generate_new
 !=======================================================================
 
 
