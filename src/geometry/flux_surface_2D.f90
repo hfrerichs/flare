@@ -242,7 +242,7 @@ module flux_surface_2D
                              stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X)
   use ode_solver
   use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, &
-      leave_equilibrium_domain, nx_max, Xp, get_flux_surface_curvature
+      leave_equilibrium_domain, nx_max, Xp, get_flux_surface_curvature, correct_PsiN
   use boundary
   use math
   use curve2D
@@ -259,7 +259,7 @@ module flux_surface_2D
   real(real64), dimension(:,:), allocatable :: xtmp, xtmp_tmp
   type(t_ODE)  :: F
   real(real64) :: L, ds, X(3), dX, t, thetal, thetac, dtheta
-  integer      :: i, idir, ix, nchunks, ntmp, boundary_id
+  integer      :: i, idir, ix, ierrPsiN, nchunks, ntmp, boundary_id
   logical      :: check_boundary
 
 
@@ -357,7 +357,10 @@ module flux_surface_2D
 
 
      ! C. trace one step
-     xtmp(i,1:2) = F%step_ds(ds)
+     X(1:2)      = F%step_ds(ds)
+     xtmp(i,1:2) = correct_PsiN(X(1:2), this%PsiN, ierrPsiN) ! perform correction step
+     if (ierrPsiN > 0) xtmp(i,1:2) = X(1:2)
+     F%yc(1:2)   = xtmp(i,1:2) ! update ODE solver
      L           = L + abs(ds)
      thetac      = get_poloidal_angle(xtmp(i,1:2))
 
