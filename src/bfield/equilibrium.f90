@@ -896,6 +896,11 @@ module equilibrium
 
 !=======================================================================
 ! from r0, go in gradPsiN direction to match PsiN_target
+!
+! return ierr <= 0:   correction step is successfull
+!               -1:   at least one iteration with 1st order approximation
+!                1:   required accuracy exceeded aver max. number of iterations
+!                2:   required accuracy (ds) exceeded although iterations may be successful
 !=======================================================================
   function correct_PsiN(r0, PsiN_target, ierr, ds, delta_PsiN, iterations, debug) result(rc)
   use math
@@ -976,10 +981,14 @@ module equilibrium
 
 
   ! 3. update output variables
-  ! 3.1 exceed required accuracy?
+  ! 3.1 exceed required accuracy (iteration limit)?
   if (iter > imax) ierr = 1
-  ! 3.2 output number of iterations
+  ! output number of iterations
   if (present(iterations)) iterations = iter
+  ! 3.2 exceed required accuracy (step size)
+  if (present(ds)) then
+     if (sqrt(sum((rc-r0)**2)) > ds) ierr = 2
+  endif
 
   end function correct_PsiN
 !=======================================================================
