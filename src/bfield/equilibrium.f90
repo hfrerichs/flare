@@ -1483,7 +1483,8 @@ module equilibrium
   real(real64), intent(out) :: lambda1, lambda2, v1(2), v2(2)
   integer,      intent(out) :: ierr
 
-  real(real64) :: A(2,2), P, Q, phi(2), delta
+  real(real64) :: A(2,2), P, Q, phi(2), l(2), delta
+  integer      :: i
 
 
   ierr = 0
@@ -1506,15 +1507,23 @@ module equilibrium
      ierr    = 1
      return
   endif
-  lambda1 = P + sqrt(Q)
-  lambda2 = P - sqrt(Q)
+  ! calculate eigenvalues
+  lambda1 = P + sqrt(Q);  l(1) = lambda1
+  lambda2 = P - sqrt(Q);  l(2) = lambda2
 
-  phi(1) = atan2(-A(1,1) + lambda1, A(1,2)); if (phi(1) < 0.d0) phi(1) = phi(1) + pi
-  delta  = phi(1) - this%theta
-  if (abs(delta) < pi/2.d0) phi(1) = phi(1) - sign(pi, delta)
-  phi(2) = atan2(-A(1,1) + lambda2, A(1,2)); if (phi(2) < 0.d0) phi(2) = phi(2) + pi
-  delta  = phi(2) - this%theta
-  if (abs(delta) < pi/2.d0) phi(2) = phi(2) - sign(pi, delta)
+  ! calculate eigenvectors
+  do i=1,2
+     phi(i) = atan2(-A(1,1) + l(i), A(1,2))
+     !write (80, *) phi(i)
+
+     ! find orientation with respect to magnetic axis (poloidal angle of X-point)
+     delta  = phi(i) - this%theta
+     ! make eigenvector facing towards magnetic axis
+     if (abs(delta) < pi/2.d0  .or.  abs(delta) > 3.d0*pi/2.d0) then
+        phi(i) = phi(i) - sign(pi, delta)
+     endif
+     !write (80, *) phi(i), delta, this%theta
+  enddo
 
   v1(1) = cos(phi(1))
   v1(2) = sin(phi(1))
