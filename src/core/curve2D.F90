@@ -68,6 +68,7 @@ module curve2D
      procedure :: new
      procedure :: destroy
      procedure :: copy
+     procedure :: copy_to
      procedure :: broadcast
      procedure :: plot
      procedure :: boundary_node
@@ -253,6 +254,20 @@ module curve2D
   this%closed = C%closed
 
   end subroutine copy
+!=======================================================================
+  subroutine copy_to(this, C)
+  class(t_curve)             ::  this
+  type(t_curve), intent(out) :: C
+
+  integer :: n_seg
+
+
+  n_seg    = this%n_seg
+  call C%new(n_seg)
+  C%x      = this%x
+  C%closed = this%closed
+
+  end subroutine copy_to
 !=======================================================================
 
 
