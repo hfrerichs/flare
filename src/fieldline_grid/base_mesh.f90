@@ -168,17 +168,17 @@ module base_mesh
 
 !=======================================================================
 ! Setup boundary nodes in mesh
-! boundary_type:	radial or poloidal block boundary
 ! boundary_side:	lower or upper boundary
+! boundary_type:	radial or poloidal block boundary
 
 ! C_boundary:	boundary definition
 ! spacings:	spacing function for nodes on boundary
 !=======================================================================
-  subroutine setup_boundary_nodes(this, boundary_type, boundary_side, C_boundary, spacings, i1, i2)
+  subroutine setup_boundary_nodes(this, boundary_side, boundary_type, C_boundary, spacings, i1, i2)
   use mesh_spacing
   use curve2D
   class(t_base_mesh)          :: this
-  integer,         intent(in) :: boundary_type, boundary_side
+  integer,         intent(in) :: boundary_side, boundary_type
   type(t_curve),   intent(in) :: C_boundary
   type(t_spacing), intent(in) :: spacings
   integer,         intent(in), optional :: i1, i2
@@ -678,12 +678,22 @@ module base_mesh
 
   ! DDN
   case(TOPO_DDN, TOPO_DDN1)
+     call initialize_zones(6)
      call initialize_interfaces(8) ! radial interfaces
      nX = 2;  allocate(connectX(nX))
      connectX(1) = -2
      connectX(2) = -2
-     !ncell = 6
-     !allocate (neighbor(ncell,4,2))
+
+     ! innermost domain
+     call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(3))     ! connect to main SOL
+     call Z(2)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(2)%setup_mapping (UPPER, RADIAL,   Z(4))     ! connect to main SOL
+     call Z(1)%setup_mapping (UPPER, POLOIDAL, Z(2))     ! connect left and right segments
+     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(1))     ! connect left and right segments
+
+     !...
+
 
   ! CDN
   case(TOPO_CDN, TOPO_CDN1)
@@ -989,6 +999,7 @@ module base_mesh
   use inner_boundary
   integer, intent(in) :: iblock
 
+  type(t_base_mesh), dimension(:), allocatable :: Mtmp
   type(t_base_mesh)   :: M(0:layers-1), Mtmp2(2), Mtmp3(3), Mtmp4(4)
   type(t_spacing)     :: Sp, SpL, SpR, Sr
 
@@ -1005,39 +1016,58 @@ module base_mesh
      call M(il)%initialize(nr(il), np(il), phi)
   enddo
 
+  ! mesh discretization for poloidal zones
+  allocate (Mtmp(nzone))
+
 
   ! generate core-interface
+  il = 0
   if (connectX(1) == 1) then
      ! single zone
-     call Sp%init(poloidal_spacing(0))
-     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0, Sp)
+     call Sp%init(poloidal_spacing(il))
+     call Mtmp(1)%initialize(nr(il), np(il), phi)
+     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
   else
      ! left and right sub-zones
-     call SpL%init(poloidal_spacing(0))
-     call SpR%init(poloidal_spacing(1))
-     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0R, SpR, 0,      npR(0))
-     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0L, SpL, npR(0), np(0) )
+     call SpR%init(poloidal_spacing_R(il))
+     call Mtmp(1)%initialize(nr(il), npR(il), phi)
+     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
+
+     call SpL%init(poloidal_spacing_L(il))
+     call Mtmp(2)%initialize(nr(il), npL(il), phi)
+     call Mtmp(2)%setup_boundary_nodes(UPPER, RADIAL, S0L, SpL)
   endif
 
 
   ! generate "closed" domain
-  call Sr%init(radial_spacing(0))
-  call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
-  if (connectX(1) == 1  .or. connectX(1) < 0) then
-     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/))
-  else
-     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/), addX=(/abs(connectX(1)), npR(0)/))
-  endif
-  call M(0)%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
+!  call Sr%init(radial_spacing(0))
+!  call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
+!  if (connectX(1) == 1  .or. connectX(1) < 0) then
+!     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/))
+!  else
+!     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/), addX=(/abs(connectX(1)), npR(0)/))
+!  endif
+!  call M(0)%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
 
 
-  ! connect core to SOL
-  if (connectX(1) == 1) then
-     call Mtmp3(2)%initialize(nr(1), np(0), phi)
-     call M(0)%connect_to(Mtmp3(2), RADIAL, UPPER_TO_LOWER)
-     call Mtmp3(2)%store(filename='Mtmp3_2.plt')
-  else
-  endif
+!  ! connect core to SOL
+!  if (connectX(1) == 1) then
+!     call Mtmp3(2)%initialize(nr(1), np(0), phi)
+!     call M(0)%connect_to(Mtmp3(2), RADIAL, UPPER_TO_LOWER)
+!     call Mtmp3(2)%store(filename='Mtmp3_2.plt')
+!  else
+!  endif
+
+
+  !radial_scan: do
+  ! generate innermost domain
+  !il     = 0
+  !iz0    = 1
+  !ii     = 1
+  !npz    = 0
+  !npz(0) = 1
+  call generate_layer(0, 1)
+
 
 
   ! write output files
@@ -1046,7 +1076,45 @@ module base_mesh
      call write_base_grid(M(il)%t_grid, iz)
   enddo
 
+
+  ! cleanup
+  deallocate (Mtmp)
+
   end subroutine generate_base_mesh
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_layer(il, iz0)
+  integer, intent(in) :: il, iz0
+
+  integer :: idir, iz, npz(-1:1)
+
+
+  ! how many poloidal zones in this layer?
+  npz    = 0
+  npz(0) = 1
+  idir_loop: do idir=1,-1,-2
+     iz = iz0
+     poloidal_scan: do
+        if (Z(iz)%map_p(idir) == PERIODIC) exit
+        if (Z(iz)%map_p(idir) == DIVERTOR) exit
+        if (Z(iz)%map_p(idir) == iz0) exit idir_loop
+
+        iz        = Z(iz)%map_p(idir)
+        npz(idir) = npz(idir) + 1
+     enddo poloidal_scan
+
+!     call Sp%init(poloidal_spacing(0))
+!     ! single zone?
+!     if (Z(iz)%map_p(UPPER) == PERIODIC) then
+!
+     !else
+     !endif
+  enddo idir_loop
+  write (6, *) 'poloidal zones in layer 0: ', npz
+  end subroutine generate_layer
 !=======================================================================
 
 end module base_mesh
