@@ -12,6 +12,7 @@ OBJECTS =  \
                topo_cdn.o\
                base_grid.o\
                mesh_interface.o\
+               mfs_mesh.o\
                zone.o\
                base_mesh.o\
                vacuum_domain.o\

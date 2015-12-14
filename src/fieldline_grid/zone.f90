@@ -1,13 +1,10 @@
 module mod_zone
   use iso_fortran_env
   use curve2D, only: UPPER, LOWER
+  use mesh_interface
+  use mfs_mesh
   implicit none
   private
-
-
-  integer, parameter, public :: &
-     RADIAL         = 1, &
-     POLOIDAL       = 2
 
 
   integer, parameter, public :: &
@@ -31,6 +28,7 @@ module mod_zone
      !integer           :: neighbor_id(4), neighbor_surf(4)
      !integer           :: mapping(4)
 
+     type(t_mesh_interface) :: generating_element
      contains
      procedure :: setup_mapping
      procedure :: setup_boundary
