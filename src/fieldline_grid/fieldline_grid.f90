@@ -29,6 +29,7 @@ module fieldline_grid
   integer, parameter :: &
      TYPE_SINGLE_LAYER = -1, &
      TYPE_HPR          =  0, &
+     TYPE_IMD          =  0, &
      TYPE_SOL          =  1, &
      TYPE_SOLMAP       = 11, &
      TYPE_PFR          =  2
