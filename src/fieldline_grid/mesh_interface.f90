@@ -17,6 +17,11 @@ module mesh_interface
                                   !                                 = 0 strike point
                                   !                                 < guiding point (other X-point)
 
+     ! adjacent zones:
+     ! Z(-1) = zone on lower side of interface, i.e. interface is upper zone boundary
+     ! Z( 1) = zone on upper side of interface, i.e. interface is lower zone boundary
+     integer :: Z(-1,1) = -1
+
 
      ! discretization of interface
      real(real64), dimension(:,:), allocatable :: x
@@ -33,6 +38,14 @@ module mesh_interface
   ! interfaces between zones
   type(t_mesh_interface), dimension(:), allocatable, public :: Iface
   integer, public :: interfaces
+
+
+  ! number of X-points in computation domain, and their connectivity
+  integer, dimension(:), allocatable :: connectX
+  integer :: nX
+
+
+
 
   public :: initialize_interfaces
 
@@ -124,6 +137,63 @@ module mesh_interface
   interfaces = n
 
   end subroutine initialize_interfaces
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_topology()
+  use fieldline_grid
+
+
+  select case(topology)
+  ! lower single null (LSN)
+  case(TOPO_LSN, TOPO_LSN1)
+     call initialize_interfaces(3) ! radial interfaces
+     nX = 1;  allocate(connectX(nX))
+     connectX(1) = 1
+
+
+  ! DDN
+  case(TOPO_DDN, TOPO_DDN1)
+     call initialize_interfaces(8) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = -2
+     connectX(2) = -2
+
+
+  ! CDN
+  case(TOPO_CDN, TOPO_CDN1)
+     !call initialize_interfaces(3) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = 2
+     connectX(2) = 1
+
+  case default
+     write (6, 9000) trim(topology)
+     stop
+  end select
+
+
+  call setup_zones()
+
+ 9000 format('error: invalid topology ', a, '!')
+  end subroutine setup_topology
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_zones
+
+  integer :: i, iz
+
+  ! set up zone numbers for interfaces
+  iz = 1
+  do i=1,interfaces
+  enddo
+
+  end subroutine setup_zones
 !=======================================================================
 
 
