@@ -2,14 +2,15 @@ module mod_zone
   use iso_fortran_env
   use curve2D, only: UPPER, LOWER
   implicit none
+  private
 
 
-  integer, parameter :: &
+  integer, parameter, public :: &
      RADIAL         = 1, &
      POLOIDAL       = 2
 
 
-  integer, parameter :: &
+  integer, parameter, public :: &
      PERIODIC       = -1, &
      CORE           = -2, &
      VACUUM         = -3, &
@@ -19,7 +20,7 @@ module mod_zone
 
   ! grid layout: zone = structured domain of cells
   ! This is not the same as a zone in EMC3! EMC3 zones are referred to as layer here, which can be made out of several zones connected in poloidal direction
-  type :: t_zone
+  type, public :: t_zone
      ! zone number
      integer :: id
 
@@ -34,8 +35,12 @@ module mod_zone
      procedure :: setup_mapping
      procedure :: setup_boundary
   end type t_zone
-  type(t_zone), dimension(:), allocatable :: Z
-  integer :: nzone
+  type(t_zone), dimension(:), allocatable, public :: Z
+  integer, public :: nzone
+
+
+  public :: initialize_zones
+  public :: undefined_zone_boundary_check
 
   contains
 !=======================================================================
@@ -164,7 +169,7 @@ module mod_zone
 !=======================================================================
 ! check left over zone boundaries
 !=======================================================================
-  subroutine undefined_zone_check(debug)
+  subroutine undefined_zone_boundary_check(debug)
   logical, intent(in) :: debug
 
   integer :: iz, iside
@@ -195,7 +200,7 @@ module mod_zone
  9001 format('error: undefined radial boundary!')
  9002 format('error: undefined poloidal boundary!')
  9003 format('zone = ', i0, ', iside = ', i0)
-  end subroutine undefined_zone_check
+  end subroutine undefined_zone_boundary_check
 !=======================================================================
 
 end module mod_zone
