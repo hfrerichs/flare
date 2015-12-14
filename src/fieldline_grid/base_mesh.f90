@@ -946,12 +946,12 @@ module base_mesh
         ! right core interface
         i = i + 1
         call Iface(i)%set_curve(S0R)
-        call Iface(i)%setup(ix, ix)
+        call Iface(i)%setup(ix, jx)
 
         ! left core interface
         i = i + 1
         call Iface(i)%set_curve(S0L)
-        call Iface(i)%setup(ix, ix)
+        call Iface(i)%setup(jx, ix)
 
      ! nothing to be done here anymore
      else
