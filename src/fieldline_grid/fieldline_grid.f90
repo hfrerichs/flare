@@ -66,6 +66,8 @@ module fieldline_grid
      discretization_method            = POLOIDAL_ANGLE, &
      radial_spacing(0:max_layers-1)   = '', &
      poloidal_spacing(0:max_layers-1) = '', &
+     poloidal_spacing_L(0:max_layers-1) = '', &
+     poloidal_spacing_R(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface                  = '', &
      N0_file(0:max_layers-1)          = '', &
@@ -317,7 +319,7 @@ module fieldline_grid
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      n_interpolate, nr_perturbed, &
-     radial_spacing, poloidal_spacing, toroidal_spacing, &
+     radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
      Dtheta_sampling, Dtheta_separatrix, &
      discretization_method, guiding_surface
