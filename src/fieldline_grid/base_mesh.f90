@@ -4,12 +4,12 @@ module base_mesh
   use curve2D
   use separatrix
   use xpaths
+  use mesh_interface
+  use mod_zone
   implicit none
   private
 
   integer, parameter, public :: &
-     RADIAL         = 1, &
-     POLOIDAL       = 2, &
      LOWER_TO_UPPER = 1, &
      UPPER_TO_LOWER = 2
 
@@ -46,8 +46,10 @@ module base_mesh
   type(t_curve) :: C_guide
 
 
+
+  public :: setup_topology
   public :: setup_geometry
-  !public :: setup_topology
+  public :: setup_interfaces
   public :: generate_base_mesh
 
   contains
@@ -623,11 +625,92 @@ module base_mesh
 
 
 !=======================================================================
+!=======================================================================
+!=======================================================================
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_topology()
+  use fieldline_grid
+
+  select case(topology)
+  ! lower single null (LSN)
+  case(TOPO_LSN, TOPO_LSN1)
+     call initialize_zones(6)
+     call initialize_interfaces(3) ! radial interfaces
+     nX = 1;  allocate(connectX(nX))
+     connectX(1) = 1
+
+     ! innermost domain
+     call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC) ! periodic poloidal boundaries
+     call Z(1)%setup_boundary(UPPER, POLOIDAL, PERIODIC) ! periodic poloidal boundaries
+     call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(2))     ! connect to main SOL
+
+     ! main SOL
+     call Z(2)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(2)%setup_mapping (LOWER, POLOIDAL, Z(3))     ! connect to right divertor leg
+     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(4))     ! connect to left divertor leg
+
+     ! right divertor leg (SOL)
+     call Z(3)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(3)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
+     call Z(3)%setup_mapping (LOWER, RADIAL,   Z(5))     ! connect to right PFR
+
+     ! left divertor leg (SOL)
+     call Z(4)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(4)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! divertor target
+     call Z(4)%setup_mapping (LOWER, RADIAL,   Z(6))     ! connect to right PFR
+
+     ! right divertor leg (PFR)
+     call Z(5)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(5)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
+     call Z(5)%setup_mapping (UPPER, POLOIDAL, Z(6))     ! connect to left PFR
+
+     ! left divertor leg (PFR)
+     call Z(6)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(6)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! divertor target
+
+     call undefined_zone_boundary_check(.true.)
+
+
+  ! DDN
+  case(TOPO_DDN, TOPO_DDN1)
+     call initialize_interfaces(8) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = -2
+     connectX(2) = -2
+     !ncell = 6
+     !allocate (neighbor(ncell,4,2))
+
+  ! CDN
+  case(TOPO_CDN, TOPO_CDN1)
+     !call initialize_interfaces(3) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = 2
+     connectX(2) = 1
+     !ncell = 6
+     !allocate (neighbor(ncell,4,2))
+
+  case default
+     write (6, 9000) trim(topology)
+     stop
+  end select
+
+ 9000 format('error: invalid topology ', a, '!')
+  end subroutine setup_topology
+!=======================================================================
+
+
+
+!=======================================================================
 ! Set up geometry of computational domain:
 ! Magnetic axis, X-points, separatrix(ces) and radial paths from X-points
 ! SHOULD THIS BE MOVED TO MODULE fieldline_grid?
 !=======================================================================
-  subroutine setup_geometry(nX_, connectX_)
+  subroutine setup_geometry()
   use fieldline_grid, only: guiding_surface, d_SOL, d_PFR
   use boundary,       only: S_axi, n_axi
   use equilibrium,    only: get_magnetic_axis, get_poloidal_angle, get_PsiN, Xp
@@ -635,8 +718,6 @@ module base_mesh
   use separatrix
   use inner_boundary
   use string
-
-  integer, intent(in) :: nX_, connectX_(nX_)
 
   character(len=2) :: Sstr
   real(real64)     :: dx, tmp(3), theta_cut, PsiN
@@ -667,7 +748,6 @@ module base_mesh
 
 
   ! 2.b check X-points -------------------------------------------------
-  nX = nX_
   do ix=1,nX
      tmp(1:2) = Xp(ix)%load(ierr)
      if (ierr .ne. 0) then
@@ -689,8 +769,7 @@ module base_mesh
 
 
   ! 4.1 generate separatrix(ces) ---------------------------------------
-  allocate (connectX(nX), S(nX), R(nX,4))
-  connectX = connectX_
+  allocate (S(nX), R(nX,4))
   do ix=1,nX
      ! find cut-off poloidal angle for guiding X-point
      jx = connectX(ix)
@@ -727,6 +806,8 @@ module base_mesh
 
 
   ! 4.2 generate radial paths from X-points ----------------------------
+     ! and set up interfaces between zones
+     !call Iface(1)%set_curve(S0)
   write (6, 3000)
   iSOL = 0
   iPFR = 0
@@ -800,6 +881,8 @@ module base_mesh
      enddo
   enddo
 
+
+
  3000 format(3x,'- Setting up radial paths for block-structured decomposition')
  3010 format(8x,'generating core segment for X-point ', i0)
  3020 format(8x,'generating SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
@@ -814,7 +897,91 @@ module base_mesh
 !=======================================================================
 
 
+
 !=======================================================================
+  subroutine setup_interfaces()
+  use mesh_interface
+  use string
+
+
+  integer :: ix, jx, i
+
+
+  i = 0
+  do ix=1,nX
+     jx = connectX(ix)
+
+     ! connect back to same X-point
+     if (jx == ix) then
+        if (ix .ne. 1) then
+           write (6, 9000) ix
+           stop
+        endif
+
+        i = i + 1
+        call Iface(i)%set_curve(S0)
+        call Iface(i)%setup(ix, ix)
+
+     ! all branches connect to divertor targets
+     elseif (jx == -ix) then
+        i = i + 1
+        call Iface(i)%set_curve(S(ix)%M1%t_curve)
+        call Iface(i)%setup(DIVERTOR, ix)
+        i = i + 1
+        call Iface(i)%set_curve(S(ix)%M2%t_curve)
+        call Iface(i)%setup(ix, DIVERTOR)
+
+     ! connect to other X-point OR
+     ! main separatrix decomposition is guided by secondary X-point
+     elseif (jx > ix  .or.  jx < 0) then
+        if (ix .ne. 1) then
+           if (jx > ix) then
+              write (6, 9001) ix
+           else
+              write (6, 9002) ix, abs(jx)
+           endif
+           stop
+        endif
+
+        ! right core interface
+        i = i + 1
+        call Iface(i)%set_curve(S0R)
+        call Iface(i)%setup(ix, ix)
+
+        ! left core interface
+        i = i + 1
+        call Iface(i)%set_curve(S0L)
+        call Iface(i)%setup(ix, ix)
+
+     ! nothing to be done here anymore
+     else
+
+     endif
+
+     ! divertor branches
+     i = i + 1
+     call Iface(i)%set_curve(S(ix)%M3%t_curve)
+     call Iface(i)%setup(DIVERTOR, ix)
+     i = i + 1
+     call Iface(i)%set_curve(S(ix)%M4%t_curve)
+     call Iface(i)%setup(ix, DIVERTOR)
+
+
+  enddo
+
+
+  do i=1,interfaces
+     call Iface(i)%C%plot(filename='I'//trim(str(i))//'.plt')
+  enddo
+
+ 9000 format('error: seconday X-point ', i0, ' connects back to itself!')
+ 9001 format('error: seconday X-point ', i0, ' does not connect back to primary one!')
+ 9002 format('error: seconday X-point ', i0, ' used as guiding point for separatrix ', i0, '!')
+  end subroutine setup_interfaces
+!=======================================================================
+
+
+
 !=======================================================================
   subroutine generate_base_mesh(iblock)
   use fieldline_grid
@@ -822,7 +989,7 @@ module base_mesh
   use inner_boundary
   integer, intent(in) :: iblock
 
-  type(t_base_mesh)   :: M(0:layers-1)
+  type(t_base_mesh)   :: M(0:layers-1), Mtmp2(2), Mtmp3(3), Mtmp4(4)
   type(t_spacing)     :: Sp, SpL, SpR, Sr
 
   real(real64) :: phi
@@ -863,6 +1030,14 @@ module base_mesh
   endif
   call M(0)%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
 
+
+  ! connect core to SOL
+  if (connectX(1) == 1) then
+     call Mtmp3(2)%initialize(nr(1), np(0), phi)
+     call M(0)%connect_to(Mtmp3(2), RADIAL, UPPER_TO_LOWER)
+     call Mtmp3(2)%store(filename='Mtmp3_2.plt')
+  else
+  endif
 
 
   ! write output files
