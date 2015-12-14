@@ -1,15 +1,21 @@
 module mesh_interface
+!module zone_interface
   use iso_fortran_env
   use curve2D
   implicit none
   private
 
 
+  integer, parameter, public :: &
+     STRIKE_POINT = 0
+
+
   type, public :: t_mesh_interface
      ! geometric definition of interface
      type(t_curve) :: C
      integer       :: inode(-1:1) ! lower and upper end node type:  > 0 X-point
-                                  !                                <= 0 strike point
+                                  !                                 = 0 strike point
+                                  !                                 < guiding point (other X-point)
 
 
      ! discretization of interface
@@ -51,16 +57,16 @@ module mesh_interface
   do iside=-1,1,2
      ix = inode(iside)
      ! check input
-     if (ix > nx_max) then
+     if (abs(ix) > nx_max) then
         write (6, 9001) lower_boundary, upper_boundary
         stop
      endif
 
-     ! boundary is X-point
-     if (ix > 0) then
-        X  = Xp(ix)%load(ierr)
+     ! boundary is X-point or guiding point from another X-point
+     if (abs(ix) > 0) then
+        X  = Xp(abs(ix))%load(ierr)
         if (ierr .ne. 0) then
-           write (6, 9002) ix
+           write (6, 9002) abs(ix)
            stop
         endif
         this%inode(iside) = ix

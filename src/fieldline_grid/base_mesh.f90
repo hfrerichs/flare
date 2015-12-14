@@ -926,10 +926,10 @@ module base_mesh
      elseif (jx == -ix) then
         i = i + 1
         call Iface(i)%set_curve(S(ix)%M1%t_curve)
-        call Iface(i)%setup(DIVERTOR, ix)
+        call Iface(i)%setup(STRIKE_POINT, ix)
         i = i + 1
         call Iface(i)%set_curve(S(ix)%M2%t_curve)
-        call Iface(i)%setup(ix, DIVERTOR)
+        call Iface(i)%setup(ix, STRIKE_POINT)
 
      ! connect to other X-point OR
      ! main separatrix decomposition is guided by secondary X-point
@@ -961,10 +961,10 @@ module base_mesh
      ! divertor branches
      i = i + 1
      call Iface(i)%set_curve(S(ix)%M3%t_curve)
-     call Iface(i)%setup(DIVERTOR, ix)
+     call Iface(i)%setup(STRIKE_POINT, ix)
      i = i + 1
      call Iface(i)%set_curve(S(ix)%M4%t_curve)
-     call Iface(i)%setup(ix, DIVERTOR)
+     call Iface(i)%setup(ix, STRIKE_POINT)
 
 
   enddo
