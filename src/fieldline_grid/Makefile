@@ -11,6 +11,8 @@ OBJECTS =  \
                topo_ddn.o\
                topo_cdn.o\
                base_grid.o\
+               mesh_interface.o\
+               zone.o\
                base_mesh.o\
                vacuum_domain.o\
                trace_nodes.o\
