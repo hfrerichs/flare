@@ -85,7 +85,7 @@ module base_mesh
 
   ! DDN
   case(TOPO_DDN, TOPO_DDN1)
-     call initialize_zones(6)
+     call initialize_zones(16)
      call initialize_interfaces(8) ! radial interfaces
      nX = 2;  allocate(connectX(nX))
      connectX(1) = -2
@@ -93,15 +93,61 @@ module base_mesh
      layers      = 6
 
      ! innermost domain
-     call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL
-     call Z(2)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(2)%setup_mapping (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL
-     call Z(1)%setup_mapping (UPPER, POLOIDAL, Z(2), 0)  ! connect left and right segments
-     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments
+     call Z(1)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping  (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL
+     call Z(2)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(2)%setup_mapping  (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL
+     call Z(1)%setup_mapping  (UPPER, POLOIDAL, Z(2), 0)  ! connect left and right segments
+     call Z(2)%setup_mapping  (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments
 
-     !...
+     ! primary SOL
+     call Z(3)%setup_mapping  (UPPER, RADIAL,   Z(5), 0)  ! connect to right secondary SOL
+     call Z(4)%setup_mapping  (UPPER, RADIAL,   Z(6), 0)  ! connect to left secondary SOL
+     call Z(3)%setup_mapping  (UPPER, POLOIDAL, Z(4), 0)  ! connect left and right segments
+     call Z(3)%setup_mapping  (LOWER, POLOIDAL, Z(7), 0)  ! connect to right divertor leg
+     call Z(7)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(4)%setup_mapping  (UPPER, POLOIDAL, Z(8), 0)  ! connect to left divertor leg
+     call Z(8)%setup_boundary (UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(7)%setup_mapping  (UPPER, RADIAL,   Z(9), 0)  !
+     call Z(8)%setup_mapping  (UPPER, RADIAL,   Z(12), 0) !
 
+     ! secondary SOL
+     ! right branch
+     call Z(5)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(5)%setup_mapping  (LOWER, POLOIDAL, Z(9), 0)  ! connect to right divertor leg (right branch)
+     call Z(9)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(5)%setup_mapping  (UPPER, POLOIDAL, Z(10), 0) ! connect to left divertor leg  (right branch)
+     call Z(10)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(9)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(10)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     ! left branch
+     call Z(6)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(6)%setup_mapping  (LOWER, POLOIDAL, Z(11), 0) ! connect to right divertor leg (left branch)
+     call Z(11)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(6)%setup_mapping  (UPPER, POLOIDAL, Z(12), 0) ! connect to left divertor leg  (left branch)
+     call Z(12)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(11)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(12)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+
+     ! primary PFR
+     call Z(7)%setup_mapping  (LOWER, RADIAL,   Z(13), 2)  ! connect to right primary PFR
+     call Z(13)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(8)%setup_mapping  (LOWER, RADIAL,   Z(14), 3)  ! connect to left primary PFR
+     call Z(14)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(13)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(13)%setup_mapping (UPPER, POLOIDAL, Z(14), 0)  ! connect to left primary PFR
+     call Z(14)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
+
+     ! secondary PFR
+     call Z(10)%setup_mapping (LOWER, RADIAL,   Z(15), 0)  ! connect to right secondary PFR
+     call Z(15)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(11)%setup_mapping (LOWER, RADIAL,   Z(16), 0)  ! connect to left secondary PFR
+     call Z(16)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(16)%setup_mapping (UPPER, POLOIDAL, Z(15), 0)  ! connect to left secondary PFR
+     call Z(16)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(15)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
+
+     call undefined_zone_boundary_check(.true.)
 
   ! CDN
   case(TOPO_CDN, TOPO_CDN1)
