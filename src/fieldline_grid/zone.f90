@@ -155,38 +155,46 @@ module mod_zone
 ! Generate mesh from reference discretization on radial and poloidal
 ! boundaries. M%ir0 and M%ip0 must be set!
 ! irside = side of radial reference surface
+! ipside = side of poloidal reference surface
 !=======================================================================
-  subroutine generate_mesh(this, M, irside, iblock, Sr)
+  subroutine generate_mesh(this, M, irside, ipside, iblock, Sr)
   use fieldline_grid, only: n_interpolate
   use inner_boundary, only: C_in, DPsiN1
   use mesh_spacing
   class(t_zone)                   :: this
   type(t_mfs_mesh), intent(inout) :: M
-  integer,          intent(in)    :: irside, iblock
+  integer,          intent(in)    :: irside, ipside, iblock
   type(t_spacing),  intent(in)    :: Sr
 
-  integer :: iri, ix1, ix2
+  integer :: iri, ix(-1:1), addX(2)
 
 
   iri = this%rad_bound(irside)
-  ix1 = radial_interface(iri)%inode(-1)
-  ix2 = radial_interface(iri)%inode( 1)
+  ix  = radial_interface(iri)%inode
 
 
-  ! 1. from strike point to X-point
-  if (this%map_p(-1) == DIVERTOR) then
+  ! 1. strike point on lower poloidal side
+  if (ix(LOWER) == STRIKE_POINT) then
 
-  ! 2. from X-point to strike point
-  elseif (this%map_p(1) == DIVERTOR) then
+  ! 2. strike point on upper poloidal side
+  elseif (ix(UPPER) == STRIKE_POINT) then
 
-  ! 3. from X-point to X-point
+  ! 3. intermediate domain
   else
+     ! connect to X-point?
+     addX = UNDEFINED
+     if (ix(-ipside) > 0) then
+        addX(1) = ix(-ipside)
+        addX(2) = AUTOMATIC
+     endif
+
+
      if (this%map_r(LOWER) == CORE) then
-        call M%make_orthogonal_grid(rrange=(/2+n_interpolate, M%nr-1/), prange=(/1,M%np-1/))
-        call M%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1), prange=(/0,M%np-1/))
+        call M%make_orthogonal_grid(rrange=(/2+n_interpolate, M%nr-1/), addX=addX)
+        call M%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
 
      else
-        call M%make_orthogonal_grid(prange=(/1,M%np-1/))
+        call M%make_orthogonal_grid(addX=addX)
      endif
   endif
 

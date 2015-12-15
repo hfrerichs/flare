@@ -605,7 +605,7 @@ module base_mesh
 
 
   ! generate mesh in base zone
-  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, iblock, Sr)
+  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr)
 
 
   ! how many poloidal zones in this layer?
@@ -635,7 +635,7 @@ module base_mesh
         iz        = iz_map
 
         ! 3. generate mesh in next zone
-        call Z(iz)%generate_mesh(Mtmp(iz), irside, iblock, Sr)
+        call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr)
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
 

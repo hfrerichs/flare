@@ -15,7 +15,8 @@ module mfs_mesh
 
   integer, parameter, public :: &
      RADIAL         = 1, &
-     POLOIDAL       = 2
+     POLOIDAL       = 2, &
+     AUTOMATIC      = -1024
 
 
 
@@ -310,6 +311,9 @@ module mfs_mesh
   if (present(addX)) then
      ix  = addX(1)
      ipx = addX(2)
+
+     ! set poloidal index to opposite boundary from reference boundary ip0
+     if (ipx == AUTOMATIC) ipx = (1 - ip0 / this%np) * this%np
   endif
 
 
