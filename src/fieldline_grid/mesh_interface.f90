@@ -11,6 +11,8 @@ module mesh_interface
 
 
   type, public :: t_mesh_interface
+     integer       :: id
+
      ! geometric definition of interface
      type(t_curve) :: C
      integer       :: inode(-1:1) ! lower and upper end node type:  > 0 X-point
@@ -109,8 +111,6 @@ module mesh_interface
   type(t_curve), intent(in) :: C
 
 
-  !call this%C%copy(C)
-
   call C%copy_to(this%C)
 
   end subroutine set_curve
@@ -119,10 +119,23 @@ module mesh_interface
 
 
 !=======================================================================
-  subroutine setup_discretization(this, C, n)
+  subroutine setup_discretization(this, n, spacings)
+  use mesh_spacing
   class(t_mesh_interface)   :: this
-  type(t_curve), intent(in) :: C
   integer,       intent(in) :: n
+  type(t_spacing)           :: spacings
+
+  real(real64) :: tau, x(2)
+  integer      :: i
+
+
+  this%n = n
+  do i=0,n
+     tau = spacings%node(i,n)
+     call this%C%sample_at(tau, x)
+     this%x(i,1:2) = x
+  enddo
+
   end subroutine setup_discretization
 !=======================================================================
 
