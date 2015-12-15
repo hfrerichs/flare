@@ -603,7 +603,7 @@ module base_mesh
 
 
   ! generate mesh in base zone
-  call Mtmp(iz0)%generate(radial_interface(iri)%inode)
+  call Z(iz0)%generate_mesh(Mtmp(iz0))
 
 
   ! how many poloidal zones in this layer?
@@ -622,7 +622,7 @@ module base_mesh
         if (Z(iz)%map_p(idir) == iz0) exit idir_loop
 
         iz        = Z(iz)%map_p(idir)
-        call Z(iz)%generate_mesh()
+        !call Z(iz)%generate_mesh()
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
 

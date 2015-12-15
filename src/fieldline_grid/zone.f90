@@ -21,8 +21,6 @@ module mod_zone
      ! zone number
      integer :: id
 
-     type(t_mfs_mesh) :: M
-
      ! zone neighbors
      integer :: map_r(-1:1) = UNDEFINED, map_p(-1:1) = UNDEFINED
      ! zone boundaries
@@ -34,7 +32,6 @@ module mod_zone
      contains
      procedure :: setup_mapping
      procedure :: setup_boundary
-     procedure :: initialize_mesh
      procedure :: generate_mesh
   end type t_zone
   type(t_zone), dimension(:), allocatable, public :: Z
@@ -155,27 +152,27 @@ module mod_zone
 
 
 !=======================================================================
-  subroutine initialize_mesh(this, nr, np, phi)
-  class(t_zone)            :: this
-  integer, intent(in)      :: nr, np
-  real(real64), intent(in) :: phi
-
-
-  call this%M%initialize(nr, np, phi)
-
-  end subroutine initialize_mesh
+! Generate mesh from reference discretization on radial and poloidal
+! boundaries. M%ir0 and M%ip0 must be set!
 !=======================================================================
+  subroutine generate_mesh(this, M)
+  class(t_zone)                   :: this
+  type(t_mfs_mesh), intent(inout) :: M
 
 
+  ! 1. from strike point to X-point
+  if (this%map_p(-1) == DIVERTOR) then
 
-!=======================================================================
-  subroutine generate_mesh(this)
-  class(t_zone) :: this
+  ! 2. from X-point to strike point
+  elseif (this%map_p(1) == DIVERTOR) then
 
-  !type(t_mfs_mesh), pointer :: M
-  !M => this%M
+  ! 3. from X-point to X-point
+  else
+     call M%make_orthogonal_grid(prange=(/1,M%np-1/))
+  endif
 
-  !if (
+ 9000 format('error in t_zone%generate_mesh:')
+ 9001 format('mesh generation for map_p = ', i0, ', ', i0, ' not implemented!')
   end subroutine generate_mesh
 !=======================================================================
 
