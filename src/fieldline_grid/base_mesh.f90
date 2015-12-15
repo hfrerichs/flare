@@ -527,7 +527,7 @@ module base_mesh
      !iz0 = ...
      !call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
 
-     call generate_layer(il, iz0, Sr)
+     call generate_layer(il, iz0, iblock, Sr)
      exit
   enddo
 
@@ -554,9 +554,9 @@ module base_mesh
 
 
 !=======================================================================
-  subroutine generate_layer(il, iz0, Sr)
+  subroutine generate_layer(il, iz0, iblock, Sr)
   use mesh_spacing
-  integer,         intent(in) :: il, iz0
+  integer,         intent(in) :: il, iz0, iblock
   type(t_spacing), intent(in) :: Sr
 
   integer :: idir, irside, iri, ipside, ipi, iz, npz(-1:1)
@@ -603,7 +603,7 @@ module base_mesh
 
 
   ! generate mesh in base zone
-  call Z(iz0)%generate_mesh(Mtmp(iz0))
+  call Z(iz0)%generate_mesh(Mtmp(iz0), iblock, Sr)
 
 
   ! how many poloidal zones in this layer?

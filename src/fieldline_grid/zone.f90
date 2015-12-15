@@ -155,9 +155,14 @@ module mod_zone
 ! Generate mesh from reference discretization on radial and poloidal
 ! boundaries. M%ir0 and M%ip0 must be set!
 !=======================================================================
-  subroutine generate_mesh(this, M)
+  subroutine generate_mesh(this, M, iblock, Sr)
+  use fieldline_grid, only: n_interpolate
+  use inner_boundary, only: C_in, DPsiN1
+  use mesh_spacing
   class(t_zone)                   :: this
   type(t_mfs_mesh), intent(inout) :: M
+  integer,          intent(in)    :: iblock
+  type(t_spacing),  intent(in)    :: Sr
 
 
   ! 1. from strike point to X-point
@@ -168,7 +173,13 @@ module mod_zone
 
   ! 3. from X-point to X-point
   else
-     call M%make_orthogonal_grid(prange=(/1,M%np-1/))
+     if (this%map_r(LOWER) == CORE) then
+        call M%make_orthogonal_grid(rrange=(/2+n_interpolate, M%nr-1/), prange=(/1,M%np-1/))
+        call M%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1), prange=(/0,M%np-1/))
+
+     else
+        call M%make_orthogonal_grid(prange=(/1,M%np-1/))
+     endif
   endif
 
  9000 format('error in t_zone%generate_mesh:')

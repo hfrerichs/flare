@@ -350,7 +350,7 @@ module mfs_mesh
 !=======================================================================
 ! Generate interpolated mesh to inner simulation boundary (2 -> ir2)
 !=======================================================================
-  subroutine make_interpolated_mesh(this, ir2, Sr, C, PsiN1_max)
+  subroutine make_interpolated_mesh(this, ir2, Sr, C, PsiN1_max, prange)
   use equilibrium, only: get_PsiN, Xp
   use mesh_spacing
   class(t_mfs_mesh)           :: this
@@ -358,11 +358,21 @@ module mfs_mesh
   type(t_spacing), intent(in) :: Sr
   type(t_curve),   intent(in) :: C(0:1)
   real(real64),    intent(in) :: PsiN1_max
+  integer,         intent(in), optional :: prange(2)
 
   real(real64), dimension(:,:,:), pointer :: M
   type(t_xpath) :: Rtmp
   real(real64)  :: PsiN2, eta, x(2)
-  integer       :: i, ir1, j, nr, np
+  integer       :: i, ir1, ip1, ip2, j, nr
+
+
+  ! set defaults for optional input
+  ip1 = 0
+  ip2 = this%np
+  if (present(prange)) then
+     ip1 = prange(1)
+     ip2 = prange(2)
+  endif
 
 
   M  => this%mesh
@@ -378,9 +388,8 @@ module mfs_mesh
      stop
   endif
 
-  np = this%np
-  do j=0,np
-     call progress(j, np, 0.1d0)
+  do j=ip1,ip2
+     call progress(j-ip1, ip2-ip1, 0.1d0)
      x = M(ir2,j,:)
      call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1_max, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
 
