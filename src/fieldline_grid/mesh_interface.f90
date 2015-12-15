@@ -53,6 +53,7 @@ module mesh_interface
 
 
   public :: initialize_interfaces
+  public :: initialize_poloidal_interfaces
 
   contains
 !=======================================================================
@@ -153,6 +154,25 @@ module mesh_interface
   radial_interfaces = n
 
   end subroutine initialize_interfaces
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine initialize_poloidal_interfaces(n)
+  integer, intent(in) :: n
+
+  integer :: i
+
+
+  allocate (poloidal_interface(n))
+  poloidal_interfaces = n
+  do i=1,n
+     poloidal_interface(i)%id = i
+  enddo
+
+
+  end subroutine initialize_poloidal_interfaces
 !=======================================================================
 
 

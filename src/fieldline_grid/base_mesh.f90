@@ -117,6 +117,9 @@ module base_mesh
      stop
   end select
 
+
+  call initialize_poloidal_interfaces(4*nX)
+
  9000 format('error: invalid topology ', a, '!')
   end subroutine setup_topology
 !=======================================================================
@@ -139,7 +142,7 @@ module base_mesh
 
   character(len=2) :: Sstr
   real(real64)     :: dx, tmp(3), theta_cut, PsiN
-  integer          :: ix, ierr, iSOL, iPFR, jx, k, orientation
+  integer          :: ix, ierr, iSOL, iPFR, ipi, jx, k, orientation
 
 
   ! 1. set up guiding surface for divertor legs (C_guide) --------------
@@ -229,6 +232,7 @@ module base_mesh
   write (6, 3000)
   iSOL = 0
   iPFR = 0
+  ipi  = 0
   do ix=1,nX
      jx = connectX(ix)
 
@@ -237,6 +241,7 @@ module base_mesh
      if (ix == 1  .or.  jx > 0) then
         write (6, 3010) ix
         call R(ix, DESCENT_CORE)%generateX(ix, DESCENT_CORE, LIMIT_PSIN, PsiN_in)
+        call poloidal_interface(ipi+1)%set_curve(R(ix, DESCENT_CORE)%t_curve)
      else
         if (R(ix, DESCENT_CORE)%n_seg < 0) then
            write (6, *) "WARNING: rpath segment ", ix, DESCENT_CORE, " is not set up!"
@@ -251,8 +256,11 @@ module base_mesh
         iSOL = iSOL + 1
         write (6, 3020) ix, d_SOL(iSOL)
         call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
+
         PsiN = get_PsiN(R(ix, ASCENT_LEFT)%boundary_node(boundary=UPPER))
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
 
      elseif (jx > ix) then
         ! connected X-points, left and right branch on individual flux surfaces
@@ -291,14 +299,20 @@ module base_mesh
      iPFR = iPFR + 1
      write (6, 3030) ix, d_PFR(iPFR)
      call R(ix, DESCENT_PFR)%generateX(ix, DESCENT_PFR, LIMIT_LENGTH, d_PFR(iPFR))
+     call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
 
 
      ! plot paths
      do k=1,4
         call R(ix, k)%plot(filename='rpath_'//trim(str(ix))//'_'//trim(str(k))//'.plt')
      enddo
+
+     ipi = ipi + 4
   enddo
 
+  do ipi=1,poloidal_interfaces
+     call poloidal_interface(ipi)%C%plot(filename='R'//trim(str(ipi))//'.plt')
+  enddo
 
 
  3000 format(3x,'- Setting up radial paths for block-structured decomposition')
