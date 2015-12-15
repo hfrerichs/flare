@@ -241,6 +241,7 @@ module base_mesh
      if (ix == 1  .or.  jx > 0) then
         write (6, 3010) ix
         call R(ix, DESCENT_CORE)%generateX(ix, DESCENT_CORE, LIMIT_PSIN, PsiN_in)
+        call R(ix, DESCENT_CORE)%flip()
         call poloidal_interface(ipi+1)%set_curve(R(ix, DESCENT_CORE)%t_curve)
      else
         if (R(ix, DESCENT_CORE)%n_seg < 0) then
@@ -299,6 +300,7 @@ module base_mesh
      iPFR = iPFR + 1
      write (6, 3030) ix, d_PFR(iPFR)
      call R(ix, DESCENT_PFR)%generateX(ix, DESCENT_PFR, LIMIT_LENGTH, d_PFR(iPFR))
+     call R(ix, DESCENT_PFR)%flip()
      call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
 
 
@@ -444,6 +446,7 @@ module base_mesh
   use fieldline_grid
   use mesh_spacing
   use inner_boundary
+  use string
   integer, intent(in) :: iblock
 
   type(t_mfs_mesh)   :: Mtmp2(2), Mtmp3(3), Mtmp4(4)
@@ -529,6 +532,11 @@ module base_mesh
   enddo
 
 
+  ! debugging
+  do iz=1,1
+     call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
+  enddo
+
 
   ! write output files
   do il=0,layers-1
@@ -594,14 +602,22 @@ module base_mesh
   call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr)
 
 
+  ! generate mesh in base zone
+  call Mtmp(iz0)%generate(radial_interface(iri)%inode)
+
+
   ! how many poloidal zones in this layer?
-  call Z(iz0)%generate_mesh()
   npz    = 0
   npz(0) = 1
   idir_loop: do idir=1,-1,-2
      iz = iz0
      poloidal_scan: do
-        if (Z(iz)%map_p(idir) == PERIODIC) exit
+        ! periodic boundaries: connect zone back to itself
+        if (Z(iz)%map_p(idir) == PERIODIC) then
+           call Mtmp(iz)%connect_to(Mtmp(iz), POLOIDAL, LOWER_TO_UPPER)
+           exit idir_loop
+        endif
+
         if (Z(iz)%map_p(idir) == DIVERTOR) exit
         if (Z(iz)%map_p(idir) == iz0) exit idir_loop
 
