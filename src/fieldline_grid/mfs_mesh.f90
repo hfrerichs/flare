@@ -10,8 +10,8 @@ module mfs_mesh
   private
 
   integer, parameter, public :: &
-     LOWER_TO_UPPER = 1, &
-     UPPER_TO_LOWER = 2
+     LOWER_TO_UPPER = LOWER, &
+     UPPER_TO_LOWER = UPPER
 
   integer, parameter, public :: &
      RADIAL         = 1, &
