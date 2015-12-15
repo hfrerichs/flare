@@ -37,9 +37,12 @@ module mesh_interface
   end type t_mesh_interface
   !@public :: setup_interfaces
 
-  ! interfaces between zones
-  type(t_mesh_interface), dimension(:), allocatable, public :: Iface
-  integer, public :: interfaces
+  ! radial interfaces between zones
+  type(t_mesh_interface), dimension(:), allocatable, public :: radial_interface
+  integer, public :: radial_interfaces
+  ! poloidal interfaces between zones
+  type(t_mesh_interface), dimension(:), allocatable, public :: poloidal_interface
+  integer, public :: poloidal_interfaces
 
 
   ! number of X-points in computation domain, and their connectivity
@@ -146,8 +149,8 @@ module mesh_interface
   integer, intent(in) :: n
 
 
-  allocate (Iface(n))
-  interfaces = n
+  allocate (radial_interface(n))
+  radial_interfaces = n
 
   end subroutine initialize_interfaces
 !=======================================================================
@@ -203,7 +206,7 @@ module mesh_interface
 
   ! set up zone numbers for interfaces
   iz = 1
-  do i=1,interfaces
+  do i=1,radial_interfaces
   enddo
 
   end subroutine setup_zones

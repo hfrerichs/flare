@@ -24,7 +24,7 @@ module base_mesh
   ! guiding surface
   type(t_curve) :: C_guide
 
-  type(t_mfs_mesh), dimension(:), allocatable :: M
+  type(t_mfs_mesh), dimension(:), allocatable :: M, Mtmp
 
 
   public :: setup_topology
@@ -48,6 +48,7 @@ module base_mesh
      call initialize_interfaces(3) ! radial interfaces
      nX = 1;  allocate(connectX(nX))
      connectX(1) = 1
+     layers      = 3
 
      ! innermost domain
      call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC) ! periodic poloidal boundaries
@@ -89,6 +90,7 @@ module base_mesh
      nX = 2;  allocate(connectX(nX))
      connectX(1) = -2
      connectX(2) = -2
+     layers      = 6
 
      ! innermost domain
      call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
@@ -335,17 +337,17 @@ module base_mesh
         endif
 
         i = i + 1
-        call Iface(i)%set_curve(S0)
-        call Iface(i)%setup(ix, ix)
+        call radial_interface(i)%set_curve(S0)
+        call radial_interface(i)%setup(ix, ix)
 
      ! all branches connect to divertor targets
      elseif (jx == -ix) then
         i = i + 1
-        call Iface(i)%set_curve(S(ix)%M1%t_curve)
-        call Iface(i)%setup(STRIKE_POINT, ix)
+        call radial_interface(i)%set_curve(S(ix)%M1%t_curve)
+        call radial_interface(i)%setup(STRIKE_POINT, ix)
         i = i + 1
-        call Iface(i)%set_curve(S(ix)%M2%t_curve)
-        call Iface(i)%setup(ix, STRIKE_POINT)
+        call radial_interface(i)%set_curve(S(ix)%M2%t_curve)
+        call radial_interface(i)%setup(ix, STRIKE_POINT)
 
      ! connect to other X-point OR
      ! main separatrix decomposition is guided by secondary X-point
@@ -361,13 +363,13 @@ module base_mesh
 
         ! right core interface
         i = i + 1
-        call Iface(i)%set_curve(S0R)
-        call Iface(i)%setup(ix, jx)
+        call radial_interface(i)%set_curve(S0R)
+        call radial_interface(i)%setup(ix, jx)
 
         ! left core interface
         i = i + 1
-        call Iface(i)%set_curve(S0L)
-        call Iface(i)%setup(jx, ix)
+        call radial_interface(i)%set_curve(S0L)
+        call radial_interface(i)%setup(jx, ix)
 
      ! nothing to be done here anymore
      else
@@ -376,18 +378,18 @@ module base_mesh
 
      ! divertor branches
      i = i + 1
-     call Iface(i)%set_curve(S(ix)%M3%t_curve)
-     call Iface(i)%setup(STRIKE_POINT, ix)
+     call radial_interface(i)%set_curve(S(ix)%M3%t_curve)
+     call radial_interface(i)%setup(STRIKE_POINT, ix)
      i = i + 1
-     call Iface(i)%set_curve(S(ix)%M4%t_curve)
-     call Iface(i)%setup(ix, STRIKE_POINT)
+     call radial_interface(i)%set_curve(S(ix)%M4%t_curve)
+     call radial_interface(i)%setup(ix, STRIKE_POINT)
 
 
   enddo
 
 
-  do i=1,interfaces
-     call Iface(i)%C%plot(filename='I'//trim(str(i))//'.plt')
+  do i=1,radial_interfaces
+     call radial_interface(i)%C%plot(filename='I'//trim(str(i))//'.plt')
   enddo
 
  9000 format('error: seconday X-point ', i0, ' connects back to itself!')
@@ -430,18 +432,17 @@ module base_mesh
   use inner_boundary
   integer, intent(in) :: iblock
 
-  type(t_mfs_mesh), dimension(:), allocatable :: Mtmp
   type(t_mfs_mesh)   :: Mtmp2(2), Mtmp3(3), Mtmp4(4)
   type(t_spacing)    :: Sp, SpL, SpR, Sr
 
   real(real64) :: phi
-  integer      :: il, iz, iz0
+  integer      :: il, il0, iz, iz0
 
 
   ! initialize block
-  iz0 = iblock * layers
+  il0 = iblock * layers
   allocate (M(0:layers-1))
-  call setup_layers(iblock)
+  !call setup_layers(iblock)
 
 
   call load_local_resolution(iblock)
@@ -460,17 +461,17 @@ module base_mesh
   if (connectX(1) == 1) then
      ! single zone
      call Sp%init(poloidal_spacing(il))
-     call Z(1)%M%initialize(nr(il), np(il), phi)
-     call Z(1)%M%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
+     call Mtmp(1)%initialize(nr(il), np(il), phi)
+     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
   else
      ! left and right sub-zones
      call SpR%init(poloidal_spacing_R(il))
-     call Z(1)%M%initialize(nr(il), npR(il), phi)
-     call Z(1)%M%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
+     call Mtmp(1)%initialize(nr(il), npR(il), phi)
+     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
 
      call SpL%init(poloidal_spacing_L(il))
-     call Z(2)%M%initialize(nr(il), npL(il), phi)
-     call Z(2)%M%setup_boundary_nodes(UPPER, RADIAL, S0L, SpL)
+     call Mtmp(2)%initialize(nr(il), npL(il), phi)
+     call Mtmp(2)%setup_boundary_nodes(UPPER, RADIAL, S0L, SpL)
   endif
 
 
@@ -496,7 +497,7 @@ module base_mesh
 
   !radial_scan: do
   !il     = 0
-  !iz0    = 1
+  iz0    = 1
   !ii     = 1
   !npz    = 0
   !npz(0) = 1
@@ -508,14 +509,15 @@ module base_mesh
      !iz0 = ...
      !call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
 
-     call generate_layer(il, iz0)
+     call generate_layer(il, iz0, Sr)
+     exit
   enddo
 
 
 
   ! write output files
   do il=0,layers-1
-     iz = iz0 + il
+     iz = il0 + il
      call write_base_grid(M(il)%t_grid, iz)
   enddo
 
@@ -529,10 +531,46 @@ module base_mesh
 
 
 !=======================================================================
-  subroutine generate_layer(il, iz0)
-  integer, intent(in) :: il, iz0
+  subroutine generate_layer(il, iz0, Sr)
+  use mesh_spacing
+  integer,         intent(in) :: il, iz0
+  type(t_spacing), intent(in) :: Sr
 
-  integer :: idir, iz, npz(-1:1)
+  integer :: idir, irside, iri, ipside, ipi, iz, npz(-1:1)
+
+
+  ! select upper or lower radial boundary for reference nodes
+  if (Mtmp(iz0)%ir0 == 0) then
+     irside = LOWER
+  elseif (Mtmp(iz0)%ir0 > 0) then
+     irside = UPPER
+  else
+     write (6, 9000) il, iz0
+     write (6, 9001)
+     stop
+  endif
+  iri = Z(iz0)%rad_bound(irside)
+  if (iri == UNDEFINED) then
+     write (6, 9000) il, iz0
+     write (6, 9002)
+     stop
+  endif
+
+
+  ! select upper or lower poloidal boundary -> start from an X-point
+  do ipside=-1,1,2
+     if (radial_interface(iri)%inode(ipside) > 0) exit
+  enddo
+  ipi = Z(iz0)%pol_bound(ipside)
+  if (ipi == UNDEFINED) then
+     write (6, 9000) il, iz0
+     write (6, 9003)
+     stop
+  endif
+
+
+  ! initialize radial discretization in layer
+  call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr)
 
 
   ! how many poloidal zones in this layer?
@@ -559,6 +597,11 @@ module base_mesh
      !endif
   enddo idir_loop
   write (6, *) 'poloidal zones in layer 0: ', npz
+
+ 9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
+ 9001 format('undefined reference nodes on radial boundary!')
+ 9002 format('undefined radial interface!')
+ 9003 format('undefined poloidal interface!')
   end subroutine generate_layer
 !=======================================================================
 
