@@ -34,6 +34,7 @@ module mfs_mesh
      procedure :: make_interpolated_mesh
      procedure :: make_divertor_grid
      ! procedure :: merge(M1, M2, ...)
+     procedure :: generate
   end type t_mfs_mesh
 
 
@@ -131,7 +132,7 @@ module mfs_mesh
 
      ! 3. copy boundary nodes
      do ir=0,this%nr
-        M2(ir, ip2, :) = M1(ir, ip2, :)
+        M2(ir, ip2, :) = M1(ir, ip1, :)
      enddo
      M%ip0 = ip2
 
@@ -605,6 +606,25 @@ module mfs_mesh
  9020 format('ERROR: aligned strike point mesh extends beyond upstream reference point ', &
              'at radial index ', i0)
   end subroutine make_divertor_grid
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate(this, inode)
+  class(t_mfs_mesh)   :: this
+  integer, intent(in) :: inode(-1:1)
+
+
+  ! 1. from X-point to X-point
+  if (inode(-1) > 0  .and.  inode(1) > 0) then
+     call this%make_orthogonal_grid(prange=(/1,this%np-1/))
+  else
+     write (6, *) 'error in t_mfs_mesh%generate: inode = ', inode, ' not implemented!'
+     stop
+  endif
+
+  end subroutine generate
 !=======================================================================
 
 end module mfs_mesh
