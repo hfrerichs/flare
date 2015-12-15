@@ -21,17 +21,21 @@ module mod_zone
      ! zone number
      integer :: id
 
-     !!!type(t_base_mesh) :: M
+     type(t_mfs_mesh) :: M
 
      ! zone neighbors
-     integer :: map_r(-1:1) = -100, map_p(-1:1) = -100
+     integer :: map_r(-1:1) = UNDEFINED, map_p(-1:1) = UNDEFINED
+     ! zone boundaries
+     integer :: rad_bound(-1:1) = UNDEFINED, pol_bound(-1:1) = UNDEFINED
      !integer           :: neighbor_id(4), neighbor_surf(4)
      !integer           :: mapping(4)
 
-     type(t_mesh_interface) :: generating_element
+     !type(t_mesh_interface) :: generating_element
      contains
      procedure :: setup_mapping
      procedure :: setup_boundary
+     procedure :: initialize_mesh
+     procedure :: generate_mesh
   end type t_zone
   type(t_zone), dimension(:), allocatable, public :: Z
   integer, public :: nzone
@@ -41,26 +45,6 @@ module mod_zone
   public :: undefined_zone_boundary_check
 
   contains
-!=======================================================================
-
-
-
-!=======================================================================
-! initialize zone array, and set up zone IDs
-!=======================================================================
-  subroutine initialize_zones(n)
-  integer, intent(in) :: n
-
-  integer :: i
-
-
-  nzone = n
-  allocate (Z(n))
-  do i=1,n
-     Z(i)%id = i
-  enddo
-
-  end subroutine initialize_zones
 !=======================================================================
 
 
@@ -92,7 +76,7 @@ module mod_zone
   class(t_zone)               :: this
   integer,      intent(in)    :: side, boundary
   type(t_zone), intent(inout) :: zone
-  integer,      intent(in), optional :: iinterface
+  integer,      intent(in)    :: iinterface
 
 
   ! check input for side
@@ -107,9 +91,13 @@ module mod_zone
   case(RADIAL)
      call define(this%map_r(side),  zone%id) ! map this zone to neighbor zone
      call define(zone%map_r(-side), this%id) ! set up return map
+     call define(this%rad_bound(side),  iinterface)
+     call define(zone%rad_bound(-side), iinterface)
   case(POLOIDAL)
      call define(this%map_p(side),  zone%id) ! map this zone to neighbor zone
      call define(zone%map_p(-side), this%id) ! set up return map
+     call define(this%pol_bound(side),  iinterface)
+     call define(zone%pol_bound(-side), iinterface)
   case default
      write (6, *) 'error in t_zone%setup_mapping: invalid boundary = ', boundary
      stop
@@ -160,6 +148,53 @@ module mod_zone
   end select
 
   end subroutine setup_boundary
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine initialize_mesh(this, nr, np, phi)
+  class(t_zone)            :: this
+  integer, intent(in)      :: nr, np
+  real(real64), intent(in) :: phi
+
+
+  call this%M%initialize(nr, np, phi)
+
+  end subroutine initialize_mesh
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_mesh(this)
+  class(t_zone) :: this
+
+  !type(t_mfs_mesh), pointer :: M
+  !M => this%M
+
+  !if (
+  end subroutine generate_mesh
+!=======================================================================
+
+
+
+!=======================================================================
+! initialize zone array, and set up zone IDs
+!=======================================================================
+  subroutine initialize_zones(n)
+  integer, intent(in) :: n
+
+  integer :: i
+
+
+  nzone = n
+  allocate (Z(n))
+  do i=1,n
+     Z(i)%id = i
+  enddo
+
+  end subroutine initialize_zones
 !=======================================================================
 
 

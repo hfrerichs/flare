@@ -24,6 +24,7 @@ module base_mesh
   ! guiding surface
   type(t_curve) :: C_guide
 
+  type(t_mfs_mesh), dimension(:), allocatable :: M
 
 
   public :: setup_topology
@@ -52,27 +53,27 @@ module base_mesh
      call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC) ! periodic poloidal boundaries
      call Z(1)%setup_boundary(UPPER, POLOIDAL, PERIODIC) ! periodic poloidal boundaries
      call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(2))     ! connect to main SOL
+     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(2), 1)  ! connect to main SOL
 
      ! main SOL
      call Z(2)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
-     call Z(2)%setup_mapping (LOWER, POLOIDAL, Z(3))     ! connect to right divertor leg
-     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(4))     ! connect to left divertor leg
+     call Z(2)%setup_mapping (LOWER, POLOIDAL, Z(3), 0)  ! connect to right divertor leg
+     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(4), 0)  ! connect to left divertor leg
 
      ! right divertor leg (SOL)
      call Z(3)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(3)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
-     call Z(3)%setup_mapping (LOWER, RADIAL,   Z(5))     ! connect to right PFR
+     call Z(3)%setup_mapping (LOWER, RADIAL,   Z(5), 2)  ! connect to right PFR
 
      ! left divertor leg (SOL)
      call Z(4)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(4)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! divertor target
-     call Z(4)%setup_mapping (LOWER, RADIAL,   Z(6))     ! connect to right PFR
+     call Z(4)%setup_mapping (LOWER, RADIAL,   Z(6), 3)  ! connect to right PFR
 
      ! right divertor leg (PFR)
      call Z(5)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(5)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
-     call Z(5)%setup_mapping (UPPER, POLOIDAL, Z(6))     ! connect to left PFR
+     call Z(5)%setup_mapping (UPPER, POLOIDAL, Z(6), 0)  ! connect to left PFR
 
      ! left divertor leg (PFR)
      call Z(6)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
@@ -91,11 +92,11 @@ module base_mesh
 
      ! innermost domain
      call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(3))     ! connect to main SOL
+     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL
      call Z(2)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(2)%setup_mapping (UPPER, RADIAL,   Z(4))     ! connect to main SOL
-     call Z(1)%setup_mapping (UPPER, POLOIDAL, Z(2))     ! connect left and right segments
-     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(1))     ! connect left and right segments
+     call Z(2)%setup_mapping (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL
+     call Z(1)%setup_mapping (UPPER, POLOIDAL, Z(2), 0)  ! connect left and right segments
+     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(1), 0)  ! connect left and right segments
 
      !...
 
@@ -398,6 +399,31 @@ module base_mesh
 
 
 !=======================================================================
+  subroutine setup_layers(iblock)
+  use fieldline_grid
+  integer, intent(in) :: iblock
+
+  real(real64) :: phi
+  integer      :: il
+
+
+  ! initialize block
+  call load_local_resolution(iblock)
+
+
+  il = 0
+  layers = 0
+!  phi = Block(iblock)%phi_base / 180.d0 * pi
+!  do il=0,layers-1
+!     !call M(il)%initialize(nr(il), np(il), phi)
+!  enddo
+
+  end subroutine setup_layers
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine generate_base_mesh(iblock)
   use fieldline_grid
   use mesh_spacing
@@ -405,7 +431,7 @@ module base_mesh
   integer, intent(in) :: iblock
 
   type(t_mfs_mesh), dimension(:), allocatable :: Mtmp
-  type(t_mfs_mesh)   :: M(0:layers-1), Mtmp2(2), Mtmp3(3), Mtmp4(4)
+  type(t_mfs_mesh)   :: Mtmp2(2), Mtmp3(3), Mtmp4(4)
   type(t_spacing)    :: Sp, SpL, SpR, Sr
 
   real(real64) :: phi
@@ -414,6 +440,10 @@ module base_mesh
 
   ! initialize block
   iz0 = iblock * layers
+  allocate (M(0:layers-1))
+  call setup_layers(iblock)
+
+
   call load_local_resolution(iblock)
 
   phi = Block(iblock)%phi_base / 180.d0 * pi
@@ -430,17 +460,17 @@ module base_mesh
   if (connectX(1) == 1) then
      ! single zone
      call Sp%init(poloidal_spacing(il))
-     call Mtmp(1)%initialize(nr(il), np(il), phi)
-     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
+     call Z(1)%M%initialize(nr(il), np(il), phi)
+     call Z(1)%M%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
   else
      ! left and right sub-zones
      call SpR%init(poloidal_spacing_R(il))
-     call Mtmp(1)%initialize(nr(il), npR(il), phi)
-     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
+     call Z(1)%M%initialize(nr(il), npR(il), phi)
+     call Z(1)%M%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
 
      call SpL%init(poloidal_spacing_L(il))
-     call Mtmp(2)%initialize(nr(il), npL(il), phi)
-     call Mtmp(2)%setup_boundary_nodes(UPPER, RADIAL, S0L, SpL)
+     call Z(2)%M%initialize(nr(il), npL(il), phi)
+     call Z(2)%M%setup_boundary_nodes(UPPER, RADIAL, S0L, SpL)
   endif
 
 
@@ -465,13 +495,21 @@ module base_mesh
 
 
   !radial_scan: do
-  ! generate innermost domain
   !il     = 0
   !iz0    = 1
   !ii     = 1
   !npz    = 0
   !npz(0) = 1
-  call generate_layer(0, 1)
+  !call generate_layer(0, 1)
+  do il=0,layers-1
+     ! set up radial spacings
+     call Sr%init(radial_spacing(il))
+
+     !iz0 = ...
+     !call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
+
+     call generate_layer(il, iz0)
+  enddo
 
 
 
@@ -483,7 +521,7 @@ module base_mesh
 
 
   ! cleanup
-  deallocate (Mtmp)
+  deallocate (M, Mtmp)
 
   end subroutine generate_base_mesh
 !=======================================================================
@@ -498,6 +536,7 @@ module base_mesh
 
 
   ! how many poloidal zones in this layer?
+  call Z(iz0)%generate_mesh()
   npz    = 0
   npz(0) = 1
   idir_loop: do idir=1,-1,-2
@@ -508,6 +547,7 @@ module base_mesh
         if (Z(iz)%map_p(idir) == iz0) exit idir_loop
 
         iz        = Z(iz)%map_p(idir)
+        call Z(iz)%generate_mesh()
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
 
