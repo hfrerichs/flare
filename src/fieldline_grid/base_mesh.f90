@@ -340,10 +340,10 @@ module base_mesh
   use string
 
 
-  integer :: ix, jx, i
+  integer :: ix, jx, iri
 
 
-  i = 0
+  iri = 0
   do ix=1,nX
      jx = connectX(ix)
 
@@ -354,18 +354,18 @@ module base_mesh
            stop
         endif
 
-        i = i + 1
-        call radial_interface(i)%set_curve(S0)
-        call radial_interface(i)%setup(ix, ix)
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S0)
+        call radial_interface(iri)%setup(ix, ix)
 
      ! all branches connect to divertor targets
      elseif (jx == -ix) then
-        i = i + 1
-        call radial_interface(i)%set_curve(S(ix)%M1%t_curve)
-        call radial_interface(i)%setup(STRIKE_POINT, ix)
-        i = i + 1
-        call radial_interface(i)%set_curve(S(ix)%M2%t_curve)
-        call radial_interface(i)%setup(ix, STRIKE_POINT)
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S(ix)%M1%t_curve)
+        call radial_interface(iri)%setup(STRIKE_POINT, ix)
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S(ix)%M2%t_curve)
+        call radial_interface(iri)%setup(ix, STRIKE_POINT)
 
      ! connect to other X-point OR
      ! main separatrix decomposition is guided by secondary X-point
@@ -380,14 +380,14 @@ module base_mesh
         endif
 
         ! right core interface
-        i = i + 1
-        call radial_interface(i)%set_curve(S0R)
-        call radial_interface(i)%setup(ix, jx)
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S0R)
+        call radial_interface(iri)%setup(ix, jx)
 
         ! left core interface
-        i = i + 1
-        call radial_interface(i)%set_curve(S0L)
-        call radial_interface(i)%setup(jx, ix)
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S0L)
+        call radial_interface(iri)%setup(jx, ix)
 
      ! nothing to be done here anymore
      else
@@ -395,19 +395,19 @@ module base_mesh
      endif
 
      ! divertor branches
-     i = i + 1
-     call radial_interface(i)%set_curve(S(ix)%M3%t_curve)
-     call radial_interface(i)%setup(STRIKE_POINT, ix)
-     i = i + 1
-     call radial_interface(i)%set_curve(S(ix)%M4%t_curve)
-     call radial_interface(i)%setup(ix, STRIKE_POINT)
+     iri = iri + 1
+     call radial_interface(iri)%set_curve(S(ix)%M3%t_curve)
+     call radial_interface(iri)%setup(STRIKE_POINT, ix)
+     iri = iri + 1
+     call radial_interface(iri)%set_curve(S(ix)%M4%t_curve)
+     call radial_interface(iri)%setup(ix, STRIKE_POINT)
 
 
   enddo
 
 
-  do i=1,radial_interfaces
-     call radial_interface(i)%C%plot(filename='I'//trim(str(i))//'.plt')
+  do iri=1,radial_interfaces
+     call radial_interface(iri)%C%plot(filename='I'//trim(str(iri))//'.plt')
   enddo
 
  9000 format('error: seconday X-point ', i0, ' connects back to itself!')
