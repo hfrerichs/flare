@@ -51,8 +51,8 @@ module base_mesh
      layers      = 3
 
      ! innermost domain
-     call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC) ! periodic poloidal boundaries
-     call Z(1)%setup_boundary(UPPER, POLOIDAL, PERIODIC) ! periodic poloidal boundaries
+     call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC, 1) ! periodic poloidal boundaries
+     call Z(1)%setup_boundary(UPPER, POLOIDAL, PERIODIC, 1) ! periodic poloidal boundaries
      call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
      call Z(1)%setup_mapping (UPPER, RADIAL,   Z(2), 1)  ! connect to main SOL
 
@@ -516,6 +516,7 @@ module base_mesh
   !npz    = 0
   !npz(0) = 1
   !call generate_layer(0, 1)
+  write (6, *)
   do il=0,layers-1
      ! set up radial spacings
      call Sr%init(radial_spacing(il))
@@ -553,6 +554,10 @@ module base_mesh
   integer :: idir, irside, iri, ipside, ipi, iz, npz(-1:1)
 
 
+  write (6, 1000) il
+  write (6, *) 'reference discretization at:'
+
+
   ! select upper or lower radial boundary for reference nodes
   if (Mtmp(iz0)%ir0 == 0) then
      irside = LOWER
@@ -564,6 +569,7 @@ module base_mesh
      stop
   endif
   iri = Z(iz0)%rad_bound(irside)
+  write (6, *) 'radial boundary ', irside, ' which is interface ', iri
   if (iri == UNDEFINED) then
      write (6, 9000) il, iz0
      write (6, 9002)
@@ -576,6 +582,7 @@ module base_mesh
      if (radial_interface(iri)%inode(ipside) > 0) exit
   enddo
   ipi = Z(iz0)%pol_bound(ipside)
+  write (6, *) 'poloidal boundary ', ipside, ' which is interface ', ipi
   if (ipi == UNDEFINED) then
      write (6, 9000) il, iz0
      write (6, 9003)
@@ -612,6 +619,7 @@ module base_mesh
   enddo idir_loop
   write (6, *) 'poloidal zones in layer 0: ', npz
 
+ 1000 format('Generate layer ', i0)
  9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
  9001 format('undefined reference nodes on radial boundary!')
  9002 format('undefined radial interface!')

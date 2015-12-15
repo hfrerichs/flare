@@ -115,9 +115,10 @@ module mod_zone
 !=======================================================================
 ! set up zone boundary (boundary_type = CORE, VACUUM, PERIODIC, DIVERTOR)
 !=======================================================================
-  subroutine setup_boundary(this, side, boundary, boundary_type)
+  subroutine setup_boundary(this, side, boundary, boundary_type, iinterface)
   class(t_zone)               :: this
   integer,      intent(in)    :: side, boundary, boundary_type
+  integer,      intent(in), optional :: iinterface
 
 
   ! check input for side
@@ -142,6 +143,7 @@ module mod_zone
      call define(this%map_r(side), boundary_type)
   case(POLOIDAL)
      call define(this%map_p(side), boundary_type)
+     if (present(iinterface)) call define(this%pol_bound(side),  iinterface)
   case default
      write (6, *) 'error in t_zone%setup_boundary: invalid boundary = ', boundary
      stop
