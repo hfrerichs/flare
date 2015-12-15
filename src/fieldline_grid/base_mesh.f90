@@ -423,20 +423,59 @@ module base_mesh
   use fieldline_grid
   integer, intent(in) :: iblock
 
+  integer, dimension(:), allocatable :: markz
   real(real64) :: phi
-  integer      :: il
+  integer      :: il, iz, iz0, iz_map, idir
 
 
   ! initialize block
   call load_local_resolution(iblock)
+  phi = Block(iblock)%phi_base / 180.d0 * pi
 
 
+  write (6, *) 'setting up radial layers:'
+  allocate (markz(nzone));  markz = 0
   il = 0
-  layers = 0
-!  phi = Block(iblock)%phi_base / 180.d0 * pi
+  layer_loop: do
+     ! exit if no more zones are unmarked
+     if (sum(markz) == nzone) exit
+
+
+     il = il + 1
+     ! find first unmarked zone
+     do iz=1,nzone
+        if (markz(iz) == 0) exit
+     enddo
+     ! set base zone in layer
+     iz0 = iz;  markz(iz) = 1
+     write (6, *) 'layer ', il-1, ': base zone = ', iz0
+
+     ! scan in both poloidal directions
+     dir_loop: do idir=-1,1,2
+        ! start poloidal scan at base zone
+        iz = iz0
+        write (6, *) 'scan ', idir, ' direction:'
+        poloidal_scan: do
+           iz_map = Z(iz)%map_p(idir)
+           if (iz_map == PERIODIC) exit dir_loop
+           if (iz_map == iz0) exit dir_loop
+           if (iz_map == DIVERTOR) exit
+
+           iz = iz_map;  markz(iz) = 1
+           write (6, *) iz
+        enddo poloidal_scan
+     enddo dir_loop
+  enddo layer_loop
+
+
+
+!  layers = 0
 !  do il=0,layers-1
 !     !call M(il)%initialize(nr(il), np(il), phi)
 !  enddo
+
+
+  deallocate (markz)
 
   end subroutine setup_layers
 !=======================================================================
@@ -459,9 +498,9 @@ module base_mesh
 
 
   ! initialize block
+  call setup_layers(iblock)
   il0 = iblock * layers
   allocate (M(0:layers-1))
-  !call setup_layers(iblock)
 
 
   call load_local_resolution(iblock)
@@ -523,6 +562,10 @@ module base_mesh
   !call generate_layer(0, 1)
   write (6, *)
   do il=0,layers-1
+     ! setup radial interface of base zone
+     if (il > 0) then
+     endif
+
      ! set up radial spacings
      call Sr%init(radial_spacing(il))
 
