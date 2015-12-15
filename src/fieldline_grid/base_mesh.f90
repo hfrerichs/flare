@@ -98,7 +98,7 @@ module base_mesh
      call Z(2)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
      call Z(2)%setup_mapping (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL
      call Z(1)%setup_mapping (UPPER, POLOIDAL, Z(2), 0)  ! connect left and right segments
-     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(1), 0)  ! connect left and right segments
+     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments
 
      !...
 
@@ -268,12 +268,14 @@ module base_mesh
         iSOL = iSOL + 1
         write (6, 3021) ix, jx, d_SOL(iSOL)
         call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
         PsiN = get_PsiN(R(ix, ASCENT_LEFT)%boundary_node(boundary=UPPER))
         call R(jx, ASCENT_RIGHT)%generateX(jx, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
 
         iSOL = iSOL + 1
         write (6, 3022) ix, jx, d_SOL(iSOL)
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
         PsiN = get_PsiN(R(ix, ASCENT_RIGHT)%boundary_node(boundary=UPPER))
         call R(jx, ASCENT_LEFT)%generateX(jx, ASCENT_LEFT, LIMIT_PSIN, PsiN)
 
@@ -533,7 +535,7 @@ module base_mesh
 
 
   ! debugging
-  do iz=1,1
+  do iz=1,2
      call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
   enddo
 
@@ -559,7 +561,7 @@ module base_mesh
   integer,         intent(in) :: il, iz0, iblock
   type(t_spacing), intent(in) :: Sr
 
-  integer :: idir, irside, iri, ipside, ipi, iz, npz(-1:1)
+  integer :: idir, irside, iri, ipside, ipi, iz, iz_map, npz(-1:1)
 
 
   write (6, 1000) il
@@ -603,7 +605,7 @@ module base_mesh
 
 
   ! generate mesh in base zone
-  call Z(iz0)%generate_mesh(Mtmp(iz0), iblock, Sr)
+  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, iblock, Sr)
 
 
   ! how many poloidal zones in this layer?
@@ -612,17 +614,28 @@ module base_mesh
   idir_loop: do idir=1,-1,-2
      iz = iz0
      poloidal_scan: do
-        ! periodic boundaries: connect zone back to itself
-        if (Z(iz)%map_p(idir) == PERIODIC) then
+        iz_map = Z(iz)%map_p(idir)
+        ! 1. poloidal boundary of layer?
+        ! 1.1 periodic boundaries: connect zone back to itself
+        if (iz_map == PERIODIC) then
            call Mtmp(iz)%connect_to(Mtmp(iz), POLOIDAL, LOWER_TO_UPPER)
            exit idir_loop
         endif
+        ! 1.2 back to initial/base zone
+        if (iz_map == iz0) then
+           call Mtmp(iz)%connect_to(Mtmp(iz0), POLOIDAL, LOWER_TO_UPPER)
+           exit idir_loop
+        endif
+        ! 1.3 divertor targets
+        if (iz_map == DIVERTOR) exit
 
-        if (Z(iz)%map_p(idir) == DIVERTOR) exit
-        if (Z(iz)%map_p(idir) == iz0) exit idir_loop
+        ! 2. connect mesh to next zone
+        write (6, *) 'connect zone ', iz, ' to ', iz_map
+        call Mtmp(iz)%connect_to(Mtmp(iz_map), POLOIDAL, idir)
+        iz        = iz_map
 
-        iz        = Z(iz)%map_p(idir)
-        !call Z(iz)%generate_mesh()
+        ! 3. generate mesh in next zone
+        call Z(iz)%generate_mesh(Mtmp(iz), irside, iblock, Sr)
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
 

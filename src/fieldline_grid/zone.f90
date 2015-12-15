@@ -154,15 +154,23 @@ module mod_zone
 !=======================================================================
 ! Generate mesh from reference discretization on radial and poloidal
 ! boundaries. M%ir0 and M%ip0 must be set!
+! irside = side of radial reference surface
 !=======================================================================
-  subroutine generate_mesh(this, M, iblock, Sr)
+  subroutine generate_mesh(this, M, irside, iblock, Sr)
   use fieldline_grid, only: n_interpolate
   use inner_boundary, only: C_in, DPsiN1
   use mesh_spacing
   class(t_zone)                   :: this
   type(t_mfs_mesh), intent(inout) :: M
-  integer,          intent(in)    :: iblock
+  integer,          intent(in)    :: irside, iblock
   type(t_spacing),  intent(in)    :: Sr
+
+  integer :: iri, ix1, ix2
+
+
+  iri = this%rad_bound(irside)
+  ix1 = radial_interface(iri)%inode(-1)
+  ix2 = radial_interface(iri)%inode( 1)
 
 
   ! 1. from strike point to X-point
