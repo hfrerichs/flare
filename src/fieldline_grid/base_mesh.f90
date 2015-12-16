@@ -206,6 +206,8 @@ module base_mesh
   subroutine setup_topology()
   use fieldline_grid
 
+  ! 1. initialize topology
+  layers = -1
   select case(topology)
   ! lower single null (LSN)
   case(TOPO_LSN, TOPO_LSN1)
@@ -213,33 +215,60 @@ module base_mesh
      call initialize_interfaces(3) ! radial interfaces
      nX = 1;  allocate(connectX(nX))
      connectX(1) = 1
-     layers      = 3
 
+  ! disconnected double null (DDN)
+  case(TOPO_DDN, TOPO_DDN1)
+     call initialize_zones(16)
+     call initialize_interfaces(8) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = -2
+     connectX(2) = -2
+
+  ! connected double null (CDN)
+  case(TOPO_CDN, TOPO_CDN1)
+     !call initialize_zones(6)
+     !call initialize_interfaces(3) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = 2
+     connectX(2) = 1
+
+  case default
+     write (6, 9000) trim(topology)
+     stop
+  end select
+  call initialize_poloidal_interfaces(4*nX)
+
+
+
+  ! 2. setup zone topology
+  select case(topology)
+  ! lower single null (LSN)
+  case(TOPO_LSN, TOPO_LSN1)
      ! innermost domain
-     call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC, 1) ! periodic poloidal boundaries
+     call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC, 1) ! periodic poloidal boundaries at interface R1
      call Z(1)%setup_boundary(UPPER, POLOIDAL, PERIODIC, 1) ! periodic poloidal boundaries
      call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(2), 1)  ! connect to main SOL
+     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(2), 1)  ! connect to main SOL at interface I1
 
      ! main SOL
      call Z(2)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
-     call Z(2)%setup_mapping (LOWER, POLOIDAL, Z(3), 0)  ! connect to right divertor leg
-     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(4), 0)  ! connect to left divertor leg
+     call Z(2)%setup_mapping (LOWER, POLOIDAL, Z(3), 2)     ! connect to right divertor leg at interface R2
+     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(4))  ! connect to left divertor leg
 
      ! right divertor leg (SOL)
      call Z(3)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(3)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
-     call Z(3)%setup_mapping (LOWER, RADIAL,   Z(5), 2)  ! connect to right PFR
+     call Z(3)%setup_mapping (LOWER, RADIAL,   Z(5), 2)  ! connect to right PFR at interface I2
 
      ! left divertor leg (SOL)
      call Z(4)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(4)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! divertor target
-     call Z(4)%setup_mapping (LOWER, RADIAL,   Z(6), 3)  ! connect to right PFR
+     call Z(4)%setup_mapping (LOWER, RADIAL,   Z(6), 3)  ! connect to right PFR at interface I3
 
      ! right divertor leg (PFR)
      call Z(5)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(5)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
-     call Z(5)%setup_mapping (UPPER, POLOIDAL, Z(6), 0)  ! connect to left PFR
+     call Z(5)%setup_mapping (UPPER, POLOIDAL, Z(6), 4)  ! connect to left PFR at interface R4
 
      ! left divertor leg (PFR)
      call Z(6)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
@@ -250,86 +279,67 @@ module base_mesh
 
   ! DDN
   case(TOPO_DDN, TOPO_DDN1)
-     call initialize_zones(16)
-     call initialize_interfaces(8) ! radial interfaces
-     nX = 2;  allocate(connectX(nX))
-     connectX(1) = -2
-     connectX(2) = -2
-     layers      = 6
-
      ! innermost domain
      call Z(1)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(1)%setup_mapping  (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL
+     call Z(1)%setup_mapping  (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL at interface 1
      call Z(2)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
-     call Z(2)%setup_mapping  (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL
-     call Z(1)%setup_mapping  (UPPER, POLOIDAL, Z(2), 0)  ! connect left and right segments
-     call Z(2)%setup_mapping  (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments
+     call Z(2)%setup_mapping  (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL at interface 2
+     call Z(1)%setup_mapping  (UPPER, POLOIDAL, Z(2))     ! connect left and right segments
+     call Z(2)%setup_mapping  (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments at interface R1
 
      ! primary SOL
-     call Z(3)%setup_mapping  (UPPER, RADIAL,   Z(5), 0)  ! connect to right secondary SOL
-     call Z(4)%setup_mapping  (UPPER, RADIAL,   Z(6), 0)  ! connect to left secondary SOL
-     call Z(3)%setup_mapping  (UPPER, POLOIDAL, Z(4), 0)  ! connect left and right segments
-     call Z(3)%setup_mapping  (LOWER, POLOIDAL, Z(7), 0)  ! connect to right divertor leg
+     call Z(3)%setup_mapping  (UPPER, RADIAL,   Z(5))     ! connect to right secondary SOL
+     call Z(4)%setup_mapping  (UPPER, RADIAL,   Z(6))     ! connect to left secondary SOL
+     call Z(3)%setup_mapping  (UPPER, POLOIDAL, Z(4))     ! connect left and right segments
+     call Z(3)%setup_mapping  (LOWER, POLOIDAL, Z(7))     ! connect to right divertor leg
      call Z(7)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
-     call Z(4)%setup_mapping  (UPPER, POLOIDAL, Z(8), 0)  ! connect to left divertor leg
+     call Z(4)%setup_mapping  (UPPER, POLOIDAL, Z(8))     ! connect to left divertor leg
      call Z(8)%setup_boundary (UPPER, POLOIDAL, DIVERTOR) ! left divertor target
-     call Z(7)%setup_mapping  (UPPER, RADIAL,   Z(9), 0)  !
-     call Z(8)%setup_mapping  (UPPER, RADIAL,   Z(12), 0) !
+     call Z(7)%setup_mapping  (UPPER, RADIAL,   Z(9))     !
+     call Z(8)%setup_mapping  (UPPER, RADIAL,   Z(12))    !
 
      ! secondary SOL
      ! right branch
      call Z(5)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
-     call Z(5)%setup_mapping  (LOWER, POLOIDAL, Z(9), 0)  ! connect to right divertor leg (right branch)
+     call Z(5)%setup_mapping  (LOWER, POLOIDAL, Z(9))     ! connect to right divertor leg (right branch)
      call Z(9)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
-     call Z(5)%setup_mapping  (UPPER, POLOIDAL, Z(10), 0) ! connect to left divertor leg  (right branch)
+     call Z(5)%setup_mapping  (UPPER, POLOIDAL, Z(10))    ! connect to left divertor leg  (right branch)
      call Z(10)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
      call Z(9)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(10)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
      ! left branch
      call Z(6)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
-     call Z(6)%setup_mapping  (LOWER, POLOIDAL, Z(11), 0) ! connect to right divertor leg (left branch)
+     call Z(6)%setup_mapping  (LOWER, POLOIDAL, Z(11))    ! connect to right divertor leg (left branch)
      call Z(11)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! right divertor target
-     call Z(6)%setup_mapping  (UPPER, POLOIDAL, Z(12), 0) ! connect to left divertor leg  (left branch)
+     call Z(6)%setup_mapping  (UPPER, POLOIDAL, Z(12))    ! connect to left divertor leg  (left branch)
      call Z(12)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
      call Z(11)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(12)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
 
      ! primary PFR
-     call Z(7)%setup_mapping  (LOWER, RADIAL,   Z(13), 2)  ! connect to right primary PFR
+     call Z(7)%setup_mapping  (LOWER, RADIAL,   Z(13), 2)  ! connect to right primary PFR at interface I2
      call Z(13)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
-     call Z(8)%setup_mapping  (LOWER, RADIAL,   Z(14), 3)  ! connect to left primary PFR
+     call Z(8)%setup_mapping  (LOWER, RADIAL,   Z(14), 3)  ! connect to left primary PFR at interface I3
      call Z(14)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
      call Z(13)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
-     call Z(13)%setup_mapping (UPPER, POLOIDAL, Z(14), 0)  ! connect to left primary PFR
+     call Z(13)%setup_mapping (UPPER, POLOIDAL, Z(14))     ! connect to left primary PFR
      call Z(14)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
 
      ! secondary PFR
-     call Z(10)%setup_mapping (LOWER, RADIAL,   Z(15), 0)  ! connect to right secondary PFR
+     call Z(10)%setup_mapping (LOWER, RADIAL,   Z(15))     ! connect to right secondary PFR
      call Z(15)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
-     call Z(11)%setup_mapping (LOWER, RADIAL,   Z(16), 0)  ! connect to left secondary PFR
+     call Z(11)%setup_mapping (LOWER, RADIAL,   Z(16))     ! connect to left secondary PFR
      call Z(16)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
-     call Z(16)%setup_mapping (UPPER, POLOIDAL, Z(15), 0)  ! connect to left secondary PFR
+     call Z(16)%setup_mapping (UPPER, POLOIDAL, Z(15))     ! connect to left secondary PFR
      call Z(16)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
      call Z(15)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
 
      call undefined_zone_boundary_check(.true.)
 
-  ! CDN
+  ! connected double null (CDN)
   case(TOPO_CDN, TOPO_CDN1)
-     !call initialize_interfaces(3) ! radial interfaces
-     nX = 2;  allocate(connectX(nX))
-     connectX(1) = 2
-     connectX(2) = 1
-     !ncell = 6
-     !allocate (neighbor(ncell,4,2))
-
-  case default
-     write (6, 9000) trim(topology)
-     stop
   end select
 
-
-  call initialize_poloidal_interfaces(4*nX)
 
  9000 format('error: invalid topology ', a, '!')
   end subroutine setup_topology
@@ -701,11 +711,12 @@ module base_mesh
   enddo
 
 
-!  layers = 0
+  allocate (Mtmp(nzone))
   do il=0,layers-1
      write (6, *) 'layer ', il
      do i=1,L(il)%nz
         iz = L(il)%iz(i)
+        call Mtmp(iz)%initialize(Z(iz)%nr, Z(iz)%np, phi)
         write (6, 1000) iz, Z(iz)%np, Z(iz)%nr, Z(iz)%ipl, cside(Z(iz)%ipl_side)
      enddo
   enddo
@@ -730,14 +741,16 @@ module base_mesh
   type(t_mfs_mesh)   :: Mtmp2(2), Mtmp3(3), Mtmp4(4)
   type(t_spacing)    :: Sp, SpL, SpR, Sr
 
+  integer, dimension(:), allocatable :: markz
   real(real64) :: phi
-  integer      :: il, il0, iz, iz0
+  integer      :: i, il, il0, iz, iz0, iz_map, iside
 
 
   ! initialize block
   call setup_layers(iblock)
   il0 = iblock * layers
   allocate (M(0:layers-1))
+  allocate (markz(nzone));  markz = 0
 
 
   call load_local_resolution(iblock)
@@ -748,7 +761,6 @@ module base_mesh
   enddo
 
   ! mesh discretization for poloidal zones
-  allocate (Mtmp(nzone))
 
 
   ! generate core-interface
@@ -756,16 +768,13 @@ module base_mesh
   if (connectX(1) == 1) then
      ! single zone
      call Sp%init(poloidal_spacing(il))
-     call Mtmp(1)%initialize(nr(il), np(il), phi)
      call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
   else
      ! left and right sub-zones
      call SpR%init(poloidal_spacing_R(il))
-     call Mtmp(1)%initialize(nr(il), npR(il), phi)
      call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
 
      call SpL%init(poloidal_spacing_L(il))
-     call Mtmp(2)%initialize(nr(il), npL(il), phi)
      call Mtmp(2)%setup_boundary_nodes(UPPER, RADIAL, S0L, SpL)
   endif
 
@@ -799,9 +808,13 @@ module base_mesh
   !call generate_layer(0, 1)
   write (6, *)
   do il=0,layers-1
-     ! setup radial interface of base zone
-     if (il > 0) then
-     endif
+     ! base zone index
+     iz0 = L(il)%iz(L(il)%i0)
+
+     ! set up radial interface at base zone
+     !if (il > 0) then
+        !iz0_map = Z(iz0)%
+     !endif
 
      ! set up radial spacings
      call Sr%init(radial_spacing(il))
@@ -810,12 +823,29 @@ module base_mesh
      !call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
 
      call generate_layer(il, iz0, iblock, Sr)
-     exit
+
+
+     ! map radial interface to next zones
+     do i=1,L(il)%nz
+        iz = L(il)%iz(i)
+        markz(iz) = 1 ! mark zones in this layer
+
+        do iside=-1,1,2
+           iz_map = Z(iz)%map_r(iside)
+           ! map to another zone?
+           if (iz_map < 0) cycle
+
+           ! map poloidal resolution
+           if (markz(iz_map) == 0) then
+              call Mtmp(iz)%connect_to(Mtmp(iz_map), RADIAL, iside)
+           endif
+        enddo
+     enddo
   enddo
 
 
   ! debugging
-  do iz=1,2
+  do iz=1,nzone
      call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
   enddo
 
@@ -844,7 +874,7 @@ module base_mesh
   integer :: idir, irside, iri, ipside, ipi, iz, iz_map, npz(-1:1)
 
 
-  write (6, 1000) il
+  write (6, 1000) il, iz0
   write (6, *) 'reference discretization at:'
 
 
@@ -928,7 +958,7 @@ module base_mesh
   enddo idir_loop
   write (6, *) 'poloidal zones in layer 0: ', npz
 
- 1000 format('Generate layer ', i0)
+ 1000 format('Generate layer ', i0, ' from base zone ', i0)
  9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
  9001 format('undefined reference nodes on radial boundary!')
  9002 format('undefined radial interface!')
