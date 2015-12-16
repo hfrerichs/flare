@@ -1,4 +1,4 @@
-module mod_zone
+module elements
   use iso_fortran_env
   use curve2D, only: UPPER, LOWER
   use mesh_interface
@@ -15,20 +15,19 @@ module mod_zone
      UNDEFINED      = -100
 
 
-  ! grid layout: zone = structured domain of cells
-  ! This is not the same as a zone in EMC3! EMC3 zones are referred to as layer here, which can be made out of several zones connected in poloidal direction
-  type, public :: t_zone
-     ! zone number
+  ! grid layout: element = structured domain of cells
+  type, public :: t_element
+     ! element id
      integer :: id
 
-     ! zone neighbors
+     ! mapping to neighbor elements
      integer :: map_r(-1:1) = UNDEFINED, map_p(-1:1) = UNDEFINED
-     ! zone boundaries
+     ! boundary geometry
      integer :: rad_bound(-1:1) = UNDEFINED, pol_bound(-1:1) = UNDEFINED
      !integer           :: neighbor_id(4), neighbor_surf(4)
      !integer           :: mapping(4)
 
-     ! radial and poloidal resolution in zone
+     ! radial and poloidal resolution in element
      integer :: nr = UNDEFINED, np = UNDEFINED
      ! radial layer index
      integer :: irl = UNDEFINED
@@ -41,14 +40,14 @@ module mod_zone
      procedure :: setup_boundary
      procedure :: generate_mesh
      procedure :: define
-  end type t_zone
-  type(t_zone), dimension(:), allocatable, public :: Z
-  integer, public :: nzone
+  end type t_element
+  type(t_element), dimension(:), allocatable, public :: Z
+  integer, public :: nelement
 
 
-  public :: initialize_zones
-  public :: setup_zones
-  public :: undefined_zone_boundary_check
+  public :: initialize_elements
+  public :: setup_elements
+  public :: undefined_element_boundary_check
 
   contains
 !=======================================================================
@@ -59,7 +58,7 @@ module mod_zone
 ! define surface mapping
 !=======================================================================
   subroutine define(this, surface, mapping)
-  class(t_zone)          :: this
+  class(t_element)       :: this
   integer, intent(inout) :: surface
   integer, intent(in)    :: mapping
 
@@ -68,7 +67,7 @@ module mod_zone
      surface = mapping
   else
      write (6, *) 'error: mapping/boundary surface is alread defined!'
-     write (6, *) 'zone id = ', this%id
+     write (6, *) 'element id = ', this%id
      write (6, *) 'surface = ', surface
      write (6, *) 'value   = ', mapping
      stop
@@ -80,13 +79,13 @@ module mod_zone
 
 
 !=======================================================================
-! set up mapping between zones
+! set up mapping between elements
 !=======================================================================
-  subroutine setup_mapping(this, side, boundary, zone, interface_id)
-  class(t_zone)               :: this
-  integer,      intent(in)    :: side, boundary
-  type(t_zone), intent(inout) :: zone
-  integer,      intent(in), optional :: interface_id
+  subroutine setup_mapping(this, side, boundary, element, interface_id)
+  class(t_element)               :: this
+  integer,         intent(in)    :: side, boundary
+  type(t_element), intent(inout) :: element
+  integer,         intent(in), optional :: interface_id
 
   integer :: id
 
@@ -98,37 +97,37 @@ module mod_zone
 
   ! check input for side
   if (side.ne.UPPER .and. side.ne.LOWER) then
-     write (6, *) 'error in t_zone%setup_mapping: invalid side = ', side
+     write (6, *) 'error in t_element%setup_mapping: invalid side = ', side
      stop
   endif
 
 
-  ! set up mapping between zones
+  ! set up mapping between elements
   select case(boundary)
   case(RADIAL)
      if (id /= UNDEFINED) then
      if (id < 1  .or.  id > radial_interfaces) then
-        write (6, *) 'error in t_zone%setup_mapping: invalid rad. interface id = ', id
+        write (6, *) 'error in t_element%setup_mapping: invalid rad. interface id = ', id
         stop
      endif
      endif
-     call this%define(this%map_r(side),  zone%id) ! map this zone to neighbor zone
-     call this%define(zone%map_r(-side), this%id) ! set up return map
+     call this%define(this%map_r(side),  element%id) ! map this element to neighbor element
+     call this%define(element%map_r(-side), this%id) ! set up return map
      call this%define(this%rad_bound(side),  id)
-     call this%define(zone%rad_bound(-side), id)
+     call this%define(element%rad_bound(-side), id)
   case(POLOIDAL)
      if (id /= UNDEFINED) then
      if (id < 1  .or.  id > poloidal_interfaces) then
-        write (6, *) 'error in t_zone%setup_mapping: invalid pol. interface id = ', id
+        write (6, *) 'error in t_element%setup_mapping: invalid pol. interface id = ', id
         stop
      endif
      endif
-     call this%define(this%map_p(side),  zone%id) ! map this zone to neighbor zone
-     call this%define(zone%map_p(-side), this%id) ! set up return map
+     call this%define(this%map_p(side),  element%id) ! map this element to neighbor element
+     call this%define(element%map_p(-side), this%id) ! set up return map
      call this%define(this%pol_bound(side),  id)
-     call this%define(zone%pol_bound(-side), id)
+     call this%define(element%pol_bound(-side), id)
   case default
-     write (6, *) 'error in t_zone%setup_mapping: invalid boundary = ', boundary
+     write (6, *) 'error in t_element%setup_mapping: invalid boundary = ', boundary
      stop
   end select
 
@@ -139,17 +138,17 @@ module mod_zone
 
 
 !=======================================================================
-! set up zone boundary (boundary_type = CORE, VACUUM, PERIODIC, DIVERTOR)
+! set up element boundary (boundary_type = CORE, VACUUM, PERIODIC, DIVERTOR)
 !=======================================================================
   subroutine setup_boundary(this, side, boundary, boundary_type, iinterface)
-  class(t_zone)               :: this
+  class(t_element)            :: this
   integer,      intent(in)    :: side, boundary, boundary_type
   integer,      intent(in), optional :: iinterface
 
 
   ! check input for side
   if (side.ne.UPPER .and. side.ne.LOWER) then
-     write (6, *) 'error in t_zone%setup_boundary: invalid side = ', side
+     write (6, *) 'error in t_element%setup_boundary: invalid side = ', side
      stop
   endif
 
@@ -158,7 +157,7 @@ module mod_zone
   select case(boundary_type)
   case(PERIODIC,CORE,VACUUM,DIVERTOR)
   case default
-     write (6, *) 'error in t_zone%setup_boundary: invalid boundary_type = ', boundary_type
+     write (6, *) 'error in t_element%setup_boundary: invalid boundary_type = ', boundary_type
      stop
   end select
 
@@ -171,7 +170,7 @@ module mod_zone
      call this%define(this%map_p(side), boundary_type)
      if (present(iinterface)) call this%define(this%pol_bound(side),  iinterface)
   case default
-     write (6, *) 'error in t_zone%setup_boundary: invalid boundary = ', boundary
+     write (6, *) 'error in t_element%setup_boundary: invalid boundary = ', boundary
      stop
   end select
 
@@ -190,7 +189,7 @@ module mod_zone
   use fieldline_grid, only: n_interpolate
   use inner_boundary, only: C_in, DPsiN1
   use mesh_spacing
-  class(t_zone)                   :: this
+  class(t_element)                :: this
   type(t_mfs_mesh), intent(inout) :: M
   integer,          intent(in)    :: irside, ipside, iblock
   type(t_spacing),  intent(in)    :: Sr
@@ -227,7 +226,7 @@ module mod_zone
      endif
   endif
 
- 9000 format('error in t_zone%generate_mesh:')
+ 9000 format('error in t_element%generate_mesh:')
  9001 format('mesh generation for map_p = ', i0, ', ', i0, ' not implemented!')
   end subroutine generate_mesh
 !=======================================================================
@@ -235,29 +234,29 @@ module mod_zone
 
 
 !=======================================================================
-! initialize zone array, and set up zone IDs
+! initialize element array, and set up element IDs
 !=======================================================================
-  subroutine initialize_zones(n)
+  subroutine initialize_elements(n)
   integer, intent(in) :: n
 
   integer :: i
 
 
-  nzone = n
+  nelement = n
   allocate (Z(n))
   do i=1,n
      Z(i)%id = i
   enddo
 
-  end subroutine initialize_zones
+  end subroutine initialize_elements
 !=======================================================================
 
 
 
 !=======================================================================
-! automatic setup of zone topology
+! automatic setup of element topology
 !=======================================================================
-  subroutine setup_zones(nX, connectX)
+  subroutine setup_elements(nX, connectX)
   integer, intent(in) :: nX, connectX(nX)
 
 
@@ -270,7 +269,7 @@ module mod_zone
   do ix=1,nX
      jx = connectX(ix)
 
-     ! max 8 zones per X-point, 2 for each GradPsiN direction
+     ! max 8 elements per X-point, 2 for each GradPsiN direction
 
      ! 1. towards core
      ! 1.1 connect back to same X-point
@@ -291,21 +290,21 @@ module mod_zone
      endif
   enddo
 
-  end subroutine setup_zones
+  end subroutine setup_elements
 !=======================================================================
 
 
 
 !=======================================================================
-! check left over zone boundaries
+! check left over element boundaries
 !=======================================================================
-  subroutine undefined_zone_boundary_check(debug)
+  subroutine undefined_element_boundary_check(debug)
   logical, intent(in) :: debug
 
   integer :: iz, iside
 
 
-  do iz=1,nzone
+  do iz=1,nelement
      do iside=-1,1,2
         ! radial boundaries
         if (debug) write (6, 1001) iz, iside, Z(iz)%map_r(iside)
@@ -325,12 +324,12 @@ module mod_zone
      enddo
   enddo
 
- 1001 format('zone ', i0, ',   radial boundary ', i2, ' connects to zone ', i0)
- 1002 format('zone ', i0, ', poloidal boundary ', i2, ' connects to zone ', i0)
+ 1001 format('element ', i0, ',   radial boundary ', i2, ' connects to element ', i0)
+ 1002 format('element ', i0, ', poloidal boundary ', i2, ' connects to element ', i0)
  9001 format('error: undefined radial boundary!')
  9002 format('error: undefined poloidal boundary!')
- 9003 format('zone = ', i0, ', iside = ', i0)
-  end subroutine undefined_zone_boundary_check
+ 9003 format('element = ', i0, ', iside = ', i0)
+  end subroutine undefined_element_boundary_check
 !=======================================================================
 
-end module mod_zone
+end module elements

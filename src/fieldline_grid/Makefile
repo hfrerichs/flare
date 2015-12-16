@@ -13,7 +13,7 @@ OBJECTS =  \
                base_grid.o\
                mesh_interface.o\
                mfs_mesh.o\
-               zone.o\
+               elements.o\
                base_mesh.o\
                vacuum_domain.o\
                trace_nodes.o\

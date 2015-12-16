@@ -5,7 +5,7 @@ module base_mesh
   use separatrix
   use xpaths
   use mesh_interface
-  use mod_zone
+  use elements
   use mfs_mesh
   implicit none
   private
@@ -17,13 +17,13 @@ module base_mesh
      RIGHT  = -1
 
   type t_layer
-     ! number of (poloidal) zones in layer
+     ! number of (poloidal) elements in layer
      integer :: nz
 
-     ! zone indices
+     ! element indices
      integer, dimension(:), allocatable :: iz
 
-     ! base zone index (i0), poloidal layer (ipl) and side (ipl_side)
+     ! base element index (i0), poloidal layer (ipl) and side (ipl_side)
      integer   :: i0
 
      contains
@@ -67,7 +67,7 @@ module base_mesh
 
 
   if (nz <= 0) then
-     write (6, *) 'error in t_layer%initialize: number of zones must be positive!'
+     write (6, *) 'error in t_layer%initialize: number of elements must be positive!'
      stop
   endif
 
@@ -76,7 +76,7 @@ module base_mesh
   allocate (this%iz(nz))
   this%iz = iz
 
-  ! set base zone index
+  ! set base element index
   this%i0 = i0
 
   end subroutine initialize
@@ -111,15 +111,15 @@ module base_mesh
         write (6, 9000);  write(6, 9001);  stop
      endif
 
-  ! case B: outer layers -> poloidal resolution is already defined in at least one zone
+  ! case B: outer layers -> poloidal resolution is already defined in at least one element
   else
-     ! 1. set radial resolution throughout zone
+     ! 1. set radial resolution throughout element
      do i=1,this%nz
         iz = this%iz(i);  Z(iz)%nr = nr(il)
      enddo
 
      ! 2. set poloidal resolution on lower/right side of layer
-     ! 2.1 find index of first zone with defined poloidal resolution
+     ! 2.1 find index of first element with defined poloidal resolution
      do i1=1,this%nz
         iz = this%iz(i1)
         if (Z(iz)%np /= UNDEFINED) exit
@@ -138,7 +138,7 @@ module base_mesh
      enddo
 
      ! 3. set poloidal resolution on upper/left side of layer
-     ! 3.1 find index of first zone with defined poloidal resolution
+     ! 3.1 find index of first element with defined poloidal resolution
      do i1=this%nz,1,-1
         iz = this%iz(i1)
         if (Z(iz)%np /= UNDEFINED) exit
@@ -160,8 +160,8 @@ module base_mesh
   endif
 
  9000 format('error in t_layer%setup_resolution:')
- 9001 format('innermost domain with ', i0, ' > 2 zones not supported!')
- 9002 format('poloidal resolution undefined in all zones!')
+ 9001 format('innermost domain with ', i0, ' > 2 elements not supported!')
+ 9002 format('poloidal resolution undefined in all elements!')
   end subroutine setup_resolution
 !=======================================================================
 
@@ -179,7 +179,7 @@ module base_mesh
 
      do iside=-1,1,2
         iz_map = Z(iz)%map_r(iside)
-        ! map to another zone?
+        ! map to another element?
         if (iz_map < 0) cycle
 
         ! map poloidal resolution
@@ -188,14 +188,14 @@ module base_mesh
            Z(iz_map)%ipl      = Z(iz)%ipl
            Z(iz_map)%ipl_side = Z(iz)%ipl_side
 
-        ! poloidal resolution in mapped zone already defined?
+        ! poloidal resolution in mapped element already defined?
         elseif (Z(iz_map)%np /= Z(iz)%np) then
            write (6, 9000) iz, iz_map, Z(iz)%np, Z(iz_map)%np;  stop
         endif
      enddo
   enddo
 
- 9000 format('error in t_layer%map_poloidal_resolution:'//, 'zone ', i0, ' maps to ', i0, &
+ 9000 format('error in t_layer%map_poloidal_resolution:'//, 'element ', i0, ' maps to ', i0, &
              ', but poloidal resolution is ', i0, ' vs. ', i0, '!')
   end subroutine map_poloidal_resolution
 !=======================================================================
@@ -211,14 +211,14 @@ module base_mesh
   select case(topology)
   ! lower single null (LSN)
   case(TOPO_LSN, TOPO_LSN1)
-     call initialize_zones(6)
+     call initialize_elements(6)
      call initialize_interfaces(3) ! radial interfaces
      nX = 1;  allocate(connectX(nX))
      connectX(1) = 1
 
   ! disconnected double null (DDN)
   case(TOPO_DDN, TOPO_DDN1)
-     call initialize_zones(16)
+     call initialize_elements(16)
      call initialize_interfaces(8) ! radial interfaces
      nX = 2;  allocate(connectX(nX))
      connectX(1) = -2
@@ -240,7 +240,7 @@ module base_mesh
 
 
 
-  ! 2. setup zone topology
+  ! 2. setup element topology
   select case(topology)
   ! lower single null (LSN)
   case(TOPO_LSN, TOPO_LSN1)
@@ -273,8 +273,6 @@ module base_mesh
      ! left divertor leg (PFR)
      call Z(6)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
      call Z(6)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! divertor target
-
-     call undefined_zone_boundary_check(.true.)
 
 
   ! DDN
@@ -334,12 +332,11 @@ module base_mesh
      call Z(16)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
      call Z(15)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
 
-     call undefined_zone_boundary_check(.true.)
 
   ! connected double null (CDN)
   case(TOPO_CDN, TOPO_CDN1)
   end select
-
+  call undefined_element_boundary_check(.true.)
 
  9000 format('error: invalid topology ', a, '!')
   end subroutine setup_topology
@@ -448,7 +445,7 @@ module base_mesh
 
 
   ! 4.2 generate radial paths from X-points ----------------------------
-     ! and set up interfaces between zones
+     ! and set up interfaces between elements
      !call Iface(1)%set_curve(S0)
   write (6, 3000)
   iSOL = 0
@@ -640,7 +637,7 @@ module base_mesh
 
 
 !=======================================================================
-  subroutine setup_layers(iblock)
+  subroutine initialize_layers(iblock)
   use fieldline_grid
   integer, intent(in) :: iblock
 
@@ -657,35 +654,35 @@ module base_mesh
 
 
   write (6, *) 'setting up radial layers:'
-  allocate (markz(nzone), izl(-nzone:nzone))
+  allocate (markz(nelement), izl(-nelement:nelement))
 
   do irun=COUNT_RUN,SETUP_RUN
   markz = 0
   il    = 0
   if (irun == SETUP_RUN) allocate(L(0:layers-1))
   layer_loop: do
-     ! exit if no more zones are unmarked
-     if (sum(markz) == nzone) exit
+     ! exit if no more elements are unmarked
+     if (sum(markz) == nelement) exit
 
      ! start new layer
      il  = il + 1
      izl = 0;  nzl = 0
 
-     ! find first unmarked zone
-     do iz=1,nzone
+     ! find first unmarked element
+     do iz=1,nelement
         if (markz(iz) == 0) exit
      enddo
 
-     ! set base zone in layer
+     ! set base element in layer
      iz0 = iz;  markz(iz) = 1;  izl(0) = iz0
 
      ! scan in both poloidal directions
      dir_loop: do idir=-1,1,2
-        ! start poloidal scan at base zone
+        ! start poloidal scan at base element
         iz = iz0
         poloidal_scan: do
            iz_map = Z(iz)%map_p(idir)
-           ! poloidal scan in both directions finished when returning to base zone
+           ! poloidal scan in both directions finished when returning to base element
            if (iz_map == PERIODIC) exit dir_loop
            if (iz_map == iz0) exit dir_loop
            ! poloidal scan in this direction finished at divertor targets
@@ -697,10 +694,10 @@ module base_mesh
      enddo dir_loop
 
      if (irun == SETUP_RUN) then
-        ! now set up zone indices in this layer
+        ! now set up element indices in this layer
         call L(il-1)%initialize(nzl(-1)+1+nzl(1), izl(-nzl(-1):nzl(1)), nzl(-1)+1)
 
-        ! set up resolution in each zone
+        ! set up resolution in each element
         call L(il-1)%setup_resolution(il-1)
 
         ! map poloidal resolution in radial direction
@@ -711,7 +708,7 @@ module base_mesh
   enddo
 
 
-  allocate (Mtmp(nzone))
+  allocate (Mtmp(nelement))
   do il=0,layers-1
      write (6, *) 'layer ', il
      do i=1,L(il)%nz
@@ -725,7 +722,7 @@ module base_mesh
 
   deallocate (markz, izl)
 
-  end subroutine setup_layers
+  end subroutine initialize_layers
 !=======================================================================
 
 
@@ -747,10 +744,10 @@ module base_mesh
 
 
   ! initialize block
-  call setup_layers(iblock)
+  call initialize_layers(iblock)
   il0 = iblock * layers
   allocate (M(0:layers-1))
-  allocate (markz(nzone));  markz = 0
+  allocate (markz(nelement));  markz = 0
 
 
   call load_local_resolution(iblock)
@@ -760,17 +757,17 @@ module base_mesh
      call M(il)%initialize(nr(il), np(il), phi)
   enddo
 
-  ! mesh discretization for poloidal zones
+  ! mesh discretization for poloidal elements
 
 
   ! generate core-interface
   il = 0
   if (connectX(1) == 1) then
-     ! single zone
+     ! single element
      call Sp%init(poloidal_spacing(il))
      call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
   else
-     ! left and right sub-zones
+     ! left and right elements
      call SpR%init(poloidal_spacing_R(il))
      call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
 
@@ -808,7 +805,7 @@ module base_mesh
   !call generate_layer(0, 1)
   write (6, *)
   do il=0,layers-1
-     ! base zone index
+     ! base element index
      iz0 = L(il)%iz(L(il)%i0)
 
      ! set up radial interface at base zone
@@ -825,14 +822,14 @@ module base_mesh
      call generate_layer(il, iz0, iblock, Sr)
 
 
-     ! map radial interface to next zones
+     ! map radial interface to next element
      do i=1,L(il)%nz
         iz = L(il)%iz(i)
-        markz(iz) = 1 ! mark zones in this layer
+        markz(iz) = 1 ! mark elements in this layer
 
         do iside=-1,1,2
            iz_map = Z(iz)%map_r(iside)
-           ! map to another zone?
+           ! map to another element?
            if (iz_map < 0) cycle
 
            ! map poloidal resolution
@@ -845,7 +842,7 @@ module base_mesh
 
 
   ! debugging
-  do iz=1,nzone
+  do iz=1,nelement
      call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
   enddo
 
@@ -914,11 +911,11 @@ module base_mesh
   call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr)
 
 
-  ! generate mesh in base zone
+  ! generate mesh in base element
   call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr)
 
 
-  ! how many poloidal zones in this layer?
+  ! how many poloidal elements in this layer?
   npz    = 0
   npz(0) = 1
   idir_loop: do idir=1,-1,-2
@@ -926,12 +923,12 @@ module base_mesh
      poloidal_scan: do
         iz_map = Z(iz)%map_p(idir)
         ! 1. poloidal boundary of layer?
-        ! 1.1 periodic boundaries: connect zone back to itself
+        ! 1.1 periodic boundaries: connect element back to itself
         if (iz_map == PERIODIC) then
            call Mtmp(iz)%connect_to(Mtmp(iz), POLOIDAL, LOWER_TO_UPPER)
            exit idir_loop
         endif
-        ! 1.2 back to initial/base zone
+        ! 1.2 back to initial/base element
         if (iz_map == iz0) then
            call Mtmp(iz)%connect_to(Mtmp(iz0), POLOIDAL, LOWER_TO_UPPER)
            exit idir_loop
@@ -939,12 +936,12 @@ module base_mesh
         ! 1.3 divertor targets
         if (iz_map == DIVERTOR) exit
 
-        ! 2. connect mesh to next zone
-        write (6, *) 'connect zone ', iz, ' to ', iz_map
+        ! 2. connect mesh to next element
+        write (6, *) 'connect element ', iz, ' to ', iz_map
         call Mtmp(iz)%connect_to(Mtmp(iz_map), POLOIDAL, idir)
         iz        = iz_map
 
-        ! 3. generate mesh in next zone
+        ! 3. generate mesh in next element
         call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr)
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
@@ -956,9 +953,9 @@ module base_mesh
      !else
      !endif
   enddo idir_loop
-  write (6, *) 'poloidal zones in layer 0: ', npz
+  write (6, *) 'poloidal elements in layer 0: ', npz
 
- 1000 format('Generate layer ', i0, ' from base zone ', i0)
+ 1000 format('Generate layer ', i0, ' from base element ', i0)
  9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
  9001 format('undefined reference nodes on radial boundary!')
  9002 format('undefined radial interface!')
