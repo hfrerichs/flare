@@ -82,11 +82,18 @@ module mod_zone
 !=======================================================================
 ! set up mapping between zones
 !=======================================================================
-  subroutine setup_mapping(this, side, boundary, zone, iinterface)
+  subroutine setup_mapping(this, side, boundary, zone, interface_id)
   class(t_zone)               :: this
   integer,      intent(in)    :: side, boundary
   type(t_zone), intent(inout) :: zone
-  integer,      intent(in)    :: iinterface
+  integer,      intent(in), optional :: interface_id
+
+  integer :: id
+
+
+  ! set default values for optional input
+  id = UNDEFINED
+  if (present(interface_id)) id = interface_id
 
 
   ! check input for side
@@ -99,23 +106,32 @@ module mod_zone
   ! set up mapping between zones
   select case(boundary)
   case(RADIAL)
+     if (id /= UNDEFINED) then
+     if (id < 1  .or.  id > radial_interfaces) then
+        write (6, *) 'error in t_zone%setup_mapping: invalid rad. interface id = ', id
+        stop
+     endif
+     endif
      call this%define(this%map_r(side),  zone%id) ! map this zone to neighbor zone
      call this%define(zone%map_r(-side), this%id) ! set up return map
-     call this%define(this%rad_bound(side),  iinterface)
-     call this%define(zone%rad_bound(-side), iinterface)
+     call this%define(this%rad_bound(side),  id)
+     call this%define(zone%rad_bound(-side), id)
   case(POLOIDAL)
+     if (id /= UNDEFINED) then
+     if (id < 1  .or.  id > poloidal_interfaces) then
+        write (6, *) 'error in t_zone%setup_mapping: invalid pol. interface id = ', id
+        stop
+     endif
+     endif
      call this%define(this%map_p(side),  zone%id) ! map this zone to neighbor zone
      call this%define(zone%map_p(-side), this%id) ! set up return map
-     call this%define(this%pol_bound(side),  iinterface)
-     call this%define(zone%pol_bound(-side), iinterface)
+     call this%define(this%pol_bound(side),  id)
+     call this%define(zone%pol_bound(-side), id)
   case default
      write (6, *) 'error in t_zone%setup_mapping: invalid boundary = ', boundary
      stop
   end select
 
-
-  ! set up interface
-  ! ...
 
   end subroutine setup_mapping
 !=======================================================================
