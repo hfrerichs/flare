@@ -499,7 +499,7 @@ module mfs_mesh
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
-  integer, parameter :: nsub = 2
+  integer, parameter :: nsub = 2, iu_err = 66
 
   type(t_flux_surface_2D) :: F
 
@@ -507,7 +507,7 @@ module mfs_mesh
   real(real64), dimension(:,:), allocatable :: MSP
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L
   integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir
-  integer       :: it, its, it_start, it_end, dirT, downstream
+  integer       :: it, its, it_start, it_end, dirT, downstream, np_skip
 
 
   ! check intersection of R with guiding surface
@@ -520,8 +520,9 @@ module mfs_mesh
 
 
   ! check resolution
-  if (Z%nt * nsub > this%np) then
-     write (6, 9010) this%np, Z%nt, nsub
+  np_skip = ip0;  if (Rside == UPPER) np_skip = this%np - ip0
+  if (Z%nt * nsub > this%np-np_skip) then
+     write (6, 9010) this%np, np_skip, Z%nt, nsub
      stop
   endif
 
@@ -589,6 +590,14 @@ module mfs_mesh
      ! aligned strike point mesh extends beyond upstream reference location?
      if (L > L0) then
         write (6, 9020) ir
+        open  (iu_err, file='error_strike_point_mesh1.plt')
+        write (iu_err, *) M(ir,ip0,:)
+        close (iu_err)
+        open  (iu_err, file='error_strike_point_mesh2.plt')
+        do it=0,Z%nt*nsub
+           write (iu_err, *) MSP(it,:)
+        enddo
+        close (iu_err)
         stop
      endif
      ! interpolate nodes on flux surface between upstream orthogonal grid nodes
@@ -615,9 +624,10 @@ module mfs_mesh
  9000 format('ERROR: reference path for radial discretization crosses guiding surface!', &
              'intersection at L = ', f0.3)
  9010 format('ERROR: poloidal grid resolution too small!'//,&
-             i0, ' < ', i0, ' x ', i0)
+             i0, ' - ', i0, ' < ', i0, ' x ', i0)
  9020 format('ERROR: aligned strike point mesh extends beyond upstream reference point ', &
-             'at radial index ', i0)
+             'at radial index ', i0//,&
+             'see error_strike_point_mesh.plt')
   end subroutine make_divertor_grid
 !=======================================================================
 
