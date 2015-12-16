@@ -33,12 +33,14 @@ module mod_zone
      procedure :: setup_mapping
      procedure :: setup_boundary
      procedure :: generate_mesh
+     procedure :: define
   end type t_zone
   type(t_zone), dimension(:), allocatable, public :: Z
   integer, public :: nzone
 
 
   public :: initialize_zones
+  public :: setup_zones
   public :: undefined_zone_boundary_check
 
   contains
@@ -49,7 +51,8 @@ module mod_zone
 !=======================================================================
 ! define surface mapping
 !=======================================================================
-  subroutine define(surface, mapping)
+  subroutine define(this, surface, mapping)
+  class(t_zone)          :: this
   integer, intent(inout) :: surface
   integer, intent(in)    :: mapping
 
@@ -57,7 +60,10 @@ module mod_zone
   if (surface == UNDEFINED) then
      surface = mapping
   else
-     write (6, *) 'error: mapping surface is alread defined!'
+     write (6, *) 'error: mapping/boundary surface is alread defined!'
+     write (6, *) 'zone id = ', this%id
+     write (6, *) 'surface = ', surface
+     write (6, *) 'value   = ', mapping
      stop
   endif
 
@@ -86,15 +92,15 @@ module mod_zone
   ! set up mapping between zones
   select case(boundary)
   case(RADIAL)
-     call define(this%map_r(side),  zone%id) ! map this zone to neighbor zone
-     call define(zone%map_r(-side), this%id) ! set up return map
-     call define(this%rad_bound(side),  iinterface)
-     call define(zone%rad_bound(-side), iinterface)
+     call this%define(this%map_r(side),  zone%id) ! map this zone to neighbor zone
+     call this%define(zone%map_r(-side), this%id) ! set up return map
+     call this%define(this%rad_bound(side),  iinterface)
+     call this%define(zone%rad_bound(-side), iinterface)
   case(POLOIDAL)
-     call define(this%map_p(side),  zone%id) ! map this zone to neighbor zone
-     call define(zone%map_p(-side), this%id) ! set up return map
-     call define(this%pol_bound(side),  iinterface)
-     call define(zone%pol_bound(-side), iinterface)
+     call this%define(this%map_p(side),  zone%id) ! map this zone to neighbor zone
+     call this%define(zone%map_p(-side), this%id) ! set up return map
+     call this%define(this%pol_bound(side),  iinterface)
+     call this%define(zone%pol_bound(-side), iinterface)
   case default
      write (6, *) 'error in t_zone%setup_mapping: invalid boundary = ', boundary
      stop
@@ -137,10 +143,10 @@ module mod_zone
   ! set up domain boundary
   select case(boundary)
   case(RADIAL)
-     call define(this%map_r(side), boundary_type)
+     call this%define(this%map_r(side), boundary_type)
   case(POLOIDAL)
-     call define(this%map_p(side), boundary_type)
-     if (present(iinterface)) call define(this%pol_bound(side),  iinterface)
+     call this%define(this%map_p(side), boundary_type)
+     if (present(iinterface)) call this%define(this%pol_bound(side),  iinterface)
   case default
      write (6, *) 'error in t_zone%setup_boundary: invalid boundary = ', boundary
      stop
@@ -221,6 +227,48 @@ module mod_zone
   enddo
 
   end subroutine initialize_zones
+!=======================================================================
+
+
+
+!=======================================================================
+! automatic setup of zone topology
+!=======================================================================
+  subroutine setup_zones(nX, connectX)
+  integer, intent(in) :: nX, connectX(nX)
+
+
+  integer :: ix, iz, jx, iri, ipi0
+
+
+  iz   = 0
+  ipi0 = 0
+  iri  = 0
+  do ix=1,nX
+     jx = connectX(ix)
+
+     ! max 8 zones per X-point, 2 for each GradPsiN direction
+
+     ! 1. towards core
+     ! 1.1 connect back to same X-point
+     if (ix == jx) then
+        iz = iz + 1
+        !call Z(iz)%setup_boundary(LOWER, POLOIDAL, PERIODIC, ipi0+1) ! periodic pol. boundary
+        !call Z(iz)%setup_boundary(UPPER, POLOIDAL, PERIODIC, ipi0+1) ! periodic pol. boundary
+        call Z(iz)%setup_mapping (UPPER, POLOIDAL, Z(iz), 0)       ! connect to next segment
+        call Z(iz)%setup_boundary(LOWER, RADIAL,   CORE)             ! core boundary
+        call Z(iz)%setup_mapping (UPPER, RADIAL,   Z(iz+1),  iri)    ! connect to main SOL
+
+     ! 1.2 connect to second X-point, or use second X-point as guiding point
+     elseif (abs(jx) > ix) then
+        iz = iz + 1
+        call Z(iz)%setup_mapping (UPPER, POLOIDAL, Z(iz+1), 0)       ! connect to next segment
+        call Z(iz)%setup_boundary(LOWER, RADIAL,   CORE)             ! core boundary
+        call Z(iz)%setup_mapping (UPPER, RADIAL,   Z(iz+2),  iri)    ! connect to main SOL
+     endif
+  enddo
+
+  end subroutine setup_zones
 !=======================================================================
 
 
