@@ -11,6 +11,29 @@ module base_mesh
   private
 
 
+  integer, parameter :: &
+     LEFT   =  1, &
+     CENTER =  0, &
+     RIGHT  = -1
+
+  type t_layer
+     ! number of (poloidal) zones in layer
+     integer :: nz
+
+     ! zone indices
+     integer, dimension(:), allocatable :: iz
+
+     ! base zone index (i0), poloidal layer (ipl) and side (ipl_side)
+     integer   :: i0
+
+     contains
+     procedure :: initialize
+     procedure :: setup_resolution
+     procedure :: map_poloidal_resolution
+  end type t_layer
+  type(t_layer), dimension(:), allocatable :: L
+
+
   ! magnetic axis
   real(real64)  :: Pmag(2)
 
@@ -33,6 +56,148 @@ module base_mesh
   public :: generate_base_mesh
 
   contains
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine initialize(this, nz, iz, i0)
+  class(t_layer)      :: this
+  integer, intent(in) :: nz, iz(nz), i0
+
+
+  if (nz <= 0) then
+     write (6, *) 'error in t_layer%initialize: number of zones must be positive!'
+     stop
+  endif
+
+
+  this%nz = nz
+  allocate (this%iz(nz))
+  this%iz = iz
+
+  ! set base zone index
+  this%i0 = i0
+
+  end subroutine initialize
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_resolution(this, il)
+  use fieldline_grid, only: nr, np, npR, npL
+  class(t_layer)      :: this
+  integer, intent(in) :: il
+
+  integer :: i, i1, iz, ipl, ipl0
+
+
+  ! case A: innermost domain
+  if (il == 0) then
+     if (this%nz == 1) then
+        iz = this%iz(1);  Z(iz)%nr = nr(il);  Z(iz)%np = np(il)
+        Z(iz)%ipl      = 0
+        Z(iz)%ipl_side = CENTER
+     elseif (this%nz == 2) then
+        iz = this%iz(1);  Z(iz)%nr = nr(il);  Z(iz)%np = npL(il)
+        Z(iz)%ipl      = 0
+        Z(iz)%ipl_side = LEFT
+
+        iz = this%iz(2);  Z(iz)%nr = nr(il);  Z(iz)%np = npR(il)
+        Z(iz)%ipl      = 0
+        Z(iz)%ipl_side = RIGHT
+     else
+        write (6, 9000);  write(6, 9001);  stop
+     endif
+
+  ! case B: outer layers -> poloidal resolution is already defined in at least one zone
+  else
+     ! 1. set radial resolution throughout zone
+     do i=1,this%nz
+        iz = this%iz(i);  Z(iz)%nr = nr(il)
+     enddo
+
+     ! 2. set poloidal resolution on lower/right side of layer
+     ! 2.1 find index of first zone with defined poloidal resolution
+     do i1=1,this%nz
+        iz = this%iz(i1)
+        if (Z(iz)%np /= UNDEFINED) exit
+     enddo
+     if (i1 > this%nz) then
+        write (6, 9000);  write(6, 9002);  stop
+     endif
+     ipl0 = Z(iz)%ipl; if (Z(iz)%ipl_side == LEFT) ipl0 = ipl0 + 1
+     ! 2.2 go backwards and set up poloidal layer and corresponding resolution
+     do i=i1-1,1,-1
+        iz             = this%iz(i)
+        ipl            = ipl0 + i1-i
+        Z(iz)%np       = npR(ipl)
+        Z(iz)%ipl      = ipl
+        Z(iz)%ipl_side = RIGHT
+     enddo
+
+     ! 3. set poloidal resolution on upper/left side of layer
+     ! 3.1 find index of first zone with defined poloidal resolution
+     do i1=this%nz,1,-1
+        iz = this%iz(i1)
+        if (Z(iz)%np /= UNDEFINED) exit
+     enddo
+     if (i1 < 1) then
+        write (6, 9000);  write(6, 9002);  stop
+     endif
+     ipl0 = Z(iz)%ipl; if (Z(iz)%ipl_side == RIGHT) ipl0 = ipl0 + 1
+     ! 3.2 go backwards and set up poloidal layer and corresponding resolution
+     do i=i1+1,this%nz
+        iz             = this%iz(i)
+        ipl            = ipl0 + i-i1
+        Z(iz)%np       = npL(ipl)
+        Z(iz)%ipl      = ipl
+        Z(iz)%ipl_side = LEFT
+     enddo
+
+
+  endif
+
+ 9000 format('error in t_layer%setup_resolution:')
+ 9001 format('innermost domain with ', i0, ' > 2 zones not supported!')
+ 9002 format('poloidal resolution undefined in all zones!')
+  end subroutine setup_resolution
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine map_poloidal_resolution(this)
+  class(t_layer)      :: this
+
+  integer :: i, iside, iz, iz_map
+
+
+  do i=1,this%nz
+     iz = this%iz(i)
+
+     do iside=-1,1,2
+        iz_map = Z(iz)%map_r(iside)
+        ! map to another zone?
+        if (iz_map < 0) cycle
+
+        ! map poloidal resolution
+        if (Z(iz_map)%np == UNDEFINED) then
+           Z(iz_map)%np       = Z(iz)%np
+           Z(iz_map)%ipl      = Z(iz)%ipl
+           Z(iz_map)%ipl_side = Z(iz)%ipl_side
+
+        ! poloidal resolution in mapped zone already defined?
+        elseif (Z(iz_map)%np /= Z(iz)%np) then
+           write (6, 9000) iz, iz_map, Z(iz)%np, Z(iz_map)%np;  stop
+        endif
+     enddo
+  enddo
+
+ 9000 format('error in t_layer%map_poloidal_resolution:'//, 'zone ', i0, ' maps to ', i0, &
+             ', but poloidal resolution is ', i0, ' vs. ', i0, '!')
+  end subroutine map_poloidal_resolution
 !=======================================================================
 
 
@@ -469,9 +634,11 @@ module base_mesh
   use fieldline_grid
   integer, intent(in) :: iblock
 
-  integer, dimension(:), allocatable :: markz
+  integer, parameter :: COUNT_RUN = 1, SETUP_RUN = 2
+  integer, dimension(:), allocatable :: markz, izl
+  character(len=1) :: cside(-1:1) = (/'R','C','L'/)
   real(real64) :: phi
-  integer      :: il, iz, iz0, iz_map, idir
+  integer      :: i, il, iz, iz0, iz_map, idir, irun, nzl(-1:1)
 
 
   ! initialize block
@@ -480,48 +647,72 @@ module base_mesh
 
 
   write (6, *) 'setting up radial layers:'
-  allocate (markz(nzone));  markz = 0
-  il = 0
+  allocate (markz(nzone), izl(-nzone:nzone))
+
+  do irun=COUNT_RUN,SETUP_RUN
+  markz = 0
+  il    = 0
+  if (irun == SETUP_RUN) allocate(L(0:layers-1))
   layer_loop: do
      ! exit if no more zones are unmarked
      if (sum(markz) == nzone) exit
 
+     ! start new layer
+     il  = il + 1
+     izl = 0;  nzl = 0
 
-     il = il + 1
      ! find first unmarked zone
      do iz=1,nzone
         if (markz(iz) == 0) exit
      enddo
+
      ! set base zone in layer
-     iz0 = iz;  markz(iz) = 1
-     write (6, *) 'layer ', il-1, ': base zone = ', iz0
+     iz0 = iz;  markz(iz) = 1;  izl(0) = iz0
 
      ! scan in both poloidal directions
      dir_loop: do idir=-1,1,2
         ! start poloidal scan at base zone
         iz = iz0
-        write (6, *) 'scan ', idir, ' direction:'
         poloidal_scan: do
            iz_map = Z(iz)%map_p(idir)
+           ! poloidal scan in both directions finished when returning to base zone
            if (iz_map == PERIODIC) exit dir_loop
            if (iz_map == iz0) exit dir_loop
+           ! poloidal scan in this direction finished at divertor targets
            if (iz_map == DIVERTOR) exit
 
            iz = iz_map;  markz(iz) = 1
-           write (6, *) iz
+           nzl(idir) = nzl(idir) + 1;  izl(idir*nzl(idir)) = iz
         enddo poloidal_scan
      enddo dir_loop
-  enddo layer_loop
 
+     if (irun == SETUP_RUN) then
+        ! now set up zone indices in this layer
+        call L(il-1)%initialize(nzl(-1)+1+nzl(1), izl(-nzl(-1):nzl(1)), nzl(-1)+1)
+
+        ! set up resolution in each zone
+        call L(il-1)%setup_resolution(il-1)
+
+        ! map poloidal resolution in radial direction
+        call L(il-1)%map_poloidal_resolution()
+     endif
+  enddo layer_loop
+  layers = il
+  enddo
 
 
 !  layers = 0
-!  do il=0,layers-1
-!     !call M(il)%initialize(nr(il), np(il), phi)
-!  enddo
+  do il=0,layers-1
+     write (6, *) 'layer ', il
+     do i=1,L(il)%nz
+        iz = L(il)%iz(i)
+        write (6, 1000) iz, Z(iz)%np, Z(iz)%nr, Z(iz)%ipl, cside(Z(iz)%ipl_side)
+     enddo
+  enddo
+ 1000 format(i4,': ',i5,' x ',i3,5x,'(',i0,a1,')')
 
 
-  deallocate (markz)
+  deallocate (markz, izl)
 
   end subroutine setup_layers
 !=======================================================================

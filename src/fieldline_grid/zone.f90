@@ -28,6 +28,13 @@ module mod_zone
      !integer           :: neighbor_id(4), neighbor_surf(4)
      !integer           :: mapping(4)
 
+     ! radial and poloidal resolution in zone
+     integer :: nr = UNDEFINED, np = UNDEFINED
+     ! radial layer index
+     integer :: irl = UNDEFINED
+     ! poloidal layer index
+     integer :: ipl = UNDEFINED, ipl_side = 0
+
      !type(t_mesh_interface) :: generating_element
      contains
      procedure :: setup_mapping
