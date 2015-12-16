@@ -427,10 +427,10 @@ module mfs_mesh
 ! strike point x0
 !=======================================================================
   subroutine align_strike_points(x0, Z, nsub, M)
-  use fieldline_grid, only: t_zone
+  use fieldline_grid, only: t_toroidal_discretization
   use fieldline
   real(real64), intent(in)  :: x0(2)
-  type(t_zone), intent(in)  :: Z
+  type(t_toroidal_discretization), intent(in)  :: Z
   integer,      intent(in)  :: nsub
   real(real64), intent(out) :: M(0:Z%nt*nsub, 2)
 
@@ -486,7 +486,7 @@ module mfs_mesh
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
   subroutine make_divertor_grid(this, Rside, ip0, Z, ierr)
-  use fieldline_grid, only: t_zone
+  use fieldline_grid, only: t_toroidal_discretization
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
   use curve2D
   use mesh_spacing
@@ -496,7 +496,7 @@ module mfs_mesh
 !  integer,         intent(in)  :: Rside, Pside
 !  type(t_spacing), intent(in)  :: Sr, Sp
   integer,         intent(in)  :: Rside, ip0
-  type(t_zone),    intent(in)  :: Z
+  type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
   integer, parameter :: nsub = 2
@@ -610,6 +610,7 @@ module mfs_mesh
      enddo
   enddo
 
+  ierr = 0
   deallocate (MSP)
  9000 format('ERROR: reference path for radial discretization crosses guiding surface!', &
              'intersection at L = ', f0.3)

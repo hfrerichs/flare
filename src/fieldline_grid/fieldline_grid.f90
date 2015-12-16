@@ -83,6 +83,7 @@ module fieldline_grid
      npR(0:max_layers-1) =  30, &          !    (L)eft and (R)ight segments
      nr(0:max_layers-1)  =  32, &          ! default radial resolution
      n_interpolate       =   4, &          ! number of interpolated flux surfaces (for the transition between the pair of perturbed flux surfaces at the inner simulation boundary and unperturbed flux surfaces further outside)
+     np_ortho_divertor   =  10, &          ! number of orthogonal surfaces in divertor legs
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
      nr_EIRENE_vac       =   1, &          ! radial resolution in vacuum (EIRENE only)
      nr_perturbed        =   2             ! number of perturbed flux surfaces at the inner boundary
@@ -147,6 +148,16 @@ module fieldline_grid
   type(t_block) :: Block(0:max_blocks-1)
 
 
+  ! toroidal discretization
+  type t_toroidal_discretization
+     integer :: nt, it_base
+     real(real64), dimension(:), allocatable :: phi
+
+     contains
+     procedure :: init
+  end type t_toroidal_discretization
+
+
   ! zone data
   type :: t_zone
      ! resolution in radial, poloidal and toroidal direction
@@ -187,6 +198,23 @@ module fieldline_grid
 !.......................................................................
 
   contains
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine init(this, nt, it_base, phi)
+  class(t_toroidal_discretization) :: this
+  integer,      intent(in)         :: nt, it_base
+  real(real64), intent(in)         :: phi(0:nt)
+
+  this%nt      = nt
+  this%it_base = it_base
+  if (allocated(this%phi)) deallocate(this%phi)
+  allocate(this%phi(0:nt))
+  this%phi     = phi
+
+  end subroutine init
 !=======================================================================
 
 
@@ -319,6 +347,7 @@ module fieldline_grid
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
      n_interpolate, nr_perturbed, &
+     np_ortho_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
      Dtheta_sampling, Dtheta_separatrix, &
