@@ -3,6 +3,7 @@ module elements
   use curve2D, only: UPPER, LOWER
   use mesh_interface
   use mfs_mesh
+  use fieldline_grid, only: t_toroidal_discretization
   implicit none
   private
 
@@ -31,8 +32,11 @@ module elements
      integer :: nr = UNDEFINED, np = UNDEFINED
      ! radial layer index
      integer :: irl = UNDEFINED
-     ! poloidal layer index
+     ! poloidal layer/block index
      integer :: ipl = UNDEFINED, ipl_side = 0
+
+     ! toroidal discretization
+     type (t_toroidal_discretization) :: T
 
      !type(t_mesh_interface) :: generating_element
      contains
@@ -185,27 +189,48 @@ module elements
 ! irside = side of radial reference surface
 ! ipside = side of poloidal reference surface
 !=======================================================================
-  subroutine generate_mesh(this, M, irside, ipside, iblock, Sr)
-  use fieldline_grid, only: n_interpolate
+  subroutine generate_mesh(this, M, irside, ipside, iblock, Sr, Sp)
+  use fieldline_grid, only: n_interpolate, np_ortho_divertor, Zone
   use inner_boundary, only: C_in, DPsiN1
   use mesh_spacing
   class(t_element)                :: this
   type(t_mfs_mesh), intent(inout) :: M
   integer,          intent(in)    :: irside, ipside, iblock
-  type(t_spacing),  intent(in)    :: Sr
+  type(t_spacing),  intent(in)    :: Sr, Sp
 
-  integer :: iri, ix(-1:1), addX(2)
+  integer :: iri, ix(-1:1), addX(2), ierr
 
 
   iri = this%rad_bound(irside)
   ix  = radial_interface(iri)%inode
 
 
+  ! 0. check if generating boundary nodes are set
+  if (M%ir0 < 0) then
+     call M%setup_boundary_nodes(irside, RADIAL, radial_interface(iri)%C, Sp)
+  endif
+
+
   ! 1. strike point on lower poloidal side
   if (ix(LOWER) == STRIKE_POINT) then
+     if (np_ortho_divertor > 0) then
+        call M%make_orthogonal_grid(prange=(/this%np-np_ortho_divertor, this%np-1/))
+     endif
+     call M%make_divertor_grid(UPPER, this%np-np_ortho_divertor, this%T, ierr)
+     if (ierr /= 0) then
+        write (6, 9000);  write (6, 9001) ierr;  stop
+     endif
 
   ! 2. strike point on upper poloidal side
   elseif (ix(UPPER) == STRIKE_POINT) then
+     if (np_ortho_divertor > 0) then
+        call M%make_orthogonal_grid(prange=(/1,np_ortho_divertor/))
+     endif
+     call M%make_divertor_grid(LOWER, np_ortho_divertor, this%T, ierr)
+     if (ierr /= 0) then
+        write (6, 9000);  write (6, 9001) ierr;  stop
+     endif
+
 
   ! 3. intermediate domain
   else
@@ -227,7 +252,7 @@ module elements
   endif
 
  9000 format('error in t_element%generate_mesh:')
- 9001 format('mesh generation for map_p = ', i0, ', ', i0, ' not implemented!')
+ 9001 format('make_divertor_grid returned ierr = ', i0)
   end subroutine generate_mesh
 !=======================================================================
 

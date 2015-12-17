@@ -38,6 +38,10 @@ module mfs_mesh
   end type t_mfs_mesh
 
 
+  type(t_curve) :: C_guide
+
+  public :: initialize_module_mfs_mesh
+
   contains
 !=======================================================================
 
@@ -558,7 +562,7 @@ module mfs_mesh
      x = M(ir,ip0,:)
 
      ! generate flux surface from "upstream" location x to target
-     call F%generate(x, dir, Trace_Step=0.1d0)
+     call F%generate(x, dir, Trace_Step=0.1d0, AltSurf=C_guide)
      call F%plot(filename='F.plt', append=.true.)
 
      ! generate nodes from which field lines connect to strike point x
@@ -629,6 +633,18 @@ module mfs_mesh
              'at radial index ', i0//,&
              'see error_strike_point_mesh.plt')
   end subroutine make_divertor_grid
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine initialize_module_mfs_mesh(C_guide_)
+  type(t_curve), intent(in) :: C_guide_
+
+
+  C_guide = C_guide_
+
+  end subroutine initialize_module_mfs_mesh
 !=======================================================================
 
 end module mfs_mesh

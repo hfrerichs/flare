@@ -113,7 +113,7 @@ module base_mesh
 
   ! case B: outer layers -> poloidal resolution is already defined in at least one element
   else
-     ! 1. set radial resolution throughout element
+     ! 1. set radial resolution throughout layer
      do i=1,this%nz
         iz = this%iz(i);  Z(iz)%nr = nr(il)
      enddo
@@ -155,8 +155,6 @@ module base_mesh
         Z(iz)%ipl      = ipl
         Z(iz)%ipl_side = LEFT
      enddo
-
-
   endif
 
  9000 format('error in t_layer%setup_resolution:')
@@ -377,6 +375,7 @@ module base_mesh
   endif
  1000 format(8x,'User defined guiding surface for divertor strike points')
  1001 format(8x,'First axisymmetric surface used for divertor strike points')
+  call initialize_module_mfs_mesh(C_guide)
 
 
   ! 2. CRITICAL POINTS -------------------------------------------------
@@ -708,6 +707,12 @@ module base_mesh
   enddo
 
 
+  ! initialize toroidal discretization
+  do iz=1,nelement
+     call Z(iz)%T%init(nt, Block(iblock)%it_base, Block(iblock)%phi)
+  enddo
+
+
   allocate (Mtmp(nelement))
   do il=0,layers-1
      write (6, *) 'layer ', il
@@ -864,10 +869,12 @@ module base_mesh
 
 !=======================================================================
   subroutine generate_layer(il, iz0, iblock, Sr)
+  use fieldline_grid, only: poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R
   use mesh_spacing
   integer,         intent(in) :: il, iz0, iblock
   type(t_spacing), intent(in) :: Sr
 
+  type(t_spacing) :: Sp
   integer :: idir, irside, iri, ipside, ipi, iz, iz_map, npz(-1:1)
 
 
@@ -912,7 +919,8 @@ module base_mesh
 
 
   ! generate mesh in base element
-  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr)
+  ! no Sp needed in base element
+  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp)
 
 
   ! how many poloidal elements in this layer?
@@ -942,7 +950,15 @@ module base_mesh
         iz        = iz_map
 
         ! 3. generate mesh in next element
-        call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr)
+        select case(Z(iz)%ipl_side)
+        case(LEFT)
+           call Sp%init(poloidal_spacing_L(Z(iz)%ipl))
+        case(CENTER)
+           call Sp%init(poloidal_spacing(Z(iz)%ipl))
+        case(RIGHT)
+           call Sp%init(poloidal_spacing_R(Z(iz)%ipl))
+        end select
+        call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr, Sp)
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
 
