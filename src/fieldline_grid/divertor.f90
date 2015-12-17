@@ -731,7 +731,7 @@ module divertor
   !=============================================================================
   ! private flux region
   !=============================================================================
-  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ir1, ir2, rpath, Sr, Sp)
+  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, rpath, Sr, Sp, ir1, ir2)
   use run_control, only: Debug
   use xpaths
   use mesh_spacing
@@ -739,18 +739,25 @@ module divertor
   use fieldline_grid, only: etaR, etaL
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
-  integer, intent(in) :: nr, npL, npR, ir1, ir2
+  integer, intent(in) :: nr, npL, npR
   type(t_xpath),   intent(in) :: rpath
   type(t_spacing), intent(in) :: Sr, Sp
+  integer,         intent(in), optional :: ir1, ir2
 
   type(t_flux_surface_2D) :: F
   type(t_spacing) :: Sdr, Sdl
   real(real64) :: eta, xi, xiL, xiR, x0(2), x(2), DL(0:npL, 2), DR(0:npR, 2)
-  integer      :: i, j
+  integer      :: i, j, i1, i2
+
+
+  i1 = 0
+  i2 = nr-1
+  if (present(ir1)) i1 = ir1
+  if (present(ir2)) i2 = ir2
 
   write (6, 1030) nr-1
   write (6, 1031) rpath%length()
-  do i=0,nr-1
+  do i=i1,i2
      write (6, *) i
      eta = Sr%node(i,nr)
      call rpath%sample_at(1.d0 - eta, x0)

@@ -16,7 +16,9 @@ module fieldline_grid
      TOPO_DDN    = 'disconnected_double_null', &
      TOPO_DDN1   = 'ddn', &
      TOPO_CDN    = 'connected_double_null', &
-     TOPO_CDN1   = 'cdn'
+     TOPO_CDN1   = 'cdn', &
+     TOPO_DSFP   = 'disconnected_snowflake_plus', &
+     TOPO_DSFP1  = 'dsf+'
 
 
   ! Discretization type definitions
@@ -32,7 +34,8 @@ module fieldline_grid
      TYPE_IMD          =  0, &
      TYPE_SOL          =  1, &
      TYPE_SOLMAP       = 11, &
-     TYPE_PFR          =  2
+     TYPE_PFR          =  2, &
+     TYPE_PFRMAP       = 22
 
 
   ! surface type definitions
@@ -53,7 +56,7 @@ module fieldline_grid
   integer, parameter :: &
      max_blocks  = 360, &        ! Maximum number of toroidal blocks
      max_zones   = 360, &        ! Maximum number of zones
-     max_layers  = 6             ! Maximum number of layer (zones per block)
+     max_layers  = 9             ! Maximum number of layer (zones per block)
 !.......................................................................
 
 
@@ -94,15 +97,15 @@ module fieldline_grid
      x_in1(3)            = (/120.d0, 0.d0, 0.d0/), &  ! reference points (R[cm], Z[cm], phi[deg]) ...
      x_in2(3)            = (/119.d0, 0.d0, 0.d0/), &  ! ... on 1st and 2nd innermost flux surfaces
      d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
-     d_PFR(2)            =   15.d0, &      ! radial width of private flux region
+     d_PFR(4)            =   15.d0, &      ! radial width of private flux region
      d_N0(0:max_layers-1)=   10.d0, &      ! radial width of vacuum region
      d_extend(0:max_layers-1,-1:1) = -1.d0, &      ! poloidal extension of divertor leg (used in close_grid_domain)
      d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
-     alphaL(2)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
-     alphaR(2)           =    1.0d0, &     !    (L)eft and (R)ight segments
-     etaL(2)             =    0.8d0, &     ! fraction of cells in front of the target
-     etaR(2)             =    0.8d0, &     !    (L)eft and (R)ight segments
+     alphaL(3)           =    0.9d0, &     ! Relative length of divertor legs at outermost boundary
+     alphaR(3)           =    1.0d0, &     !    (L)eft and (R)ight segments
+     etaL(3)             =    0.8d0, &     ! fraction of cells in front of the target
+     etaR(3)             =    0.8d0, &     !    (L)eft and (R)ight segments
      Dtheta_sampling     =    20.d0, &     ! Transition between angular and length weighted sampling of flux surfaces
      Dtheta_separatrix   =     0.d0        ! ... same on separatrix
 
@@ -310,7 +313,7 @@ module fieldline_grid
      this%isfr(1) = SF_MAPPING
      this%isfr(2) = SF_VACUUM
 
-  case(TYPE_SOLMAP)
+  case(TYPE_SOLMAP, TYPE_PFRMAP)
      this%isfr(1) = SF_MAPPING
      this%isfr(2) = SF_MAPPING
 

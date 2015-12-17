@@ -10,6 +10,7 @@ OBJECTS =  \
                topo_lsn.o\
                topo_ddn.o\
                topo_cdn.o\
+               topo_dsf+.o\
                base_grid.o\
                mesh_interface.o\
                mfs_mesh.o\
