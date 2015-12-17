@@ -18,13 +18,17 @@ module base_mesh
 
   type t_layer
      ! number of (poloidal) elements in layer
-     integer :: nz
+     integer   :: nz
 
      ! element indices
      integer, dimension(:), allocatable :: iz
 
      ! base element index (i0), poloidal layer (ipl) and side (ipl_side)
      integer   :: i0
+
+     ! radial and poloidal resolution in layer
+     integer   :: nr = UNDEFINED, np = UNDEFINED
+
 
      contains
      procedure :: initialize
@@ -93,6 +97,11 @@ module base_mesh
   integer :: i, i1, iz, ipl, ipl0
 
 
+  ! 1. set radial resolution in this layer
+  this%nr = nr(il)
+
+
+  ! 2. set resolution in elements
   ! case A: innermost domain
   if (il == 0) then
      if (this%nz == 1) then
@@ -156,6 +165,14 @@ module base_mesh
         Z(iz)%ipl_side = LEFT
      enddo
   endif
+
+
+  ! 3. set poloidal resolution in layer
+  this%np = 0
+  do i=1,this%nz
+     this%np = this%np + Z(i)%np
+  enddo
+
 
  9000 format('error in t_layer%setup_resolution:')
  9001 format('innermost domain with ', i0, ' > 2 elements not supported!')
@@ -334,7 +351,7 @@ module base_mesh
   ! connected double null (CDN)
   case(TOPO_CDN, TOPO_CDN1)
   end select
-  call undefined_element_boundary_check(.true.)
+  call undefined_element_boundary_check(.false.)
 
  9000 format('error: invalid topology ', a, '!')
   end subroutine setup_topology
@@ -524,12 +541,13 @@ module base_mesh
 
 
      ! plot paths
-     do k=1,4
-        call R(ix, k)%plot(filename='rpath_'//trim(str(ix))//'_'//trim(str(k))//'.plt')
-     enddo
+!     do k=1,4
+!        call R(ix, k)%plot(filename='rpath_'//trim(str(ix))//'_'//trim(str(k))//'.plt')
+!     enddo
 
      ipi = ipi + 4
   enddo
+  write (6, *)
 
   do ipi=1,poloidal_interfaces
      call poloidal_interface(ipi)%C%plot(filename='R'//trim(str(ipi))//'.plt')
@@ -652,7 +670,7 @@ module base_mesh
   phi = Block(iblock)%phi_base / 180.d0 * pi
 
 
-  write (6, *) 'setting up radial layers:'
+  write (6, 1000)
   allocate (markz(nelement), izl(-nelement:nelement))
 
   do irun=COUNT_RUN,SETUP_RUN
@@ -713,20 +731,24 @@ module base_mesh
   enddo
 
 
+  ! initialize mesh for each domain element
   allocate (Mtmp(nelement))
   do il=0,layers-1
-     write (6, *) 'layer ', il
+     write (6, 1001) il
      do i=1,L(il)%nz
         iz = L(il)%iz(i)
         call Mtmp(iz)%initialize(Z(iz)%nr, Z(iz)%np, phi)
-        write (6, 1000) iz, Z(iz)%np, Z(iz)%nr, Z(iz)%ipl, cside(Z(iz)%ipl_side)
+        write (6, 1002) iz, Z(iz)%np, Z(iz)%nr, Z(iz)%ipl, cside(Z(iz)%ipl_side)
      enddo
   enddo
- 1000 format(i4,': ',i5,' x ',i3,5x,'(',i0,a1,')')
 
 
+  ! cleanup
   deallocate (markz, izl)
 
+ 1000 format(3x,'- Setting up radial layers:')
+ 1001 format(8x,'Layer ',i0)
+ 1002 format(8x,i3,': ',i5,' x ',i3,5x,'(',i0,a1,')')
   end subroutine initialize_layers
 !=======================================================================
 
@@ -750,9 +772,7 @@ module base_mesh
 
   ! initialize block
   call initialize_layers(iblock)
-  il0 = iblock * layers
   allocate (M(0:layers-1))
-  allocate (markz(nelement));  markz = 0
 
 
   call load_local_resolution(iblock)
@@ -761,8 +781,6 @@ module base_mesh
   do il=0,layers-1
      call M(il)%initialize(nr(il), np(il), phi)
   enddo
-
-  ! mesh discretization for poloidal elements
 
 
   ! generate core-interface
@@ -781,51 +799,18 @@ module base_mesh
   endif
 
 
-  ! generate "closed" domain
-!  call Sr%init(radial_spacing(0))
-!  call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
-!  if (connectX(1) == 1  .or. connectX(1) < 0) then
-!     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/))
-!  else
-!     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/), addX=(/abs(connectX(1)), npR(0)/))
-!  endif
-!  call M(0)%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
-
-
-!  ! connect core to SOL
-!  if (connectX(1) == 1) then
-!     call Mtmp3(2)%initialize(nr(1), np(0), phi)
-!     call M(0)%connect_to(Mtmp3(2), RADIAL, UPPER_TO_LOWER)
-!     call Mtmp3(2)%store(filename='Mtmp3_2.plt')
-!  else
-!  endif
-
-
-  !radial_scan: do
-  !il     = 0
-  iz0    = 1
-  !ii     = 1
-  !npz    = 0
-  !npz(0) = 1
-  !call generate_layer(0, 1)
+  ! main loop: generate mesh for each layer
   write (6, *)
+  allocate (markz(nelement));  markz = 0
   do il=0,layers-1
      ! base element index
      iz0 = L(il)%iz(L(il)%i0)
 
-     ! set up radial interface at base zone
-     !if (il > 0) then
-        !iz0_map = Z(iz0)%
-     !endif
-
-     ! set up radial spacings
+     ! set up radial spacings for this layer
      call Sr%init(radial_spacing(il))
 
-     !iz0 = ...
-     !call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
-
+     ! generate mesh for this layer
      call generate_layer(il, iz0, iblock, Sr)
-
 
      ! map radial interface to next element
      do i=1,L(il)%nz
@@ -853,6 +838,7 @@ module base_mesh
 
 
   ! write output files
+  il0 = iblock * layers
   do il=0,layers-1
      iz = il0 + il
      call write_base_grid(M(il)%t_grid, iz)
@@ -961,15 +947,8 @@ module base_mesh
         call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr, Sp)
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
-
-!     call Sp%init(poloidal_spacing(0))
-!     ! single zone?
-!     if (Z(iz)%map_p(UPPER) == PERIODIC) then
-!
-     !else
-     !endif
   enddo idir_loop
-  write (6, *) 'poloidal elements in layer 0: ', npz
+  write (6, *)
 
  1000 format('Generate layer ', i0, ' from base element ', i0)
  9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
