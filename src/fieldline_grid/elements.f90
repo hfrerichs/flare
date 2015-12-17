@@ -12,8 +12,7 @@ module elements
      PERIODIC       = -1, &
      CORE           = -2, &
      VACUUM         = -3, &
-     DIVERTOR       = -4, &
-     UNDEFINED      = -100
+     DIVERTOR       = -4
 
 
   ! grid layout: element = structured domain of cells
@@ -202,11 +201,18 @@ module elements
 
 
   iri = this%rad_bound(irside)
+  if (iri == UNDEFINED) then
+     write (6, 9000);  write (6, 9003);  stop
+  endif
   ix  = radial_interface(iri)%inode
 
 
   ! 0. check if generating boundary nodes are set
   if (M%ir0 < 0) then
+     ! check if interface geometry is defined
+     if (radial_interface(iri)%geometry_undefined()) then
+        write (6, 9000);  write (6, 9002) ierr;  stop
+     endif
      call M%setup_boundary_nodes(irside, RADIAL, radial_interface(iri)%C, Sp)
   endif
 
@@ -253,6 +259,8 @@ module elements
 
  9000 format('error in t_element%generate_mesh:')
  9001 format('make_divertor_grid returned ierr = ', i0)
+ 9002 format('geometry of radial interface is undefined!')
+ 9003 format('radial interface is undefined!')
   end subroutine generate_mesh
 !=======================================================================
 

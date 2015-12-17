@@ -7,7 +7,8 @@ module mesh_interface
 
 
   integer, parameter, public :: &
-     STRIKE_POINT = 0
+     STRIKE_POINT = 0, &
+     UNDEFINED    = -100
 
 
   type, public :: t_mesh_interface
@@ -15,7 +16,7 @@ module mesh_interface
 
      ! geometric definition of interface
      type(t_curve) :: C
-     integer       :: inode(-1:1) ! lower and upper end node type:  > 0 X-point
+     integer       :: inode(-1:1) = UNDEFINED ! lower and upper end node type:  > 0 X-point
                                   !                                 = 0 strike point
                                   !                                 < guiding point (other X-point)
 
@@ -34,6 +35,7 @@ module mesh_interface
      procedure :: setup
      procedure :: set_curve
      procedure :: setup_discretization
+     procedure :: geometry_undefined
   end type t_mesh_interface
   !@public :: setup_interfaces
 
@@ -141,6 +143,20 @@ module mesh_interface
   enddo
 
   end subroutine setup_discretization
+!=======================================================================
+
+
+
+!=======================================================================
+  function geometry_undefined(this)
+  class(t_mesh_interface) :: this
+  logical                 :: geometry_undefined
+
+
+  geometry_undefined = .false.
+  if (this%C%n_seg == -1) geometry_undefined = .true.
+
+  end function geometry_undefined
 !=======================================================================
 
 
