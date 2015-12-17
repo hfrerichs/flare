@@ -36,7 +36,7 @@ module elements
      integer :: ipl = UNDEFINED, ipl_side = 0
 
      ! toroidal discretization
-     type (t_toroidal_discretization) :: T
+     type(t_toroidal_discretization) :: T
 
      !type(t_mesh_interface) :: generating_element
      contains

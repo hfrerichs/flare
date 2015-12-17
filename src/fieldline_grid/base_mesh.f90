@@ -7,6 +7,7 @@ module base_mesh
   use mesh_interface
   use elements
   use mfs_mesh
+  use fieldline_grid, only: t_toroidal_discretization
   implicit none
   private
 
@@ -28,6 +29,9 @@ module base_mesh
 
      ! radial and poloidal resolution in layer
      integer   :: nr = UNDEFINED, np = UNDEFINED
+
+     ! toroidal discretization
+     type(t_toroidal_discretization) :: T
 
 
      contains
@@ -170,7 +174,8 @@ module base_mesh
   ! 3. set poloidal resolution in layer
   this%np = 0
   do i=1,this%nz
-     this%np = this%np + Z(i)%np
+     iz      = this%iz(i)
+     this%np = this%np + Z(iz)%np
   enddo
 
 
@@ -660,6 +665,7 @@ module base_mesh
 
   integer, parameter :: COUNT_RUN = 1, SETUP_RUN = 2
   integer, dimension(:), allocatable :: markz, izl
+  type(t_toroidal_discretization)    :: T
   character(len=1) :: cside(-1:1) = (/'R','C','L'/)
   real(real64) :: phi
   integer      :: i, il, iz, iz0, iz_map, idir, irun, nzl(-1:1)
@@ -726,13 +732,14 @@ module base_mesh
 
 
   ! initialize toroidal discretization
-  do iz=1,nelement
-     call Z(iz)%T%init(nt, Block(iblock)%it_base, Block(iblock)%phi)
-  enddo
+  call T%init(nt, Block(iblock)%it_base, Block(iblock)%phi)
+  do il=0,layers-1;  L(il)%T = T;  enddo
+  do iz=1,nelement;  Z(iz)%T = T;  enddo
 
 
   ! initialize mesh for each domain element
   allocate (Mtmp(nelement))
+  allocate (M(0:layers-1))
   do il=0,layers-1
      write (6, 1001) il
      do i=1,L(il)%nz
@@ -740,6 +747,7 @@ module base_mesh
         call Mtmp(iz)%initialize(Z(iz)%nr, Z(iz)%np, phi)
         write (6, 1002) iz, Z(iz)%np, Z(iz)%nr, Z(iz)%ipl, cside(Z(iz)%ipl_side)
      enddo
+     call M(il)%initialize(L(il)%nr, L(il)%np, phi)
   enddo
 
 
@@ -762,25 +770,13 @@ module base_mesh
   use string
   integer, intent(in) :: iblock
 
-  type(t_mfs_mesh)   :: Mtmp2(2), Mtmp3(3), Mtmp4(4)
-  type(t_spacing)    :: Sp, SpL, SpR, Sr
-
   integer, dimension(:), allocatable :: markz
-  real(real64) :: phi
-  integer      :: i, il, il0, iz, iz0, iz_map, iside
+  type(t_spacing) :: Sp, SpL, SpR, Sr
+  integer         :: i, il, il0, iz, iz0, iz_map, iside
 
 
   ! initialize block
   call initialize_layers(iblock)
-  allocate (M(0:layers-1))
-
-
-  call load_local_resolution(iblock)
-
-  phi = Block(iblock)%phi_base / 180.d0 * pi
-  do il=0,layers-1
-     call M(il)%initialize(nr(il), np(il), phi)
-  enddo
 
 
   ! generate core-interface
@@ -846,7 +842,7 @@ module base_mesh
 
 
   ! cleanup
-  deallocate (M, Mtmp)
+  deallocate (M, Mtmp, markz)
 
   end subroutine generate_base_mesh
 !=======================================================================
@@ -861,7 +857,7 @@ module base_mesh
   type(t_spacing), intent(in) :: Sr
 
   type(t_spacing) :: Sp
-  integer :: idir, irside, iri, ipside, ipi, iz, iz_map, npz(-1:1)
+  integer :: i, idir, irside, iri, ipside, ipi, ip0, iz, iz_map, npz(-1:1)
 
 
   write (6, 1000) il, iz0
@@ -909,7 +905,7 @@ module base_mesh
   call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp)
 
 
-  ! how many poloidal elements in this layer?
+  ! scan through poloidal elements in this layer
   npz    = 0
   npz(0) = 1
   idir_loop: do idir=1,-1,-2
@@ -949,6 +945,15 @@ module base_mesh
      enddo poloidal_scan
   enddo idir_loop
   write (6, *)
+
+
+  ! merge elements
+  ip0 = 0
+  do i=1,L(il)%nz
+     iz  = L(il)%iz(i)
+     call M(il)%copy(0, ip0, Mtmp(iz))
+     ip0 = ip0 + Z(iz)%np
+  enddo
 
  1000 format('Generate layer ', i0, ' from base element ', i0)
  9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)

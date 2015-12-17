@@ -34,7 +34,7 @@ module mfs_mesh
      procedure :: make_orthogonal_grid
      procedure :: make_interpolated_mesh
      procedure :: make_divertor_grid
-     ! procedure :: merge(M1, M2, ...)
+     procedure :: copy
   end type t_mfs_mesh
 
 
@@ -563,7 +563,7 @@ module mfs_mesh
 
      ! generate flux surface from "upstream" location x to target
      call F%generate(x, dir, Trace_Step=0.1d0, AltSurf=C_guide)
-     call F%plot(filename='F.plt', append=.true.)
+     !call F%plot(filename='F.plt', append=.true.)
 
      ! generate nodes from which field lines connect to strike point x
      select case(dir)
@@ -633,6 +633,44 @@ module mfs_mesh
              'at radial index ', i0//,&
              'see error_strike_point_mesh.plt')
   end subroutine make_divertor_grid
+!=======================================================================
+
+
+
+!=======================================================================
+! copy mesh M onto this mesh at node index ir0, ip0
+!=======================================================================
+  subroutine copy(this, ir0, ip0, M)
+  class(t_mfs_mesh)            :: this
+  integer,          intent(in) :: ir0, ip0
+  type(t_mfs_mesh), intent(in) :: M
+
+  integer :: ir, ip
+
+
+  ! check boundaries
+  if (ir0 < 0  .or.  ir0 > this%nr  .or.  ip0 < 0  .or.  ip0 > this%np) then
+     write (6, 9000);  write (6, 9001) ir0, ip0, this%nr, this%np;  stop
+  endif
+
+  ! check size
+  if (ir0+M%nr > this%nr  .or.  ip0+M%np > this%np) then
+     write (6, 9000);  write (6, 9002) ir0+M%nr, ip0+M%np, this%nr, this%np;  stop
+  endif
+
+  ! copy mesh
+  do ir=0,M%nr
+  do ip=0,M%np
+     this%mesh(ir0+ir, ip0+ip, :) = M%mesh(ir, ip, :)
+  enddo
+  enddo
+
+ 9000 format('error in t_mfs_mesh%copy:')
+ 9001 format('initial node is outside of mesh!'//'ir0, ip0 = ',i0,', ',i0// &
+             'nr,  np  = ',i0,', ',i0)
+ 9002 format('upper node is outside of mesh!'//'ir,  ip  = ',i0,', ',i0// &
+             'nr,  np  = ',i0,', ',i0)
+  end subroutine copy
 !=======================================================================
 
 

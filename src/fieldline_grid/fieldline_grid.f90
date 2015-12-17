@@ -151,7 +151,7 @@ module fieldline_grid
   ! toroidal discretization
   type t_toroidal_discretization
      integer :: nt, it_base
-     real(real64), dimension(:), allocatable :: phi
+     real(real64), dimension(:), pointer :: phi => null()
 
      contains
      procedure :: init
@@ -210,7 +210,7 @@ module fieldline_grid
 
   this%nt      = nt
   this%it_base = it_base
-  if (allocated(this%phi)) deallocate(this%phi)
+  if (associated(this%phi)) deallocate(this%phi)
   allocate(this%phi(0:nt))
   this%phi     = phi
 
