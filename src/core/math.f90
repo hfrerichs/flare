@@ -13,9 +13,15 @@ module math
      GEOANGLE    = 1, &
      ARCLENGTH   = 2
 
-  character(len=12), dimension(2), parameter :: &
+  character(len=12), dimension(3), parameter :: &
      COORDINATES = (/ 'cartesian   ', &
-                      'cylindrical ' /)
+                      'cylindrical ', &
+                      'toroidal    ' /)
+
+  character(len=3), dimension(3), parameter :: &
+     UNITS       = (/ 'cm ', &
+                      'cm ', &
+                      'deg' /)
 
   character(len=12), dimension(3,0:4), parameter :: &
      COORD_STR   = reshape((/ 'coord1      ', 'coord2      ', 'coord3      ', &

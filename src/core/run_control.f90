@@ -93,8 +93,10 @@ module run_control
 
      Boundary_Prefix = ''
      if (Machine .ne. ' ') then
-        write (6, *) 'Machine:                ', trim(Machine)
-        write (6, *) 'Configuration:          ', trim(Configuration)
+        write (6, *)
+        write (6, 1000)
+        write (6, 1001) trim(Machine)
+        write (6, 1002) trim(Configuration)
         call getenv("HOME", homedir)
         Prefix = trim(homedir)//'/'//base_dir//'/'//trim(Machine)//'/'// &
                  trim(Configuration)//'/'
@@ -146,6 +148,9 @@ module run_control
   call broadcast_logi   (Debug           )
 
   return
+ 1000 format(3x,'- Magnetic setup:')
+ 1001 format(8x,'Machine:                ',a)
+ 1002 format(8x,'Configuration:          ',a)
  5000 write  (6,5001)
  5001 format ('error reading control table from input file')
   stop

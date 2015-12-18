@@ -11,6 +11,13 @@ module numerics
       ADAMS_BASHFORTH_MOULTON = 4, &
       DLSODE                  = 5
 
+  character(len=*), dimension(5), parameter :: &
+      INTEGRATION_METHOD = (/'Euler                         ', &
+                             '4th order Runge-Kutta         ', &
+                             '4 step Adams-Bashforth        ', &
+                             '4 step Adams-Bashforth-Moulton', &
+                             'DLSODE                        '/)
+
 !  integer, parameter :: FL_LINE  = 1
 !  integer, parameter :: FL_ARC   = 2
 !  integer, parameter :: FL_ANGLE = 3
@@ -39,10 +46,13 @@ module numerics
 
   ! load numerical parameters on first processor
   if (firstP) then
+     write (6, 1000)
      open  (iu, file='run_input')
-     read  (iu, NumericsControl, end=1000)
- 1000 continue
+     read  (iu, NumericsControl, end=1001)
+ 1001 continue
      close (iu)
+     write (6, 1002) Trace_Step, trim(UNITS(Trace_Coords)), trim(COORDINATES(Trace_Coords))
+     write (6, 1003) trim(INTEGRATION_METHOD(Trace_Method))
 
 
      ! convert units: deg -> rad
@@ -58,6 +68,9 @@ module numerics
   call broadcast_inte_s (Trace_Coords    )
   call broadcast_inte_s (Trace_Method    )
 
+ 1000 format(3x,'- Numerics:')
+ 1002 format(8x,'Field line integration: step size = ', g0.4, 1x, a, ' in ', a, ' coordinates')
+ 1003 format(8x,'Integration method:     ',a)
   end subroutine load_numerics
   !---------------------------------------------------------------------
 
