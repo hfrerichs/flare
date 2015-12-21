@@ -15,6 +15,7 @@ module separatrix
      contains
      procedure :: generate
      procedure :: generate_new
+     procedure :: generate_iX
      procedure :: plot
   end type t_separatrix
 
@@ -195,17 +196,17 @@ module separatrix
 
 
 !=======================================================================
-! Generate separatrix for X-point ix
+! Generate separatrix for X-point Xp
 !=======================================================================
-  subroutine generate_new (this, ix, trace_step, offset, debug)
-  use equilibrium
+  subroutine generate_new (this, Xp, trace_step, offset, debug)
+  use equilibrium, only: t_xpoint, get_PsiN, correct_PsiN
   use ode_solver
-  class(t_separatrix)                 :: this
-  integer,       intent(in)           :: ix
-  real(real64),  intent(in), optional :: trace_step, offset
-  logical,       intent(in), optional :: debug
+  class(t_separatrix)                  :: this
+  type(t_Xpoint), intent(in)           :: Xp
+  real(real64),   intent(in), optional :: trace_step, offset
+  logical,        intent(in), optional :: debug
 
-  real(real64) :: lambda1, lambda2, v1(2), v2(2), Px(2), xi(2), s1, scut
+  real(real64) :: lambda1, lambda2, v1(2), v2(2), Px(2), PsiN_X, xi(2), s1, scut
   integer      :: ierr, Mierr(4)
   logical      :: debug_output, screen_output
 
@@ -220,15 +221,7 @@ module separatrix
 
 
   ! calculate eigenvalues and eigenvectors of Jacobian at X-point
-  if (ix > nx_max) then
-     write (6, *) 'error in t_separatrix%generate: invalid X-point id = ', ix
-     stop
-  endif
-  if (Xp(ix)%undefined) then
-     write (6, *) 'error in t_separatrix%generate: X-point ', ix, ', undefined!'
-     stop
-  endif
-  call Xp(ix)%analysis(lambda1, lambda2, v1, v2, ierr)
+  call Xp%analysis(lambda1, lambda2, v1, v2, ierr)
   if (ierr .ne. 0) then
      write (6, *) 'error in t_separatrix%generate:'
      write (6, *) 'X-point analysis returned ierr = ', ierr
@@ -245,7 +238,8 @@ module separatrix
 
 
 
-  Px = Xp(ix)%X ! Coordinates of X-point (R[cm], Z[cm])
+  Px     = Xp%X ! Coordinates of X-point (R[cm], Z[cm])
+  PsiN_X = get_PsiN(Px)
 
   ! branch 1: in unstable direction, towards magnetic axis
   xi = find_xinit(v1)
@@ -275,7 +269,7 @@ module separatrix
   integer :: ierr
 
 
-  xinit = correct_PsiN(Px+s1*voff, Xp(ix)%PsiN(), ierr)
+  xinit = correct_PsiN(Px+s1*voff, PsiN_X, ierr)
   if (ierr > 0) then
      write (6, *) 'error in find_xinit: correct_PsiN returned ierr > 0!'
      stop
@@ -284,6 +278,36 @@ module separatrix
   end function find_xinit
   !.....................................................................
   end subroutine generate_new
+!=======================================================================
+
+
+
+!=======================================================================
+! Generate separatrix for X-point Xp(ix) from module equilibrium
+!=======================================================================
+  subroutine generate_iX(this, ix, trace_step, offset, debug)
+  use equilibrium, only: Xp
+  use ode_solver
+  class(t_separatrix)                 :: this
+  integer,       intent(in)           :: ix
+  real(real64),  intent(in), optional :: trace_step, offset
+  logical,       intent(in), optional :: debug
+
+
+  ! check if ix refers to a valid X-point
+  if (ix < 1  .or.  ix > nx_max) then
+     write (6, *) 'error in t_separatrix%generate: invalid X-point id = ', ix
+     stop
+  endif
+  if (Xp(ix)%undefined) then
+     write (6, *) 'error in t_separatrix%generate: X-point ', ix, ', undefined!'
+     stop
+  endif
+
+
+  call this%generate_new(Xp(ix), trace_step, offset, debug)
+
+  end subroutine generate_iX
 !=======================================================================
 
 
