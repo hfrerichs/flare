@@ -1383,13 +1383,14 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine find_hyperbolic_points(nR, nZ)
+  subroutine find_hyperbolic_points(nR, nZ, setup_Xpoints)
   integer, intent(in)  :: nR, nZ
+  logical, intent(in)  :: setup_Xpoints
 
   integer, parameter   :: iu = 54
 
   real(real64)         :: Rbox(2), Zbox(2)
-  type(t_Xpoint) :: Xp
+  type(t_Xpoint) :: Xp0
   real(real64)   :: x(2), H(2,2), xk(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
   real(real64)   :: DPsi, DPsi1, r3(3)
   integer        :: i, j, k, ind, ierr, iPsi
@@ -1418,16 +1419,26 @@ module equilibrium
      enddo
 
      ! so this is a new critical point, run analysis
-     Xp%X = x; Xp%H = H
-     r3(1:2) = x; Xp%Psi = get_Psi(r3)
-     call Xp%analysis(lambda1, lambda2, v1, v2, ierr)
+     Xp0%X   = x;  Xp0%H = H
+     r3(1:2) = x;  Xp0%Psi = get_Psi(r3);  Xp0%theta = get_poloidal_angle(r3)
+     call Xp0%analysis(lambda1, lambda2, v1, v2, ierr)
      if (ierr .ne. 0) cycle ! this is not a hyperbolic point
 
      ! add present point to list
      ind = ind + 1
      xk(ind,:) = x
-     write (6, 1003) ind, x, Xp%PsiN(), lambda1, lambda2
-     write (iu, *) x, Xp%PsiN(), lambda1, lambda2
+     write (6, 1003) ind, x, Xp0%PsiN(), lambda1, lambda2
+     write (iu, *) x, Xp0%PsiN(), lambda1, lambda2
+
+     if (setup_Xpoints) then
+        if (ind > nx_max) then
+           write (6, *) 'error: number of hyperbolic points exceeds limit!'
+           stop
+        endif
+
+        Xp(ind)           = Xp0
+        Xp(ind)%undefined = .false.
+     endif
   enddo loop1
   enddo loop2
   close (iu)

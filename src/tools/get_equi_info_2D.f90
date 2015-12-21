@@ -32,7 +32,7 @@ subroutine get_equi_info_2D
 
   nR = 20;    if (N_R > 1) nR = N_R
   nZ = 20;    if (N_Z > 1) nZ = N_Z
-  call find_hyperbolic_points(nR, nZ)
+  call find_hyperbolic_points(nR, nZ, .false.)
 
   ! magnetic axis
   r(3) = 0.d0
