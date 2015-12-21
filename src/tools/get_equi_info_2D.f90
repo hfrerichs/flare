@@ -6,18 +6,24 @@ subroutine get_equi_info_2D
   use run_control, only: N_R, N_Z
   use magnetic_axis
   use equilibrium, only: get_domain, find_hyperbolic_points, get_Psi, &
-                         equilibrium_info, Psi_axis, Psi_sepx, i_equi, EQ_AMHD
+                         equilibrium_info, Psi_axis, Psi_sepx, i_equi, EQ_AMHD, Xp, nx_max
+  use separatrix
+  use xpaths
   use boundary
+  use string
   use parallel
   implicit none
 
   integer, parameter :: iu = 42
 
 
+  type(t_separatrix) :: S(nx_max)
+  type(t_xpath)      :: X
   character(len=120) :: fout, sboundary
   character(len=8)   :: cid
-  real(real64)       :: Rbox(2), Zbox(2), r(3), Psi, Ip_int, Bpol, betaP, betaT
-  integer            :: i, j, nR, nZ
+  logical            :: append
+  real(real64)       :: Rbox(2), Zbox(2), r(3), Psi, Ip_int, Bpol, betaP, betaT, lmax
+  integer            :: i, j, nR, nZ, ix, idir
 
 
   if (firstP) then
@@ -30,9 +36,40 @@ subroutine get_equi_info_2D
 
   call get_domain (Rbox, Zbox)
 
+
+  ! find hyperbolic points / X-points
   nR = 20;    if (N_R > 1) nR = N_R
   nZ = 20;    if (N_Z > 1) nZ = N_Z
-  call find_hyperbolic_points(nR, nZ, .false.)
+  call find_hyperbolic_points(nR, nZ, .true.)
+
+
+  ! generate separatrix
+  write (6, 1020)
+  do ix=1,nx_max
+     if (Xp(ix)%undefined) cycle
+     write (6, 1021) ix
+
+     call S(ix)%generate_iX(ix, stop_at_boundary=.false.)
+     call S(ix)%plot(filename_prefix='S'//trim(str(ix)))
+  enddo
+  write (6, *)
+
+
+!  ! generate Grad Psi path
+!  lmax = 400.d0
+!  write (6, 1030)
+!  do ix=1,nx_max
+!     if (Xp(ix)%undefined) cycle
+!     write (6, 1021) ix
+!
+!     append = .false.
+!     do idir=1,4
+!        call X%generateX(ix, idir, LIMIT_LENGTH, lmax)
+!        call X%plot(filename='R'//trim(str(ix))//'.plt', append=append)
+!        append = .true.
+!     enddo
+!  enddo
+
 
   ! magnetic axis
   r(3) = 0.d0
@@ -133,6 +170,9 @@ subroutine get_equi_info_2D
  1002 format ('# Z resolution:      n_Z     =  ',i8)
  1003 format ('# phi position:      phi     =  ',f7.2)
  1004 format (e18.10)
+ 1020 format(3x,'- Generate separatrix for X-point')
+ 1021 format(8x,i0)
+ 1030 format(3x,'- Generate Grad-Psi path for X-point')
 
  2000 format ('#!/bin/bash')
  2006 format ('idl << EOF')

@@ -204,13 +204,13 @@ module separatrix
 !=======================================================================
 ! Generate separatrix for X-point Xp
 !=======================================================================
-  subroutine generate_new (this, Xp, trace_step, offset, debug)
+  subroutine generate_new (this, Xp, trace_step, offset, stop_at_boundary, debug)
   use equilibrium, only: t_xpoint, get_PsiN, correct_PsiN
   use ode_solver
   class(t_separatrix)                  :: this
   type(t_Xpoint), intent(in)           :: Xp
   real(real64),   intent(in), optional :: trace_step, offset
-  logical,        intent(in), optional :: debug
+  logical,        intent(in), optional :: stop_at_boundary, debug
 
   real(real64) :: lambda1, lambda2, v1(2), v2(2), Px(2), PsiN_X, xi(2), s1, scut
   integer      :: ierr, Mierr(4)
@@ -249,19 +249,27 @@ module separatrix
 
   ! branch 1: in unstable direction, towards magnetic axis
   xi = find_xinit(v1)
-  call this%M1%generate_branch(xi,  FORWARD, Mierr(1), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(1))
+  call this%M1%generate_branch(xi,  FORWARD, Mierr(1), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(1))
 
   ! branch 2: in stable direction, towards magnetic axis
   xi = find_xinit(v2)
-  call this%M2%generate_branch(xi, BACKWARD, Mierr(2), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(2))
+  call this%M2%generate_branch(xi, BACKWARD, Mierr(2), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(2))
 
   ! branch 3: in unstable direction, away from magnetic axis
   xi = find_xinit(-v1)
-  call this%M3%generate_branch(xi,  FORWARD, Mierr(3), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(3))
+  call this%M3%generate_branch(xi,  FORWARD, Mierr(3), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(3))
 
   ! branch 4: in stable direction, away from magnetic axis
   xi = find_xinit(-v2)
-  call this%M4%generate_branch(xi, BACKWARD, Mierr(4), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(4))
+  call this%M4%generate_branch(xi, BACKWARD, Mierr(4), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(4))
 
   if (screen_output) then
      write (6, *) 'Mierr = ', Mierr
@@ -292,13 +300,13 @@ module separatrix
 !=======================================================================
 ! Generate separatrix for X-point Xp(ix) from module equilibrium
 !=======================================================================
-  subroutine generate_iX(this, ix, trace_step, offset, debug)
+  subroutine generate_iX(this, ix, trace_step, offset, stop_at_boundary, debug)
   use equilibrium, only: Xp
   use ode_solver
   class(t_separatrix)                 :: this
   integer,       intent(in)           :: ix
   real(real64),  intent(in), optional :: trace_step, offset
-  logical,       intent(in), optional :: debug
+  logical,       intent(in), optional :: stop_at_boundary, debug
 
 
   ! check if ix refers to a valid X-point
@@ -312,7 +320,7 @@ module separatrix
   endif
 
 
-  call this%generate_new(Xp(ix), trace_step, offset, debug)
+  call this%generate_new(Xp(ix), trace_step, offset, stop_at_boundary, debug)
 
   end subroutine generate_iX
 !=======================================================================

@@ -91,6 +91,6 @@ subroutine initialize_equilibrium()
   ! 6. set up X-points
   call setup_xpoints()
 
- 1020 format(3x,'- Generatrix separatrix for X-point')
+ 1020 format(3x,'- Generate separatrix for X-point')
  1021 format(8x,i0)
 end subroutine initialize_equilibrium
