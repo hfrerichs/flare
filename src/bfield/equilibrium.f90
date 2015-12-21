@@ -26,7 +26,7 @@ module equilibrium
      EQ_AMHD        = 5
 
 
-  integer, parameter :: nX_max = 10
+  integer, parameter :: nX_max = 20
 
 
   type t_Xpoint ! critical point
@@ -37,6 +37,7 @@ module equilibrium
      contains
      procedure :: analysis
      procedure :: load
+     procedure :: setup
      procedure :: PsiN => t_Xpoint__PsiN
   end type t_Xpoint
 
@@ -182,7 +183,6 @@ module equilibrium
 
   integer              :: ix
   real(real64)         :: r(3), x0(2)
-  real(real64)         :: Rbox(2), Zbox(2)
 
 
 ! 0. initialize
@@ -275,36 +275,7 @@ module equilibrium
 
 
 ! 4. set up X-points ...................................................
-  write (6, 4000)
-  do ix=1,nx_max
-     if (Xp(ix)%R_estimate <= 0.d0) then
-        if (ix == 1) then
-           call get_domain (Rbox, Zbox)
-           Xp(ix)%R_estimate = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
-           Xp(ix)%Z_estimate = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
-        else
-           cycle
-        endif
-     endif
-
-     x0(1)        = Xp(ix)%R_estimate
-     x0(2)        = Xp(ix)%Z_estimate
-     Xp(ix)%X     = find_x(x0, Hout=Xp(ix)%H)
-     if (Xp(ix)%X(1) > 0.d0) then
-        Xp(ix)%undefined = .false.
-
-        r(1:2)       = Xp(ix)%X; r(3) = 0.d0
-        Xp(ix)%Psi   = get_Psi(r)
-        Xp(ix)%theta = get_poloidal_angle(r)
-        if (ix == 1) Psi_sepx = Xp(ix)%Psi
-     endif
-
-     write (6, 4001) Xp(ix)%X, Xp(ix)%Psi
-     if (Debug) then
-        write (6, 4002) Xp(ix)%H(1,1), Xp(ix)%H(1,2)
-        write (6, 4002) Xp(ix)%H(2,1), Xp(ix)%H(2,2)
-     endif
-  enddo
+  call setup_xpoints()
 
 
 ! 5. set dependent variables ...........................................
@@ -326,9 +297,6 @@ module equilibrium
  1000 iconfig = 0
  1001 format (3x,'- Equilibrium configuration:')
  3000 format (8x,'Psi_axis = ', e12.4)
- 4000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
- 4001 format (8x,2f12.4,2x,e12.4)
- 4002 format (8x,2e12.4)
  5000 format (8x,'Psi_sepx = ', e12.4)
   end subroutine load_equilibrium_config
 !=======================================================================
@@ -493,6 +461,102 @@ module equilibrium
   call broadcast_equilibrium()
 
   end subroutine broadcast_mod_equilibrium
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_xpoints()
+  use run_control, only: Prefix, Debug
+
+  integer, parameter :: iu = 32
+
+  character(len=120) :: xpoint_file
+  logical      :: ex
+  real(real64) :: x(2)
+  integer      :: ix, nx
+
+
+  write (6, 4000)
+
+  ! 1. pre-defined X-points
+  xpoint_file = trim(Prefix)//'xpoints.dat'
+  inquire (file=xpoint_file, exist=ex)
+
+  ! 1.1. run subroutine initialize_equilibrium if file doesn't exist
+  !if (.not.ex) call initialize_equilibrium()
+
+  ! 1.2. read pre-defined X-points
+  if (ex) then
+  open  (iu, file=xpoint_file)
+  read  (iu, *) nx
+  do ix=1,nx
+     read (iu, *) x
+     call Xp(ix)%setup(x)
+     if (Xp(ix)%undefined) then
+        write (6, 9001) ix;  stop
+     endif
+
+     ! update Psi_sepx
+     if (ix == 1) Psi_sepx = Xp(1)%Psi
+
+     ! screen output
+     write (6, 4001) ix, Xp(ix)%X, Xp(ix)%PsiN()
+  enddo
+  close (iu)
+  endif
+
+
+  ! 2. user defined X-points
+  do ix=1,nx_max
+     if (Xp(ix)%R_estimate <= 0.d0) cycle
+
+     ! set up X-point from estimate
+     call Xp(ix)%setup()
+     if (Xp(ix)%undefined) then
+        write (6, 9002) ix;  stop
+     endif
+
+     ! update Psi_sepx
+     if (ix == 1) Psi_sepx = Xp(1)%Psi
+
+     ! screen output
+     write (6, 4001) ix, Xp(ix)%X, Xp(ix)%PsiN()
+     if (Debug) then
+        write (6, 4002) Xp(ix)%H(1,1), Xp(ix)%H(1,2)
+        write (6, 4002) Xp(ix)%H(2,1), Xp(ix)%H(2,2)
+     endif
+  enddo
+
+ 4000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
+ 4001 format(8x,i0,'. ',2f12.4,2x,e12.4)
+ 4002 format(8x,2e12.4)
+ 9001 format('error in subroutine setup_xpoints: cannot set up prefined X-point ',i0,'!')
+ 9002 format('error in subroutine setup_xpoints: cannot set up user defined X-point ',i0,'!')
+  end subroutine setup_xpoints
+!=======================================================================
+
+
+
+!=======================================================================
+  function get_r3(r)
+  real(real64), dimension(:), intent(in) :: r
+  real(real64)                           :: get_r3(3)
+
+
+  select case(size(r))
+  case(2)
+     get_r3(1:2) = r
+     get_r3(  3) = 0.d0
+  case(3)
+     get_r3      = r
+  case default
+     write (6, *) 'error in function get_r3: invalid size of argument r!'
+     write (6, *) 'size(r) = ', size(r)
+     stop
+  end select
+
+  end function get_r3
 !=======================================================================
 
 
@@ -1590,6 +1654,30 @@ module equilibrium
   endif
 
   end function load
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup(this, x_guess)
+  class(t_Xpoint)          :: this
+  real(real64), intent(in), optional :: x_guess(2)
+
+  real(real64) :: x(2), r(3)
+
+
+  x(1) = this%R_estimate;  x(2) = this%Z_estimate
+  if (present(x_guess)) x = x_guess
+  this%X = find_x(x, Hout=this%H)
+  if (this%X(1) > 0.d0) then
+     this%undefined = .false.
+
+     r(1:2)         = this%X;  r(3) = 0.d0
+     this%Psi       = get_Psi(r)
+     this%theta     = get_poloidal_angle(this%X)
+  endif
+
+  end subroutine setup
 !=======================================================================
 
 

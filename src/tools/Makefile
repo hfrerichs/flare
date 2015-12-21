@@ -6,6 +6,7 @@ OBJECTS =  \
                sample_bfield.o\
                poincare_plot.o\
                connection_length.o\
+               initialize_equilibrium.o\
                get_equi_info_2D.o\
                generate_flux_surface_2D.o\
                generate_flux_surface_3D.o\

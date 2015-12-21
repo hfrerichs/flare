@@ -182,6 +182,8 @@ module run_control
      call poincare_plot
   case ('connection_length')
      call connection_length
+  case ('initialize_equilibrium')
+     call initialize_equilibrium()
   case ('get_equi_info_2D')
      call get_equi_info_2D
   case ('generate_flux_surface_2D')
