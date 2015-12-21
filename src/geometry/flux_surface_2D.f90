@@ -226,7 +226,7 @@ module flux_surface_2D
 !    CW              in clockwise direction
 !
 ! x0                 add 0th point (e.g. X-point)
-! stop_at_boundary   stop tracing an configuration boundary (defined in
+! stop_at_boundary   stop tracing at configuration boundary (defined in
 !                    module boundary)
 ! theta_cutoff       stop tracing at poloidal angle [rad]
 ! cutoff_boundary    stop tracing at this boundary
@@ -239,7 +239,7 @@ module flux_surface_2D
 !=======================================================================
   subroutine generate_branch(this, xinit, direction, ierr, &
                              x0, trace_step, &
-                             stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X)
+                             stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X, connectX)
   use ode_solver
   use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, &
       leave_equilibrium_domain, nx_max, Xp, get_flux_surface_curvature, correct_PsiN
@@ -250,9 +250,10 @@ module flux_surface_2D
   real(real64),  intent(in)  :: xinit(2)
   integer,       intent(in)  :: direction
   integer,       intent(out) :: ierr
-  real(real64),  intent(in), optional :: x0(2), trace_step, theta_cutoff, cutoff_X
-  logical,       intent(in), optional :: stop_at_boundary
-  type(t_curve), intent(in), optional :: cutoff_boundary
+  real(real64),  intent(in),  optional :: x0(2), trace_step, theta_cutoff, cutoff_X
+  logical,       intent(in),  optional :: stop_at_boundary
+  type(t_curve), intent(in),  optional :: cutoff_boundary
+  integer,       intent(out), optional :: connectX
 
   integer, parameter       :: chunk_size = 1024
 
@@ -263,11 +264,15 @@ module flux_surface_2D
   logical      :: check_boundary
 
 
-  ! 0. set up defaults for optional input
+  ! 0. set up defaults for optional input/output
   ! 0.1. stop tracing at boundary?
   check_boundary = .true.
   if (present(stop_at_boundary)) then
      check_boundary = stop_at_boundary
+  endif
+  ! 0.2. connecting X-point id
+  if (present(connectX)) then
+     connectX = 0
   endif
 
 
@@ -345,8 +350,10 @@ module flux_surface_2D
 
            ! stop tracing near X-point
            if (dX < cutoff_X) then
+              ! check PsiN at present position vs. Xp(ix)%PsiN()
               xtmp(i,1:2) = Xp(ix)%X
               ierr        = -2
+              if (present(connectX)) connectX = ix
               exit trace_loop
            endif
 
@@ -376,6 +383,7 @@ module flux_surface_2D
      ! D.2 check equilibrium boundary
      if (leave_equilibrium_domain(xtmp(i-1,1:2), xtmp(i,1:2), X(1:2))) then
         xtmp(i,1:2) = X(1:2)
+        if (present(connectX)) connectX = -1
         ierr        = -1
         exit
      endif

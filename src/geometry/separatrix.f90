@@ -12,6 +12,12 @@ module separatrix
   !type, extends(t_curve), public :: t_separatrix
      type(t_flux_surface_2D) :: M1, M2, M3, M4, B(4)
      real(real64) :: Px(2)
+
+     ! where do the branches connect to? > 0: X-point id
+     !                                   = 0: wall
+     !                                   < 0: leave equilibrium domain
+     integer      :: connectB(4)
+
      contains
      procedure :: generate
      procedure :: generate_new
@@ -243,22 +249,23 @@ module separatrix
 
   ! branch 1: in unstable direction, towards magnetic axis
   xi = find_xinit(v1)
-  call this%M1%generate_branch(xi,  FORWARD, Mierr(1), x0=Px, cutoff_X=scut,trace_step=trace_step)
+  call this%M1%generate_branch(xi,  FORWARD, Mierr(1), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(1))
 
   ! branch 2: in stable direction, towards magnetic axis
   xi = find_xinit(v2)
-  call this%M2%generate_branch(xi, BACKWARD, Mierr(2), x0=Px, cutoff_X=scut,trace_step=trace_step)
+  call this%M2%generate_branch(xi, BACKWARD, Mierr(2), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(2))
 
   ! branch 3: in unstable direction, away from magnetic axis
   xi = find_xinit(-v1)
-  call this%M3%generate_branch(xi,  FORWARD, Mierr(3), x0=Px, cutoff_X=scut,trace_step=trace_step)
+  call this%M3%generate_branch(xi,  FORWARD, Mierr(3), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(3))
 
   ! branch 4: in stable direction, away from magnetic axis
   xi = find_xinit(-v2)
-  call this%M4%generate_branch(xi, BACKWARD, Mierr(4), x0=Px, cutoff_X=scut,trace_step=trace_step)
+  call this%M4%generate_branch(xi, BACKWARD, Mierr(4), x0=Px, cutoff_X=scut,trace_step=trace_step, connectX=this%connectB(4))
 
   if (screen_output) then
      write (6, *) 'Mierr = ', Mierr
+     write (6, *) 'connectB = ', this%connectB
   endif
   contains
   !.....................................................................
