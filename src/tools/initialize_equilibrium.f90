@@ -2,6 +2,7 @@ subroutine initialize_equilibrium()
   use iso_fortran_env
   use run_control, only: N_R, N_Z, Debug, Prefix
   use equilibrium
+  use boundary
   use separatrix
   use string
   implicit none
@@ -10,6 +11,7 @@ subroutine initialize_equilibrium()
 
   type(t_separatrix) :: S(nx_max), Stmp
   type(t_Xpoint)     :: Xtmp
+  real(real64)       :: r(3)
   integer :: nR, nZ, ix, ib, icx(nx_max), nx
 
 
@@ -35,18 +37,16 @@ subroutine initialize_equilibrium()
   ! 3. sort out irrelevant X-points
   icx = -1
   nx  = 0
-  xpoint_loop: do ix=1,nx_max
+  do ix=1,nx_max
      if (Xp(ix)%undefined) cycle
 
      ! X-point outside configuration boundary?
-     ! POSSIBLE ISSUE: no equilibrium boundary for amhd, re-activate outside_boundary function
-     do ib=1,4
-        if (S(ix)%connectB(ib) < 0) cycle xpoint_loop
-     enddo
+     r(1:2) = Xp(ix)%X;  r(3) = 0.d0
+     if (outside_boundary(r)) cycle
 
      icx(ix) = 0
      nx      = nx + 1
-  enddo xpoint_loop
+  enddo
   ! check
   if (Debug) then
   write (6, *) 'relevant X-points:'
