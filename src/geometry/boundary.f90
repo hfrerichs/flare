@@ -449,32 +449,54 @@ module boundary
 
 
 !=======================================================================
-! !!! this is not used and may be deleted !!!
+! check if point r is outside of configuration boundary
 !=======================================================================
-!  function outside_boundary(x)
-!  use iso_fortran_env
-!  real(real64), dimension(3), intent(in) :: x
-!  logical                                :: outside_boundary
-!
-!  real(real64) :: phi
-!  type(t_curve) :: C
-!  integer :: ib
-!
-!
-!  outside_boundary = .false.
-!  stop
-!  phi = x(3)
+  function outside_boundary(r)
+  use iso_fortran_env
+  real(real64), intent(in) :: r(3)
+  logical                  :: outside_boundary
 
-  ! check Q4-type boundaries
-!  do ib=1,n_quad
-!     C = S_quad(ib)%slice(phi)
-!     if (C%inside(x(1:2))) then
-!        outside_boundary = .true.
-!        return
-!     endif
-!  enddo
+  type(t_curve) :: C
+  logical       :: side
+  real(real64)  :: phi
+  integer       :: l
 
-!  end function outside_boundary
+
+  ! 0. initialize
+  outside_boundary = .false.
+
+
+  ! 1. check axisymmetric (L2-type) surfaces
+  do l=1,n_axi
+     side = boundary_side(l) == 1
+     if (S_axi(l)%outside(r(1:2)) .eqv. side) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+
+  ! 2. check block limiters (CSG-type)
+  do l=1,n_block
+     if (bl_outside(l, r)) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+
+  ! 3.c heck Q4-type boundaries
+  phi = r(3)
+  do l=1,n_quad
+     side = boundary_side(n_axi + n_block + l) == 1
+     C    = S_quad(l)%slice(phi)
+     if (C%outside(r(1:2)) .eqv. side) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+  end function outside_boundary
 !=======================================================================
 
 

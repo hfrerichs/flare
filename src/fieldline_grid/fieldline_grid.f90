@@ -1140,7 +1140,7 @@ module fieldline_grid
   subroutine generate_plates()
   use iso_fortran_env
   use emc3_grid
-  use boundary
+  use boundary, unused => outside_boundary
   use curve2D
   use math
   use run_control, only: Debug
