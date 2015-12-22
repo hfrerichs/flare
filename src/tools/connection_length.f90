@@ -43,6 +43,8 @@
 !                     = 128: Radial distance to last closed flux surface (lcfs.dat)
 !                     = 256: Final radial position (PsiN) in backward direction
 !                     = 512: Final radial position (PsiN) in forward direction
+!                    = 1024: Backward connection length [toroidal turns]
+!                    = 2048: Forward connection length [toroidal turns]
 !    Psi(1), Psi(2)    Reference radial coordinate for additional data type 8-32
 !    Output_File
 !===============================================================================
@@ -58,7 +60,7 @@ subroutine connection_length
   use flux_surface_3D
   implicit none
 
-  integer, parameter :: nout_max = 10
+  integer, parameter :: nout_max = 12
   integer, parameter :: iu = 42
 
   real(real64), dimension(:,:), allocatable :: lc_data
@@ -67,8 +69,8 @@ subroutine connection_length
   type(t_grid)       :: G
 
   character(len=12)  :: fstr
-  real(real64)       :: y(3), r(3), dl, PsiN, Psi_min, Psi_av, ltor(-1:1)
-  real(real64)       :: lc(-1:1), lpt(-1:1), dist2PsiN(-1:1,2), d, d_min, PsiN_final(-1:1)
+  real(real64)       :: y(3), r(3), dl, PsiN, Psi_min, Psi_av, ntt(-1:1)
+  real(real64)       :: lc(-1:1), npt(-1:1), dist2PsiN(-1:1,2), d, d_min, PsiN_final(-1:1)
   logical :: distance_to_lcfs
   integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir, id, id_limit(-1:1)
 
@@ -134,7 +136,8 @@ subroutine connection_length
      ! initial values
      ! ... for connection length calculation
      lc        = 0.d0
-     lpt       = 0.d0
+     npt       = 0.d0
+     ntt       = 0.d0
 
      ! ... for average and maximum penetration of field lines
      call coord_trans (y, Trace_Coords, r, CYLINDRICAL)
@@ -189,20 +192,19 @@ subroutine connection_length
               exit trace_loop
            endif
         enddo trace_loop
-        lpt(idir)  = F%theta_int
-        ltor(idir) = F%phi_int / pi * 180.d0
+        npt(idir)        = F%theta_int / pi2
+        ntt(idir)        = F%phi_int   / pi2
         PsiN_final(idir) = PsiN
      enddo
 
 
      ! update connection length data for selected field line
      lc(0)  = abs(lc(-1)) + abs(lc(1))
-     lpt    = lpt / pi2
      Psi_av = Psi_av / lc(0)
      lc_data(ig,1) = lc(-1)
      lc_data(ig,2) = lc( 1)
-     lc_data(ig,3) = lpt(-1)
-     lc_data(ig,4) = lpt( 1)
+     lc_data(ig,3) = npt(-1)
+     lc_data(ig,4) = npt( 1)
      lc_data(ig,5) = Psi_min
      do i=1,nout
         i2 = nint(log(1.d0*iout(i))/log(2.d0))
@@ -227,6 +229,10 @@ subroutine connection_length
            lc_data(ig,5+i) = PsiN_final(-1)
         case (9)
            lc_data(ig,5+i) = PsiN_final(1)
+        case (10)
+           lc_data(ig,5+i) = ntt(-1)
+        case (11)
+           lc_data(ig,5+i) = ntt(1)
         end select
      enddo
 
@@ -298,6 +304,10 @@ subroutine connection_length
         text = 'Final radial position (PsiN) in backward direction'
      case (9)
         text = 'Final radial position (PsiN) in forward direction'
+     case (10)
+        text = 'Backward connection length [toroidal turns]'
+     case (11)
+        text = 'Forward connection length [toroidal turns]'
      case default
         write (6, *) 'error: ', 2**i2, ' is not a valid data id!'
         stop

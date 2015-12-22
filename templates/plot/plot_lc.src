@@ -23,7 +23,9 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Radial distance to LCFS',$
 			   'Delta Final PsiN',$
 			   'Final PsiN (backward)',$
-			   'Final PsiN (forward)']
+			   'Final PsiN (forward)',$
+			   'Toroidal connection length [deg] (backward)', $
+			   'Toroidal connection length [deg] (forward)']
 	u_title_strs	= ['Connection Length [m]',$
 			   'Shortest Length [m]',$
 			   'Length [m]',$
@@ -43,7 +45,9 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Radial distance to LCFS',$
 			   'Delta Final PsiN',$
 			   'Final PsiN (backward)',$
-			   'Final PsiN (forward)']
+			   'Final PsiN (forward)', $
+			   'Toroidal connection length [deg] (backward)', $
+			   'Toroidal connection length [deg] (forward)']
 
 
 	; check data file for the correct # of lines ..................................
@@ -74,7 +78,7 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 	endif
 	;columns	= 6
 	columns	= 5 + nout
-	n_vars	= 10 + 4 + 2 + 1 + 3
+	n_vars	= 10 + 4 + 2 + 1 + 3 + 2
 	;..............................................................................
 	
 
@@ -168,6 +172,12 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 		end
 		9: begin
 			data(i,19)= tmp(5+j)			; Final PsiN (forward)
+		end
+		10: begin
+			data(i,20)= abs(tmp(5+j))			; Toroidal connection length [deg], backward
+		end
+		11: begin
+			data(i,21)= abs(tmp(5+j))			; Toroidal connection length [deg], forward
 		end
 		endcase
 		endfor
@@ -693,6 +703,8 @@ pro plot_lc, grid_file, data_file, idata, $
 		'DeltaFinalPsiN': idata=17
 		'FinalPsiN-': idata=18
 		'FinalPsiN+': idata=19
+		'Ltt-': idata=20
+		'Ltt+': idata=21
 		else: begin
 			print, 'error: invalid expression for "Zdata"'
 			return
@@ -735,6 +747,9 @@ pro plot_lc, grid_file, data_file, idata, $
 	colors	= make_array(n_clevels, /fl)
 	colors(0:n_clevels-2)	= 1.0*findgen(n_clevels-1)/(n_clevels-2) * (n_colors-1) + color_min
 	colors(n_clevels-1)	= 255
+	if (keyword_set(cb_cutoff)) then begin
+		colors(n_clevels-1)	= 64
+	endif
 
 	;z_title	= 'Magnetic topology (Textor shot 102168)'
 	;z_title	= 'Magnetic topology (DIII-D shot 125992)'
