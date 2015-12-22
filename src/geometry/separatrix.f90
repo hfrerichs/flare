@@ -23,6 +23,7 @@ module separatrix
      procedure :: generate_new
      procedure :: generate_iX
      procedure :: plot
+     procedure :: broadcast
   end type t_separatrix
 
   public :: ePsi_sub, H_eigenvectors
@@ -386,5 +387,25 @@ module separatrix
 
 
 
+!=======================================================================
+  subroutine broadcast(this)
+  use parallel
+  class(t_separatrix)          :: this
+
+  integer :: i
+
+
+  call this%M1%broadcast()
+  call this%M2%broadcast()
+  call this%M3%broadcast()
+  call this%M4%broadcast()
+  do i=1,4
+     call this%B(i)%broadcast()
+  enddo
+  call broadcast_real(this%Px, 2)
+  call broadcast_inte(this%connectB, 4)
+
+  end subroutine broadcast
+!=======================================================================
 
 end module separatrix

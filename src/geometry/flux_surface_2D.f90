@@ -27,6 +27,7 @@ module flux_surface_2D
      procedure :: surface
      procedure :: surface_analysis
      procedure :: volume
+     procedure :: broadcast
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -786,5 +787,18 @@ module flux_surface_2D
 
   end function volume
 !===============================================================================
+
+
+
+!=======================================================================
+  subroutine broadcast(this)
+  use parallel
+  class(t_flux_surface_2D) :: this
+
+  call this%t_curve%broadcast()
+  call broadcast_real_s(this%PsiN)
+
+  end subroutine broadcast
+!=======================================================================
 
 end module flux_surface_2D
