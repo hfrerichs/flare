@@ -65,6 +65,38 @@ module mfc_polygon
 
 
 !===============================================================================
+! Set up discretization of ring coil around Z-axis at Z=Z0 and radius R0, current I0
+!===============================================================================
+  subroutine setup_ring(this, R0, Z0, I0, n)
+  use math
+  class(t_mfc_polygon)     :: this
+  real(real64), intent(in) :: R0, Z0, I0
+  integer,      intent(in) :: n
+
+  real(real64) :: phi, R
+  integer      :: i
+
+
+  this%n_seg = n
+  this%I0    = I0
+  allocate (this%X(0:n), this%Y(0:n), this%Z(0:n))
+
+  do i=0,n
+     phi       = 2.d0 * pi * i / n
+     R         = R0
+
+     this%X(i) = R*cos(phi)
+     this%Y(i) = R*sin(phi)
+     this%Z(i) = Z0
+  enddo
+  allocate (this%dx(0:n), this%dy(0:n), this%dz(0:n), this%rp(0:n), this%rp1(0:n))
+
+  end subroutine setup_ring
+!===============================================================================
+
+
+
+!===============================================================================
 ! return magnetic vector potential [T m] at x (Cartesian coordinates)
 !===============================================================================
   function get_A(this, x) result(A)
