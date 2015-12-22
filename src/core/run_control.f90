@@ -73,6 +73,8 @@ module run_control
      Spline_Order, Run_Level, &
      Debug, use_boundary_from_equilibrium
 
+
+  private :: Boundary, RunControl
   contains
 !=======================================================================
 
