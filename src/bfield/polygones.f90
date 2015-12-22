@@ -25,10 +25,12 @@ module polygones
   type(t_mfc_polygon), dimension(:), allocatable :: C
   integer :: n_coils
 
-  public :: read_polygones_config
-  public :: broadcast_mod_polygones
-  public :: get_Bcart_polygones
-  public :: get_Bcyl_polygones
+
+  public :: &
+     read_polygones_config, &
+     broadcast_mod_polygones, &
+     get_Bcart_polygones, &
+     get_Bcyl_polygones
 
   contains
 !=======================================================================
