@@ -148,7 +148,6 @@ module equilibrium
      type(t_curve), intent(out) :: S
      end subroutine export_curve
   end interface
-  procedure(logical_inquiry), pointer :: equilibrium_provides_boundary
   procedure(export_curve), pointer    :: export_boundary
 
   ! Broadcast data for parallel execution
@@ -227,7 +226,6 @@ module equilibrium
   export_boundary  => null()
   equilibrium_info => null()
   post_setup_equilibrium        => null()
-  equilibrium_provides_boundary => default_equilibrium_provides_boundary
   call initialize_magnetic_axis()
   use_boundary = (use_boundary .and. use_boundary_from_equilibrium)
 
@@ -351,7 +349,7 @@ module equilibrium
 ! load equilibrium data
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (filename, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx, Header_Format=i_format)
+     call geqdsk_load (filename, Ip, Bt, Current_Fix, Psi_axis, Psi_sepx, Header_Format=i_format)
   case (EQ_DIVAMHD)
      call divamhd_load (filename, Ip, Bt, R0)
 
@@ -396,7 +394,6 @@ module equilibrium
      get_DPsi                      => geqdsk_get_DPsi
      get_pressure                  => geqdsk_get_pressure
      get_domain                    => geqdsk_get_domain
-     equilibrium_provides_boundary => geqdsk_provides_boundary
      export_boundary               => geqdsk_export_boundary
      broadcast_equilibrium         => geqdsk_broadcast
      equilibrium_info              => geqdsk_info
@@ -1168,11 +1165,13 @@ module equilibrium
 !=======================================================================
 ! boundary provided by equilibrium
 !=======================================================================
-  function default_equilibrium_provides_boundary() result(l)
+  function equilibrium_provides_boundary() result(l)
   logical :: l
 
-  l = .false.
-  end function default_equilibrium_provides_boundary
+
+  l = use_boundary
+
+  end function equilibrium_provides_boundary
 !=======================================================================
 ! export axisymmetric boundary provided by equilibrium
 !=======================================================================
