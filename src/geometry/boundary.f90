@@ -334,6 +334,50 @@ module boundary
 
 
 !=======================================================================
+! check intersection (X) of trajectory r1->r2 with axisymmetric boundaries
+!=======================================================================
+! optional output:
+!    X:      coordinates of intersection with boundary
+!    id:     boundary number
+!    ielem:  element number on boundary
+!    tau:    relative coordinate along trajectory r1->r2
+!=======================================================================
+  function intersect_axisymmetric_boundary(r1, r2, X, id, ielem, tau) result(l)
+  use math
+  real*8, intent(in)   :: r1(2), r2(2)
+  real*8, intent(out)  :: X(2)
+  integer, intent(out) :: id
+  integer, intent(out), optional :: ielem
+  real(real64), intent(out), optional :: tau
+  logical :: l
+
+  real*8  :: phih, rz(2), t, x1(3), x2(3), lambda_min
+  integer :: i, ish
+
+
+  l  = .false.
+  id = 0
+  if (present(ielem)) ielem = -1
+
+  ! check intersection with axisymmetric surfaces
+  do i=1,n_axi
+     if (intersect_curve (r1, r2, S_axi(i), rz, t, ish=ish)) then
+     !if (intersect_axisym_surf (r1, r2, S_axi(i), X)) then
+        l      = .true.
+        X(1:2) = rz
+        id     = i
+        if (present(ielem)) ielem  = ish
+        if (present(tau))   tau    = t
+        return
+     endif
+  enddo
+
+  end function intersect_axisymmetric_boundary
+!=======================================================================
+
+
+
+!=======================================================================
 ! check intersection (X) of trajectory r1->r2 with boundaries
 !=======================================================================
 ! optional output:

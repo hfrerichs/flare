@@ -260,7 +260,7 @@ module flux_surface_2D
 
   real(real64), dimension(:,:), allocatable :: xtmp, xtmp_tmp
   type(t_ODE)  :: F
-  real(real64) :: L, ds, X(3), dX, t, thetal, thetac, dtheta
+  real(real64) :: L, ds, X(2), dX, t, thetal, thetac, dtheta
   integer      :: i, idir, ix, ierrPsiN, nchunks, ntmp, boundary_id
   logical      :: check_boundary
 
@@ -365,9 +365,9 @@ module flux_surface_2D
 
 
      ! C. trace one step
-     X(1:2)      = F%step_ds(ds)
-     xtmp(i,1:2) = correct_PsiN(X(1:2), this%PsiN, ierrPsiN) ! perform correction step
-     if (ierrPsiN > 0) xtmp(i,1:2) = X(1:2)
+     X           = F%step_ds(ds)
+     xtmp(i,1:2) = correct_PsiN(X, this%PsiN, ierrPsiN) ! perform correction step
+     if (ierrPsiN > 0) xtmp(i,1:2) = X
      F%yc(1:2)   = xtmp(i,1:2) ! update ODE solver
      L           = L + abs(ds)
      thetac      = get_poloidal_angle(xtmp(i,1:2))
@@ -376,14 +376,14 @@ module flux_surface_2D
      ! D. boundary check
      ! D.1 check configuration boundary
      if (check_boundary) then
-     if (intersect_boundary(xtmp(i-1,1:2), xtmp(i,1:2), X, boundary_id)) then
-        xtmp(i,1:2) = X(1:2)
+     if (intersect_axisymmetric_boundary(xtmp(i-1,1:2), xtmp(i,1:2), X, boundary_id)) then
+        xtmp(i,1:2) = X
         exit
      endif
      endif
      ! D.2 check equilibrium boundary
-     if (leave_equilibrium_domain(xtmp(i-1,1:2), xtmp(i,1:2), X(1:2))) then
-        xtmp(i,1:2) = X(1:2)
+     if (leave_equilibrium_domain(xtmp(i-1,1:2), xtmp(i,1:2), X)) then
+        xtmp(i,1:2) = X
         if (present(connectX)) connectX = -1
         ierr        = -1
         exit
@@ -399,8 +399,8 @@ module flux_surface_2D
      endif
      ! D.4 check cut-off boundary
      if (present(cutoff_boundary)) then
-     if (intersect_curve(xtmp(i-1,1:2), xtmp(i,1:2), cutoff_boundary, X(1:2))) then
-        xtmp(i,1:2) = X(1:2)
+     if (intersect_curve(xtmp(i-1,1:2), xtmp(i,1:2), cutoff_boundary, X)) then
+        xtmp(i,1:2) = X
         exit
      endif
      endif
