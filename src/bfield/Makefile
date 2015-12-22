@@ -9,6 +9,7 @@ OBJECTS =  \
                divamhd.o\
                amhd.o\
                equilibrium.o\
+               mfc_polygon.o\
                polygones.o\
                splineB.o\
                interpolateB.o\
