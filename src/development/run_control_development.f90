@@ -22,6 +22,8 @@ subroutine run_control_development (Run_Type)
      call TEST_correct_PsiN()
   case ('TEST_adaptive_step_size')
      call TEST_adaptive_step_size()
+  case ('TEST_base_mesh')
+     call TEST_base_mesh()
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop
@@ -142,7 +144,7 @@ end subroutine TEST_setup_domain
   !call F%generate_branch(r(1:2), CW, ierr, stop_at_boundary=.false.)
   !call F%plot(filename='test_cw.plt')
 
-  call S%generate_new(1, debug=.true.)
+  call S%generate_iX(1, debug=.true.)
   call S%plot(filename_prefix='S', parts=.true.)
 
   end subroutine TEST_flux_surface_2D
@@ -246,4 +248,33 @@ end subroutine TEST_setup_domain
   call D%store(filename=Output_File)
 
   end subroutine TEST_adaptive_step_size
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine TEST_base_mesh
+  use fieldline_grid
+  use base_mesh
+  use modtopo_lsn
+  use modtopo_ddn
+  use modtopo_cdn
+
+  integer, dimension(:), allocatable :: connectX
+  integer            :: nX
+
+
+  ! load and initialize grid configuration
+  call setup_grid_configuration()
+
+
+  ! setup geometry of computational domain
+  call setup_topology()
+  call setup_geometry()
+  call setup_interfaces()
+
+
+  ! generate base meshs
+  call generate_base_mesh(0)
+  end subroutine TEST_base_mesh
 !===============================================================================
