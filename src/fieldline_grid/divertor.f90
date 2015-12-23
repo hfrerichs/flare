@@ -804,6 +804,13 @@ module divertor
 
   P_SURF_PL_TRANS_RANGE(1,iz) = 1
   P_SURF_PL_TRANS_RANGE(2,iz) = ZON_POLO(iz)-1
+!  if (P_SURF_PL_TRANS_RANGE(1,iz) .ne. 1  .or.  &
+!      P_SURF_PL_TRANS_RANGE(2,iz) .ne. ZON_POLO(iz)-1) then
+!     write (6, *) 'error in subroutine close_grid_domain:'
+!     write (6, *) 'P_SURF_PL_TRANS_RANGE is ', P_SURF_PL_TRANS_RANGE(:,iz)
+!     write (6, *) 'but it should be ', 0, ZON_POLO(iz)-1
+!     stop
+!  endif
 
 
   j0( 1) = 0

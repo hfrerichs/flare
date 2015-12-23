@@ -231,7 +231,7 @@ module fieldline_grid
   class(t_zone)       :: this
   integer, intent(in) :: iblock, ilayer, itypeR, itypeP
 
-  integer :: add1 = 0, add2 = 0
+  integer :: nr_add1 = 0, nr_add2 = 0, np_add = 0
 
 
   ! 1. grid resolution
@@ -245,10 +245,10 @@ module fieldline_grid
 
 
   ! 3.1 plamsa transport domain
-  this%r_surf_pl_trans_range(1) = add1
-  this%r_surf_pl_trans_range(2) = this%nr - add2
-  this%p_surf_pl_trans_range(1) = 0
-  this%p_surf_pl_trans_range(2) = this%np
+  this%r_surf_pl_trans_range(1) = nr_add1
+  this%r_surf_pl_trans_range(2) = this%nr - nr_add2
+  this%p_surf_pl_trans_range(1) = np_add
+  this%p_surf_pl_trans_range(2) = this%np - np_add
 
   ! 3.2 set parameters for additional neutral domain
   this%d_N0      = d_N0(ilayer)
@@ -271,28 +271,33 @@ module fieldline_grid
   this%nt      = Block(iblock)%nt
 
 
-  ! radial and poloidal resolution (depends on type of zone)
-  add1 = 0; add2 = 0
+  ! radial resolution (depends on type of zone)
+  nr_add1 = 0; nr_add2 = 0
   select case(itypeR)
   ! single layer: add core domain on lower and vaccum domain on upper radial boundary
   case(TYPE_SINGLE_LAYER)
-     add1 = nr_EIRENE_core
-     add2 = nr_EIRENE_vac
+     nr_add1 = nr_EIRENE_core
+     nr_add2 = nr_EIRENE_vac
 
   ! high pressure region (HPR): add core domain on lower radial boundary
   case(TYPE_HPR)
-     add1 = nr_EIRENE_core
+     nr_add1 = nr_EIRENE_core
 
   ! scrape-off layer (SOL): add vacuum domain on upper radial boundary
   case(TYPE_SOL)
-     add2 = nr_EIRENE_vac
+     nr_add2 = nr_EIRENE_vac
 
   ! private flux region (PFR): add vacuum domain on lower radial boundary
   case(TYPE_PFR)
-     add1 = nr_EIRENE_vac
+     nr_add1 = nr_EIRENE_vac
   end select
-  this%nr = Block(iblock)%nr(ilayer) + add1 + add2
-  this%np = Block(iblock)%np(ilayer)
+  this%nr = Block(iblock)%nr(ilayer) + nr_add1 + nr_add2
+
+
+  ! poloidal resolution (depends on type of zone)
+  np_add = 0
+  !if (itypeP == SF_VACUUM) np_add = 1
+  this%np = Block(iblock)%np(ilayer) + 2*np_add
 
   end subroutine setup_resolution
   !---------------------------------------------------------------------
