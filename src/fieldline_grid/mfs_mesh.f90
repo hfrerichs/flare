@@ -429,14 +429,15 @@ module mfs_mesh
 !=======================================================================
 ! Generate nodes in the base plane so that field lines connect to the
 ! strike point x0
+!
+! Z:     toroidal discretization used for strike point adjustment
 !=======================================================================
-  subroutine align_strike_points(x0, Z, nsub, nskip, M)
+  subroutine align_strike_points(x0, Z, M)
   use fieldline_grid, only: t_toroidal_discretization
   use fieldline
   real(real64), intent(in)  :: x0(2)
   type(t_toroidal_discretization), intent(in)  :: Z
-  integer,      intent(in)  :: nsub, nskip
-  real(real64), intent(out) :: M(0:Z%nt*nsub/(nskip+1), 2)
+  real(real64), intent(out) :: M(0:Z%nt, 2)
 
   type(t_fieldline) :: F
   real(real64)      :: ts, y0(3), y1(3), Dphi
@@ -454,7 +455,7 @@ module mfs_mesh
   ! set initial point
   y0(1:2)    = x0
   y0(3)      = Z%phi(Z%it_base)
-  it0        = Z%it_base * nsub / (nskip+1)
+  it0        = Z%it_base
   M(it0,1:2) = y0(1:2)
 
   do idir=-1,1,2
@@ -463,19 +464,16 @@ module mfs_mesh
      ! trace from base location to zone boundaries
      it_end = 0
      if (idir > 0) it_end = Z%nt
-     do it=Z%it_base+idir,it_end, idir*(nskip+1)
-        Dphi = abs(Z%phi(it) - Z%phi(it-idir)) / nsub / 180.d0 * pi
+     do it=Z%it_base+idir,it_end, idir
+        Dphi = abs(Z%phi(it) - Z%phi(it-idir)) / 180.d0 * pi
 
-        ! sub-resolution
-        do it_sub=1,nsub
-           call F%trace_Dphi(Dphi, .false., y1, ierr)
-           if (ierr .ne. 0) then
-              write (6, 9000) ierr
-              stop
-           endif
+        call F%trace_Dphi(Dphi, .false., y1, ierr)
+        if (ierr .ne. 0) then
+           write (6, 9000) ierr
+           stop
+        endif
 
-           M((it-idir)*nsub/(nskip+1) + it_sub*idir,1:2) = y1(1:2)
-        enddo
+        M(it,1:2) = y1(1:2)
      enddo
   enddo
  9000 format('error in subroutine align_strike_point: ',//, &
@@ -503,14 +501,15 @@ module mfs_mesh
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
-  integer, parameter :: nsub = 2, nskip=0, iu_err = 66
+  integer, parameter :: nsub = 2, nskip = 0, nextend = 0, iu_err = 66
 
   type(t_flux_surface_2D) :: F
+  type(t_toroidal_discretization) :: TSP
 
   real(real64), dimension(:,:,:), pointer :: M
   real(real64), dimension(:,:), allocatable :: MSP
-  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L
-  integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir
+  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L, dphi
+  integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir, np_SP
   integer       :: it, its, it_start, it_end, dirT, downstream, np_skip
 
 
@@ -523,10 +522,14 @@ module mfs_mesh
 !  endif
 
 
+  ! set up effective resolution for strike point area
+  np_SP = Z%nt * nsub / (nskip+1) + nextend
+
+
   ! check resolution
   np_skip = ip0;  if (Rside == UPPER) np_skip = this%np - ip0
-  if (Z%nt * nsub > this%np-np_skip) then
-     write (6, 9010) this%np, np_skip, Z%nt, nsub
+  if (np_SP > this%np-np_skip) then
+     write (6, 9010) this%np, np_skip, Z%nt, nsub, nextend
      stop
   endif
 
@@ -537,27 +540,43 @@ module mfs_mesh
   case(LOWER)
      dir        = RIGHT_HANDED
      downstream = 1
-     ips        = this%np - Z%nt*nsub
+     ips        = this%np - np_SP
   case(UPPER)
      dir        = LEFT_HANDED
      downstream = -1
-     ips        = Z%nt*nsub
+     ips        = np_SP
      ! ip_ds    = 0
   end select
 
 
   ! find downstream direction
   dirT       = dir * Ip_sign * Bt_sign
-  it_start   = Z%nt * nsub
+  it_start   = np_SP
   it_end     = 0
   if (dirT > 0) then
      it_start = 0
-     it_end   = Z%nt * nsub
+     it_end   = np_SP
   endif
 
 
+  ! set up toroidal discretization for strike point adjustment
+  call TSP%init(np_SP)
+  TSP%it_base = Z%it_base * nsub / (nskip+1)
+  do it=0,Z%nt
+     TSP%phi(it*nsub) = Z%phi(it)
+  enddo
+  ! add sub-resolution
+  do it=0,Z%nt-1
+     dphi = Z%phi(it+1) - Z%phi(it)
+
+     do its=1,nsub-1
+        TSP%phi(it*nsub + its) = Z%phi(it) + 1.d0 * its/nsub * dphi
+     enddo
+  enddo
+
+
   M => this%mesh
-  allocate (MSP(0:Z%nt*nsub, 2))
+  allocate (MSP(0:TSP%nt, 2))
   do ir=0,this%nr
      x = M(ir,ip0,:)
 
@@ -573,7 +592,7 @@ module mfs_mesh
         x = F%x(0,:)
      end select
      !write (99, *) x
-     call align_strike_points(x, Z, nsub, nskip, MSP)
+     call align_strike_points(x, TSP, MSP)
 
 
      ! setup downstream strike point nodes
@@ -586,7 +605,7 @@ module mfs_mesh
      ! length on flux surface for strike point mesh
      L0 = F%length()
      L  = 0.d0
-     do it=Z%it_base*nsub+dirT,it_end,dirT
+     do it=TSP%it_base+dirT,it_end,dirT
         L = L + sqrt(sum(  (MSP(it-dirT,:)-MSP(it,:))**2))
         !write (92, *) MSP(it, :)
      enddo
@@ -598,7 +617,7 @@ module mfs_mesh
         write (iu_err, *) M(ir,ip0,:)
         close (iu_err)
         open  (iu_err, file='error_strike_point_mesh2.plt')
-        do it=0,Z%nt*nsub
+        do it=0,TSP%nt
            write (iu_err, *) MSP(it,:)
         enddo
         close (iu_err)
@@ -628,7 +647,7 @@ module mfs_mesh
  9000 format('ERROR: reference path for radial discretization crosses guiding surface!', &
              'intersection at L = ', f0.3)
  9010 format('ERROR: poloidal grid resolution too small!'//,&
-             i0, ' - ', i0, ' < ', i0, ' x ', i0)
+             i0, ' - ', i0, ' < ', i0, ' x ', i0, ' + ', i0)
  9020 format('ERROR: aligned strike point mesh extends beyond upstream reference point ', &
              'at radial index ', i0//,&
              'see error_strike_point_mesh.plt')
