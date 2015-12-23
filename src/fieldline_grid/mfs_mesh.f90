@@ -430,13 +430,13 @@ module mfs_mesh
 ! Generate nodes in the base plane so that field lines connect to the
 ! strike point x0
 !=======================================================================
-  subroutine align_strike_points(x0, Z, nsub, M)
+  subroutine align_strike_points(x0, Z, nsub, nskip, M)
   use fieldline_grid, only: t_toroidal_discretization
   use fieldline
   real(real64), intent(in)  :: x0(2)
   type(t_toroidal_discretization), intent(in)  :: Z
-  integer,      intent(in)  :: nsub
-  real(real64), intent(out) :: M(0:Z%nt*nsub, 2)
+  integer,      intent(in)  :: nsub, nskip
+  real(real64), intent(out) :: M(0:Z%nt*nsub/(nskip+1), 2)
 
   type(t_fieldline) :: F
   real(real64)      :: ts, y0(3), y1(3), Dphi
@@ -454,7 +454,7 @@ module mfs_mesh
   ! set initial point
   y0(1:2)    = x0
   y0(3)      = Z%phi(Z%it_base)
-  it0        = Z%it_base * nsub
+  it0        = Z%it_base * nsub / (nskip+1)
   M(it0,1:2) = y0(1:2)
 
   do idir=-1,1,2
@@ -463,7 +463,7 @@ module mfs_mesh
      ! trace from base location to zone boundaries
      it_end = 0
      if (idir > 0) it_end = Z%nt
-     do it=Z%it_base+idir,it_end, idir
+     do it=Z%it_base+idir,it_end, idir*(nskip+1)
         Dphi = abs(Z%phi(it) - Z%phi(it-idir)) / nsub / 180.d0 * pi
 
         ! sub-resolution
@@ -474,7 +474,7 @@ module mfs_mesh
               stop
            endif
 
-           M((it-idir)*nsub + it_sub*idir,1:2) = y1(1:2)
+           M((it-idir)*nsub/(nskip+1) + it_sub*idir,1:2) = y1(1:2)
         enddo
      enddo
   enddo
@@ -503,7 +503,7 @@ module mfs_mesh
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
-  integer, parameter :: nsub = 2, iu_err = 66
+  integer, parameter :: nsub = 2, nskip=0, iu_err = 66
 
   type(t_flux_surface_2D) :: F
 
@@ -573,7 +573,7 @@ module mfs_mesh
         x = F%x(0,:)
      end select
      !write (99, *) x
-     call align_strike_points(x, Z, nsub, MSP)
+     call align_strike_points(x, Z, nsub, nskip, MSP)
 
 
      ! setup downstream strike point nodes
