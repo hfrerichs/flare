@@ -756,7 +756,7 @@ module base_mesh
 
 
   ! initialize toroidal discretization
-  call T%init(nt, Block(iblock)%it_base, Block(iblock)%phi)
+  call T%setup(nt, Block(iblock)%it_base, Block(iblock)%phi)
   do il=0,layers-1;  L(il)%T = T;  enddo
   do iz=1,nelement;  Z(iz)%T = T;  enddo
 
@@ -872,6 +872,7 @@ module base_mesh
 
 !=======================================================================
   subroutine generate_layer(il, iz0, iblock, Sr)
+  use run_control, only: Debug
   use fieldline_grid, only: poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R
   use mesh_spacing
   use string
@@ -925,7 +926,7 @@ module base_mesh
   ! generate mesh in base element
   ! no Sp needed in base element
   call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp)
-  call Mtmp(iz0)%plot_mesh('Mtmp'//trim(str(iz0))//'.plt')
+  if (Debug) call Mtmp(iz0)%plot_mesh('Mtmp'//trim(str(iz0))//'.plt')
 
 
   ! scan through poloidal elements in this layer
@@ -964,7 +965,7 @@ module base_mesh
            call Sp%init(poloidal_spacing_R(Z(iz)%ipl))
         end select
         call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr, Sp)
-        call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
+        if (Debug) call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
   enddo idir_loop

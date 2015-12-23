@@ -158,6 +158,7 @@ module fieldline_grid
 
      contains
      procedure :: init
+     procedure :: setup => setup_toroidal_discretization
   end type t_toroidal_discretization
 
 
@@ -206,18 +207,32 @@ module fieldline_grid
 
 
 !=======================================================================
-  subroutine init(this, nt, it_base, phi)
+  subroutine init(this, nt)
+  class(t_toroidal_discretization) :: this
+  integer,      intent(in)         :: nt
+
+
+  this%nt      = nt
+  if (associated(this%phi)) deallocate(this%phi)
+  allocate(this%phi(0:nt))
+
+  end subroutine init
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_toroidal_discretization(this, nt, it_base, phi)
   class(t_toroidal_discretization) :: this
   integer,      intent(in)         :: nt, it_base
   real(real64), intent(in)         :: phi(0:nt)
 
-  this%nt      = nt
+
+  call this%init(nt)
   this%it_base = it_base
-  if (associated(this%phi)) deallocate(this%phi)
-  allocate(this%phi(0:nt))
   this%phi     = phi
 
-  end subroutine init
+  end subroutine setup_toroidal_discretization
 !=======================================================================
 
 
