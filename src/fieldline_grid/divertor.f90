@@ -799,16 +799,18 @@ module divertor
 
 
   real(real64) :: d
-  integer      :: i, iside, j, j0(-1:1), k, k0(-1:1)
+  integer      :: i, ir1, ir2, iside, j, j0(-1:1), k, k0(-1:1)
 
 
+  ir1 = 0
+  ir2 = SRF_RADI(iz)-1
   P_SURF_PL_TRANS_RANGE(1,iz) = 1
   P_SURF_PL_TRANS_RANGE(2,iz) = ZON_POLO(iz)-1
 !  if (P_SURF_PL_TRANS_RANGE(1,iz) .ne. 1  .or.  &
 !      P_SURF_PL_TRANS_RANGE(2,iz) .ne. ZON_POLO(iz)-1) then
 !     write (6, *) 'error in subroutine close_grid_domain:'
 !     write (6, *) 'P_SURF_PL_TRANS_RANGE is ', P_SURF_PL_TRANS_RANGE(:,iz)
-!     write (6, *) 'but it should be ', 0, ZON_POLO(iz)-1
+!     write (6, *) 'but it should be ', 1, ZON_POLO(iz)-1
 !     stop
 !  endif
 
@@ -875,11 +877,9 @@ module divertor
 
   real(real64), dimension(:), allocatable :: w
   real(real64) :: R1, Z1, R2, Z2
-  integer :: i, ir1, ir2, ig, ig0
+  integer :: i, ig, ig0
 
 
-  ir1 = 0
-  ir2 = SRF_RADI(iz)-1
   !ir1 = R_SURF_PL_TRANS_RANGE(1,iz)
   !ir2 = R_SURF_PL_TRANS_RANGE(2,iz)
 
@@ -938,12 +938,10 @@ module divertor
 
   real(real64), dimension(:), allocatable :: w
   real(real64) :: vt(2), d, dmax
-  integer      :: i, i2, ir1, ir2, ig, ig2, i2max
+  integer      :: i, i2, ig, ig2, i2max
 
 
   ! 0. initialize
-  ir1 = 0
-  ir2 = SRF_RADI(iz)-1
   allocate (w(ir1:ir2))
   w = 0.d0
 
