@@ -76,7 +76,7 @@
 
   type(t_grid) :: G
   real(real64) :: c
-  integer      :: ir, ir1, ir2, ip, ig, nr, np
+  integer      :: ir, ir1, ir2, ip, ip1, ip2, ig, nr, np
 
 
   write (s_iz, '(i4)') iz
@@ -86,15 +86,20 @@
   if (idomain == 0) then
      ir1 = R_SURF_PL_TRANS_RANGE(1,iz)
      ir2 = R_SURF_PL_TRANS_RANGE(2,iz)
+     ip1 = P_SURF_PL_TRANS_RANGE(1,iz)
+     ip2 = P_SURF_PL_TRANS_RANGE(2,iz)
   elseif (idomain == 1) then
      ir1 = 0
      ir2 = SRF_RADI(iz)-1
+     ip1 = 0
+     ip2 = SRF_POLO(iz)-1
   else
      stop
   endif
-  write (6, *) 'radial domain: ', ir1, ' -> ', ir2
+  write (6, *) 'radial domain:   ', ir1, ' -> ', ir2
+  write (6, *) 'poloidal domain: ', ip1, ' -> ', ip2
   nr  = ir2 - ir1 + 1
-  np  = SRF_POLO(iz)
+  np  = ip2 - ip1 + 1
 
 
   c = 3.14159265358979323846264338328d0 / 180.d0
@@ -103,10 +108,10 @@
 
   call G%new(2, MESH_2D, 3, nr, np, fixed_coord_value=PHI_PLANE(it+PHI_PL_OS(iz)))
   do ir=ir1,ir2
-  do ip=0,SRF_POLO(iz)-1
+  do ip=ip1,ip2
      ig = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
-     G%mesh(ir-ir1,ip,1) = RG(ig)
-     G%mesh(ir-ir1,ip,2) = ZG(ig)
+     G%mesh(ir-ir1,ip-ip1,1) = RG(ig)
+     G%mesh(ir-ir1,ip-ip1,2) = ZG(ig)
   enddo
   enddo
 
