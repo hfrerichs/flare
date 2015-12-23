@@ -501,7 +501,7 @@ module mfs_mesh
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
-  integer, parameter :: nsub = 2, nskip = 0, nextend = 0, iu_err = 66
+  integer, parameter :: nsub = 2, nskip = 0, nextend = 1, iu_err = 66
 
   type(t_flux_surface_2D) :: F
   type(t_toroidal_discretization) :: TSP
@@ -509,7 +509,7 @@ module mfs_mesh
   real(real64), dimension(:,:,:), pointer :: M
   real(real64), dimension(:,:), allocatable :: MSP
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L, dphi
-  integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir, np_SP
+  integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir, iextend, np_SP
   integer       :: it, its, it_start, it_end, dirT, downstream, np_skip
 
 
@@ -559,18 +559,36 @@ module mfs_mesh
   endif
 
 
-  ! set up toroidal discretization for strike point adjustment
+  ! initialize toroidal discretization for strike point adjustment
   call TSP%init(np_SP)
-  TSP%it_base = Z%it_base * nsub / (nskip+1)
+  ! extend poloidal discretization by nextend cells beyond target by extending
+  ! the toroidal discretization in the appropriate direction
+  iextend     = 0; if (dirT > 0) iextend = nextend
+  if (iextend == 0) then
+     ! add slice in ccw toroidal direction
+     dphi = Z%phi(Z%nt) - Z%phi(Z%nt-1)
+     do its=1,nextend
+        TSP%phi(np_SP-nextend + its) = Z%phi(Z%nt) + its*dphi
+     enddo
+  else
+     ! add slice in cw toroidal direction
+     dphi = Z%phi(1) - Z%phi(0)
+     do its=1,nextend
+        TSP%phi(nextend - its) = Z%phi(0) - its*dphi
+     enddo
+  endif
+
+  ! set up toroidal discretization for strike point adjustment
+  TSP%it_base = Z%it_base * nsub / (nskip+1)  +  iextend
   do it=0,Z%nt
-     TSP%phi(it*nsub) = Z%phi(it)
+     TSP%phi(it*nsub + iextend) = Z%phi(it)
   enddo
   ! add sub-resolution
   do it=0,Z%nt-1
      dphi = Z%phi(it+1) - Z%phi(it)
 
      do its=1,nsub-1
-        TSP%phi(it*nsub + its) = Z%phi(it) + 1.d0 * its/nsub * dphi
+        TSP%phi(it*nsub + its + iextend) = Z%phi(it) + 1.d0 * its/nsub * dphi
      enddo
   enddo
 
