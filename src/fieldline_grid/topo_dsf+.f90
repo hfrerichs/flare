@@ -191,11 +191,14 @@ module modtopo_dsfp
 
   real(real64), dimension(:,:,:), pointer :: M_HPR, M_SOL1, M_SOL2a, M_SOL2b, M_PFR1, M_PFR2, M_PFR1a, M_PFR1b, M_PFR1c
 
+  character(len=80) :: SOL_discretization_method
   type(t_spacing) :: Sp_HPR, Sp1, Sp2
   real(real64)    :: phi
   integer         :: i, iz, iz0, iblock, connectX(nx), orientationX(nx)
 
 
+  !SOL_discretization_method = POLOIDAL_ANGLE
+  SOL_discretization_method = discretization_method
   write (6, 1000)
   if (Debug) then
      open  (iud, file='base_grid_debug.txt')
@@ -289,7 +292,7 @@ module modtopo_dsfp
 
 
      ! 2.b scrape-off layer (SOL)
-     select case(discretization_method)
+     select case(SOL_discretization_method)
      case(POLOIDAL_ANGLE)
      call make_flux_surfaces_SOL(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1)-1, rpath(1), 1, 1, Zone(iz0+1)%Sr, Sp_HPR)
      call make_flux_surfaces_SOL(M_SOL2a,nr(2), npR(3), npR(0), npR(1), 1, nr(2), rpath(2), -1, 3, Zone(iz0+2)%Sr, Sp1)
