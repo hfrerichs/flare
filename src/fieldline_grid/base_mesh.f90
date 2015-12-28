@@ -255,6 +255,15 @@ module base_mesh
      connectX(1) = 2
      connectX(2) = 1
 
+  ! snowflake + (in disconnected double null)
+  case(TOPO_DSFP, TOPO_DSFP1)
+     call initialize_elements(22)
+     call initialize_interfaces(14) ! radial interfaces
+     nX = 3;  allocate(connectX(nX))
+     connectX(1) = -3
+     connectX(2) = -1
+     connectX(3) = -3
+
   case default
      write (6, 9000) trim(topology)
      stop
@@ -358,6 +367,85 @@ module base_mesh
 
   ! connected double null (CDN)
   case(TOPO_CDN, TOPO_CDN1)
+
+  ! snowflake + (in disconnected double null)
+  case(TOPO_DSFP, TOPO_DSFP1)
+     ! innermost domain
+     call Z(1)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping  (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL at interface 1
+     call Z(2)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(2)%setup_mapping  (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL at interface 2
+     call Z(1)%setup_mapping  (UPPER, POLOIDAL, Z(2))     ! connect left and right segments
+     call Z(2)%setup_mapping  (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments at interface R1
+
+     ! primary SOL
+     call Z(3)%setup_mapping  (UPPER, RADIAL,   Z(5), 12)  ! connect to right secondary SOL at PARTIAL interface I6 (this should only be used to find the poloidal side for the generating radial path!)
+     call Z(4)%setup_mapping  (UPPER, RADIAL,   Z(6), 11)  ! connect to left secondary SOL at interface I5 (SAME NOTE AS ABOVE)
+     call Z(3)%setup_mapping  (UPPER, POLOIDAL, Z(4))     ! connect left and right segments
+     call Z(3)%setup_mapping  (LOWER, POLOIDAL, Z(7), 2)  ! connect to right divertor leg at interface R2
+     call Z(7)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(4)%setup_mapping  (UPPER, POLOIDAL, Z(8))     ! connect to left divertor leg
+     call Z(8)%setup_boundary (UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(7)%setup_mapping  (UPPER, RADIAL,   Z(9), 5)  ! VIRTUAL interface I5
+     call Z(8)%setup_mapping  (UPPER, RADIAL,   Z(12),6)  ! VIRTUAL interface I6
+
+     ! secondary SOL
+     ! right branch
+     call Z(5)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(5)%setup_mapping  (LOWER, POLOIDAL, Z(9))     ! connect to right divertor leg (right branch)
+     call Z(9)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(5)%setup_mapping  (UPPER, POLOIDAL, Z(10),10) ! connect to left divertor leg  (right branch) at interface R10
+     call Z(10)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(9)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(10)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     ! left branch
+     call Z(6)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(6)%setup_mapping  (LOWER, POLOIDAL, Z(11),11) ! connect to right divertor leg (left branch) at interface R11
+     call Z(11)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(6)%setup_mapping  (UPPER, POLOIDAL, Z(12))    ! connect to left divertor leg  (left branch)
+     call Z(12)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(11)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(12)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+
+     ! primary PFR
+     call Z(7)%setup_mapping  (LOWER, RADIAL,   Z(13), 3)  ! connect to right primary PFR at interface I3
+     call Z(8)%setup_mapping  (LOWER, RADIAL,   Z(14), 4)  ! connect to left primary PFR at interface I4
+     call Z(13)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(13)%setup_mapping (UPPER, POLOIDAL, Z(14), 4)  ! connect to left primary PFR at interface R4
+     call Z(14)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
+     ! right snowflake PFR
+     call Z(13)%setup_mapping (LOWER, RADIAL,   Z(17), 9)  ! connect to right primary PFR at interface I9
+     call Z(17)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(18)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(17)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)
+     call Z(17)%setup_mapping (UPPER, POLOIDAL, Z(18), 6)  ! connect to left primary PFR at interface R6
+     call Z(18)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)
+     ! left snowflake PFR
+     call Z(14)%setup_mapping (LOWER, RADIAL,   Z(19), 7)  ! connect to right primary PFR at interface I7
+     call Z(19)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(20)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(19)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)
+     call Z(19)%setup_mapping (LOWER, POLOIDAL, Z(20), 7)  ! connect to left primary PFR at interface R7
+     call Z(20)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)
+     ! center snowflake PFR
+     call Z(18)%setup_mapping (UPPER, RADIAL,   Z(21), 10) ! connect to right primary PFR at interface I10
+     call Z(20)%setup_mapping (UPPER, RADIAL,   Z(22), 8)  ! connect to right primary PFR at interface I10
+     call Z(21)%setup_boundary(UPPER, RADIAL,   VACUUM)    !
+     call Z(22)%setup_boundary(UPPER, RADIAL,   VACUUM)    !
+     call Z(21)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)
+     call Z(21)%setup_mapping (LOWER, POLOIDAL, Z(22), 8)  ! connect to left primary PFR at interface R6
+     call Z(22)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)
+
+
+     ! secondary PFR
+     call Z(10)%setup_mapping (LOWER, RADIAL,   Z(15),14)  ! connect to right secondary PFR at interface I10
+     call Z(15)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(11)%setup_mapping (LOWER, RADIAL,   Z(16),13)  ! connect to left secondary PFR at interface I9
+     call Z(16)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(16)%setup_mapping (UPPER, POLOIDAL, Z(15),12)  ! connect to left secondary PFR at interface R12
+     call Z(16)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(15)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
+
   end select
   call undefined_element_boundary_check(.false.)
 
@@ -383,7 +471,7 @@ module base_mesh
 
   character(len=2) :: Sstr
   real(real64)     :: dx, tmp(3), theta_cut, PsiN
-  integer          :: ix, ierr, iSOL, iPFR, ipi, jx, k, orientation
+  integer          :: ix, ierr, iSOL, iPFR, ipi, jx, k, orientation, o(4)
 
 
   ! 1. set up guiding surface for divertor legs (C_guide) --------------
@@ -432,13 +520,17 @@ module base_mesh
 
 
   ! 4.1 generate separatrix(ces) ---------------------------------------
+  write (6, 4100)
   allocate (S(nX), R(nX,4))
   do ix=1,nX
+     write (6, 4101) ix
      ! find cut-off poloidal angle for guiding X-point
      jx = connectX(ix)
-     if (jx < 0  .and.  abs(jx).ne.ix) then
+     if (jx < 0  .and.  abs(jx).ne.ix  .and.  connectX(abs(jx)) == jx) then
+        write (6, 4102) abs(jx), ix
         orientation = DESCENT_CORE ! TODO: find orientation from PsiN(ix)-PsiN(abs(connectX(ix)))
         call R(abs(jx),orientation)%generateX(abs(jx), orientation, LIMIT_PSIN, Xp(ix)%PsiN())
+        call poloidal_interface((abs(jx)-1)*4+1)%set_curve(R(abs(jx), orientation)%t_curve) ! FOR REFERENCE ONLY, THIS SHOULDN'T BE NECESSARY
         theta_cut = get_poloidal_angle(R(abs(jx),orientation)%boundary_node(UPPER))
 
         call S(ix)%generate(ix, C_cutl=C_guide, C_cutR=C_guide, theta_cut=theta_cut)
@@ -466,6 +558,7 @@ module base_mesh
      S0R = S(1)%M1%t_curve
      S0L = S(1)%M2%t_curve
   endif
+  write (6, *)
 
 
   ! 4.2 generate radial paths from X-points ----------------------------
@@ -478,6 +571,30 @@ module base_mesh
   do ix=1,nX
      jx = connectX(ix)
 
+     o(ASCENT_LEFT ) = ASCENT_LEFT
+     o(ASCENT_RIGHT) = ASCENT_RIGHT
+     o(DESCENT_CORE) = DESCENT_CORE
+     o(DESCENT_PFR ) = DESCENT_PFR
+     ! orientation for secondary X-points
+     orientation = 0
+     if (ix > 1) then
+        ! X-point is in private flux region of main X-point
+        if (Xp(ix)%PsiN() < Xp(1)%PsiN()) then
+           ! set direction of PFR and core
+           if (Xp(ix)%X(1) < Xp(1)%X(1)) then
+              o(DESCENT_PFR ) = ASCENT_LEFT
+              o(DESCENT_CORE) = ASCENT_RIGHT
+           else
+              o(DESCENT_PFR ) = ASCENT_RIGHT
+              o(DESCENT_CORE) = ASCENT_LEFT
+           endif
+
+           ! ...
+           o(ASCENT_LEFT ) = DESCENT_CORE
+           o(ASCENT_RIGHT) = DESCENT_PFR
+        endif
+     endif
+
 
      ! "core-interface"
      if (ix == 1  .or.  jx > 0) then
@@ -486,8 +603,13 @@ module base_mesh
         call R(ix, DESCENT_CORE)%flip()
         call poloidal_interface(ipi+1)%set_curve(R(ix, DESCENT_CORE)%t_curve)
      else
+        ! secondary X-point in radial connection to another X-point
+        if (abs(jx) .ne. ix) then
+           write (6, 3032) ix, abs(jx)
+           call R(ix, DESCENT_CORE)%setup_linear(Xp(abs(jx))%X, Xp(ix)%X-Xp(abs(jx))%X)
+        endif
         if (R(ix, DESCENT_CORE)%n_seg < 0) then
-           write (6, *) "WARNING: rpath segment ", ix, DESCENT_CORE, " is not set up!"
+           write (6, *) "ERROR: rpath segment ", ix, DESCENT_CORE, " is not set up!"
            stop
         endif
      endif
@@ -533,7 +655,7 @@ module base_mesh
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(iSOL))
         call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
 
-     elseif (jx < 0) then
+     elseif (jx < 0  .and.  connectX(abs(jx)) == jx) then
         ! this SOL's boundary is another separatrix
         PsiN = Xp(abs(jx))%PsiN()
         write (6, 3025) ix, abs(jx), PsiN
@@ -544,12 +666,42 @@ module base_mesh
      endif
 
 
+     ! additional PFRs from X-point in PFR of the primary X-point
+     if (jx < 0  .and.  connectX(abs(jx)) /= jx) then
+        iPFR = iPFR + 1
+        write (6, 3033) ix, d_PFR(iPFR)
+        call R(ix, ASCENT_LEFT)%generateX(ix, o(ASCENT_LEFT), LIMIT_LENGTH, d_PFR(iPFR))
+        call R(ix, ASCENT_LEFT)%flip()
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
+
+        iPFR = iPFR + 1
+        write (6, 3034) ix, d_PFR(iPFR)
+        call R(ix, ASCENT_RIGHT)%generateX(ix, o(ASCENT_RIGHT), LIMIT_LENGTH, d_PFR(iPFR))
+        call R(ix, ASCENT_RIGHT)%flip()
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
+     endif
      ! private flux region
      iPFR = iPFR + 1
-     write (6, 3030) ix, d_PFR(iPFR)
-     call R(ix, DESCENT_PFR)%generateX(ix, DESCENT_PFR, LIMIT_LENGTH, d_PFR(iPFR))
-     call R(ix, DESCENT_PFR)%flip()
-     call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
+     do jx=1,nX
+        if (jx == ix) cycle
+        if (connectX(jx) == -ix) then
+           if (connectX(ix) == -ix) cycle
+           exit
+        endif
+     enddo
+     ! regular PFR
+     if (jx > nX) then
+        write (6, 3030) ix, d_PFR(iPFR)
+        call R(ix, DESCENT_PFR)%generateX(ix, o(DESCENT_PFR), LIMIT_LENGTH, d_PFR(iPFR))
+        if (o(DESCENT_PFR) == DESCENT_PFR) call R(ix, DESCENT_PFR)%flip()
+        call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
+
+     ! connect to another X-points
+     else
+        write (6, 3032) ix, jx
+        call R(ix, DESCENT_PFR)%setup_linear(Xp(jx)%X, Xp(ix)%X-Xp(jx)%X)
+        call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
+     endif
 
 
      ! plot paths
@@ -566,6 +718,9 @@ module base_mesh
   enddo
 
 
+ 4100 format(3x,'- Setting up block-structured decomposition')
+ 4101 format(8x,'generating separatrix for X-point ', i0)
+ 4102 format(8x,'connecting X-point ', i0, ' along radial path to separatrix ', i0)
  3000 format(3x,'- Setting up radial paths for block-structured decomposition')
  3010 format(8x,'generating core segment for X-point ', i0)
  3020 format(8x,'generating SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
@@ -573,9 +728,12 @@ module base_mesh
  3022 format(8x,'generating right SOL segment for X-points ', i0, ', ', i0, ' (length = ', f0.3, ' cm)')
  3023 format(8x,'generating left SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
  3024 format(8x,'generating right SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
- 3025 format(8x,'generating SOL segment for X-point ', i0, ' up to separatrix from X-point ', &
+ 3025 format(8x,'generating SOL segments for X-point ', i0, ' up to separatrix from X-point ', &
                 i0, ' at PsiN = ', f0.3)
  3030 format(8x,'generating PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 3032 format(8x,'generating PFR segment from X-point ', i0, ' to X-point ', i0)
+ 3033 format(8x,'generating left PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 3034 format(8x,'generating right PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
   end subroutine setup_geometry
 !=======================================================================
 
@@ -606,7 +764,7 @@ module base_mesh
         call radial_interface(iri)%setup(ix, ix)
 
      ! all branches connect to divertor targets
-     elseif (jx == -ix) then
+     elseif (jx == -ix  .or.  (jx < 0  .and.  connectX(abs(jx)) /= jx)) then
         iconnect  = STRIKE_POINT
         ! are these "upstream" branches?
         do ix1=1,ix-1
