@@ -33,6 +33,7 @@ module mfs_mesh
      procedure :: setup_boundary_nodes
      procedure :: make_orthogonal_grid
      procedure :: make_interpolated_mesh
+     procedure :: make_interpolated_submesh
      procedure :: make_divertor_grid
      procedure :: copy
   end type t_mfs_mesh
@@ -164,7 +165,7 @@ module mfs_mesh
 ! C_boundary:	boundary definition
 ! spacings:	spacing function for nodes on boundary
 !=======================================================================
-  subroutine setup_boundary_nodes(this, boundary_side, boundary_type, C_boundary, spacings, i1, i2)
+  subroutine setup_boundary_nodes(this, boundary_side, boundary_type, C_boundary, spacings, i1, i2, debug)
   use mesh_spacing
   use curve2D
   class(t_mfs_mesh)           :: this
@@ -172,10 +173,18 @@ module mfs_mesh
   type(t_curve),   intent(in) :: C_boundary
   type(t_spacing), intent(in) :: spacings
   integer,         intent(in), optional :: i1, i2
+  logical,         intent(in), optional :: debug
 
   real(real64), dimension(:,:,:), pointer :: M
   real(real64) :: tau, x(2)
   integer      :: ir, ip, i11, i22, idir
+  logical      :: screen_output
+
+
+  screen_output = .false.
+  if (present(debug)) then
+     screen_output = debug
+  endif
 
 
   M => this%mesh
@@ -209,6 +218,7 @@ module mfs_mesh
         tau = spacings%node(ip-i11, i22-i11)
         call C_boundary%sample_at(tau, x)
         M(ir, ip, :) = x
+        if (screen_output) write (6, *) x
      enddo
   case(POLOIDAL)
      this%ip0 = ip
@@ -221,6 +231,7 @@ module mfs_mesh
         tau = spacings%node(ir-i11, i22-i11)
         call C_boundary%sample_at(tau, x)
         M(ir, ip, :) = x
+        if (screen_output) write (6, *) x
      enddo
   end select
 
@@ -232,16 +243,23 @@ module mfs_mesh
 !=======================================================================
 ! Make (quasi) orthogonal grid
 !=======================================================================
-  subroutine make_orthogonal_grid(this, rrange, prange, periodic, addX)
+  subroutine make_orthogonal_grid(this, rrange, prange, periodic, addX, debug)
   use equilibrium, only: get_PsiN
   class(t_mfs_mesh)             :: this
   integer, intent(in), optional :: rrange(2), prange(2), addX(2)
-  logical, intent(in), optional :: periodic
+  logical, intent(in), optional :: periodic, debug
 
   real(real64), dimension(:,:,:), pointer :: M
   type(t_xpath) :: R
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final
   integer       :: ir, ir0, ir1, ir2, ir_final, ip, ip0, ip1, ip2, ipp, direction, ix, ipx
+  logical       :: screen_output
+
+
+  screen_output = .false.
+  if (present(debug)) then
+     screen_output = debug
+  endif
 
 
   M => this%mesh
@@ -299,6 +317,7 @@ module mfs_mesh
   do ir=ir1,ir2
      x        = M(ir,ip0,:)
      PsiN(ir) = get_PsiN(x)
+     if (screen_output) write (6, *) ir, x, PsiN(ir)
   enddo
 
   select case(direction)
@@ -326,8 +345,10 @@ module mfs_mesh
   do ip=ip1,ip2
      call progress(ip-ip1, ip2-ip1, 0.1d0)
      if (ip == ipx) then
+        if (screen_output) write (6, *) ip, ix
         call R%generateX(ix,         direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
      else
+        if (screen_output) write (6, *) ip, M(ir0,ip,:)
         call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
      endif
 
@@ -422,6 +443,50 @@ module mfs_mesh
              'try using a larger n_interpolate!')
  9001 format('outer most point on inner simulation boundary is at PsiN = ', f0.3)
   end subroutine make_interpolated_mesh
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine make_interpolated_submesh(this, rrange, prange)
+  use flux_surface_2D
+  class(t_mfs_mesh)           :: this
+  integer,         intent(in) :: rrange(2), prange(2)
+
+  real(real64), dimension(:,:,:), pointer :: M
+  type(t_curve)           :: C_limit
+  type(t_flux_surface_2D) :: F
+  real(real64) :: x(2), s, x1(2), x2(2)
+  integer      :: ir, ip
+
+
+  M => this%mesh
+
+  ! set up upper poloidal boundary
+  call C_limit%new(rrange(2)-rrange(1))
+  do ir=rrange(1),rrange(2)
+     C_limit%x(ir-rrange(1), :) = M(ir,prange(2),:)
+  enddo
+
+  do ir=rrange(1),rrange(2)
+!     x = M(ir,prange(1),:)
+!     call F%generate(x, RIGHT_HANDED, AltSurf=C_limit)
+!     call F%setup_length_sampling()
+!     do ip=prange(1)+1,prange(2)-1
+!        s = 1.d0 * (ip-prange(1)) / (prange(2)-prange(1))
+!        call F%sample_at(s, x)
+!        M(ir,ip,:) = x
+!     enddo
+     x1 = M(ir,prange(1),:)
+     x2 = M(ir,prange(2),:)
+     do ip=prange(1)+1,prange(2)-1
+        s = 1.d0 * (ip-prange(1)) / (prange(2)-prange(1))
+        x = x1 + s * (x2-x1)
+        M(ir,ip,:) = x
+     enddo
+  enddo
+
+  end subroutine make_interpolated_submesh
 !=======================================================================
 
 
@@ -637,6 +702,11 @@ module mfs_mesh
         open  (iu_err, file='error_strike_point_mesh2.plt')
         do it=0,TSP%nt
            write (iu_err, *) MSP(it,:)
+        enddo
+        close (iu_err)
+        open  (iu_err, file='error_upstream_nodes.plt')
+        do ir1=0,this%nr
+           write (iu_err, *) M(ir1,ip0,:)
         enddo
         close (iu_err)
         stop
