@@ -94,7 +94,7 @@ module divertor
   allocate(S(nx))
   do ix=1,nx
      ! find cut-off poloidal angle for guiding separatrix
-     if (connectX(ix) < 0  .and.  abs(connectX(ix)).ne.ix) then
+     if (connectX(ix) < 0  .and.  abs(connectX(ix)).ne.ix  .and.  ix==1) then
         select case(discretization_method)
         case (POLOIDAL_ANGLE)
            theta_cut = Xp(abs(connectX(ix)))%theta
