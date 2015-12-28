@@ -188,7 +188,7 @@ module elements
 ! irside = side of radial reference surface
 ! ipside = side of poloidal reference surface
 !=======================================================================
-  subroutine generate_mesh(this, M, irside, ipside, iblock, Sr, Sp)
+  subroutine generate_mesh(this, M, irside, ipside, iblock, Sr, Sp, debug)
   use fieldline_grid, only: n_interpolate, np_ortho_divertor, Zone
   use inner_boundary, only: C_in, DPsiN1
   use mesh_spacing
@@ -196,8 +196,9 @@ module elements
   type(t_mfs_mesh), intent(inout) :: M
   integer,          intent(in)    :: irside, ipside, iblock
   type(t_spacing),  intent(in)    :: Sr, Sp
+  logical,          intent(in), optional :: debug
 
-  integer :: iri, ix(-1:1), addX(2), ierr
+  integer :: iri, iri2, ix(-1:1), ix2(-1:1), iside, addX(2), np0, np1, ierr
 
 
   iri = this%rad_bound(irside)
@@ -213,26 +214,51 @@ module elements
      if (radial_interface(iri)%geometry_undefined()) then
         write (6, 9000);  write (6, 9002) ierr;  stop
      endif
-     call M%setup_boundary_nodes(irside, RADIAL, radial_interface(iri)%C, Sp)
+     call M%setup_boundary_nodes(irside, RADIAL, radial_interface(iri)%C, Sp, debug=debug)
+  endif
+  ! quasi-orhogonal mesh in upstream divertor legs
+  np0  = np_ortho_divertor
+  np1  = 0
+  ! transition PFR between two X-points
+  iri2 = this%rad_bound(-irside)
+  if (iri2 /= UNDEFINED) then
+     iside = 0
+     if (ix(LOWER) == STRIKE_POINT) iside = LOWER
+     if (ix(UPPER) == STRIKE_POINT) iside = UPPER
+     ix2 = radial_interface(iri2)%inode
+
+     if (iside /= 0) then
+        if (ix2(-iside) > 0) then
+           np1 = 1
+           np0 = max(np0,np1)
+           write (6, *) 'TEST'
+        endif
+     endif
   endif
 
 
   ! 1. strike point on lower poloidal side
   if (ix(LOWER) == STRIKE_POINT) then
-     if (np_ortho_divertor > 0) then
-        call M%make_orthogonal_grid(prange=(/this%np-np_ortho_divertor, this%np-1/))
+     if (np0 > 0) then
+        call M%make_orthogonal_grid(prange=(/this%np-np0, this%np-1-np1/), debug=debug)
      endif
-     call M%make_divertor_grid(UPPER, this%np-np_ortho_divertor, this%T, ierr)
+     if (np1 > 0) then
+        call M%make_interpolated_submesh((/0,this%nr-1/), (/this%np-1-np1, this%np/))
+     endif
+     call M%make_divertor_grid(UPPER, this%np-np0, this%T, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif
 
   ! 2. strike point on upper poloidal side
   elseif (ix(UPPER) == STRIKE_POINT) then
-     if (np_ortho_divertor > 0) then
-        call M%make_orthogonal_grid(prange=(/1,np_ortho_divertor/))
+     if (np0 > 0) then
+        call M%make_orthogonal_grid(prange=(/1+np1,np0/), debug=debug)
      endif
-     call M%make_divertor_grid(LOWER, np_ortho_divertor, this%T, ierr)
+     if (np1 > 0) then
+        call M%make_interpolated_submesh((/0,this%nr-1/), (/0, 1+np1/))
+     endif
+     call M%make_divertor_grid(LOWER, np0, this%T, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif
