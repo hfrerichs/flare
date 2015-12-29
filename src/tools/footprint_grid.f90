@@ -46,13 +46,14 @@ subroutine footprint_grid
   use parallel
   use separatrix
   use boundary
+  use math
   implicit none
 
   integer, parameter :: iu = 32, iu2 = 33
 
   type(t_separatrix) :: S
 
-  real(real64) :: x1(2), x2(2), sh, L, w0, w1, w2, L0_off = 0.d0
+  real(real64) :: x1(2), x2(2), sh, L, w0, w1, w2, L0_off = 0.d0, phi0
   logical      :: automatic_R = .true.
   integer      :: surf_id, ish, ix
 
@@ -74,6 +75,7 @@ subroutine footprint_grid
   endif
 
   surf_id = 1
+  phi0    = Phi_output / pi * 180.d0
 
 
   open  (iu, file='run_input')
@@ -194,15 +196,17 @@ subroutine footprint_grid
   write (iu, 2002) N_phi
 
   open  (iuD, file=Output_File)
-  write (iuD, FMT="(a,f6.2,a,f6.2)") "deposition: phi =", Phi_output, " -> ", &
-                                     Phi_output + 360.d0 / N_sym
+  write (iuD, FMT="(a,f6.2,a,f6.2)") "deposition: phi =", phi0, " -> ", &
+                                     phi0 + 360.d0 / N_sym
   write (iuD, *)
   write (iuD, FMT='(3(I5,1x),3(F10.5,1x),a)') N_phi, N_theta, N_sym, &
            0.0,0.0,0.0,"  : NPoints_tor  NPoints_pol  NPeriod  DR  DZ  DL"
 
   ! 1. write coordinates along boundary profile
+  dphi = 0.d0
+  if (N_phi > 1) dphi = 360.d0 / N_sym / (N_phi-1)
   do i=0,N_phi-1
-     phii = Phi_output + 360.d0 / N_sym * i / (N_phi-1)
+     phii = phi0 + i * dphi
      write (iuD, 3002) phii
   do j=0,N_theta-1
      t = 1.d0 * j / (N_theta-1)
@@ -246,10 +250,8 @@ subroutine footprint_grid
   close (iuD)
 
   ! 2. write coordinates in toroidal direction
-  dphi = 0.d0
-  if (N_phi > 1) dphi = 360.d0 / N_sym / (N_phi-1)
   do i=0,N_phi-1
-     phii = Phi_output + dphi * i
+     phii = phi0 + dphi * i
      write (iu, 3002) phii
   enddo
   close (iu)
