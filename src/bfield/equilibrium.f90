@@ -402,11 +402,13 @@ module equilibrium
      get_Psi                       => divamhd_get_Psi
      get_DPsi                      => divamhd_get_DPsi
      get_domain                    => divamhd_get_domain
+     use_boundary                  = .false.
      broadcast_equilibrium         => divamhd_broadcast
   case (EQ_M3DC1)
      get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
      get_Psi                       => m3dc1_get_Psi
      get_DPsi                      => m3dc1_get_DPsi
+     use_boundary                  = .false.
      broadcast_equilibrium         => m3dc1_broadcast
   case (EQ_AMHD)
      get_Bf_eq2D                   => amhd_get_Bf
@@ -414,6 +416,7 @@ module equilibrium
      get_DPsi                      => amhd_get_DPsi
      get_pressure                  => amhd_get_pressure
      get_domain                    => amhd_get_domain
+     use_boundary                  = .false.
      broadcast_equilibrium         => amhd_broadcast
      post_setup_equilibrium        => amhd_post_setup_equilibrium
   end select
