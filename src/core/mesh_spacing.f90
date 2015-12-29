@@ -53,7 +53,7 @@ module mesh_spacing
   character(len=*) :: mode
 
   character(len=256) :: s1, s2, s3
-  real(real64) :: eps, kap, del, phi0, dphi
+  real(real64) :: eps, kap, del, phi0, dphi, Delta, R
   integer :: iB
 
 
@@ -79,6 +79,7 @@ module mesh_spacing
      !call this%init_spline_x1()
 
   ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
+  ! Symmetric version
   elseif (mode(1:8) == 'Delta-R:') then
      this%mode = DELTA_R_SYM
      this%nc   = 2
@@ -88,6 +89,36 @@ module mesh_spacing
      read (s1, *, err=5000) this%c(1)
      read (s2, *, err=5000) this%c(2)
      write (6, *) 'Delta-R: ', this%c
+
+
+  ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
+  ! at lower boundary
+  elseif (mode(1:9) == 'Delta-R0:') then
+     this%mode = X1
+     this%nc   = 2
+     allocate (this%c(this%nc))
+     s1        = parse_string(mode(10:iB),1)
+     s2        = parse_string(mode(10:iB),2)
+     read (s1, *, err=5000) Delta
+     read (s2, *, err=5000) R
+     this%c(1) = R * Delta / (1.d0 + Delta * (R-1.d0))
+     this%c(2) = Delta
+     write (6, *) 'Delta-R0: ', Delta, R
+
+
+  ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
+  ! at upper boundary
+  elseif (mode(1:9) == 'Delta-R1:') then
+     this%mode = X1
+     this%nc   = 2
+     allocate (this%c(this%nc))
+     s1        = parse_string(mode(10:iB),1)
+     s2        = parse_string(mode(10:iB),2)
+     read (s1, *, err=5000) Delta
+     read (s2, *, err=5000) R
+     this%c(1) = (1.d0 - Delta) / (1.d0 + Delta * (R-1.d0))
+     this%c(2) = 1.d0 - Delta
+     write (6, *) 'Delta-R1: ', Delta, R
 
 
   ! 1 additional node
