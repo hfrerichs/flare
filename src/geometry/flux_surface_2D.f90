@@ -67,7 +67,7 @@ module flux_surface_2D
   type(t_curve), pointer :: C_boundary
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
-  real*8  :: yl(3), yc(3), thetal, thetac, dtheta, X(3), ds, r3(3)
+  real*8  :: yl(3), yc(3), thetal, thetac, dtheta_cutl, dtheta_cutc, X(3), ds, r3(3)
   integer :: idir, i, nmax, imethod, id, n(-1:1)
   logical :: retrace_from_boundary = .false.
 
@@ -135,6 +135,10 @@ module flux_surface_2D
      call F%init_ODE(2, r, idir*ds, Bpol_sub, imethod)
      yl(1:2)  = r
      thetal   = get_poloidal_angle(r3)
+     if (present(theta_cut)) then
+        dtheta_cutl = thetal - theta_cut
+        if (abs(dtheta_cutl) > pi) dtheta_cutl = dtheta_cutl - sign(pi2,dtheta_cutl)
+     endif
      tmp(0,:) = F%yc
 
      do i=1,nmax
@@ -165,13 +169,18 @@ module flux_surface_2D
 
         ! cross cut-off poloidal angle?
         if (present(theta_cut)) then
-           dtheta = thetac - thetal
-           if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
-           if ((thetal+dtheta-theta_cut)*(thetal-theta_cut) < 0.d0) then
-              tmp(idir*i,:) = tmp(idir*(i-1),:) + abs((thetal-theta_cut)/dtheta)*(yc(1:2)-tmp(idir*(i-1),:))
-              n(idir)       = i
-              exit
+           dtheta_cutc = thetac - theta_cut
+           if (abs(dtheta_cutc) > pi) dtheta_cutc = dtheta_cutc - sign(pi2,dtheta_cutc)
+
+           ! are we anywhere near the cut-off angle?
+           if (abs(dtheta_cutc) < pi/2.d0) then
+              if (dtheta_cutl * dtheta_cutc < 0.d0) then
+                 tmp(idir*i,:) = tmp(idir*(i-1),:) + abs(dtheta_cutl/(dtheta_cutc-dtheta_cutl))*(yc(1:2)-tmp(idir*(i-1),:))
+                 n(idir)       = i
+                 exit
+              endif
            endif
+           dtheta_cutl = dtheta_cutc
         endif
 
         ! prepare next step
