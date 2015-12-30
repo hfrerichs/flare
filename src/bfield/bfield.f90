@@ -164,8 +164,8 @@ module bfield
 
 
   divB = 0.d0
-  Bf   = get_Bf_Cyl(r)
-  J    = get_JBf_Cyl(r)
+  Bf   = get_Bf_Cyl(r)         ! in Gauss
+  J    = get_JBf_Cyl(r) * 1.d2 ! in Gauss/cm
   divB = J(1,1) + Bf(1) / r(1) + J(3,3) / r(1) + J(2,2)
 
   end function get_divB
