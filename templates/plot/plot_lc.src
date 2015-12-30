@@ -25,7 +25,8 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Final PsiN (backward)',$
 			   'Final PsiN (forward)',$
 			   'Toroidal connection length [deg] (backward)', $
-			   'Toroidal connection length [deg] (forward)']
+			   'Toroidal connection length [deg] (forward)', $
+			   'Toroidal connection length [deg]']
 	u_title_strs	= ['Connection Length [m]',$
 			   'Shortest Length [m]',$
 			   'Length [m]',$
@@ -47,7 +48,8 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Final PsiN (backward)',$
 			   'Final PsiN (forward)', $
 			   'Toroidal connection length [deg] (backward)', $
-			   'Toroidal connection length [deg] (forward)']
+			   'Toroidal connection length [deg] (forward)', $
+			   'Toroidal connection length [deg]']
 
 
 	; check data file for the correct # of lines ..................................
@@ -78,7 +80,7 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 	endif
 	;columns	= 6
 	columns	= 5 + nout
-	n_vars	= 10 + 4 + 2 + 1 + 3 + 2
+	n_vars	= 10 + 4 + 2 + 1 + 3 + 3
 	;..............................................................................
 	
 
@@ -190,6 +192,9 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 		; Delta Final PsiN
 		;data(i,17) = data(i,19) - data(i,18)
 		data(i,17) = data(i,18) - data(i,19)		; reverse for comparison between BT < 0 configurations with EMC3 (where forward is in +phi direction)
+
+		; connection length [toroidal turns]
+		data(i,22) = data(i,20) + data(i,21)
 	endfor
 	free_lun, lun
 	;..............................................................................
@@ -705,6 +710,7 @@ pro plot_lc, grid_file, data_file, idata, $
 		'FinalPsiN+': idata=19
 		'Ltt-': idata=20
 		'Ltt+': idata=21
+		'Ltt': idata=22
 		else: begin
 			print, 'error: invalid expression for "Zdata"'
 			return
