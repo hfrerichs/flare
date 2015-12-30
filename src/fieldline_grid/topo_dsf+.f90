@@ -197,8 +197,8 @@ module modtopo_dsfp
   integer         :: i, iz, iz0, iblock, connectX(nx), orientationX(nx)
 
 
-  !SOL_discretization_method = POLOIDAL_ANGLE
-  SOL_discretization_method = discretization_method
+  SOL_discretization_method = POLOIDAL_ANGLE
+  !SOL_discretization_method = discretization_method
   write (6, 1000)
   if (Debug) then
      open  (iud, file='base_grid_debug.txt')
