@@ -59,7 +59,7 @@ module geqdsk
 !===============================================================================
   subroutine geqdsk_load(Data_File, Ip, Bt, CurrentFix, &
                          Psi_axis, Psi_sepx, Header_Format)
-  use run_control, only: Spline_Order
+  use numerics, only: Spline_Order
   use bspline
   use system
   character(len=*), intent(in)  :: Data_File

@@ -27,8 +27,9 @@ module numerics
 
 
   integer :: &
-     Trace_Method   = ADAMS_BASHFORTH_4, &          ! Integrator used for field line tracing (see module fieldline)
-     Trace_Coords   = CYLINDRICAL          ! Coordinate system for field line tracing (see module fieldline)
+     Trace_Method   = ADAMS_BASHFORTH_4, &   ! Integrator used for field line tracing (see module fieldline)
+     Trace_Coords   = CYLINDRICAL, &         ! Coordinate system for field line tracing (see module fieldline)
+     Spline_Order   = 5
 
 
   contains
@@ -41,7 +42,9 @@ module numerics
 
   integer, parameter :: iu = 23
 
-  namelist /NumericsControl/ Trace_Step, Trace_Method, Trace_Coords
+  namelist /NumericsControl/ &
+     Trace_Step, Trace_Method, Trace_Coords, &
+     Spline_Order
 
 
   ! load numerical parameters on first processor
@@ -67,6 +70,7 @@ module numerics
   call broadcast_real_s (Trace_Step      )
   call broadcast_inte_s (Trace_Coords    )
   call broadcast_inte_s (Trace_Method    )
+  call broadcast_inte_s (Spline_Order    )
 
  1000 format(3x,'- Numerics:')
  1002 format(8x,'Field line integration: step size = ', g0.4, 1x, a, ' in ', a, ' coordinates')

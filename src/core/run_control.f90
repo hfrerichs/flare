@@ -48,7 +48,6 @@ module run_control
      Side           = 1, &
      Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
-     Spline_Order   = 5, &
      Panic_Level    = IMODERATE
 
 
@@ -70,7 +69,7 @@ module run_control
      x_start, N_steps, Limit, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
-     Spline_Order, Run_Level, &
+     Run_Level, &
      Debug, use_boundary_from_equilibrium
 
 
