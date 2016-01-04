@@ -1457,15 +1457,16 @@ module equilibrium
 
   real(real64)         :: Rbox(2), Zbox(2)
   type(t_Xpoint) :: Xp0
-  real(real64)   :: x(2), H(2,2), xk(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
-  real(real64)   :: DPsi, DPsi1, r3(3)
-  integer        :: i, j, k, ind, ierr, iPsi
+  real(real64)   :: x(2), H(2,2), xh(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
+  real(real64)   :: DPsi, DPsi1, r3(3), xm(nR*nZ, 2)
+  integer        :: i, j, k, indh, indm, ierr, iPsi
 
 
   call get_domain (Rbox, Zbox)
   write (6, 1000) Rbox, Zbox
 
-  ind = 0
+  indh   = 0
+  indm   = 0
   r3(3) = 0.d0
   open  (iu, file='hyperbolic_points.dat')
   write (iu, 1001)
@@ -1479,8 +1480,14 @@ module equilibrium
      if (x(1) < 0.d0) cycle ! not a valid critical point
 
      ! check if present critical point is identical to previous ones
-     do k=1,ind
-        r = sqrt(sum((xk(k,:)-x)**2))
+     ! check all hyperbolic points
+     do k=1,indh
+        r = sqrt(sum((xh(k,:)-x)**2))
+        if (r < 1.d-5) cycle loop1
+     enddo
+     ! check all minima/maxima
+     do k=1,indm
+        r = sqrt(sum((xm(k,:)-x)**2))
         if (r < 1.d-5) cycle loop1
      enddo
 
@@ -1488,28 +1495,39 @@ module equilibrium
      Xp0%X   = x;  Xp0%H = H
      r3(1:2) = x;  Xp0%Psi = get_Psi(r3);  Xp0%theta = get_poloidal_angle(r3)
      call Xp0%analysis(lambda1, lambda2, v1, v2, ierr)
-     if (ierr .ne. 0) cycle ! this is not a hyperbolic point
+     if (ierr .ne. 0) then
+        indm       = indm + 1
+        xm(indm,:) = x
+        cycle ! this is not a hyperbolic point
+     endif
 
      ! add present point to list
-     ind = ind + 1
-     xk(ind,:) = x
-     write (6, 1003) ind, x, Xp0%PsiN(), lambda1, lambda2
+     indh = indh + 1
+     xh(indh,:) = x
+     write (6, 1003) indh, x, Xp0%PsiN(), lambda1, lambda2
      write (iu, *) x, Xp0%PsiN(), lambda1, lambda2
 
      if (setup_Xpoints) then
-        if (ind > nx_max) then
+        if (indh > nx_max) then
            write (6, *) 'error: number of hyperbolic points exceeds limit!'
            stop
         endif
 
-        Xp(ind)           = Xp0
-        Xp(ind)%undefined = .false.
+        Xp(indh)           = Xp0
+        Xp(indh)%undefined = .false.
      endif
   enddo loop1
   enddo loop2
   close (iu)
 
 
+  ! store minima/maxima
+  open  (iu, file='minima_and_maximat.dat')
+  do k=1,indm
+     x = xm(k,:)
+     write (iu, *) x, get_PsiN(x)
+  enddo
+  close (iu)
 !  ! find primary X-point
 !  DPsi1 = huge(1.d0)
 !  iPsi  = 0
