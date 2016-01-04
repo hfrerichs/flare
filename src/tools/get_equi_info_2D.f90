@@ -3,7 +3,7 @@
 !===============================================================================
 subroutine get_equi_info_2D
   use iso_fortran_env
-  use run_control, only: N_R, N_Z
+  use run_control, only: N_R, N_Z, Output_Format
   use magnetic_axis
   use equilibrium, only: get_domain, find_hyperbolic_points, get_Psi, &
                          equilibrium_info, Psi_axis, Psi_sepx, i_equi, EQ_AMHD, Xp, nx_max
@@ -44,6 +44,7 @@ subroutine get_equi_info_2D
 
 
   ! generate separatrix
+  if (Output_Format == 2) then
   write (6, 1020)
   do ix=1,nx_max
      if (Xp(ix)%undefined) cycle
@@ -53,6 +54,7 @@ subroutine get_equi_info_2D
      call S(ix)%plot(filename_prefix='S'//trim(str(ix)))
   enddo
   write (6, *)
+  endif
 
 
 !  ! generate Grad Psi path
