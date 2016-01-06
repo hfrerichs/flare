@@ -56,7 +56,8 @@ module equilibrium
      Z_axis       = 0.d0, &
      R_sepx       = 0.d0, &        ! user defined position of separatrix
      Z_sepx       = 0.d0, &
-     Bt, R0, &   ! reference toroidal magnetic field [T] and radial position [cm]
+     Bt           = 0.d0, &        ! reference toroidal magnetic field [T]
+     R0           = 0.d0, &        ! and radial position [cm]
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
 
 
