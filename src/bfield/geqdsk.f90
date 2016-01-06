@@ -14,7 +14,7 @@ module geqdsk
 
   real(real64), dimension(:,:), allocatable :: psirz, Psicoeff
   real(real64), dimension(:),   allocatable :: fpol, pres, ffprim, pprime, &
-     qpsi, fpolcoeff, ffprimcoeff, pprimecoeff, &
+     qpsi, fpolcoeff, prescoeff, ffprimcoeff, pprimecoeff, &
      REQD, ZEQD, PsinEQD, rbbbs, zbbbs
   real(real64), dimension(:),   allocatable, target :: rlim, zlim
 
@@ -63,7 +63,7 @@ module geqdsk
   use bspline
   use system
   character(len=*), intent(in)  :: Data_File
-  real(real64),     intent(in)  :: Ip, Bt
+  real(real64),     intent(inout)  :: Ip, Bt
   logical,          intent(in)  :: CurrentFix
   real(real64),     intent(out) :: Psi_axis, Psi_sepx
   integer,          intent(in), optional :: Header_Format
@@ -144,6 +144,8 @@ module geqdsk
   if (Bt .ne. 0.d0) then
      Bt_scale = Bt / Bcentr
      Bcentr   = Bcentr * Bt_scale
+  else
+     Bt       = Bcentr
   endif
   Ip_scale = 1.d0
   if (Ip .ne. 0.d0) then
@@ -151,6 +153,8 @@ module geqdsk
      Current  = Current * Ip_scale
      Simag    = Simag * Ip_scale
      Sibry    = Sibry * Ip_scale
+  else
+     Ip       = Current
   endif
   fpol  = fpol  * Bt_scale
   psirz = psirz * Ip_scale
@@ -224,7 +228,7 @@ module geqdsk
   call dbsnak (nR, Psintmp, nord, PsinEQD)
 
   ! 3.2. set up arrays for dependent coefficients
-  allocate (fpolcoeff(nR), Psicoeff(nR, nZ))
+  allocate (fpolcoeff(nR), prescoeff(nR), Psicoeff(nR, nZ))
   allocate (ffprimcoeff(nR), pprimecoeff(nR))
 
   ! setup spline interpolation for Psi
@@ -232,6 +236,7 @@ module geqdsk
 
   ! setup spline interpolation for Fpol
   call dbsint(nR,Psintmp,fpol,nord,PsinEQD,fpolcoeff)
+  call dbsint(nR,Psintmp,pres,nord,PsinEQD,prescoeff)
   call dbsint(nR,Psintmp,ffprim,nord,PsinEQD,ffprimcoeff)
   call dbsint(nR,Psintmp,pprime,nord,PsinEQD,pprimecoeff)
 
@@ -286,7 +291,7 @@ module geqdsk
 
   if (mype .gt. 0) then
       allocate (REQD(nR+nord), ZEQD(nZ+nord), PsinEQD(nR+nord))
-      allocate (fpolcoeff(nR), Psicoeff(nR, nZ))
+      allocate (fpolcoeff(nR), prescoeff(nR), Psicoeff(nR, nZ))
       allocate (ffprimcoeff(nR), pprimecoeff(nR))
   endif
 
@@ -294,6 +299,7 @@ module geqdsk
   call broadcast_real   (ZEQD, nZ+nord)
   call broadcast_real   (PsinEQD, nR+nord)
   call broadcast_real   (fpolcoeff, nR)
+  call broadcast_real   (prescoeff, nR)
   call broadcast_real   (ffprimcoeff, nR)
   call broadcast_real   (pprimecoeff, nR)
   call broadcast_real   (Psicoeff, nR*nZ)
@@ -475,9 +481,11 @@ module geqdsk
   real(real64), intent(in) :: Psi
   real(real64)             :: P
 
+  real(real64) :: PsiN
 
-  P = 0.d0
-  write (6, *) 'WARNING: pressure function not implemented yet for geqdsk data!'
+
+  PsiN =  (psi - Simag) / (Sibry - Simag)
+  P    =  dbsval(PsiN,nord,PsinEQD,nR,prescoeff)
 
   end function geqdsk_get_pressure
 !===============================================================================
