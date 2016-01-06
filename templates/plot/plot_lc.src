@@ -24,9 +24,9 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Delta Final PsiN',$
 			   'Final PsiN (backward)',$
 			   'Final PsiN (forward)',$
-			   'Toroidal connection length [deg] (backward)', $
-			   'Toroidal connection length [deg] (forward)', $
-			   'Toroidal connection length [deg]']
+			   'Toroidal connection length [turns] (backward)', $
+			   'Toroidal connection length [turns] (forward)', $
+			   'Toroidal connection length [turns]']
 	u_title_strs	= ['Connection Length [m]',$
 			   'Shortest Length [m]',$
 			   'Length [m]',$
@@ -47,9 +47,9 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Delta Final PsiN',$
 			   'Final PsiN (backward)',$
 			   'Final PsiN (forward)', $
-			   'Toroidal connection length [deg] (backward)', $
-			   'Toroidal connection length [deg] (forward)', $
-			   'Toroidal connection length [deg]']
+			   'Toroidal connection length [turns] (backward)', $
+			   'Toroidal connection length [turns] (forward)', $
+			   'Toroidal connection length [turns]']
 
 
 	; check data file for the correct # of lines ..................................
@@ -176,10 +176,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			data(i,19)= tmp(5+j)			; Final PsiN (forward)
 		end
 		10: begin
-			data(i,20)= abs(tmp(5+j))			; Toroidal connection length [deg], backward
+			data(i,20)= abs(tmp(5+j))			; Toroidal connection length [turns], backward
 		end
 		11: begin
-			data(i,21)= abs(tmp(5+j))			; Toroidal connection length [deg], forward
+			data(i,21)= abs(tmp(5+j))			; Toroidal connection length [turns], forward
 		end
 		endcase
 		endfor
