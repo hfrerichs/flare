@@ -1428,14 +1428,23 @@ module curve2D
   ! 1. check input
   if (xiA < 0.d0  .or.  xiA > 1.d0) then
      write (6, *) 'error in t_curve%split3: xiA must be in [0,1]!'
+     write (6, *) 'xiA = ', xiA
+     call this%plot(filename='split3.err')
+     write (6, *) 't_curve geometry is stored in split3.err'
      stop
   endif
   if (xiB < 0.d0  .or.  xiB > 1.d0) then
      write (6, *) 'error in t_curve%split3: xiB must be in [0,1]!'
+     write (6, *) 'xiB = ', xiB
+     call this%plot(filename='split3.err')
+     write (6, *) 't_curve geometry is stored in split3.err'
      stop
   endif
   if (xiA > xiB) then
      write (6, *) 'error in t_curve%split3: xiA > xiB not allowed!'
+     write (6, *) 'xiA, xiB = ', xiA, xiB
+     call this%plot(filename='split3.err')
+     write (6, *) 't_curve geometry is stored in split3.err'
      stop
   endif
 
