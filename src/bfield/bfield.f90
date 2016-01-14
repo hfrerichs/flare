@@ -55,7 +55,7 @@ module bfield
      ! supplemental equilibrium information
      ! direction of toroidal magnetic field and plasma current
      ! if Bt_sign (and Ip_sign) is not set by equilibrium
-     if (Bt_sign == 0) then
+     if (Bt_sign == 0  .and.  associated(get_magnetic_axis)) then
         r(3) = 0.d0
         r    = get_magnetic_axis(r(3))
         Bf   = get_Bf_cyl(r)

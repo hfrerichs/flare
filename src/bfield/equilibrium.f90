@@ -186,7 +186,16 @@ module equilibrium
 
 
 ! 0. initialize
-  i_format = STRICT
+  i_format         = STRICT
+  get_Bf_eq2D      => default_get_Bf
+  get_JBf_eq2D     => default_get_JBf
+  get_Psi          => default_get_Psi
+  get_DPsi         => default_get_DPsi
+  get_domain       => default_get_domain
+  get_pressure     => default_pressure
+  export_boundary  => null()
+  equilibrium_info => null()
+  post_setup_equilibrium        => null()
 
 
 ! 1. read user configuration
@@ -218,15 +227,6 @@ module equilibrium
 
 
 ! set default values
-  get_Bf_eq2D      => default_get_Bf
-  get_JBf_eq2D     => default_get_JBf
-  get_Psi          => default_get_Psi
-  get_DPsi         => default_get_DPsi
-  get_domain       => default_get_domain
-  get_pressure     => default_pressure
-  export_boundary  => null()
-  equilibrium_info => null()
-  post_setup_equilibrium        => null()
   call initialize_magnetic_axis()
   use_boundary = (use_boundary .and. use_boundary_from_equilibrium)
 
@@ -293,7 +293,8 @@ module equilibrium
 
 
   return
- 1000 iconfig = 0
+ 1000 iconfig  = 0
+  use_boundary = .false.
  1001 format (3x,'- Equilibrium configuration:')
  3000 format (8x,'Psi_axis = ', e12.4)
  5000 format (8x,'Psi_sepx = ', e12.4)
