@@ -49,7 +49,9 @@ module run_control
      Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
      Spline_Order   = 5, &
-     Panic_Level    = IMODERATE
+     Panic_Level    = IMODERATE, &
+     Surface_Id     = 1, &
+     Surface_Type   = 1
 
 
   logical :: &
@@ -71,6 +73,7 @@ module run_control
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Spline_Order, Run_Level, &
+     Surface_Id, Surface_Type, &
      Debug, use_boundary_from_equilibrium
 
   contains
