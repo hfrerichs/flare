@@ -357,8 +357,9 @@ module equilibrium
 ! determine equilibrium type (if not provided) .........................
   if (i_equi == EQ_GUESS) then
      if (Data_File == '') then
-        write (6, *) 'error: cannot guess equilibrium type without data file!'
-        stop
+        return
+        !write (6, *) 'error: cannot guess equilibrium type without data file!'
+        !stop
      endif
      open  (iu_scan, file=filename)
      read  (iu_scan, '(a80)') s
