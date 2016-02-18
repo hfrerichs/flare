@@ -31,8 +31,8 @@ subroutine field_line_loss
   integer, parameter      :: iu = 80
 
   integer, dimension(:,:), allocatable :: iloss
-  type(t_flux_surface_2D) :: S2D
-  type(t_flux_surface_3D) :: S3D
+  type(t_flux_surface_2D), dimension(:), allocatable :: S2D
+  type(t_flux_surface_3D), dimension(:), allocatable :: S3D
   type(t_grid) :: G
   real(real64) :: r(3), y(3), DPsi
   integer      :: i, ierr, j, n
@@ -78,11 +78,9 @@ subroutine field_line_loss
   call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, N_Psi, N_theta)
 
 
-  ! initialize output variables
-  allocate (iloss(-1:1, N_steps))
-  iloss = 0
-
-  ! loop over all unperturbed flux surfaces Psi(1) -> Psi(2)
+  ! generate unperturbed flux surfaces Psi(1) -> Psi(2) for reference points
+  allocate (S2D(0:N_psi-1), S3D(0:N_psi-1))
+  if (firstP) write (6, *) 'Generating unperturbed flux surfaces for reference points ...'
   y(1) = 0.d0
   y(3) = 0.d0
   DPsi = 0.d0; if (N_psi > 1) DPsi = (Psi(2)-Psi(1)) / (N_psi - 1.d0)
@@ -100,14 +98,31 @@ subroutine field_line_loss
 
 
      ! 2. generate flux surface shape
-     call S2D%generate_closed(r(1:2))
-     if (Debug) call S2D%plot(filename='flux_surfaces.plt', append=.true.)
-     call S3D%generate_from_axisymmetric_surface(S2D, N_sym, N_phi, N_theta)
-     G%mesh(i,:,1:2) = S3D%slice(0)%x(1:N_theta,1:2)
+     call S2D(i)%generate_closed(r(1:2))
+     if (Debug) call S2D(i)%plot(filename='flux_surfaces.plt', append=.true.)
+     call S3D(i)%generate_from_axisymmetric_surface(S2D(i), N_sym, N_phi, N_theta)
+     G%mesh(i,:,1:2) = S3D(i)%slice(0)%x(1:N_theta,1:2)
+  enddo
+  if (firstP) then
+     write (6, *) ' -> stored in ', adjustl(trim(Grid_File))
+     call G%store(Grid_File)
+  endif
+  write (6, *)
 
-  
+
+
+  ! initialize output variables
+  allocate (iloss(-1:1, N_steps))
+  iloss = 0
+
+  ! loop over all unperturbed flux surfaces Psi(1) -> Psi(2)
+  if (firstP) write (6, *) 'Starting field line loss calculation ...'
+  do i=0,N_psi-1
+     y(2) = Psi(1) + i * DPsi
+     if (firstP) write (6, *) y(2)
+
      ! 3. calculate field line losses from this unperturbed flux surface
-     iloss = S3D%field_line_loss(N_steps, Limit)
+     iloss = S3D(i)%field_line_loss(N_steps, Limit)
      n     = N_phi * N_theta
      if (firstP) then
         do j=1,N_steps
@@ -119,10 +134,10 @@ subroutine field_line_loss
 
   ! finalize
   if (firstP) then
-     call G%store(Grid_File)
+     write (6, *) 'done'
      close (iu)
   endif
-  deallocate (iloss)
+  deallocate (iloss, S2D, S3D)
 
  2000 format('# PsiN,       L               loss(backward)  loss(forward)')
  2001 format(f12.8,3e16.8)
