@@ -349,7 +349,7 @@ module fieldline
      this%sgn  = nint(sign(1.d0, ds)) * Bt_sign
   endif
   this%phit    = mod(this%rc(3), this%phi_sym)
-  this%phit    = this%phit - this%sgn * phi_out * pi2/360.d0
+  this%phit    = this%phit - this%sgn * phi_out
 
   end subroutine
 !=======================================================================
