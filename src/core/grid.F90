@@ -806,7 +806,7 @@ module grid
  2003 format ('# grid resolution:   n1      =  ',i10)
  2004 format ('#                    n2      =  ',i10)
  2005 format ('#                    n3      =  ',i10)
- 3001 format (1e18.10)
+ 3001 format (1e25.17)
  3002 format (2e18.10)
  3003 format (3e18.10)
   end subroutine store
