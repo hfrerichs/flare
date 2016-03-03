@@ -231,7 +231,7 @@ end module inner_boundary
      do iblock = 0,blocks-1
         write (sblock, '(i3)') iblock
         Output_File = s5//'_'//trim(adjustl(sblock))//'.txt'
-        Phi_output  = Block(iblock)%phi_base
+        Phi_output  = Block(iblock)%phi_base / 180.d0 * pi
         call poincare_plot()
      enddo
   endif
