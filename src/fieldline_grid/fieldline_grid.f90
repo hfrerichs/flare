@@ -597,7 +597,7 @@ module fieldline_grid
 
 
      ! 4.2 set position of slices
-     delta = machine_precision*100.d0
+     delta = machine_precision*1000.d0
      do it=0,nt
         phi = Zone(iz)%phi(it)
         if (abs(phi-G%x3(it)) > delta) then
