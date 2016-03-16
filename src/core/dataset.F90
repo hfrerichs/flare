@@ -22,6 +22,8 @@ module dataset
      procedure :: plot
      procedure :: store => plot
      procedure :: new
+     procedure :: extend
+     procedure :: resize
      procedure :: destroy
      procedure :: mpi_allreduce
      procedure :: sort_rows
@@ -214,6 +216,65 @@ module dataset
   this%x    = 0.d0
 
   end subroutine new
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine extend(this, additional_rows)
+  class(t_dataset)    :: this
+  integer, intent(in) :: additional_rows
+
+  real(real64), dimension(:,:), allocatable :: tmp
+  integer :: rows, n, n0, m
+
+
+  n    = this%nrow
+  m    = this%ncol
+  allocate (tmp(n, m))
+  tmp  = this%x
+  rows = n + additional_rows
+
+  n0   = this%nrow_offset
+  call this%new(rows, m, n0)
+  this%x(1+n0:n+n0,:) = tmp
+
+  deallocate (tmp)
+
+  end subroutine extend
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine resize(this, nrow)
+  class(t_dataset)    :: this
+  integer, intent(in) :: nrow
+
+  real(real64), dimension(:,:), allocatable :: tmp
+  integer :: n, n0, m
+
+
+  n  = this%nrow
+  n0 = this%nrow_offset
+  m  = this%ncol
+
+  if (nrow > n) then
+     allocate (tmp(n,m))
+     tmp = this%x
+     call this%new(nrow, m, n0)
+     this%x(1+n0:n+n0,:) = tmp
+  elseif (nrow < n) then
+     allocate (tmp(nrow,m))
+     tmp = this%x(1+n0:nrow+n0,:)
+     call this%new(nrow, m, n0)
+     this%x = tmp
+  else
+     return
+  endif
+  deallocate (tmp)
+
+  end subroutine resize
 !=======================================================================
 
 
