@@ -196,6 +196,7 @@ module equilibrium
   export_boundary  => null()
   equilibrium_info => null()
   post_setup_equilibrium        => null()
+  call initialize_magnetic_axis()
 
 
 ! 1. read user configuration
@@ -227,7 +228,6 @@ module equilibrium
 
 
 ! set default values
-  call initialize_magnetic_axis()
   use_boundary = (use_boundary .and. use_boundary_from_equilibrium)
 
 
@@ -325,8 +325,7 @@ module equilibrium
 ! determine equilibrium type (if not provided) .........................
   if (i_equi == EQ_GUESS) then
      if (Data_File == '') then
-        write (6, *) 'error: cannot guess equilibrium type without data file!'
-        stop
+        return
      endif
      open  (iu_scan, file=filename)
      read  (iu_scan, '(a80)') s
@@ -956,6 +955,14 @@ module equilibrium
   if (present(iter)) iter = i
 
   end function get_cylindrical_coordinates
+!=======================================================================
+  subroutine get_cylindrical_coordinates_error(ierr)
+  integer, intent(in) :: ierr
+
+  write (6, *) 'error in subroutine get_cylindrical_coordinates!'
+  stop
+
+  end subroutine get_cylindrical_coordinates_error
 !=======================================================================
 
 
