@@ -4,6 +4,7 @@
 module flux_surface_2D
   use iso_fortran_env
   use curve2D
+  use cspline
   implicit none
   private
 
@@ -18,6 +19,8 @@ module flux_surface_2D
   type, extends(t_curve) :: t_flux_surface_2D
      real(real64) :: PsiN
 
+     type(t_cspline) :: theta_map
+
      contains
      procedure :: generate ! to be replaced by generate_branch
      procedure :: generate_branch
@@ -28,6 +31,8 @@ module flux_surface_2D
      procedure :: surface_analysis
      procedure :: volume
      procedure :: broadcast
+     procedure :: setup_theta_map
+     procedure :: theta_star
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -808,6 +813,113 @@ module flux_surface_2D
   call broadcast_real_s(this%PsiN)
 
   end subroutine broadcast
+!=======================================================================
+
+
+
+!=======================================================================
+! set up mapping between geometric poloidal angle and natural (straight
+! field line) poloidal angle
+!=======================================================================
+  subroutine setup_theta_map(this, PsiN, nturns)
+  use math
+  use numerics
+  use bfield
+  use fieldline
+  use equilibrium
+  use dataset
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: PsiN
+  integer,      intent(in), optional :: nturns
+
+  !real(real64), dimension(:,:), allocatable :: theta_map
+  type(t_dataset)   :: theta_map
+  type(t_fieldline) :: F
+  real(real64)      :: x0(3), y0(3), dphi, L, s, q
+  integer           :: i, ierr, n, iconfig_store(0:BF_MAX_CONFIG), chunk_size
+
+
+  ! initialize reference point
+  y0(1) = 0.d0
+  y0(2) = PsiN
+  y0(3) = 0.d0
+  x0    = get_cylindrical_coordinates(y0, ierr)
+  if (ierr > 0) call get_cylindrical_coordinates_error(ierr)
+
+
+  ! set equilibrium field
+  iconfig = 0
+  iconfig(BF_EQ2D) = 1
+
+
+  ! initialize theta map
+  chunk_size = 1024
+  call theta_map%new(chunk_size, 2)
+
+
+  ! initialize reference field line
+  dphi  = 0.1d0 / 180.d0 * pi
+  call F%init(x0, dphi, ADAMS_BASHFORTH_4, FL_ANGLE)
+  n     = 1
+  if (present(nturns)) then
+     if (nturns > 1) n = nturns
+  endif
+  q     = 0.d0
+  L     = 0.d0
+  i     = 1
+  theta_map%x(1,1) = 0.d0
+  theta_map%x(1,2) = 0.d0
+
+
+  ! generate flux surface
+  trace_loop: do
+     L = L + F%trace_1step()
+     if (F%intersect_boundary(x0)) exit trace_loop
+
+     i = i + 1
+     if (i > theta_map%nrow) call theta_map%extend(chunk_size)
+     theta_map%x(i,1) = F%theta_int
+     theta_map%x(i,2) = F%phi_int
+
+     if (abs(F%theta_int) > n*pi2) then
+        s = (n*pi2 - theta_map%x(i-1,1)) / (theta_map%x(i,1) - theta_map%x(i-1,1))
+        theta_map%x(i,1) = n*pi2
+        theta_map%x(i,2) = theta_map%x(i-1,2) + s * (theta_map%x(i,2) - theta_map%x(i-1,2))
+
+        q = theta_map%x(i,2) / theta_map%x(i,1)
+        exit trace_loop
+     endif
+  enddo trace_loop
+  theta_map%x(:,2) = theta_map%x(:,2) / q
+  call theta_map%resize(i)
+
+  call this%theta_map%setup(theta_map, 1)
+  !call theta_map%plot(filename='theta_map.raw')
+  call theta_map%destroy()
+  !call this%theta_map%plot(filename='theta_map.plt', nsample=100000)
+
+  ! restore field configuration
+  iconfig = iconfig_store
+
+  end subroutine setup_theta_map
+!=======================================================================
+
+
+
+!=======================================================================
+  function theta_star(this, theta)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: theta
+  real(real64)             :: theta_star
+
+  real(real64) :: x(2)
+
+
+  x          = this%theta_map%eval(theta, base=ABSOLUTE)
+  theta_star = x(2)
+
+  end function theta_star
 !=======================================================================
 
 end module flux_surface_2D
