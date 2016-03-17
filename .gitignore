@@ -5,5 +5,6 @@ include*
 *.o
 *.mod
 *.swp
+src/benchmark/mesh_spacing/benchmark_mesh_spacing
 templates/plot/plot_data.pro
 templates/plot/plot_lc.pro

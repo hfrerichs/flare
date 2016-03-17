@@ -72,6 +72,7 @@ module mesh_spacing
      this%nc   = 1
      allocate(this%c(this%nc))
      read (mode(5:iB), *, err=5000) this%c(1)
+     write (6, *) 'exp: ', this%c
 
   ! spline with reference node
 !  elseif (mode(1:3) == 'X1:') then
