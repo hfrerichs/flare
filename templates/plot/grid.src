@@ -32,6 +32,7 @@ pro read_grid, grid_file, xoffset=xoffset, yoffset=yoffset, swap_xy=swap_xy
 	UNSTRUCTURED    = 1
 	SEMI_STRUCTURED = 2
 	STRUCTURED      = 3
+        MESH_2D         = 4
 	LOCAL		= 0
 	CARTESIAN	= 1
 	CYLINDRICAL	= 2
@@ -161,6 +162,30 @@ pro read_grid, grid_file, xoffset=xoffset, yoffset=yoffset, swap_xy=swap_xy
 		readf, lun, y_data
 		n_xy	= n_x * n_y
 		isort	= -1
+		x_title	= c_label(icoord1)
+		y_title	= c_label(icoord2)
+
+	; 3.4. 2D mesh
+	end else if (layout eq MESH_2D) then begin
+		print, 'loading 2D mesh ...'
+		iscrape, lun, n_x
+		iscrape, lun, n_y
+		if (fixed_coord eq 0) then begin
+			print, 'fixed_coord = 0 not supported for plotting!'
+			stop
+		endif
+		rscrape, lun, y0
+
+		n_xy	= n_x * n_y
+		x_data	= make_array(n_xy, /fl)
+		y_data	= make_array(n_xy, /fl)
+		tmp	= make_array(2, /fl)
+		for i=0L,n_xy-1 do begin
+			readf, lun, tmp
+			x_data(i)	= tmp(0)
+			y_data(i)	= tmp(1)
+		endfor
+		isort	= 0
 		x_title	= c_label(icoord1)
 		y_title	= c_label(icoord2)
 
