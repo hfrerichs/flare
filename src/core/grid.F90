@@ -339,6 +339,8 @@ module grid
      ! all coordinates are structured
      if (fixed_coord == 0) then
         call iscrape (iu, n3)
+        x0 = 0.d0
+
      ! one coordinate is fixed
      else
         n3 = 1
@@ -346,7 +348,7 @@ module grid
         this%fixed_coord_value = x0
      endif
 
-     call this%new(coordinates, layout, fixed_coord, n1, n2, n3)
+     call this%new(coordinates, layout, fixed_coord, n1, n2, n3, x0)
 
      ! read 1st coordinates
      do i=1,n1
