@@ -845,15 +845,23 @@ module grid
 
 !=======================================================================
   subroutine plot_mesh(this, filename)
+  use math
   class(t_grid)                :: this
   character(len=*), intent(in) :: filename
 
   integer, parameter :: iu = 42
 
-  integer :: i, j
+  real(real64) :: f
+  integer      :: i, j
 
 
   open  (iu, file=filename)
+  if (this%fixed_coord > 0) then
+     f = this%fixed_coord_value
+     if (this%coordinates == CYLINDRICAL  .and.  this%fixed_coord == 3) f = f / pi * 180.d0
+     write (iu, 1000) f
+  endif
+
   ! write rows
   do i=0,this%n1-1
      do j=0,this%n2-1
@@ -871,6 +879,7 @@ module grid
   enddo
   close (iu)
 
+ 1000 format('# ', f0.5)
   end subroutine plot_mesh
 !=======================================================================
 
