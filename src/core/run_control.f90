@@ -76,6 +76,8 @@ module run_control
      Surface_Id, Surface_Type, &
      Debug, use_boundary_from_equilibrium
 
+
+  private :: Boundary, RunControl
   contains
 !=======================================================================
 
