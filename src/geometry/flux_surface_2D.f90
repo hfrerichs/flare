@@ -19,7 +19,7 @@ module flux_surface_2D
   type, extends(t_curve) :: t_flux_surface_2D
      real(real64) :: PsiN
 
-     type(t_cspline) :: theta_map, RZ_geo
+     type(t_cspline) :: theta_map, theta_star_map, RZ_geo
 
      contains
      procedure :: generate ! to be replaced by generate_branch
@@ -32,6 +32,7 @@ module flux_surface_2D
      procedure :: volume
      procedure :: broadcast
      procedure :: setup_theta_map
+     procedure :: theta
      procedure :: theta_star
      procedure :: get_RZ_geo
   end type t_flux_surface_2D
@@ -904,7 +905,11 @@ module flux_surface_2D
   call theta_map%resize(i)
   call RZ_geo%resize(i)
 
-  call this%theta_map%setup(theta_map, 1)
+  ! set up mapping theta -> theta_star
+  call this%theta_star_map%setup_explicit(i, theta_map%x(:,1), theta_map%x(:,2))
+  ! set up mapping theta_star -> theta
+  call this%theta_map%setup_explicit(i, theta_map%x(:,2), theta_map%x(:,1))
+
   call this%RZ_geo%setup(RZ_geo, 1)
   !call theta_map%plot(filename='theta_map.raw')
   call theta_map%destroy()
@@ -922,19 +927,43 @@ module flux_surface_2D
 
 
 !=======================================================================
+! Return natural (straight field line) poloidal angle theta_start for given
+! geometric poloidal angle theta
+!=======================================================================
   function theta_star(this, theta)
   use math
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: theta
   real(real64)             :: theta_star
 
-  real(real64) :: x(2)
+  real(real64) :: x(1)
 
 
-  x          = this%theta_map%eval(theta, base=ABSOLUTE)
-  theta_star = x(2)
+  x          = this%theta_star_map%eval(theta, base=ABSOLUTE)
+  theta_star = x(1)
 
   end function theta_star
+!=======================================================================
+
+
+
+!=======================================================================
+! Return geometric poloidal angle theta for given natural (straight field line)
+! poloidal angle theta_start
+!=======================================================================
+  function theta(this, theta_star)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: theta_star
+  real(real64)             :: theta
+
+  real(real64) :: x(1)
+
+
+  x     = this%theta_map%eval(theta_star, base=ABSOLUTE)
+  theta = x(1)
+
+  end function theta
 !=======================================================================
 
 

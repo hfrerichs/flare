@@ -20,6 +20,7 @@ module cspline
 
      contains
      procedure :: setup
+     procedure :: setup_explicit
      procedure :: destroy
      procedure :: eval
      procedure :: plot
@@ -92,6 +93,32 @@ module cspline
   deallocate (t)
 
   end subroutine setup
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_explicit(this, n, x, y)
+  class(t_cspline)         :: this
+  integer,      intent(in) :: n
+  real(real64), intent(in) :: x(n), y(n)
+
+  integer(fgsl_int)    :: stat
+
+
+  this%n = n
+  if (allocated(this%S))   deallocate(this%S)
+  if (allocated(this%acc)) deallocate(this%acc)
+  allocate (this%S(1), this%acc(1))
+  this%S(1) = fgsl_spline_alloc(fgsl_interp_cspline, this%n)
+
+  ! set lower and upper boundary
+  this%L1 = x(1)
+  this%L2 = x(n)
+
+  stat   = fgsl_spline_init(this%S(1), x, y, this%n)
+
+  end subroutine setup_explicit
 !=======================================================================
 
 
