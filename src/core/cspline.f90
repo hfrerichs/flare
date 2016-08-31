@@ -106,7 +106,8 @@ module cspline
   integer(fgsl_int)    :: stat
 
 
-  this%n = n
+  this%n    = n
+  this%ndim = 1
   if (allocated(this%S))   deallocate(this%S)
   if (allocated(this%acc)) deallocate(this%acc)
   allocate (this%S(1), this%acc(1))
@@ -154,7 +155,17 @@ module cspline
   ! evaluate location is absolute or normalized
   l = this%L1 + t *  (this%L2 - this%L1)
   if (present(base)) then
-     if (base == ABSOLUTE) l = t
+     if (base == ABSOLUTE) then
+        l = t
+        if (t < this%L1) then
+           write (6, *) 'error: t < L1', t, this%L1
+           stop
+        endif
+        if (t > this%L2) then
+           write (6, *) 'error: t > L2', t, this%L2
+           stop
+        endif
+     endif
   endif
 
 
