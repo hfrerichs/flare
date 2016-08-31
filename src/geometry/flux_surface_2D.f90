@@ -17,7 +17,7 @@ module flux_surface_2D
      CW           = -1001
 
   type, extends(t_curve) :: t_flux_surface_2D
-     real(real64) :: PsiN
+     real(real64) :: PsiN, q
 
      type(t_cspline) :: theta_map, theta_star_map, RZ_geo
 
@@ -35,6 +35,7 @@ module flux_surface_2D
      procedure :: theta
      procedure :: theta_star
      procedure :: get_RZ_geo
+     procedure :: get_spectrum
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -901,6 +902,7 @@ module flux_surface_2D
         exit trace_loop
      endif
   enddo trace_loop
+  this%q           = q
   theta_map%x(:,2) = theta_map%x(:,2) / q
   call theta_map%resize(i)
   call RZ_geo%resize(i)
@@ -986,6 +988,68 @@ module flux_surface_2D
   endif
 
   end subroutine get_RZ_geo
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine get_spectrum(this, n, mmax, Bpsi_harm)
+  use math
+  use equilibrium, only: get_DPsiN, get_Bf_eq2D
+  use bfield
+  class(t_flux_surface_2D)  :: this
+  integer,      intent(in)  :: n, mmax
+  real(real64), intent(out) :: Bpsi_harm(-mmax:mmax)
+
+  real(real64) :: dphi, dtheta, theta, theta_star, S, ds(2), x(2), dx(2)
+  real(real64) :: B(3), Bpsi, Bpsic(-mmax:mmax), Bpsis(-mmax:mmax), ePsi(2), x3(3)
+  integer :: i, j, k, nphi, ntheta, m
+
+
+  nphi   = 256
+  ntheta = 256
+  dphi   = pi2 / nphi
+  dtheta = pi2 / ntheta
+
+  S      = 0.d0
+  BPsic  = 0.d0
+  BPsis  = 0.d0
+
+  do i=1,ntheta
+     theta_star = pi2 * (i-0.5d0) / ntheta
+     theta      = this%theta(theta_star)
+     !theta      = pi2 * (i-0.5d0) / ntheta
+     !theta_star = this%theta_star(theta)
+
+     call this%get_RZ_geo(theta, x, dx)
+     ds(1) = x(1) * dphi
+     !ds(2) = dtheta * sqrt(sum(dx**2))
+     x3(1) = x(1);  x3(2) = x(2);  x3(3) = 0.d0
+     B     = get_Bf_eq2D(x3)
+     ds(2) = ds(1) * sqrt(B(1)**2 + B(2)**2) / B(3)
+
+     ePsi(1) = get_DPsiN(x, 1, 0)
+     ePsi(2) = get_DPsiN(x, 0, 1)
+     ePsi    = ePsi / sqrt(sum(ePsi**2))
+
+     do j=1,nphi
+        x3(3)   = pi2 * (j-0.5d0) / nphi
+
+        S       = S + ds(1)*ds(2)
+        B       = get_Bf_Cyl_non2D(x3)
+        Bpsi    = sum(B(1:2)*ePsi)
+
+        do k=-mmax,mmax
+           Bpsic(k)   = Bpsic(k) + ds(1)*ds(2) * Bpsi * cos(n*x3(3) - k*theta_star)
+           Bpsis(k)   = Bpsic(k) + ds(1)*ds(2) * Bpsi * sin(n*x3(3) - k*theta_star)
+        enddo
+     enddo
+  enddo
+  Bpsic   = Bpsic / S
+  Bpsis   = Bpsic / S
+  Bpsi_harm = sqrt(Bpsic**2 + Bpsis**2)
+
+  end subroutine get_spectrum
 !=======================================================================
 
 end module flux_surface_2D

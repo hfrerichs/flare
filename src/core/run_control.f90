@@ -233,6 +233,8 @@ module run_control
      call export_gfile()
   case ('quasi_surfaces')
      call quasi_surfaces()
+  case ('perturbation_spectrum')
+     call perturbation_spectrum()
   case default
 !     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
 !        read (Run_Type(40:42), *) i
