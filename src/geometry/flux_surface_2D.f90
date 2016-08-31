@@ -19,7 +19,7 @@ module flux_surface_2D
   type, extends(t_curve) :: t_flux_surface_2D
      real(real64) :: PsiN
 
-     type(t_cspline) :: theta_map
+     type(t_cspline) :: theta_map, RZ_geo
 
      contains
      procedure :: generate ! to be replaced by generate_branch
@@ -33,6 +33,7 @@ module flux_surface_2D
      procedure :: broadcast
      procedure :: setup_theta_map
      procedure :: theta_star
+     procedure :: get_RZ_geo
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
@@ -833,7 +834,7 @@ module flux_surface_2D
   integer,      intent(in), optional :: nturns
 
   !real(real64), dimension(:,:), allocatable :: theta_map
-  type(t_dataset)   :: theta_map
+  type(t_dataset)   :: theta_map, RZ_geo
   type(t_fieldline) :: F
   real(real64)      :: x0(3), y0(3), dphi, L, s, q
   integer           :: i, ierr, n, iconfig_store(0:BF_MAX_CONFIG), chunk_size
@@ -848,6 +849,7 @@ module flux_surface_2D
 
 
   ! set equilibrium field
+  iconfig_store = iconfig
   iconfig = 0
   iconfig(BF_EQ2D) = 1
 
@@ -855,6 +857,7 @@ module flux_surface_2D
   ! initialize theta map
   chunk_size = 1024
   call theta_map%new(chunk_size, 2)
+  call RZ_geo%new(chunk_size, 3)
 
 
   ! initialize reference field line
@@ -869,6 +872,8 @@ module flux_surface_2D
   i     = 1
   theta_map%x(1,1) = 0.d0
   theta_map%x(1,2) = 0.d0
+  RZ_geo%x(1,1)    = 0.d0
+  RZ_geo%x(1,2:3)  = x0(1:2)
 
 
   ! generate flux surface
@@ -878,13 +883,18 @@ module flux_surface_2D
 
      i = i + 1
      if (i > theta_map%nrow) call theta_map%extend(chunk_size)
+     if (i > RZ_geo%nrow)    call RZ_geo%extend(chunk_size)
      theta_map%x(i,1) = F%theta_int
      theta_map%x(i,2) = F%phi_int
+     RZ_geo%x(i,1)    = F%theta_int
+     RZ_geo%x(i,2:3)  = F%rc(1:2)
 
      if (abs(F%theta_int) > n*pi2) then
         s = (n*pi2 - theta_map%x(i-1,1)) / (theta_map%x(i,1) - theta_map%x(i-1,1))
         theta_map%x(i,1) = n*pi2
         theta_map%x(i,2) = theta_map%x(i-1,2) + s * (theta_map%x(i,2) - theta_map%x(i-1,2))
+        RZ_geo%x(i,1)    = n*pi2
+        RZ_geo%x(i,2:3)  = RZ_geo%x(i-1,2:3) + s * (RZ_geo%x(i,2:3) - RZ_geo%x(i-1,2:3))
 
         q = theta_map%x(i,2) / theta_map%x(i,1)
         exit trace_loop
@@ -892,10 +902,15 @@ module flux_surface_2D
   enddo trace_loop
   theta_map%x(:,2) = theta_map%x(:,2) / q
   call theta_map%resize(i)
+  call RZ_geo%resize(i)
 
   call this%theta_map%setup(theta_map, 1)
+  call this%RZ_geo%setup(RZ_geo, 1)
   !call theta_map%plot(filename='theta_map.raw')
   call theta_map%destroy()
+  call this%new(i-1)
+  this%x(0:i-1,1:2) = RZ_geo%x(1:i,2:3)
+  call RZ_geo%destroy()
   !call this%theta_map%plot(filename='theta_map.plt', nsample=100000)
 
   ! restore field configuration
@@ -920,6 +935,28 @@ module flux_surface_2D
   theta_star = x(2)
 
   end function theta_star
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine get_RZ_geo(this, theta, x, dx)
+  class(t_flux_surface_2D)  :: this
+  real(real64), intent(in)  :: theta
+  real(real64), intent(out) :: x(2)
+  real(real64), intent(out), optional :: dx(2)
+
+  real(real64) :: y(3)
+
+
+  y = this%RZ_geo%eval(theta, base=ABSOLUTE)
+  x = y(2:3)
+  if (present(dx)) then
+     y  = this%RZ_geo%eval(theta, base=ABSOLUTE, derivative=1)
+     dx = y(2:3)
+  endif
+
+  end subroutine get_RZ_geo
 !=======================================================================
 
 end module flux_surface_2D
