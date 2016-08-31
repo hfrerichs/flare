@@ -24,6 +24,8 @@ subroutine run_control_development (Run_Type)
      call TEST_adaptive_step_size()
   case ('TEST_base_mesh')
      call TEST_base_mesh()
+  case ('BENCHMARK_theta_map')
+     call BENCHMARK_theta_map()
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop
@@ -277,4 +279,51 @@ end subroutine TEST_setup_domain
   ! generate base meshs
   call generate_base_mesh(0)
   end subroutine TEST_base_mesh
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine BENCHMARK_theta_map()
+  use iso_fortran_env
+  use run_control, only: Psi, N_Psi, N_theta, Grid_File, Output_File
+  use flux_surface_2D
+  use grid
+  use dataset
+  use math
+  implicit none
+
+  type(t_flux_surface_2D) :: F
+  type(t_grid)            :: G
+  type(t_dataset)         :: D
+  real(real64) :: Psi0, theta, x(2)
+  integer      :: i, j, ig, n
+
+  write (6, *) 'benchmarking setup_theta_map ...'
+  n = (N_Psi+1) * (N_theta+1)
+  call G%new(CYLINDRICAL, UNSTRUCTURED, 3, n)
+  call D%new(n, 3)
+  ig = 0
+  do i=0,N_Psi
+     write (6, *) i
+     Psi0 = Psi(1) + (Psi(2)-Psi(1)) * i / N_Psi
+
+     call F%setup_theta_map(Psi0)
+
+     do j=0,N_theta
+        theta = pi2 / N_theta * j
+
+        call F%get_RZ_geo(theta, x)
+        ig = ig + 1
+        G%x(ig,1:2) = x
+        D%x(ig,1) = theta
+        D%x(ig,2) = F%theta_star(theta)
+        D%x(ig,3) = F%theta(min(D%x(ig,2),pi2))
+     enddo
+  enddo
+
+  call G%store(Grid_File)
+  call D%store(filename=Output_File)
+
+end subroutine BENCHMARK_theta_map
 !===============================================================================
