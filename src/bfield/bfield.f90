@@ -128,6 +128,27 @@ module bfield
 
   end function get_Bf_Cyl
 !=======================================================================
+  function get_Bf_Cyl_non2D(r) result(Bf)
+  use equilibrium
+  use polygones
+  use m3dc1
+  use interpolateB
+  use splineB
+  real*8, intent(in) :: r(3)
+  real*8             :: Bf(3)
+
+
+  Bf = 0.d0
+
+  if (iconfig(BF_COILS)         == 1) Bf = Bf + get_Bcyl_polygones(r)
+  if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
+  if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
+  if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
+  icall(1) = icall(1) + 1
+
+
+  end function get_Bf_Cyl_non2D
+!=======================================================================
 
 
 
