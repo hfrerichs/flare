@@ -96,8 +96,8 @@ elif type gfortran >/dev/null 2>/dev/null; then
 	echo "Using GNU Fortran compiler" | tee -a $LOG_FILE
 	echo "COMPILER       = gfortran" >> include.mk
 fi
-echo "OPT            = -O2" >> include.mk
-echo "OPT_DEBUG      = -g" >> include.mk
+echo "OPT            = -O2 -fconvert=big-endian" >> include.mk
+echo "OPT_DEBUG      = -g  -fconvert=big-endian" >> include.mk
 echo "" >> include.mk
 # ------------------------------------------------------------------------------
 

@@ -13,6 +13,8 @@ OBJECTS =  \
                polygones.o\
                splineB.o\
                interpolateB.o\
+               libHINT.o\
+               HINT.o\
                bfield.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR)

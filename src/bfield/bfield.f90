@@ -14,9 +14,10 @@ module bfield
      BF_COILS        = 2, &
      BF_M3DC1        = 3, &
      BF_INTERPOLATEB = 4, &
-     BF_SPLINEB      = 5
+     BF_SPLINEB      = 5, &
+     BF_HINT         = 6
 
-  integer, parameter :: BF_MAX_CONFIG = 5
+  integer, parameter :: BF_MAX_CONFIG = 6
 
 
   integer :: iconfig(0:BF_MAX_CONFIG), icall(2)
@@ -37,6 +38,7 @@ module bfield
   use m3dc1
   use interpolateB
   use splineB
+  use HINT
 
   integer, parameter :: iu = 24
 
@@ -79,6 +81,7 @@ module bfield
      call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
      call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
      call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
+     call         HINT_load       (iu, iconfig(BF_HINT        ))
      close (iu)
   endif
 
@@ -92,6 +95,7 @@ module bfield
   if (iconfig(BF_M3DC1       ) == 1) call        m3dc1_broadcast()
   if (iconfig(BF_INTERPOLATEB) == 1) call interpolateB_broadcast()
   if (iconfig(BF_SPLINEB     ) == 1) call      splineB_broadcast()
+  if (iconfig(BF_HINT        ) == 1) call         HINT_broadcast()
 
 
 
@@ -112,6 +116,7 @@ module bfield
   use m3dc1
   use interpolateB
   use splineB
+  use HINT
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -123,6 +128,7 @@ module bfield
   if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
+  if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
   icall(1) = icall(1) + 1
 
 
@@ -134,6 +140,7 @@ module bfield
   use m3dc1
   use interpolateB
   use splineB
+  use HINT
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -144,6 +151,7 @@ module bfield
   if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
+  if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
   icall(1) = icall(1) + 1
 
 
@@ -203,6 +211,7 @@ module bfield
   use m3dc1
   use interpolateB
   use splineB
+  use HINT
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 
@@ -225,6 +234,7 @@ module bfield
   if (iconfig(BF_M3DC1)         == 1) Bcyl = Bcyl +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bcyl = Bcyl + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bcyl = Bcyl +      splineB_get_Bf(r)
+  if (iconfig(BF_HINT)          == 1) Bcyl = Bcyl +         HINT_get_Bf(r)
 
 
   ! combine Cartesian and cylindrical components
