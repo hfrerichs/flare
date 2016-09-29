@@ -617,7 +617,7 @@ module curve2D
 
   real(real64), dimension(:,:), allocatable :: tmp_arr
   real(real64) :: xr(2), dr(2), xmax, xmin, ymax, ymin
-  real(real64) :: theta_0, theta, dxl(2), x_0(2), tmp(3), t
+  real(real64) :: theta_0, theta, dxl(2), x_0(2), tmp(3), t, R
   integer      :: i, j, n
 
 
@@ -683,8 +683,15 @@ module curve2D
   else
      t    = (theta_0      - tmp_arr(n,3) + pi2) / t
      x_0  = tmp_arr(n,1:2)
-     dxl  = tmp_arr(0,1:2) - x_0
-     x_0  = x_0 + t * dxl
+     ! linear interpolation between x_0 and x_n
+     !dxl  = tmp_arr(0,1:2) - x_0
+     !x_0  = x_0 + t * dxl
+     ! interpolate radius between x_0 and x_n
+     dxl(1) = sqrt(sum((tmp_arr(n,1:2) - xr)**2))
+     dxl(2) = sqrt(sum((tmp_arr(0,1:2) - xr)**2))
+     R      = dxl(1) + t * (dxl(2) - dxl(1))
+     x_0(1) = xr(1) + R * cos(theta_0)
+     x_0(2) = xr(2) + R * sin(theta_0)
 
      ! copy data to output variable L
      if (x_0(1).eq.tmp_arr(0,1) .and. x_0(2).eq.tmp_arr(0,2)) then
