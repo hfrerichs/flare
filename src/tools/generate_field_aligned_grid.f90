@@ -11,16 +11,18 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
 
   integer, intent(inout) :: run_level, run_level_end
 
+  integer, parameter     :: max_level = 9
+
   procedure(), pointer :: make_base_grids, post_process_grid
   integer :: ilevel
-  logical :: level(9)
+  logical :: level(max_level)
 
 
   ! select run level
   level = .false.
   if (run_level == 0) then
      level(1:6) = .true.
-  elseif (run_level > 0  .and.  run_level <=9) then
+  elseif (run_level > 0  .and.  run_level <=max_level) then
      run_level_end = max(run_level,run_level_end)
      do ilevel=run_level,run_level_end
         level(ilevel) = .true.
@@ -106,6 +108,15 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
 
 
   !---------------------------------------------
+
+  ! Level 7: generate vacuum domain from existing grid (grid3D.dat, input.geo)
+  if (level(7)) then
+     call load_emc3_grid()
+     call vacuum_and_core_domain_for_EIRENE()
+     call write_emc3_grid()
+     call write_emc3_input_files()
+  endif
+
 
   ! Level 8: run grid checks
   if (level(8)) then
