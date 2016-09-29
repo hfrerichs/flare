@@ -654,10 +654,10 @@ module fieldline_grid
      ! 4.2 set position of slices
      do it=0,nt
         phi = Zone(iz)%phi(it)
-        if (abs(phi-G%x3(it)) > machine_precision*100.d0) then
+        if (abs(phi-G%x3(it)) > machine_precision*1.d3) then
            write (6, *) 'error: mismatching toroidal positions: ', phi, G%x3(it)
            write (6, *) 'at slice ', it, ' in zone ', iz
-           write (6, *) 'delta phi = ', abs(phi-G%x3(it)), ' > ', machine_precision*10.d0
+           write (6, *) 'delta phi = ', abs(phi-G%x3(it)), ' > ', machine_precision*1.d3
            stop
         endif
 
