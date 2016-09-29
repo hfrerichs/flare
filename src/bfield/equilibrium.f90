@@ -325,6 +325,7 @@ module equilibrium
 ! determine equilibrium type (if not provided) .........................
   if (i_equi == EQ_GUESS) then
      if (Data_File == '') then
+        use_boundary = .false.
         return
      endif
      open  (iu_scan, file=filename)
