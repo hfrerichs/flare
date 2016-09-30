@@ -26,6 +26,7 @@ module quad_ele
      procedure :: destroy
      procedure :: get_stellarator_symmetric_element
      procedure :: setup_coefficients
+     procedure :: element
   end type t_quad_ele
 
   contains
@@ -55,7 +56,7 @@ module quad_ele
   subroutine quad_ele_load(this, filename, title)
   use math
   class(t_quad_ele)         :: this
-  character*120, intent(in) :: filename
+  character(len=*), intent(in) :: filename
   character*80, intent(out), optional :: title
 
   integer, parameter :: iu = 32
@@ -342,6 +343,11 @@ module quad_ele
      l = .true.
      X = r1 + (r2-r1) * xi
      if (present(tau)) tau = xi
+     if (nelem < 0) then
+        write (6, *) 'nelem = ', nelem
+        write (6, *) 'ljump = ', ljump
+        stop
+     endif
   endif
 
   contains
@@ -467,9 +473,22 @@ module quad_ele
      if (t < 2.d0) then
         istat = 1
         if (present(nelem)) nelem = (js-1) + (is-1)*this%n_RZ
+        if (nelem < 0) then
+           write (6, *) 'nelem1 = ', nelem, js, is, this%n_RZ
+        endif
         return
      endif
   enddo
+
+
+  ! no intersections found
+  istat = 0
+  if (istat > 0) then
+     write (6, *) 'istat = ', istat
+     write (6, *) 'nelem = ', nelem
+     write (6, *) 't     = ', t
+  endif
+
 
   end subroutine check_intersection
   !---------------------------------------------------------------------
@@ -598,6 +617,21 @@ module quad_ele
   if (allocated(this%phi)) deallocate (this%phi, this%R, this%Z)
 
   end subroutine destroy
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine element(this, ielem, i, j)
+  class(t_quad_ele)    :: this
+  integer, intent(in)  :: ielem
+  integer, intent(out) :: i, j
+
+
+  j = mod(ielem, this%n_RZ) + 1
+  i = ielem / this%n_RZ + 1
+
+  end subroutine element
 !=======================================================================
 
 end module quad_ele
