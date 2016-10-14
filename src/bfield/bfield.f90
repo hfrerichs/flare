@@ -167,14 +167,16 @@ module bfield
   function get_JBf_Cyl(r) result(J)
   use equilibrium
   use splineB
+  use interpolateB
   real(real64), intent(in) :: r(3)
   real(real64)             :: J(3,3)
 
 
   J = 0.d0
 
-  if (iconfig(BF_EQ2D   )  == 1) J = J + get_JBf_eq2D(r)
-  if (iconfig(BF_SPLINEB)  == 1) J = J + splineB_get_JBf(r)
+  if (iconfig(BF_EQ2D   )       == 1) J = J + get_JBf_eq2D(r)
+  if (iconfig(BF_SPLINEB)       == 1) J = J + splineB_get_JBf(r)
+  if (iconfig(BF_INTERPOLATEB)  == 1) J = J + interpolateB_get_JBf(r) / 100.d0
 
   end function get_JBf_Cyl
 !========================================================================
