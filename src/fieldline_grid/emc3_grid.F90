@@ -20,6 +20,11 @@ module emc3_grid
      RG,                  ZG,                    PHI_PLANE, &
      BFSTREN,             PSI_N
 
+  integer, dimension(:), allocatable, save :: &
+     ID_TEM
+
+  integer, save :: NPLTR
+
   logical, private, save :: already_loaded = .false.
 
 
@@ -52,6 +57,20 @@ module emc3_grid
 
 
 !===============================================================================
+  logical function OUT_OF_RANGE(i, i_bot, i_top)
+  implicit none
+
+  integer :: i, i_bot, i_top
+
+
+  OUT_OF_RANGE = i < i_bot  .or.  i > i_top
+
+  end function OUT_OF_RANGE
+!===============================================================================
+
+
+
+!===============================================================================
 ! LOAD_GRID_LAYOUT (from input file "input.geo")
 !===============================================================================
   subroutine load_grid_layout()
@@ -60,7 +79,7 @@ module emc3_grid
   integer, parameter :: iu = 24
 
   character(len=72)  :: readfi
-  integer :: i, iz, ir, ip, itmp, n
+  integer :: i, iz, ir, ip, it, itmp, n
 
 
   write (6, 1000)
@@ -165,6 +184,19 @@ module emc3_grid
      P_SURF_PL_TRANS_RANGE(2,iz) = max(P_SURF_PL_TRANS_RANGE(2,iz), ip)
   enddo
 
+  ! 3. toroidal
+  call scrape(iu, readfi)
+  read (readfi, *) n
+  do i=1,n
+     read  (iu, *) it, iz, itmp
+     write (6,  *) it, iz, itmp
+     read  (iu, *) readfi
+  enddo
+
+
+  ! plate surfaces
+  call scrape(iu, readfi)
+  read (readfi, *) NPLTR
   close (iu)
 
   end subroutine load_grid_layout
@@ -205,6 +237,82 @@ module emc3_grid
   already_loaded = .true.
 
   end subroutine load_emc3_grid
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine load_emc3_plates()
+
+  integer, parameter :: iu = 99
+
+  integer, dimension(:), allocatable :: ntcell
+  integer :: mdi, iz, i, j, k, l, ig, kt, k1, k2
+
+
+  if (allocated(ID_TEM)) deallocate(ID_TEM)
+  allocate (ID_TEM(0:MESH_P_OS(NZONET)-1))
+  ID_TEM = 0
+
+  mdi = maxval(ZON_TORO)
+  allocate (ntcell(mdi))
+  open  (iu, file='plates.dat', status='old', action='read', position='rewind')
+  select case(-NPLTR)
+  case(1)
+     do
+        read  (iu, *, end=10) iz, i, j, k, (ntcell(l), l=1,k)
+        if (OUT_OF_RANGE(iz, 0, NZONET-1      ) .or. &
+            OUT_OF_RANGE( i, 0, ZON_RADI(iz)-1) .or. &
+            OUT_OF_RANGE( j, 0, ZON_POLO(iz)-1)     ) then
+           write (6,*) 'iz, i, j out of range!'
+           stop
+        endif
+        l = k
+        do kt=1,l/2
+           k1 = (kT-1)*2+1
+           k2 =  kT   *2
+
+           do k=ntcell(k1),ntcell(k2)
+              if (OUT_OF_RANGE(k,0,ZON_TORO(iz)-1) ) then
+                 write (6, *) 'k out of range!'
+                 stop
+              endif
+              ig = i+(j+k*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
+              ID_TEM(ig) = 1
+           enddo
+        enddo
+     enddo
+
+  !case(2)
+  case(3)
+     do
+        read  (iu, *, end=10) iz, i, j, kt, ntcell(1:kt)
+        if (OUT_OF_RANGE(iz, 0, NZONET-1      ) .or. &
+            OUT_OF_RANGE( i, 0, ZON_RADI(iz)-1) .or. &
+            OUT_OF_RANGE( j, 0, ZON_POLO(iz)-1)     ) then
+           write (6,*) 'iz, i, j out of range!'
+           stop
+        endif
+
+        do k1=1,kt
+           k = NTCELL(k1)
+           if (OUT_OF_RANGE(k,0,ZON_TORO(iz)-1)) THEN
+              write (6, *) 'k out of range!'
+              stop
+           endif
+           ig = i+(j+k*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
+           ID_TEM(ig) = 1
+        enddo
+     enddo
+
+  case default
+     write (6, 9000) NPLTR
+ 9000 format('error: unkown plate defination type ',i0,'!')
+     stop
+  end select
+ 10  deallocate (ntcell)
+
+  end subroutine load_emc3_plates
 !=======================================================================
 
 

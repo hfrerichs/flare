@@ -7,6 +7,7 @@
 
 
   call load_emc3_grid()
+  call load_emc3_plates()
 
 
   ! 1. select output zone(s)
@@ -41,9 +42,9 @@
 
 
   ! 3. select output mode
-  write (6, *) 'select domain (0: plasma, 1: plasma+neutral gas)'
+  write (6, *) 'select domain (0: plasma, 1: plasma+neutral gas, 2: plasma, exlude limiter cells)'
   read  (5, *) idomain
-  if (idomain < 0  .or.  idomain > 1) then
+  if (idomain < 0  .or.  idomain > 2) then
      write (6, *) 'error: invalid domain id!'
      stop
   endif
@@ -71,19 +72,21 @@
   use grid
   integer, intent(in) :: iz, it, idomain
 
+  integer, parameter  :: iu = 99
+
   character(len=72) :: grid_file, plot_file
   character(len=4)  :: s_iz, s_it
 
   type(t_grid) :: G
   real(real64) :: c
-  integer      :: ir, ir1, ir2, ip, ip1, ip2, ig, nr, np
+  integer      :: ir, ir1, ir2, ip, ip1, ip2, ig, nr, np, ig4(0:4)
 
 
   write (s_iz, '(i4)') iz
   write (s_it,  '(i4)') it
 
 
-  if (idomain == 0) then
+  if (idomain == 0  .or.  idomain == 2) then
      ir1 = R_SURF_PL_TRANS_RANGE(1,iz)
      ir2 = R_SURF_PL_TRANS_RANGE(2,iz)
      ip1 = P_SURF_PL_TRANS_RANGE(1,iz)
@@ -118,7 +121,30 @@
   !plot_file = 'grid_'//trim(adjustl(s_iz))//'_'//trim(adjustl(s_it))//'.dat'
   !call G%store(filename=plot_file)
   plot_file = 'grid_'//trim(adjustl(s_iz))//'_'//trim(adjustl(s_it))//'.plt'
-  call G%plot_mesh(plot_file)
+  if (idomain == 2) then
+     open  (iu, file=plot_file)
+     write (iu, 1000) G%fixed_coord_value / c
+ 1000 format('# ', f0.5)
+     do ir=ir1,ir2-1
+     do ip=ip1,ip2-1
+        ig = ir + (ip + it*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
+        if (ID_TEM(ig) == 0) then
+           ig4(0) = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+           ig4(1) = ig4(0) + 1
+           ig4(2) = ig4(1) + SRF_RADI(iz)
+           ig4(3) = ig4(0) + SRF_RADI(iz)
+           ig4(4) = ig4(0)
+           do ig=0,4
+              write (iu, *) RG(ig4(ig)), ZG(ig4(ig))
+           enddo
+           write (iu, *)
+        endif
+     enddo
+     enddo
+     close (iu)
+  else
+     call G%plot_mesh(plot_file)
+  endif
 
   end subroutine plot_slice
   !---------------------------------------------------------------------
