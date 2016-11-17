@@ -7,7 +7,6 @@
 
 
   call load_emc3_grid()
-  call load_emc3_plates()
 
 
   ! 1. select output zone(s)
@@ -48,6 +47,7 @@
      write (6, *) 'error: invalid domain id!'
      stop
   endif
+  if (idomain == 2) call load_emc3_plates()
 
 
   ! 4. plot loop
