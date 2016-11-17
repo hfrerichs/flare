@@ -116,7 +116,7 @@ module flux_surface_3D
 ! nsteps      number of trace steps between slices
 ! solver      id of ODE solver
 !=======================================================================
-  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, poloidal_coordinate)
+  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, poloidal_coordinate, resample)
   use magnetic_axis
   use equilibrium, only: get_PsiN
   use mesh_spacing
@@ -124,11 +124,16 @@ module flux_surface_3D
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
   integer,      intent(in), optional :: poloidal_coordinate
+  integer,      intent(in), optional :: resample
 
   type(t_poincare_set)     :: P
   type(t_curve)            :: C
   real(real64) :: Maxis(3), phi, t, x(2)
-  integer      :: i, j, n, ipc
+  integer      :: i, j, n, ipc, nsample
+
+
+  nsample = npoints
+  if (present(resample)) nsample = resample
 
 
   ! set poloidal coordinate
@@ -153,7 +158,7 @@ module flux_surface_3D
 
 
   ! check if each slice is complete, sort points and sample equidistant points on surface
-  this%n_theta = npoints
+  this%n_theta = nsample
   do i=0,nslice-1
      if (P%slice(i)%npoints .ne. npoints) then
         write (6, *) 'error: incomplete flux surface!'
@@ -167,10 +172,12 @@ module flux_surface_3D
      call C%sort_loop(Maxis(1:2), method=ipc)
 
 
-     call this%slice(i)%new(npoints-1)
+     call this%slice(i)%new(nsample-1)
      this%slice(i)%phi = phi
-     do j=0,npoints-1
-        t = Equidistant%node(j, npoints-1)
+
+     ! re-sample points on flux surface (optional)
+     do j=0,nsample-1
+        t = Equidistant%node(j, nsample-1)
         call C%sample_at(t, x)
         this%slice(i)%x(j,:) = x
      enddo
