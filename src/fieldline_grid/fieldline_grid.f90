@@ -54,6 +54,11 @@ module fieldline_grid
      SF_EXACT    = 'EXACT', &
      SF_QUASI    = 'QUASI'
 
+  ! Method for core domain
+  character(len=*), parameter :: &
+     CORE_EXTRAPOLATE  = 'extrapolate', &
+     CORE_FLUX_SURFACE = 'flux_surface'
+
 
   integer, parameter :: &
      max_blocks  = 360, &        ! Maximum number of toroidal blocks
@@ -76,7 +81,8 @@ module fieldline_grid
      toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface                  = '', &
      N0_file(0:max_layers-1)          = '', &
-     N0_method(0:max_layers-1)        = ''
+     N0_method(0:max_layers-1)        = '', &
+     core_domain                      = CORE_EXTRAPOLATE
 
 
   integer :: &
@@ -370,7 +376,7 @@ module fieldline_grid
   namelist /FieldlineGrid_Input/ &
      topology, symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, d_extend, &
-     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, &
+     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
      n_interpolate, nr_perturbed, &
      np_ortho_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &

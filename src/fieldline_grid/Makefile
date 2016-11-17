@@ -17,6 +17,7 @@ OBJECTS =  \
                mfs_mesh.o\
                elements.o\
                base_mesh.o\
+               core_domain.o\
                vacuum_domain.o\
                trace_nodes.o\
                check.o

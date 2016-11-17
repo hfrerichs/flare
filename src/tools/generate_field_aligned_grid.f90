@@ -92,7 +92,8 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   ! Level 4: generate vacuum domain (used by EIRENE only)
   if (level(4)) then
      call initialize_emc3_grid()
-     call vacuum_and_core_domain_for_EIRENE()
+     call setup_core_domain()
+     call vacuum_domain_for_EIRENE()
      call write_emc3_grid()
      call write_emc3_input_files()
   endif
@@ -117,7 +118,8 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   ! Level 7: generate vacuum domain from existing grid (grid3D.dat, input.geo)
   if (level(7)) then
      call load_emc3_grid()
-     call vacuum_and_core_domain_for_EIRENE()
+     call setup_core_domain()
+     call vacuum_domain_for_EIRENE()
      call write_emc3_grid()
      call write_emc3_input_files()
   endif
