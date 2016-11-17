@@ -26,7 +26,8 @@ module fieldline_grid
   ! Discretization type definitions
   character(len=*), parameter :: &
      POLOIDAL_ANGLE    = 'poloidal_angle_fixed', &
-     ORTHOGONAL        = 'quasi_orthogonal'
+     ORTHOGONAL        = 'quasi_orthogonal', &
+     ARC_LENGTH        = 'arc_length'
 
 
   ! zone type definitions
@@ -56,8 +57,8 @@ module fieldline_grid
 
   ! Method for core domain
   character(len=*), parameter :: &
-     CORE_EXTRAPOLATE  = 'extrapolate', &
-     CORE_FLUX_SURFACE = 'flux_surface'
+     CORE_EXTRAPOLATE   = 'extrapolate', &
+     CORE_FLUX_SURFACES = 'flux_surfaces'
 
 
   integer, parameter :: &
@@ -74,7 +75,7 @@ module fieldline_grid
      topology                         = TOPO_SC, &
      Innermost_Flux_Surface           = SF_EXACT, &
      discretization_method            = POLOIDAL_ANGLE, &
-     radial_spacing(0:max_layers-1)   = '', &
+     radial_spacing(-1:max_layers-1)   = '', &
      poloidal_spacing(0:max_layers-1) = '', &
      poloidal_spacing_L(0:max_layers-1) = '', &
      poloidal_spacing_R(0:max_layers-1) = '', &
@@ -107,6 +108,7 @@ module fieldline_grid
      d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
      d_PFR(4)            =   15.d0, &      ! radial width of private flux region
      d_N0(0:max_layers-1)=   10.d0, &      ! radial width of vacuum region
+     alpha_core          =    0.5d0, &     ! relative radial position of core surface
      d_extend(0:max_layers-1,-1:1) = -1.d0, &      ! poloidal extension of divertor leg (used in close_grid_domain)
      d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
@@ -376,7 +378,7 @@ module fieldline_grid
   namelist /FieldlineGrid_Input/ &
      topology, symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_method, d_extend, &
-     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
+     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, alpha_core, &
      n_interpolate, nr_perturbed, &
      np_ortho_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &

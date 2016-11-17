@@ -9,10 +9,6 @@ module modtopo_stel
   private
 
 
-  character(len=*), parameter :: &
-     ARC_LENGTH = 'arc_length'
-
-
   ! outer boundary
   type(t_curve) :: B
 
