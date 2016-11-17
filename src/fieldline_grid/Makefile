@@ -7,6 +7,7 @@ OBJECTS =  \
                inner_boundary.o\
                divertor.o\
                topo_sc.o\
+               topo_stel.o\
                topo_lsn.o\
                topo_ddn.o\
                topo_cdn.o\

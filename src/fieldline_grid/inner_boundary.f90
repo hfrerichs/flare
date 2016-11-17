@@ -16,16 +16,17 @@ module inner_boundary
 
 
   !=====================================================================
-  subroutine load_inner_boundaries (theta0)
+  subroutine load_inner_boundaries (theta0, sample_method)
   use magnetic_axis
   use equilibrium, only: get_PsiN
   use math
   use run_control, only: Debug
   real(real64), intent(in), optional :: theta0
+  integer,      intent(in), optional :: sample_method
 
   character(len=72) :: filename
   real(real64)     :: d(2), phi, r3(3), Pmag(2), delta, PsiN_x
-  integer          :: i, iblock, n, sort_method
+  integer          :: i, iblock, n, sort_method, apply_sample_method
 
 
   write (6, 1000)
@@ -40,6 +41,9 @@ module inner_boundary
      d(2) = sin(theta0)
      sort_method = ANGLE
   endif
+
+  apply_sample_method = sort_method
+  if (present(sample_method)) apply_sample_method = sample_method
 
 
   allocate (C_in(0:blocks-1,0:1))
@@ -63,6 +67,9 @@ module inner_boundary
         endif
 
         call C_in(iblock,i)%sort_loop(Pmag, d, sort_method)
+        if (apply_sample_method .ne. sort_method) then
+           call C_in(iblock,i)%setup_sampling_by_method(sample_method, Pmag)
+        endif
         if (Debug) then
            write (filename, 2001) i, iblock
            call C_in(iblock,i)%plot(filename=filename)

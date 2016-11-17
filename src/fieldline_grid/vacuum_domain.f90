@@ -59,6 +59,7 @@ subroutine setup_core_domain(iz, nr_core)
   integer :: i, j, k, ig, method = GEOMETRIC_CENTER
 
 
+  ! TODO: add core generation from flux surfaces
   write (6, 1000) iz, nr_core
  1000 format(8x,'zone ',i0,': ',i0,' core cell(s)')
 
@@ -133,7 +134,8 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
      SCALE_BOUNDARY   = 1, &
      CELL_EXTEND      = 2, &
      RAY_ADJUST_SCALE = 3, &
-     MANUAL           = -1
+     MANUAL_2D        = -2, &
+     MANUAL_3D        = -3
 
   real(real64) :: dl
   integer      :: Method, ir0, idir, ir2
@@ -146,8 +148,10 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
      Method = CELL_EXTEND
   case('ray_adjust_scale')
      Method = RAY_ADJUST_SCALE
-  case('manual')
-     Method = MANUAL
+  case('manual', 'manual_2D')
+     Method = MANUAL_2D
+  case('manual_3D')
+     Method = MANUAL_3D
   case default
      write (6, *) 'error: invalid method ', trim(Zone(iz)%N0_method), ' for N0 domain!'
      stop
@@ -155,9 +159,9 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
 
 
   dl     = Zone(iz)%d_N0
-  if (Zone(iz)%N0_file .ne. '') then
-     Method = MANUAL
-  endif
+!  if (Zone(iz)%N0_file .ne. '') then
+!     Method = MANUAL_2D
+!  endif
 
 
   ! set surface indices and increment
@@ -193,8 +197,10 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
       call cell_extend_proc(iz, ir0, idir, ir2, dl)
   case (RAY_ADJUST_SCALE)
       call ray_adjust_scale_proc(iz, ir0, idir, ir2, dl)
-  case (MANUAL)
+  case (MANUAL_2D)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
+  case (MANUAL_3D)
+      call vacuum_domain_manual_3D(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   end select
 
 
@@ -943,3 +949,64 @@ subroutine vacuum_domain_manual(iz, ir0, idir, ir2, boundary_file)
 
   deallocate (eta)
 end subroutine vacuum_domain_manual
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file)
+  use iso_fortran_env
+  use math
+  use emc3_grid
+  use quad_ele
+  use curve2D
+  use magnetic_axis, only: get_magnetic_axis
+  use run_control, only: Debug
+  implicit none
+
+  integer, intent(in)      :: iz, ir0, idir, ir2
+  character(len=*), intent(in) :: boundary_file
+
+  type(t_quad_ele) :: S
+  type(t_curve)    :: C
+  real(real64)     :: phi, A(3), theta, xi, x1(2), x2(2), rho
+  integer          :: ir, ir1, ip, it, ig
+
+
+  call S%load(boundary_file)
+  ir1 = ir0 + idir
+  do it=0,SRF_TORO(iz)-1
+     phi = PHI_PLANE(it+PHI_PL_OS(iz))
+     C   = S%slice(phi)
+     if (C%n_seg < 0) then
+        write (6, *) 'error in S%slice'
+        stop
+     endif
+     A   = get_magnetic_axis(phi)
+     call C%setup_angular_sampling(A(1:2))
+
+     ! poloidal loop (setup segment weights)
+     do ip=0,SRF_POLO(iz)-1
+        ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+        ! x1: reference point on last EMC3 surface -> theta
+        x1(1) = RG(ig);  x1(2) = ZG(ig)
+        theta = atan2(x1(2) - A(2), x1(1) - A(1));  if (theta < 0.d0) theta = theta + pi2
+        xi    = theta / pi2
+
+        ! x2: reference point on boundary (theta)
+        call C%sample_at(xi, x2)
+
+        ! generate vacuum domain
+        do ir=ir1,ir2,idir
+           rho = 1.d0 * (ir-ir0) / (ir2-ir1+idir)
+           ig  = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+           RG(ig) = x1(1) + rho * (x2(1) - x1(1))
+           ZG(ig) = x1(2) + rho * (x2(2) - x1(2))
+        enddo
+     enddo
+  enddo
+
+end subroutine vacuum_domain_manual_3D
+!===============================================================================

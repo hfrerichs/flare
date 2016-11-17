@@ -11,6 +11,8 @@ module fieldline_grid
   character(len=*), parameter :: &
      TOPO_SC     = 'simply_connected', &
      TOPO_SC1    = 'sc', &
+     TOPO_STEL   = 'stellarator', &
+     TOPO_STEL1  = 'scstel', &
      TOPO_LSN    = 'lower_single_null', &
      TOPO_LSN1   = 'lsn', &
      TOPO_DDN    = 'disconnected_double_null', &
@@ -1176,7 +1178,7 @@ module fieldline_grid
   type(t_curve), dimension(:,:), allocatable :: C
 
   real(real64), dimension(:), allocatable   :: RC_TEM, ZC_TEM
-  integer, dimension(:), allocatable   :: ID_TEM
+  !integer, dimension(:), allocatable   :: ID_TEM
   integer, dimension(:,:), allocatable :: iindex ! number of cells behind a plate
   integer, dimension(:), allocatable   :: knumb  ! cell index in flux tube for plate cells
 

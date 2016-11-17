@@ -7,6 +7,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   use modtopo_ddn
   use modtopo_cdn
   use modtopo_dsfp
+  use modtopo_stel
   implicit none
 
   integer, intent(inout) :: run_level, run_level_end
@@ -60,6 +61,10 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
      call setup_topo_dsfp()
      make_base_grids   => make_base_grids_dsfp
      post_process_grid => post_process_grid_dsfp
+  case(TOPO_STEL, TOPO_STEL1)
+     call setup_topo_stel()
+     make_base_grids   => make_base_grids_stel
+     post_process_grid => post_process_grid_stel
   case default
      write (6, *) 'error: grid topology ', trim(topology), ' not supported!'
      stop
