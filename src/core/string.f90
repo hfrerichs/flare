@@ -20,6 +20,7 @@ module string
   integer :: i, i1_tmp(n+1), nstr, i1, i2
 
 
+  parse_string = ''
   ! initialize upper and lower indices
   nstr      = len_trim(str)
   i1_tmp(1) = 1
@@ -33,7 +34,7 @@ module string
      ! set new lower index for next sub-string
      i1_tmp(i+1) = i2 + 2
      ! adjust new lower index if upper index is already at the end
-     if (i1_tmp(i+1) > nstr) i1_tmp(i+1) = i1_tmp(i)
+     if (i1_tmp(i+1) > nstr) exit
   enddo
   i1 = i1_tmp(n)
 
