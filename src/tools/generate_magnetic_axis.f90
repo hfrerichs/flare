@@ -20,13 +20,15 @@ subroutine generate_magnetic_axis
   use math
   use parallel
   use dataset
+  use bfield
+  use magnetic_axis
   implicit none
 
   integer, parameter :: iu = 54
 
   type(t_dataset)    :: D
   character(len=120) :: filename
-  real(real64)       :: R, Z, Phi
+  real(real64)       :: R, Z, Phi, Bf(3)
   integer            :: i
 
 
@@ -44,6 +46,11 @@ subroutine generate_magnetic_axis
 
   ! Use cylindrical coordinates
   Trace_Coords = CYLINDRICAL
+
+  ! setup toroidal field direction
+  Bf      = get_Bf_cyl(x_start)
+  Bt_sign = 1
+  if (Bf(3) < 0.d0) Bt_sign = -1
 
 
   ! 1. Generate Poincare plot at N_mult toroidal slices
