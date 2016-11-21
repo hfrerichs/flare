@@ -50,6 +50,7 @@ module modtopo_stel
      ! 3. show zone information
      write (6, 1002) iz, Zone(iz)%nr, Zone(iz)%np, Zone(iz)%nt
   enddo
+  Zone(0)%isft(1) = SF_UPDOWN
  1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')
  1002 format(12x,i3,3x,'(',i0,' x ',i0,' x ',i0,')')
 

@@ -121,7 +121,8 @@ module fieldline_grid
      Dtheta_separatrix   =     0.d0        ! ... same on separatrix
 
   logical :: &
-     extend_alpha_SOL2   =  .true.
+     extend_alpha_SOL2   =  .true., &
+     stellarator_symmetry = .false.
 
 
 
@@ -378,7 +379,7 @@ module fieldline_grid
   type(t_block_input) :: Block(0:max_blocks-1)
 
   namelist /FieldlineGrid_Input/ &
-     topology, symmetry, blocks, Block, &
+     topology, symmetry, stellarator_symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_filter, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, alpha_core, &
      n_interpolate, nr_perturbed, &
@@ -443,6 +444,9 @@ module fieldline_grid
      ! set index of base plane
      if (Block(ib)%it_base == -1) then
         Block(ib)%it_base = Block(ib)%nt / 2
+
+        ! default base plane in 1st block in stellarator symmetric configurations is 0
+        if (stellarator_symmetry  .and.  ib==0) Block(ib)%it_base = 0
      else
         default_decomposition = .false.
      endif
@@ -459,6 +463,7 @@ module fieldline_grid
 
   ! 1. set total size of simulation domain
   Delta_phi_sim         = real(360, real64) / symmetry
+  if (stellarator_symmetry) Delta_phi_sim = Delta_phi_sim / 2
 
 
   ! 2. set size of toroidal blocks
@@ -483,6 +488,9 @@ module fieldline_grid
   ! DEFAULT: neg. half of first block
   if (phi0 == -360.d0) then
      phi0 = -Block(0)%width / 2.d0
+
+     ! default lower boundary is 0.0 deg for stellarator symmetric configurations
+     if (stellarator_symmetry) phi0 = 0.d0
   else
      default_decomposition = .false.
   endif
