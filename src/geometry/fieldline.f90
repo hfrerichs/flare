@@ -345,7 +345,7 @@ module fieldline
   ! for Poincare plots
   this%iplane = 0
   this%phi_sym = pi2 / nsym
-  if (icoord == 2) then
+  if (icoord == FL_ANGLE) then
      this%sgn  = Bt_sign
   else
      this%sgn  = nint(sign(1.d0, ds)) * Bt_sign
