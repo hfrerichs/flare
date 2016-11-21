@@ -133,6 +133,7 @@
   type(t_flux_surface_3D) :: F
   type(t_spacing)         :: S
   type(t_grid)            :: B, G
+  character(len=80)       :: filename
   real(real64) :: x0(3), xmag(3), x(3), r
   integer      :: ig, ir, ip, ipc, it
 
@@ -173,7 +174,9 @@
         B%mesh(ir,ip,:) = F%slice(0)%x(ip,:)
      enddo
   enddo
-  call B%store('core_flux_surfaces.plt')
+  write (filename, 2000) iz
+ 2000 format('core_flux_surfaces_',i0,'.plt')
+  call B%store(filename)
 
 
   ! trace nodes from base grid and set up 3D grid
