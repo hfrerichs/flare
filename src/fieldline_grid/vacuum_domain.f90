@@ -112,7 +112,7 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   case (MANUAL_2D)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   case (MANUAL_3D)
-      call vacuum_domain_manual_3D(iz, ir0, idir, ir2, Zone(iz)%N0_file)
+      call vacuum_domain_manual_3D(iz, ir0, idir, ir2, Zone(iz)%N0_file, Zone(iz)%N0_filter)
   end select
 
 
@@ -866,7 +866,7 @@ end subroutine vacuum_domain_manual
 
 
 !===============================================================================
-subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file)
+subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
   use iso_fortran_env
   use math
   use emc3_grid
@@ -874,28 +874,93 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file)
   use curve2D
   use magnetic_axis, only: get_magnetic_axis
   use run_control, only: Debug
+  use string
   implicit none
 
   integer, intent(in)      :: iz, ir0, idir, ir2
-  character(len=*), intent(in) :: boundary_file
+  character(len=*), intent(in) :: boundary_file, filter
 
   type(t_quad_ele) :: S
   type(t_curve)    :: C
-  real(real64)     :: phi, A(3), theta, xi, x1(2), x2(2), rho
-  integer          :: ir, ir1, ip, it, ig
+  character(len=256), dimension(:), allocatable :: apply_filter, filter_parameter
+  character(len=72):: tmp
+  real(real64)     :: phi, A(3), theta, xi, x1(2), x2(2), rho, dl
+  integer          :: ir, ir1, ip, it, ig, ifilter, is, nfilter
+
+
+  ! set up filter/processing routines for boundary surfaces ............
+  ! 1. count filter
+  nfilter = 0
+  do
+     tmp = parse_string(filter, nfilter+1)
+     if (tmp == '') exit
+     nfilter = nfilter + 1
+  enddo
+  allocate (apply_filter(nfilter), filter_parameter(nfilter))
+  write (6, 1000) nfilter
+
+  ! 2. set up filter
+  do ifilter=1,nfilter
+     tmp = parse_string(filter, ifilter)
+
+     is = scan(tmp, '=')
+     if (is == 0) then
+        apply_filter(ifilter)     = tmp
+        filter_parameter(ifilter) = ''
+        write (6, 1001) ifilter, trim(apply_filter(ifilter))
+     else
+        apply_filter(ifilter)     = tmp(1:is-1)
+        filter_parameter(ifilter) = tmp(is+1:len_trim(tmp))
+        write (6, 1002) ifilter, trim(apply_filter(ifilter)), trim(filter_parameter(ifilter))
+     endif
+  enddo
+  !.....................................................................
 
 
   call S%load(boundary_file)
   ir1 = ir0 + idir
   do it=0,SRF_TORO(iz)-1
      phi = PHI_PLANE(it+PHI_PL_OS(iz))
+
+     ! initialize slice C from boundary surface
      C   = S%slice(phi)
      if (C%n_seg < 0) then
         write (6, *) 'error in S%slice'
         stop
      endif
+     if (Debug) then
+        write (tmp, 9001) iz, it
+        call C%plot(filename=tmp)
+     endif
+
+
+     ! apply filter for slice C
+     do ifilter=1,nfilter
+        select case(apply_filter(ifilter))
+        case('expand')
+           read  (filter_parameter(ifilter), *) dl
+           call C%left_hand_shift(dl)
+
+        case default
+           write (6, *) 'error: invalid filter type ', apply_filter(1:is-1)
+           stop
+        end select
+        if (Debug) then
+           write (tmp, 9002) iz, it, ifilter
+           call C%plot(filename=tmp)
+        endif
+     enddo
+
+
+     ! setup sampling on slice C
      A   = get_magnetic_axis(phi)
+     call C%sort_loop(A)
      call C%setup_angular_sampling(A(1:2))
+     if (Debug) then
+        write (tmp, 9003) iz, it
+        call C%plot(filename=tmp)
+     endif
+
 
      ! poloidal loop (setup segment weights)
      do ip=0,SRF_POLO(iz)-1
@@ -920,5 +985,15 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file)
      enddo
   enddo
 
+
+  ! cleanup
+  deallocate (apply_filter, filter_parameter)
+
+ 1000 format(8x,'using ',i0,' filter to process boundary surface')
+ 1001 format(8x,i0,': ',a)
+ 1002 format(8x,i0,': ',a,' with parameter ',a)
+ 9001 format('debug/slice_Z',i0,'_T',i0,'.plt')
+ 9002 format('debug/slice_Z',i0,'_T',i0,'_filter',i0,'.plt')
+ 9003 format('debug/slice_Z',i0,'_T',i0,'_sample.plt')
 end subroutine vacuum_domain_manual_3D
 !===============================================================================
