@@ -756,6 +756,7 @@ module curve2D
 
   ! close loop
   t  = (xr(2) - x(0,2)) / (x(n,2) - x(0,2))
+  if (t < 0.d0  .or.  t > 1.d0) t = 0.5d0
   x0 = x(0,:) + t * (x(n,:) - x(0,:))
   x(0,:) = x0
   x(n,:) = x0
