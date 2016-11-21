@@ -199,20 +199,35 @@ module quad_ele
 
 
 !=======================================================================
-  function slice(this, phi) result(C)
+  function slice(this, phi0) result(C)
   use math
   use search
   use curve2D
   class(t_quad_ele)         :: this
-  real(real64), intent(in)  :: phi
+  real(real64), intent(in)  :: phi0
   type(t_curve)             :: C
 
-  real(real64) :: t, R, Z, dl
+  real(real64) :: t, R, Z, dl, phi
   integer      :: i, ind, ierr
 
 
   ! check boundaries
-  if (phi.lt.this%phi(0) .or. phi.gt.this%phi(this%n_phi)) return
+  phi = phi0
+  do
+     if (phi >= this%phi(0)) exit
+
+     phi = phi + pi2 / this%n_sym
+  enddo
+
+  do
+     if (phi <= this%phi(this%n_phi)) exit
+
+     phi = phi - pi2 / this%n_sym
+  enddo
+
+  if (phi.lt.this%phi(0) .or. phi.gt.this%phi(this%n_phi)) then
+     return
+  endif
 
 
   ! find index "ind" with phi(ind) <= phi0 <= phi(ind+1)
