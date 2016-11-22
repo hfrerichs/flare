@@ -25,6 +25,7 @@
      end select
   endif
   enddo
+  write (6, *)
 
  1000 format(3x,' - Setting up core domain for EIRENE')
  1001 format(8x,'by extrapolating from inner EMC3 boundary')
@@ -135,7 +136,7 @@
   type(t_grid)            :: B, G
   character(len=80)       :: filename
   real(real64) :: x0(3), xmag(3), x(3), r
-  integer      :: ig, ir, ip, ipc, it
+  integer      :: ig, ir, ip, ipc, it, updown_symmetry
 
 
   ! set default number of points for flux surfaces
@@ -163,13 +164,22 @@
   call B%new(CYLINDRICAL, MESH_2D, 3, nr_core, SRF_POLO(iz), fixed_coord_value=x0(3))
 
 
+  ! up/down symmetric flux surfaces ?
+  updown_symmetry = -1
+  if (Zone(iz)%it_base == 0  .and.  Zone(iz)%isft(1) == SF_UPDOWN) then
+     updown_symmetry = 0
+     write (6, *) 'applying up/down symmetry...'
+  endif
+
+
   ! generate flux surfaces for core region -> setup base grid
   do ir=0,nr_core-1
      r = S%node(ir,nr_core)
      r = alpha_core + (1.d0 - alpha_core) * r
      x = xmag + r * (x0-xmag)
 
-     call F%generate(x, N_points, symmetry, 1, 360, Trace_Method, poloidal_coordinate=ipc, resample=SRF_POLO(iz))
+     call F%generate(x, N_points, symmetry, 1, 360, Trace_Method, poloidal_coordinate=ipc, &
+        resample=SRF_POLO(iz), updown_symmetry=updown_symmetry)
      do ip=0,SRF_POLO(iz)-1
         B%mesh(ir,ip,:) = F%slice(0)%x(ip,:)
      enddo

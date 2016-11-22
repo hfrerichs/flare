@@ -94,6 +94,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
      call initialize_emc3_grid()
      call setup_core_domain()
      call vacuum_domain_for_EIRENE()
+     call check_emc3_grid()
      call write_emc3_grid()
      call write_emc3_input_files()
   endif
@@ -120,6 +121,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
      call load_emc3_grid()
      call setup_core_domain()
      call vacuum_domain_for_EIRENE()
+     call check_emc3_grid()
      call write_emc3_grid()
      call write_emc3_input_files()
   endif
@@ -136,6 +138,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   if (level(9)) then
      call load_emc3_grid()
      call post_process_grid()
+     call check_emc3_grid()
      call write_emc3_grid()
   endif
 

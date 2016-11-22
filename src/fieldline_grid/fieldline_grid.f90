@@ -1542,6 +1542,68 @@ module fieldline_grid
 
 
 !=======================================================================
+  subroutine check_emc3_grid()
+  use emc3_grid
+
+  real(real64) :: R, R0, Z, B, B0
+  integer      :: iz, ir, ip, it(2), jt, ig, igc(2)
+
+
+  R0 = sum(RG) / GRID_P_OS(NZONET)
+  if (allocated(BFSTREN)) B0 = sum(BFSTREN) / GRID_P_OS(NZONET)
+  ! check up/down symmetry
+  do iz=0,NZONET-1
+     it(1) = 0
+     it(2) = SRF_TORO(iz)-1
+     do jt=1,2
+     if (Zone(iz)%isft(jt) == SF_UPDOWN) then
+        do ir=0,SRF_RADI(iz)-1
+           ig = ir + it(jt)*SRF_POLO(iz)*SRF_RADI(iz) + GRID_P_OS(iz)
+           do ip=0,ZON_POLO(iz)/2
+              igc(1) = ig +               ip  * SRF_RADI(iz)
+              igc(2) = ig + (ZON_POLO(iz)-ip) * SRF_RADI(iz)
+
+              ! check geometry
+              if (abs(RG(igc(1))-RG(igc(2)))/R0 > 1.d8  .or. &
+                  abs(ZG(igc(1))-RG(igc(2)))/R0 > 1.d8) then
+                 write (6, *) 'error: deviation from up/down symmetry too large!'
+                 write (6, *) 'at grid node iz,ir,ip,it = ', iz, ir, ip, it(jt)
+                 write (6, *) 'R,Z = ', RG(igc(1)), ZG(igc(1))
+                 write (6, *) 'R,Z = ', RG(igc(2)), ZG(igc(2))
+                 stop
+              else
+                 R     = 0.5d0 * (RG(igc(1)) + RG(igc(2)))
+                 Z     = 0.5d0 * (ZG(igc(1)) - ZG(igc(2)))
+                 RG(igc(1)) = R;  ZG(igc(1)) = Z
+                 RG(igc(2)) = R;  ZG(igc(2)) =-Z
+              endif
+
+              ! check field strength (only if it has been set up at this point)
+              if (allocated(BFSTREN)) then
+              if (abs(BFSTREN(igc(2))-BFSTREN(igc(1)))/B0 > 1.d8) then
+                 write (6, *) 'error: deviation from up/down symmetry too large!'
+                 write (6, *) 'at grid node iz,ir,ip,it = ', iz, ir, ip, it(jt)
+                 write (6, *) 'R,Z,B = ', RG(igc(1)), ZG(igc(1)), BFSTREN(igc(1))
+                 write (6, *) 'R,Z,B = ', RG(igc(2)), ZG(igc(2)), BFSTREN(igc(2))
+                 stop
+              else
+                 B      = 0.5d0 * (BFSTREN(igc(1)) + BFSTREN(igc(2)))
+                 BFSTREN(igc(1)) = B
+                 BFSTREN(igc(2)) = B
+              endif
+              endif
+           enddo
+        enddo
+     endif
+     enddo
+  enddo
+
+  end subroutine check_emc3_grid
+!=======================================================================
+
+
+
+!=======================================================================
 ! SAMPLE MAGNETIC FIELD STRENGTH ON GRID NODES (bfield.dat)
 !=======================================================================
   subroutine sample_bfield_on_emc3_grid
@@ -1587,6 +1649,7 @@ module fieldline_grid
   BFSTREN = BFSTREN / 1.d4
 
 
+  call check_emc3_grid()
   open  (iu, file='bfield.dat')
   write (iu, *) BFSTREN
   close (iu)
