@@ -866,6 +866,179 @@ end subroutine vacuum_domain_manual
 
 
 !===============================================================================
+subroutine auto_expand(C,np,R,Z)
+  use iso_fortran_env
+  use curve2D
+  implicit none
+
+  type(t_curve), intent(inout) :: C
+  integer,       intent(in)    :: np
+  real(real64),  intent(in)    :: R(np), Z(np)
+
+  real(real64) :: fst(0:C%n_seg-1), RC(0:C%n_seg-1), ZC(0:C%n_seg-1)
+  real(real64) :: dr, dz, d1, d2, jacob, f1, f2, v, r1, z1
+  integer      :: i, j
+
+
+  ! 1. set up fst (reference distance to segmentc on C)
+  fst = 1.d6
+  ! go through all segments of C
+  do i=0,C%n_seg-1
+     f1 = C%x(i+1,1) - C%x(i,1)
+     f2 = C%x(i+1,2) - C%x(i,2)
+     v  = 1.d0 / sqrt(f1**2 + f2**2)
+     dr = -f2*v
+     dz =  f1*v
+     r1 = 0.5d0 * (C%x(i+1,1) + C%x(i,1))
+     z1 = 0.5d0 * (C%x(i+1,2) + C%x(i,2))
+
+     ! check all np reference points (R,Z)
+     j  = 1
+     d1 = (R(j) - r1) * dz - (Z(j) - z1) * dr
+     do j=2,np
+        ! projection onto tangent vector for segment i
+        d2 = (R(j) - r1) * dz - (Z(j) - z1) * dr
+
+        if (d1*d2 <=0) then ! points j and j-1 are on different sides of segment i
+           jacob = dr * (Z(j)-Z(j-1)) - dz*(R(j) - R(j-1))
+           f1    = ((z1-Z(j-1))*(R(j)-R(j-1)) - (r1-R(j-1))*(Z(j)-Z(j-1))) / jacob
+           f2    = ((z1-Z(j-1))*dr            - (r1-R(j-1))*dz           ) / jacob
+
+           ! line from j to j-1 intersects normal line of segment i through (r1,z1)
+           ! f1: distance from intersection point to segment i
+           if (f2 >= 0.d0  .and.  f2 <= 1.d0) fst(i) = min(fst(i), f1)
+        endif
+
+        d1 = d2
+     enddo
+  enddo
+
+
+  ! 2. force minimal distance to C
+  fst = fst - 5.d0
+  RC(:) = C%x(0:C%n_seg-1,1)
+  ZC(:) = C%x(0:C%n_seg-1,2)
+  do i=0,C%n_seg-1
+     if (i==0) then
+        jacob = 0.5d0 * (fst(i) + fst(C%n_seg-1))
+     else
+        jacob = 0.5d0 * (fst(i) + fst(i-1))
+     endif
+     if (jacob < 0.d0) then
+        if (i==0) then
+           f1 = C%x(i+1,1) - C%x(C%n_seg-1,1)
+           f2 = C%x(i+1,2) - C%x(C%n_seg-1,2)
+        else
+           f1 = C%x(i+1,1) - C%x(i-1,1)
+           f2 = C%x(i+1,2) - C%x(i-1,2)
+        endif
+        v = 1.d0 / sqrt(f1**2 + f2**2)
+        dr = -f2*v
+        dz =  f1*v
+        RC(i) = C%x(i,1) + jacob*dr
+        ZC(i) = C%x(i,2) + jacob*dz
+     endif
+  enddo
+
+  C%x(0:C%n_seg-1,1) = RC
+  C%x(0:C%n_seg-1,2) = ZC
+  C%x(C%n_seg,1)     = RC(0)
+  C%x(C%n_seg,2)     = ZC(0)
+
+end subroutine auto_expand
+!===============================================================================
+
+
+!===============================================================================
+subroutine intersect_gridgen_Yuhe(C,np,RI,ZI,RF,ZF,RW,ZW)
+  use iso_fortran_env
+  use math
+  use curve2D
+  implicit none
+
+  type(t_curve), intent(inout) :: C
+  integer,       intent(in)    :: np
+  real(real64),  intent(in)    :: RI(0:np-1), ZI(0:np-1), RF(0:np-1), ZF(0:np-1)
+  real(real64),  intent(out)   :: RW(0:np-1), ZW(0:np-1)
+
+  integer, parameter :: NSP = 31
+
+  real(real64), dimension(NSP) :: RP, ZP, ALPHA
+  integer,      dimension(NSP) :: ADDR
+
+  real(real64) :: f, f1, f2, d1, d2, x1(2), x2(2), xh(2)
+  integer :: i, ip, jn, jp, j, icheck(0:np-1)
+
+
+  ! downsample mesh resolution to NSP
+  do i=1,NSP
+     f       = float(i-1) / float(NSP-1) * float(np-1) + 0.5
+     ADDR(i) = int(f)
+     RP(i)   = RF(ADDR(i));  ZP(i)   = ZF(ADDR(i))
+  enddo
+
+  ! setup normal directions (ALPHA) for downsampled segments
+  do i=1,NSP
+     jn = i-1;  if (jn == 0)  jn = NSP-1
+     jp = i+1;  if (jp > NSP) jp = 2
+     ALPHA(i) = atan2((RP(jn)-RP(jp)), -(ZP(jn)-ZP(jp)))
+  enddo
+
+
+  icheck = 0
+  do i=0,np-1
+     ! d1 = projected distance of xp->xi onto downsampled segment j-1
+     d1 = (RI(i)-RP(1))*sin(ALPHA(1)) - (ZI(i)-ZP(1))*cos(ALPHA(1))
+     do j=2,NSP
+        ! d2 = projected distance of xp->xi onto downsampled segment j
+        d2 = (RI(i)-RP(j))*sin(ALPHA(j)) - (ZI(i)-ZP(j))*cos(ALPHA(j))
+
+        ! xi is "between" reference points xpj and xpj-1
+        if (d1*d2 <= 0.d0) then
+           f = d1 / (d1-d2);  f1 = ALPHA(j-1);  f2 = ALPHA(j)
+           if (f2-f1 > pi) then
+              f2 = f2 - pi2
+           elseif (f1-f2 > pi) then
+              f1 = f1 - pi2
+           endif
+           ! interpolate between xpj and xpj-1
+           ! -> ip: interpolated node number for reference point xf
+           !     f: interpolated direction for intersection with C
+           ip = ADDR(j-1) + int((ADDR(j) - ADDR(j-1))*f)
+           f  = f1 + f*(f2-f1)
+
+           ! xf(ip)->xi(i) points in forward direction of f
+           if ((RI(i)-RF(ip))*cos(f) + (ZI(i)-ZF(ip))*sin(f) > 0.d0) then
+              x1(1) = RI(i);  x2(1) = RI(i) + cos(f)
+              x1(2) = ZI(i);  x2(2) = ZI(i) + sin(f)
+              if (intersect_curve(x1, x2, C, xh, intersect_mode=-1)) then
+                 RW(i) = xh(1)
+                 ZW(i) = xh(2)
+                 icheck(i) = icheck(i) + 1
+                 exit
+              else
+                 write (6, *) 'error for node ', i
+              endif
+           endif
+        endif
+        d1 = d2
+     enddo
+  enddo
+
+  do i=0,np-1
+     if (icheck(i) < 1) then
+        write (6, *) 'error: node ', i, ' is not set up!'
+        stop
+     elseif (icheck(i) > 1) then
+        write (6, *) 'warning: multiple definitions for node ', i
+     endif
+  enddo
+
+end subroutine intersect_gridgen_Yuhe
+!===============================================================================
+
+
+!===============================================================================
 subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
   use iso_fortran_env
   use math
@@ -884,8 +1057,9 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
   type(t_curve)    :: C
   character(len=256), dimension(:), allocatable :: apply_filter, filter_parameter
   character(len=72):: tmp
+  real(real64), dimension(:), allocatable :: RI, ZI, RF, ZF, RW, ZW
   real(real64)     :: phi, A(3), theta, xi, x1(2), x2(2), rho, dl
-  integer          :: ir, ir1, ip, it, ig, ifilter, is, nfilter
+  integer          :: ir, ir1, ip, it, ig, ig0, ifilter, is, nfilter, irA, irB
 
 
   ! set up filter/processing routines for boundary surfaces ............
@@ -917,8 +1091,14 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
   !.....................................................................
 
 
+  allocate (RI(0:SRF_POLO(iz)-1), ZI(0:SRF_POLO(iz)-1))
+  allocate (RF(0:SRF_POLO(iz)-1), ZF(0:SRF_POLO(iz)-1))
+  allocate (RW(0:SRF_POLO(iz)-1), ZW(0:SRF_POLO(iz)-1))
   call S%load(boundary_file)
   ir1 = ir0 + idir
+  irA = R_SURF_PL_TRANS_RANGE(1,iz)
+  irB = R_SURF_PL_TRANS_RANGE(2,iz)
+  write (6, *) 'irA -> irB = ', irA, irB
   do it=0,SRF_TORO(iz)-1
      phi = PHI_PLANE(it+PHI_PL_OS(iz))
 
@@ -932,24 +1112,50 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
         write (tmp, 9001) iz, it
         call C%plot(filename=tmp)
      endif
+     do ip=0,SRF_POLO(iz)-1
+        ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
 
+        RI(ip) = RG(ig)
+        ZI(ip) = ZG(ig)
 
-     ! apply filter for slice C
-     do ifilter=1,nfilter
-        select case(apply_filter(ifilter))
-        case('expand')
-           read  (filter_parameter(ifilter), *) dl
-           call C%left_hand_shift(dl)
-
-        case default
-           write (6, *) 'error: invalid filter type ', apply_filter(1:is-1)
-           stop
-        end select
-        if (Debug) then
-           write (tmp, 9002) iz, it, ifilter
-           call C%plot(filename=tmp)
-        endif
+        ig0 = (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        RF(ip) = sum(RG(ig0+irA:ig0+irB)) / float(irB-irA+1)
+        ZF(ip) = sum(ZG(ig0+irA:ig0+irB)) / float(irB-irA+1)
      enddo
+     write (tmp, 9006) iz, it
+     open  (99, file=tmp)
+     do ip=0,SRF_POLO(iz)-1
+        write (99, *) RF(ip), ZF(ip)
+     enddo
+     close (99)
+     call auto_expand(C,SRF_POLO(iz),RI,ZI)
+     write (tmp, 9004) iz, it;  call C%plot(filename=tmp)
+
+     call intersect_gridgen_Yuhe(C,SRF_POLO(iz),RI,ZI,RF,ZF,RW,ZW)
+     write (tmp, 9005) iz, it
+     open  (99, file=tmp)
+     do ip=0,SRF_POLO(iz)-1
+        write (99, *) RW(ip), ZW(ip)
+     enddo
+     close (99)
+
+
+!     ! apply filter for slice C
+!     do ifilter=1,nfilter
+!        select case(apply_filter(ifilter))
+!        case('expand')
+!           read  (filter_parameter(ifilter), *) dl
+!           call C%left_hand_shift(dl)
+!
+!        case default
+!           write (6, *) 'error: invalid filter type ', apply_filter(1:is-1)
+!           stop
+!        end select
+!        if (Debug) then
+!           write (tmp, 9002) iz, it, ifilter
+!           call C%plot(filename=tmp)
+!        endif
+!     enddo
 
 
      ! setup sampling on slice C
@@ -972,7 +1178,9 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
         xi    = theta / pi2
 
         ! x2: reference point on boundary (theta)
-        call C%sample_at(xi, x2)
+        !call C%sample_at(xi, x2)
+        x2(1) = RW(ip)
+        x2(2) = ZW(ip)
 
         ! generate vacuum domain
         do ir=ir1,ir2,idir
@@ -988,6 +1196,7 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
 
   ! cleanup
   deallocate (apply_filter, filter_parameter)
+  deallocate (RI,ZI,RF,ZF,RW,ZW)
 
  1000 format(8x,'using ',i0,' filter to process boundary surface')
  1001 format(8x,i0,': ',a)
@@ -995,5 +1204,8 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
  9001 format('debug/slice_Z',i0,'_T',i0,'.plt')
  9002 format('debug/slice_Z',i0,'_T',i0,'_filter',i0,'.plt')
  9003 format('debug/slice_Z',i0,'_T',i0,'_sample.plt')
+ 9004 format('debug/slice_Z',i0,'_T',i0,'_auto.plt')
+ 9005 format('debug/slice_Z',i0,'_T',i0,'_gridgen_Yuhe.plt')
+ 9006 format('debug/slice_Z',i0,'_T',i0,'_F.plt')
 end subroutine vacuum_domain_manual_3D
 !===============================================================================
