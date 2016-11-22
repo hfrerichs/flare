@@ -95,6 +95,7 @@ module curve2D
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve
      procedure :: remove_node
+     procedure :: resample
   end type t_curve
 
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
@@ -1823,6 +1824,34 @@ module curve2D
   this%x       = tmp
 
   end subroutine remove_node
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine resample(this, n, w, weights)
+  class(t_curve)               :: this
+  integer,          intent(in) :: n
+  real(real64),     intent(in), optional :: w(0:n-1)
+  character(len=*), intent(in), optional :: weights
+
+  type(t_curve) :: C
+  real(real64)  :: x(2), t
+  integer       :: i
+
+
+  call C%copy(this)
+  call C%setup_length_sampling()
+  call this%new(n-1)
+  do i=0,n-1
+     t = 1.d0 * i / (n-1)
+     if (present(w)) t = w(i)
+
+     call C%sample_at(t, x)
+     this%x(i,:) = x
+  enddo
+
+  end subroutine resample
 !=======================================================================
 
 end module curve2D

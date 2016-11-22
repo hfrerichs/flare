@@ -7,18 +7,32 @@ subroutine vacuum_domain_for_EIRENE()
   use divertor
   implicit none
 
-  integer :: iz
+  integer :: iz, irP, irV
 
 
   write (6, 1000)
  1000 format(3x,' - Setting up vacuum domain for EIRENE')
   do iz=0,NZONET-1
-     ! set up far SOL
+     ! set up vacuum domain in far SOL
      if (Zone(iz)%isfr(1) == SF_VACUUM) then
+        if (Zone(iz)%N0_method == 'v2') then
+           irP = nr_EIRENE_vac
+           irV = 0
+           write (6, 1001) iz, nr_EIRENE_vac
+           call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%N0_filter)
+        else
         call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
+        endif
      endif
      if (Zone(iz)%isfr(2) == SF_VACUUM) then
+        if (Zone(iz)%N0_method == 'v2') then
+           irP = Zone(iz)%nr - nr_EIRENE_vac
+           irV = Zone(iz)%nr
+           write (6, 1002) iz, nr_EIRENE_vac
+           call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%N0_filter)
+        else
         call setup_vacuum_domain(iz, nr_EIRENE_vac, 2)
+        endif
      endif
 
 
@@ -28,7 +42,223 @@ subroutine vacuum_domain_for_EIRENE()
      endif
   enddo
 
+ 1001 format(8x,'Zone ',i0,': ',i0,' vacuum cell(s) at lower boundary')
+ 1002 format(8x,'Zone ',i0,': ',i0,' vacuum cell(s) at upper boundary')
 end subroutine vacuum_domain_for_EIRENE
+!===============================================================================
+
+
+
+!===============================================================================
+! iz	zone number
+! irP	radial index of plasma boundary
+! irV	radial index of vacuum boundary
+subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
+  use iso_fortran_env
+  use fieldline_grid
+  use emc3_grid
+  use string
+  use curve2D
+  use quad_ele
+  use run_control, only: Debug
+  implicit none
+
+  integer,          intent(in) :: iz, irP, irV
+  character(len=*), intent(in) :: filter
+
+  character(len=256), dimension(:), allocatable :: apply_filter, filter_parameter
+  type(t_curve),      dimension(:), allocatable :: Bvac, Bplas, Cref
+  real(real64),       dimension(:), allocatable :: w
+  type(t_quad_ele)  :: S
+  character(len=72) :: tmp
+  real(real64)      :: phi, dl, rho, xplas(2), xvac(2)
+  integer           :: ifilter, nfilter, ig, ir, irdir, ip, is, it
+
+
+  ! 1. set up filter/processing routines for vacuum boundary ...........
+  ! 1.1 count filter
+  nfilter = 0
+  do
+     tmp = parse_string(filter, nfilter+1)
+     if (tmp == '') exit
+     nfilter = nfilter + 1
+  enddo
+  allocate (apply_filter(nfilter), filter_parameter(nfilter))
+  write (6, 1000) nfilter
+
+  ! 1.2. split filter command and parameter
+  do ifilter=1,nfilter
+     tmp = parse_string(filter, ifilter)
+
+     is = scan(tmp, '=')
+     if (is == 0) then
+        apply_filter(ifilter)     = tmp
+        filter_parameter(ifilter) = ''
+        write (6, 1001) ifilter, trim(apply_filter(ifilter))
+     else
+        apply_filter(ifilter)     = tmp(1:is-1)
+        filter_parameter(ifilter) = tmp(is+1:len_trim(tmp))
+        write (6, 1002) ifilter, trim(apply_filter(ifilter)), trim(filter_parameter(ifilter))
+     endif
+  enddo
+
+ 1000 format(8x,'using ',i0,' filter to process boundary surface')
+ 1001 format(8x,i0,': ',a)
+ 1002 format(8x,i0,': ',a,' with parameter ',a)
+  !.....................................................................
+
+
+  ! 2. initialize geometry of vacuum boundary ..........................
+  allocate (Bvac(0:SRF_TORO(iz)-1))
+  ifilter = 2
+  ! 2.1 initialize from user defined 2D outline
+  if (apply_filter(1) == 'load2D') then
+     !write (6, 2001) trim(filter_parameter(1))
+     do it=0,SRF_TORO(iz)-1
+        call Bvac(it)%load(filter_parameter(1), output=SILENT)
+     enddo
+
+  ! 2.2 initialize from user defined surface
+  elseif (apply_filter(1) == 'load3D') then
+     !write (6, 2002) trim(filter_parameter(1))
+     call S%load(filter_parameter(1))
+     do it=0,SRF_TORO(iz)-1
+        phi      = PHI_PLANE(it + PHI_PL_OS(iz))
+        Bvac(it) = S%slice(phi)
+     enddo
+
+  ! 2.3 initialize from plasma boundary at base slice
+  elseif (apply_filter(1) == 'init_base') then
+     write (6, 2003) Zone(iz)%it_base
+     do it=0,SRF_TORO(iz)-1
+        call export_poloidal_outline(iz, Zone(iz)%it_base, irP, Bvac(it))
+     enddo
+
+  ! 2.4 (DEFAULT) initialize from 3D plasma boundary
+  else
+     write (6, 2004)
+     do it=0,SRF_TORO(iz)-1
+        call export_poloidal_outline(iz, it, irP, Bvac(it))
+     enddo
+     ifilter = 1
+  endif
+
+  ! DEBUGING OUTPUT
+  if (Debug) then
+     do it=0,SRF_TORO(iz)-1
+        write (tmp, 2900) iz, it
+        call Bvac(it)%plot(filename=tmp)
+     enddo
+  endif
+ 2001 format(8x,'loading user defined 2D contour from file: ',a)
+ 2002 format(8x,'loading user defined boundary surface from file: ',a)
+ 2003 format(8x,'initializing from plasma boundary at base slice (it = ',i0,')')
+ 2004 format(8x,'initializing from 3D plasma boundary')
+ 2900 format('DEBUG_VACBOUND_Z',i0,'_T',i0,'_INIT.PLT')
+  !.....................................................................
+
+
+  ! 3. get plasma boundary from finite flux tube grid ..................
+  allocate (Bplas(0:SRF_TORO(iz)-1))
+  do it=0,SRF_TORO(iz)-1
+     call export_poloidal_outline(iz, it, irP, Bplas(it))
+  enddo
+  !.....................................................................
+
+
+  ! 4. process boundary geometry .......................................
+  allocate (w(0:SRF_POLO(iz)-1))
+  allocate (Cref(0:SRF_TORO(iz)-1))
+  filter_loop: do
+  if (ifilter > nfilter) exit
+  do it=0,SRF_TORO(iz)-1
+
+     select case(apply_filter(ifilter))
+     case('expand')
+        read  (filter_parameter(ifilter), *) dl
+        call Bvac(it)%left_hand_shift(dl)
+
+     case('auto_expand')
+        read  (filter_parameter(ifilter), *) dl
+        call auto_expand(Bvac(it), dl, Bplas(it))
+
+     case('resample')
+        !call Bvac(it)%resample(SRF_POLO(iz), weights=filter_parameter(ifilter))
+        if (filter_parameter(ifilter) == '') then
+           call Bvac(it)%resample(SRF_POLO(iz))
+        elseif (filter_parameter(ifilter) == 'base') then
+           w = 0.d0
+           do ip=1,SRF_POLO(iz)-1
+              ig    = irP + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+              dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz))))
+              w(ip) = w(ip-1) + dl
+           enddo
+           w = w / w(SRF_POLO(iz)-1)
+           call Bvac(it)%resample(SRF_POLO(iz), w=w)
+        !elseif (filter_parameter(ifilter) == 'local') then
+        endif
+
+     case('testX')
+        call export_poloidal_outline(iz, it, -1, Cref(it))
+        call interpolated_normal_wrapper(Bvac(it), Bplas(it), Cref(it))
+
+     case default
+        write (6, *) 'error: invalid filter type ', apply_filter(1:is-1)
+        stop
+     end select
+
+     ! DEBUGGING OUTPUT
+     if (Debug) then
+        write (tmp, 4900) iz, it, ifilter
+        call Bvac(it)%plot(filename=tmp)
+     endif
+
+  enddo
+  ifilter = ifilter + 1
+  enddo filter_loop
+
+ 4900 format('DEBUG_VACBOUND_Z',i0,'_T',i0,'_FILTER',i0,'.PLT')
+  !.....................................................................
+
+
+  ! 5. setup discretization of vacuum domain ...........................
+  irdir = 1
+  if (irP > irV) irdir = -1
+  do it=0,SRF_TORO(iz)-1
+     ! at this point Bvac(it) should have SRF_POLO(iz) nodes!
+     if (Bvac(it)%n_seg .ne. SRF_POLO(iz)-1) then
+        write (6, *) 'error during discretization of vacuum boundary: unexpected number of nodes!'
+        write (6, *) 'it = ', it, ', nodes on Bvac = ', Bvac(it)%n_seg + 1
+        stop
+     endif
+
+     do ip=0,SRF_POLO(iz)-1
+        xplas = Bplas(it)%x(ip,1:2)
+        xvac  = Bvac(it)%x(ip,1:2)
+        do ir=irP+irdir,irV,irdir
+           rho = 1.d0 * (ir - irP) / (irV - irP)
+           ig  = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+
+           RG(ig) = xplas(1) + rho * (xvac(1) - xplas(1))
+           ZG(ig) = xplas(2) + rho * (xvac(2) - xplas(2))
+        enddo
+     enddo
+  enddo
+  !.....................................................................
+
+
+  ! 99. cleanup .......................................................
+  deallocate (apply_filter, filter_parameter)
+  do it=0,SRF_TORO(iz)-1
+     call Bvac(it)%destroy()
+     call Bplas(it)%destroy()
+     call Cref(it)%destroy()
+  enddo
+  deallocate (Bvac)
+  deallocate (Bplas)
+  deallocate (w, Cref)
+
+end subroutine setup_vacuum_domain_v2
 !===============================================================================
 
 
@@ -1064,6 +1294,26 @@ subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac)
   enddo
 
 end subroutine interpolated_normal
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine interpolated_normal_wrapper(Bvac, Bplas, Cref)
+  use iso_fortran_env
+  use curve2D
+  implicit none
+
+  type(t_curve), intent(inout) :: Bvac
+  type(t_curve), intent(in)    :: Bplas, Cref
+
+  type(t_curve) :: Bvac0
+
+
+  call Bvac0%copy(Bvac)
+  call interpolated_normal(Bvac0, Bplas, Cref, Bvac)
+
+end subroutine interpolated_normal_wrapper
 !===============================================================================
 
 
