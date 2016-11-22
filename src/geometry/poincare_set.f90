@@ -88,6 +88,12 @@ module poincare_set
      enddo slice_loop
   enddo main_loop
 
+
+  ! re-arrange points (sort points using poloidal angle)
+  do islice=0,nslice-1
+     call this%slice(islice)%sort_rows(3)
+  enddo
+
   end subroutine generate
 !=======================================================================
 

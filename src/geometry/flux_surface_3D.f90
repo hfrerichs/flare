@@ -14,6 +14,10 @@ module flux_surface_3D
   ! flux surface contour at toroidal position phi
   type, extends(t_curve) :: t_surface_cut
      real(real64) :: phi
+
+     contains
+     procedure :: setup
+     procedure :: setup_updown_symmetric
   end type t_surface_cut
 
 
@@ -43,6 +47,100 @@ module flux_surface_3D
   !end type t_poincare_set
 
   contains
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup(this, phi, nsample, D)
+  use search
+  use mesh_spacing
+  class(t_surface_cut)         :: this
+  real(real64),     intent(in) :: phi
+  integer,          intent(in) :: nsample
+  class(t_dataset), intent(in) :: D
+
+  type(t_curve) :: C
+  real(real64)  :: t, x(2)
+  integer       :: j
+
+
+  ! initialize flux surface cut
+  call this%new(nsample-1)
+  this%phi = phi
+
+  ! set up curve for re-sampling
+  call C%new(D%nrow-1)
+  C%x = D%x(:,1:2)
+  call C%setup_length_sampling()
+
+  ! re-sample points on flux surface
+  do j=0,nsample-1
+     t = Equidistant%node(j, nsample-1)
+     call C%sample_at(t, x)
+     this%x(j,:) = x
+  enddo
+
+  end subroutine setup
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_updown_symmetric(this, phi, nsample, D)
+  use search
+  use mesh_spacing
+  class(t_surface_cut)         :: this
+  real(real64),     intent(in) :: phi
+  integer,          intent(in) :: nsample
+  class(t_dataset), intent(in) :: D
+
+  type(t_curve) :: C
+  real(real64)  :: t, x(2)
+  integer       :: i180, ierr, j
+
+
+  ! initialize flux surface cut
+  call this%new(nsample-1)
+  this%phi = phi
+
+  ! find index for theta = 180 deg
+  i180 = binary_interval_search(1, D%nrow, D%x(:,3), 180.d0, ierr)
+  if (ierr .ne. 0) then
+     call D%plot(filename='D_sort.err')
+     write (6, *) 'error: cannot find theta = 180 deg on flux surface!'
+     stop
+  endif
+
+  ! set up curve for re-sampling
+  call C%new(i180+1)
+  C%x(1:i180,1:2) = D%x(1:i180,1:2)
+
+  ! set 1st node
+  D%x(D%nrow,3) = D%x(D%nrow,3) - 360.d0
+  t = D%x(1,2) / (D%x(1,2) - D%x(D%nrow,2))
+  C%x(0,1:2) = D%x(1,1:2) + t * (D%x(D%nrow,1:2) - D%x(1,1:2))
+
+  ! set last node
+  t =  - D%x(i180,2) / (D%x(i180+1,2) - D%x(i180,2))
+  C%x(i180+1,1:2) = D%x(i180,1:2) + t * (D%x(i180+1,1:2) - D%x(i180,1:2))
+
+  call C%setup_length_sampling()
+  ! re-sample points on flux surface
+  do j=0,nsample-1
+     if (j < nsample / 2) then
+        t = Equidistant%node(j, nsample-1) * 2.d0
+        call C%sample_at(t, x)
+        this%x(j,:) = x
+     else
+        t = (1.d0 - Equidistant%node(j, nsample-1)) * 2.d0
+        call C%sample_at(t, x)
+        this%x(j,1) = x(1)
+        this%x(j,2) = -x(2)
+     endif
+  enddo
+
+  end subroutine setup_updown_symmetric
 !=======================================================================
 
 
@@ -109,31 +207,43 @@ module flux_surface_3D
 
 
 !=======================================================================
+! required input:
 ! y0          initial/reference point
 ! npoints     number of points per slice
 ! nsym        toroidal symmetry number
 ! nslice      number of slices within 0..360/nsym deg
 ! nsteps      number of trace steps between slices
 ! solver      id of ODE solver
+!
+! optional input:
+! poloidal_coordinate
+! resample              resolution for re-sampled flux surface
+! updown_symmetry       select slice which requires up/down symmetric representation
 !=======================================================================
-  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, poloidal_coordinate, resample)
-  use magnetic_axis
+  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, &
+      poloidal_coordinate, resample, updown_symmetry)
   use equilibrium, only: get_PsiN
   use mesh_spacing
   class(t_flux_surface_3D) :: this
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
   integer,      intent(in), optional :: poloidal_coordinate
-  integer,      intent(in), optional :: resample
+  integer,      intent(in), optional :: resample, updown_symmetry
 
   type(t_poincare_set)     :: P
   type(t_curve)            :: C
-  real(real64) :: Maxis(3), phi, t, x(2)
-  integer      :: i, j, n, ipc, nsample
+  real(real64) :: phi, t, x(2)
+  integer      :: i, j, n, ipc, nsample, nupdown
 
 
+  ! set up resolution for re-sampling of flux surface
   nsample = npoints
   if (present(resample)) nsample = resample
+
+
+  ! select slice which requires up/down symmetric representation
+  nupdown = -1
+  if (present(updown_symmetry)) nupdown = updown_symmetry
 
 
   ! set poloidal coordinate
@@ -166,21 +276,15 @@ module flux_surface_3D
         stop
      endif
      phi   = P%slice(i)%phi
-     Maxis = get_magnetic_axis(phi)
-     call C%new(npoints-1)
-     C%x   = P%slice(i)%x(:,1:2)
-     call C%sort_loop(Maxis(1:2), method=ipc)
 
+     ! set up flux surface slice from Poincare plot P%slice(i)
+     if (nupdown .ne. i) then
+       call this%slice(i)%setup(phi, nsample, P%slice(i))
 
-     call this%slice(i)%new(nsample-1)
-     this%slice(i)%phi = phi
-
-     ! re-sample points on flux surface (optional)
-     do j=0,nsample-1
-        t = Equidistant%node(j, nsample-1)
-        call C%sample_at(t, x)
-        this%slice(i)%x(j,:) = x
-     enddo
+     ! generate up/down symmetric representation for this slice
+     else
+       call this%slice(i)%setup_updown_symmetric(phi, nsample, P%slice(i))
+     endif
   enddo
 
   end subroutine generate
