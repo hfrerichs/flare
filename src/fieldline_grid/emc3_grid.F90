@@ -404,6 +404,39 @@ module emc3_grid
 
 
 !=======================================================================
+  subroutine export_poloidal_outline(iz, it, ir, C)
+  use curve2D
+  integer,       intent(in)  :: iz, it, ir
+  type(t_curve), intent(out) :: C
+
+  integer :: ip, ig, irA, irB
+
+
+  ! export single outline
+  if (ir >= 0  .and.  ir < SRF_RADI(iz)) then
+     irA = ir
+     irB = ir
+
+  ! export average outline
+  else
+     irA = R_SURF_PL_TRANS_RANGE(1,iz)
+     irB = R_SURF_PL_TRANS_RANGE(2,iz)
+  endif
+
+
+  call C%new(ZON_POLO(iz))
+  do ip=0,SRF_POLO(iz)-1
+     ig = (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     C%x(ip,1) = sum(RG(ig+irA:ig+irB)) / float(irB-irA+1)
+     C%x(ip,2) = sum(ZG(ig+irA:ig+irB)) / float(irB-irA+1)
+  enddo
+
+  end subroutine export_poloidal_outline
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine export_slice(iz, it, ir1, ir2, G)
   use grid
 

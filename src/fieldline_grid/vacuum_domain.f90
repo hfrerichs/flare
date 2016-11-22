@@ -112,7 +112,7 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   case (MANUAL_2D)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   case (MANUAL_3D)
-      call vacuum_domain_manual_3D(iz, ir0, idir, ir2, Zone(iz)%N0_file, Zone(iz)%N0_filter)
+      call vacuum_domain_manual_3D(iz, ir0, idir, ir2, Zone(iz)%N0_file, Zone(iz)%N0_filter, dl)
   end select
 
 
@@ -866,22 +866,25 @@ end subroutine vacuum_domain_manual
 
 
 !===============================================================================
-subroutine auto_expand(C,np,R,Z)
+! Automatically expand/adjust C so that is has a minimum distance of dmin to Cref
+!===============================================================================
+subroutine auto_expand(C, dmin, Cref)
   use iso_fortran_env
   use curve2D
   implicit none
 
   type(t_curve), intent(inout) :: C
-  integer,       intent(in)    :: np
-  real(real64),  intent(in)    :: R(np), Z(np)
+  real(real64),  intent(in)    :: dmin
+  type(t_curve), intent(in)    :: Cref
 
   real(real64) :: fst(0:C%n_seg-1), RC(0:C%n_seg-1), ZC(0:C%n_seg-1)
-  real(real64) :: dr, dz, d1, d2, jacob, f1, f2, v, r1, z1
-  integer      :: i, j
+  real(real64) :: dr, dz, d1, d2, jacob, f1, f2, v, R0, R1, R2, Z0, Z1, Z2
+  integer      :: i, j, np
 
 
-  ! 1. set up fst (reference distance to segmentc on C)
+  ! 1. set up fst (reference distance to segments on C)
   fst = 1.d6
+  np  = Cref%n_seg+1
   ! go through all segments of C
   do i=0,C%n_seg-1
      f1 = C%x(i+1,1) - C%x(i,1)
@@ -889,33 +892,37 @@ subroutine auto_expand(C,np,R,Z)
      v  = 1.d0 / sqrt(f1**2 + f2**2)
      dr = -f2*v
      dz =  f1*v
-     r1 = 0.5d0 * (C%x(i+1,1) + C%x(i,1))
-     z1 = 0.5d0 * (C%x(i+1,2) + C%x(i,2))
+     R0 = 0.5d0 * (C%x(i+1,1) + C%x(i,1))
+     Z0 = 0.5d0 * (C%x(i+1,2) + C%x(i,2))
 
-     ! check all np reference points (R,Z)
-     j  = 1
-     d1 = (R(j) - r1) * dz - (Z(j) - z1) * dr
-     do j=2,np
+     ! check all np reference points on Cref
+     j  = 0
+     R1 = Cref%x(j,1);  Z1 = Cref%x(j,2)
+     d1 = (R1-R0) * dz - (Z1-Z0) * dr
+     do j=1,np-1
         ! projection onto tangent vector for segment i
-        d2 = (R(j) - r1) * dz - (Z(j) - z1) * dr
+        R2 = Cref%x(j,1);  Z2 = Cref%x(j,2)
+        d2 = (R2-R0) * dz - (Z2-Z0) * dr
 
         if (d1*d2 <=0) then ! points j and j-1 are on different sides of segment i
-           jacob = dr * (Z(j)-Z(j-1)) - dz*(R(j) - R(j-1))
-           f1    = ((z1-Z(j-1))*(R(j)-R(j-1)) - (r1-R(j-1))*(Z(j)-Z(j-1))) / jacob
-           f2    = ((z1-Z(j-1))*dr            - (r1-R(j-1))*dz           ) / jacob
+           jacob = dr * (Z2-Z1) - dz*(R2-R1)
+           f1    = ((Z0-Z1)*(R2-R1) - (R0-R1)*(Z2-Z1)) / jacob
+           f2    = ((Z0-Z1)*dr      - (R0-R1)*dz     ) / jacob
 
            ! line from j to j-1 intersects normal line of segment i through (r1,z1)
            ! f1: distance from intersection point to segment i
            if (f2 >= 0.d0  .and.  f2 <= 1.d0) fst(i) = min(fst(i), f1)
         endif
 
+        R1 = R2
+        Z1 = Z2
         d1 = d2
      enddo
   enddo
 
 
-  ! 2. force minimal distance to C
-  fst = fst - 5.d0
+  ! 2. force minimal distance between C and Cref
+  fst = fst - dmin
   RC(:) = C%x(0:C%n_seg-1,1)
   ZC(:) = C%x(0:C%n_seg-1,2)
   do i=0,C%n_seg-1
@@ -949,32 +956,52 @@ end subroutine auto_expand
 !===============================================================================
 
 
+
 !===============================================================================
-subroutine intersect_gridgen_Yuhe(C,np,RI,ZI,RF,ZF,RW,ZW)
+! Generate discretization of vacuum boundary Bvac (wall) for plasma boundary Dplas
+! based on downsampling and interpolation of the resulting normal direction for
+! intersect with Bvac
+!===============================================================================
+! input:
+!    Bvac	geometry of vacuum boundary that is to be discretized
+!    Dplas	discretization of plasma boundary
+!    Cref	reference points that determine radial direction
+!
+! output:
+!    Dvac	discretization of vacuum boundary
+subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac)
   use iso_fortran_env
-  use math
   use curve2D
+  use math
   implicit none
 
-  type(t_curve), intent(inout) :: C
-  integer,       intent(in)    :: np
-  real(real64),  intent(in)    :: RI(0:np-1), ZI(0:np-1), RF(0:np-1), ZF(0:np-1)
-  real(real64),  intent(out)   :: RW(0:np-1), ZW(0:np-1)
+  type(t_curve), intent(in)  :: Bvac, Dplas, Cref
+  type(t_curve), intent(out) :: Dvac
 
   integer, parameter :: NSP = 31
 
   real(real64), dimension(NSP) :: RP, ZP, ALPHA
   integer,      dimension(NSP) :: ADDR
 
-  real(real64) :: f, f1, f2, d1, d2, x1(2), x2(2), xh(2)
-  integer :: i, ip, jn, jp, j, icheck(0:np-1)
+  real(real64) :: f, f1, f2, d1, d2, xi(2), xf(2), x2(2), xh(2)
+  integer :: i, ip, jn, jp, j, np, icheck(0:Dplas%n_seg)
+
+
+  ! check input
+  if (Dplas%n_seg .ne. Cref%n_seg) then
+     write (6, *) 'error: Dplas and Cref must have the same resolution!'
+     write (6, *) 'n_Dplas = ', Dplas%n_seg
+     write (6, *) 'n_Cref  = ', Cref%n_seg
+     stop
+  endif
 
 
   ! downsample mesh resolution to NSP
+  np     = Dplas%n_seg
   do i=1,NSP
-     f       = float(i-1) / float(NSP-1) * float(np-1) + 0.5
+     f       = float(i-1) / float(NSP-1) * float(np) + 0.5
      ADDR(i) = int(f)
-     RP(i)   = RF(ADDR(i));  ZP(i)   = ZF(ADDR(i))
+     RP(i)   = Cref%x(ADDR(i),1);  ZP(i)   = Cref%x(ADDR(i),2)
   enddo
 
   ! setup normal directions (ALPHA) for downsampled segments
@@ -985,13 +1012,17 @@ subroutine intersect_gridgen_Yuhe(C,np,RI,ZI,RF,ZF,RW,ZW)
   enddo
 
 
+  ! generate discretization of Bvac
   icheck = 0
-  do i=0,np-1
+  call Dvac%new(np)
+  do i=0,np
      ! d1 = projected distance of xp->xi onto downsampled segment j-1
-     d1 = (RI(i)-RP(1))*sin(ALPHA(1)) - (ZI(i)-ZP(1))*cos(ALPHA(1))
+     xi = Dplas%x(i,1:2)
+     j  = 1
+     d1 = (xi(1)-RP(j))*sin(ALPHA(j)) - (xi(2)-ZP(j))*cos(ALPHA(j))
      do j=2,NSP
         ! d2 = projected distance of xp->xi onto downsampled segment j
-        d2 = (RI(i)-RP(j))*sin(ALPHA(j)) - (ZI(i)-ZP(j))*cos(ALPHA(j))
+        d2 = (xi(1)-RP(j))*sin(ALPHA(j)) - (xi(2)-ZP(j))*cos(ALPHA(j))
 
         ! xi is "between" reference points xpj and xpj-1
         if (d1*d2 <= 0.d0) then
@@ -1006,18 +1037,16 @@ subroutine intersect_gridgen_Yuhe(C,np,RI,ZI,RF,ZF,RW,ZW)
            !     f: interpolated direction for intersection with C
            ip = ADDR(j-1) + int((ADDR(j) - ADDR(j-1))*f)
            f  = f1 + f*(f2-f1)
+           xf = Cref%x(ip,1:2)
 
            ! xf(ip)->xi(i) points in forward direction of f
-           if ((RI(i)-RF(ip))*cos(f) + (ZI(i)-ZF(ip))*sin(f) > 0.d0) then
-              x1(1) = RI(i);  x2(1) = RI(i) + cos(f)
-              x1(2) = ZI(i);  x2(2) = ZI(i) + sin(f)
-              if (intersect_curve(x1, x2, C, xh, intersect_mode=-1)) then
-                 RW(i) = xh(1)
-                 ZW(i) = xh(2)
-                 icheck(i) = icheck(i) + 1
+           if ((xi(1)-xf(1))*cos(f) + (xi(2)-xf(2))*sin(f) > 0.d0) then
+              x2(1) = xi(1) + cos(f)
+              x2(2) = xi(2) + sin(f)
+              if (intersect_curve(xi, x2, Bvac, xh, intersect_mode=-1)) then
+                 Dvac%x(i,1:2) = xh
+                 icheck(i)     = 1
                  exit
-              else
-                 write (6, *) 'error for node ', i
               endif
            endif
         endif
@@ -1025,21 +1054,22 @@ subroutine intersect_gridgen_Yuhe(C,np,RI,ZI,RF,ZF,RW,ZW)
      enddo
   enddo
 
+
+  ! check successful generation of Dvac
   do i=0,np-1
      if (icheck(i) < 1) then
         write (6, *) 'error: node ', i, ' is not set up!'
         stop
-     elseif (icheck(i) > 1) then
-        write (6, *) 'warning: multiple definitions for node ', i
      endif
   enddo
 
-end subroutine intersect_gridgen_Yuhe
+end subroutine interpolated_normal
 !===============================================================================
 
 
+
 !===============================================================================
-subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
+subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter, dl)
   use iso_fortran_env
   use math
   use emc3_grid
@@ -1050,15 +1080,15 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
   use string
   implicit none
 
-  integer, intent(in)      :: iz, ir0, idir, ir2
+  integer,          intent(in) :: iz, ir0, idir, ir2
   character(len=*), intent(in) :: boundary_file, filter
+  real(real64),     intent(in) :: dl
 
   type(t_quad_ele) :: S
-  type(t_curve)    :: C
+  type(t_curve)    :: C, CI, CF, CW
   character(len=256), dimension(:), allocatable :: apply_filter, filter_parameter
   character(len=72):: tmp
-  real(real64), dimension(:), allocatable :: RI, ZI, RF, ZF, RW, ZW
-  real(real64)     :: phi, A(3), theta, xi, x1(2), x2(2), rho, dl
+  real(real64)     :: phi, A(3), theta, xi, x1(2), x2(2), rho
   integer          :: ir, ir1, ip, it, ig, ig0, ifilter, is, nfilter, irA, irB
 
 
@@ -1091,9 +1121,6 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
   !.....................................................................
 
 
-  allocate (RI(0:SRF_POLO(iz)-1), ZI(0:SRF_POLO(iz)-1))
-  allocate (RF(0:SRF_POLO(iz)-1), ZF(0:SRF_POLO(iz)-1))
-  allocate (RW(0:SRF_POLO(iz)-1), ZW(0:SRF_POLO(iz)-1))
   call S%load(boundary_file)
   ir1 = ir0 + idir
   irA = R_SURF_PL_TRANS_RANGE(1,iz)
@@ -1112,32 +1139,26 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
         write (tmp, 9001) iz, it
         call C%plot(filename=tmp)
      endif
-     do ip=0,SRF_POLO(iz)-1
-        ig = ir0 + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     call export_poloidal_outline(iz, it, ir0, CI)
+     call export_poloidal_outline(iz, it,  -1, CF)
+!     write (tmp, 9006) iz, it
+!     open  (99, file=tmp)
+!     do ip=0,SRF_POLO(iz)-1
+!        write (99, *) RF(ip), ZF(ip)
+!     enddo
+!     close (99)
+     !call auto_expand(C,SRF_POLO(iz),RI,ZI)
+     call auto_expand(C, dl, CI)
+     !write (tmp, 9004) iz, it;  call C%plot(filename=tmp)
 
-        RI(ip) = RG(ig)
-        ZI(ip) = ZG(ig)
-
-        ig0 = (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
-        RF(ip) = sum(RG(ig0+irA:ig0+irB)) / float(irB-irA+1)
-        ZF(ip) = sum(ZG(ig0+irA:ig0+irB)) / float(irB-irA+1)
-     enddo
-     write (tmp, 9006) iz, it
-     open  (99, file=tmp)
-     do ip=0,SRF_POLO(iz)-1
-        write (99, *) RF(ip), ZF(ip)
-     enddo
-     close (99)
-     call auto_expand(C,SRF_POLO(iz),RI,ZI)
-     write (tmp, 9004) iz, it;  call C%plot(filename=tmp)
-
-     call intersect_gridgen_Yuhe(C,SRF_POLO(iz),RI,ZI,RF,ZF,RW,ZW)
-     write (tmp, 9005) iz, it
-     open  (99, file=tmp)
-     do ip=0,SRF_POLO(iz)-1
-        write (99, *) RW(ip), ZW(ip)
-     enddo
-     close (99)
+!     call intersect_gridgen_Yuhe(C,SRF_POLO(iz),RI,ZI,RF,ZF,RW,ZW)
+!     write (tmp, 9005) iz, it
+!     open  (99, file=tmp)
+!     do ip=0,SRF_POLO(iz)-1
+!        write (99, *) RW(ip), ZW(ip)
+!     enddo
+!     close (99)
+     call interpolated_normal(C, CI, CF, CW)
 
 
 !     ! apply filter for slice C
@@ -1179,8 +1200,9 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
 
         ! x2: reference point on boundary (theta)
         !call C%sample_at(xi, x2)
-        x2(1) = RW(ip)
-        x2(2) = ZW(ip)
+        !x2(1) = RW(ip)
+        !x2(2) = ZW(ip)
+        x2 = CW%x(ip,1:2)
 
         ! generate vacuum domain
         do ir=ir1,ir2,idir
@@ -1196,7 +1218,6 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter)
 
   ! cleanup
   deallocate (apply_filter, filter_parameter)
-  deallocate (RI,ZI,RF,ZF,RW,ZW)
 
  1000 format(8x,'using ',i0,' filter to process boundary surface')
  1001 format(8x,i0,': ',a)
