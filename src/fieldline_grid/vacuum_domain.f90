@@ -68,7 +68,6 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
 
   character(len=256), dimension(:), allocatable :: apply_filter, filter_parameter
   type(t_curve),      dimension(:), allocatable :: Bvac, Bplas, Cref
-  real(real64),       dimension(:), allocatable :: w
   type(t_quad_ele)  :: S
   character(len=72) :: tmp
   real(real64)      :: phi, dl, rho, xplas(2), xvac(2)
@@ -167,7 +166,6 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
 
 
   ! 4. process boundary geometry .......................................
-  allocate (w(0:SRF_POLO(iz)-1))
   allocate (Cref(0:SRF_TORO(iz)-1))
   filter_loop: do
   if (ifilter > nfilter) exit
@@ -183,20 +181,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
         call auto_expand(Bvac(it), dl, Bplas(it))
 
      case('resample')
-        !call Bvac(it)%resample(SRF_POLO(iz), weights=filter_parameter(ifilter))
-        if (filter_parameter(ifilter) == '') then
-           call Bvac(it)%resample(SRF_POLO(iz))
-        elseif (filter_parameter(ifilter) == 'base') then
-           w = 0.d0
-           do ip=1,SRF_POLO(iz)-1
-              ig    = irP + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
-              dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz))))
-              w(ip) = w(ip-1) + dl
-           enddo
-           w = w / w(SRF_POLO(iz)-1)
-           call Bvac(it)%resample(SRF_POLO(iz), w=w)
-        !elseif (filter_parameter(ifilter) == 'local') then
-        endif
+        call resample(Bvac(it), iz, it, irP, filter_parameter(ifilter))
 
      case('testX')
         call export_poloidal_outline(iz, it, -1, Cref(it))
@@ -256,9 +241,67 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   enddo
   deallocate (Bvac)
   deallocate (Bplas)
-  deallocate (w, Cref)
+  deallocate (Cref)
 
 end subroutine setup_vacuum_domain_v2
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine resample(C, iz, it, irP, weights)
+  use iso_fortran_env
+  use curve2D
+  use fieldline_grid, only: Zone
+  use emc3_grid
+  implicit none
+
+  type(t_curve),    intent(inout) :: C
+  integer,          intent(in)    :: iz, it, irP
+  character(len=*), intent(in)    :: weights
+
+  real(real64),       dimension(:), allocatable :: w
+  real(real64) :: dl
+  integer      :: ip, ig, n
+
+
+  n = SRF_POLO(iz)
+  allocate (w(0:n-1))
+
+  select case(weights)
+  ! resampling with equidistant nodes
+  case('equidistant')
+     call C%resample(n)
+
+  ! DEFAULT: resampling based on segment lengths on plasma boundary at slice it
+  case('','default','plasma_boundary')
+     w = 0.d0
+     do ip=1,SRF_POLO(iz)-1
+        ig    = irP + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz))))
+        w(ip) = w(ip-1) + dl
+     enddo
+     w = w / w(SRF_POLO(iz)-1)
+     call C%resample(n, w)
+
+  ! resampling based on segment lengths on plasma boundary at base slice Zone(iz)%it_base
+  case('base')
+     w = 0.d0
+     do ip=1,SRF_POLO(iz)-1
+        ig    = irP + (ip + Zone(iz)%it_base*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz))))
+        w(ip) = w(ip-1) + dl
+     enddo
+     w = w / w(SRF_POLO(iz)-1)
+     call C%resample(n, w)
+
+  case default
+     write (6, *) 'error: undefined method "', trim(weights), '" in subroutine resample!'
+     stop
+  end select
+  deallocate (w)
+
+end subroutine resample
 !===============================================================================
 
 

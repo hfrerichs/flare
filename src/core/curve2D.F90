@@ -1829,11 +1829,10 @@ module curve2D
 
 
 !=======================================================================
-  subroutine resample(this, n, w, weights)
+  subroutine resample(this, n, w)
   class(t_curve)               :: this
   integer,          intent(in) :: n
   real(real64),     intent(in), optional :: w(0:n-1)
-  character(len=*), intent(in), optional :: weights
 
   type(t_curve) :: C
   real(real64)  :: x(2), t
