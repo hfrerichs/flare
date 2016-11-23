@@ -102,11 +102,12 @@ module boundary
      endif
 
 
-     ! i = 1. check boundarye directory for input
+     ! i = 1. check user defined boundary directory for input
      !     2. check base directory (magnetic configuration) for input
      !     3. check Boundary_sub_dir for input
      !     4. check local directory for input (if not equivalent to base directory)
      do i=1,4
+        if (boundary_dir(i) == '') cycle
         if (i == 4  .and.  boundary_dir(2) == './') exit
 
         ! read namelist input
@@ -438,6 +439,14 @@ module boundary
      if (S_quad(i)%intersect(r1, r2, X, ish, tau)) then
         l  = .true.
         id = n_axi + n_block + i
+        if (ish < 0) then
+           write (6, *) i, id
+           write (6, *) r1
+           write (6, *) r2
+           write (6, *) X
+           write (6, *) ish
+           stop
+        endif
         if (present(ielem)) ielem  = ish
         return
      endif
