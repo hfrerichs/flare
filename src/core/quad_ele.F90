@@ -261,7 +261,7 @@ module quad_ele
 
 
 !=======================================================================
-! Plot profile at toroidal location phi [deg]
+! Plot profile at toroidal location phi [rad]
 !=======================================================================
   subroutine quad_ele_plot_at(this, phi, filename)
   use math
@@ -274,18 +274,15 @@ module quad_ele
   integer, parameter :: iu = 99
 
   type(t_curve) :: C
-  real(real64)  :: phi0
 
-
-  ! deg -> rad
-  phi0 = phi / 180.d0 * pi
 
   ! get slice at phi0
-  C = this%slice(phi0)
+  C = this%slice(phi)
+  if (C%n_seg < 0) return
 
   ! write profile at phi0 (ind, t)
   open  (iu, file=filename)
-  write (iu, 1000) phi0 / pi * 180.d0
+  write (iu, 1000) phi / pi * 180.d0
   call C%plot(iu=iu)
   close (iu)
 
