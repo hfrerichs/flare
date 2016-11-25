@@ -1,0 +1,452 @@
+!===============================================================================
+! Generate plate definitions for finite flux tube grids (for EMC3-EIRENE)
+!===============================================================================
+module plates
+  use iso_fortran_env
+  use emc3_grid
+  use boundary
+  implicit none
+
+  !integer, dimension(:), allocatable :: ID_TEM
+
+
+  contains
+!=======================================================================
+
+
+!=======================================================================
+  subroutine initialize_plates()
+
+  if (allocated(ID_TEM)) deallocate(ID_TEM)
+  allocate (ID_TEM(0:MESH_P_OS(NZONET)-1))
+  ID_TEM = 0
+
+  end subroutine initialize_plates
+!=======================================================================
+
+
+!=======================================================================
+  subroutine map_slice_to_target(iz, it0)
+  use boundary
+  integer, intent(in) :: iz, it0
+
+  real(real64) :: r1(3), r2(3), X(3), tau
+  integer :: ir, ip, it, idir, it1(-1:1), id, ig(4), ic
+
+
+  write (6, 1000) it0, iz
+ 1000 format(2x,'- mapping toroidal slice ',i0,' in zone ',i0,' to target plates')
+  write (6, *) R_SURF_PL_TRANS_RANGE(1:2,iz)
+  write (6, *) P_SURF_PL_TRANS_RANGE(1:2,iz)
+
+  it1(-1) = 0
+  it1( 1) = ZON_TORO(iz)
+
+  do ir=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
+  do ip=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
+     ig(1)   = ir + (ip + it0*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     ig(2)   = ig(1) + 1
+     ig(3)   = ig(2) + SRF_RADI(iz)
+     ig(4)   = ig(3) - 1
+     r1(1)   = sum(RG(ig))/4.d0
+     r1(2)   = sum(ZG(ig))/4.d0
+     r1(3)   = PHI_PLANE(it0 + PHI_PL_OS(iz))
+
+     do idir=-1,1,2
+     ! 1. scan through flux tube until central field line hits a target plate
+     it1(0) = -1
+     do it=it0,it1(idir)-idir,idir
+        ig(1)   = ir + (ip + (it+idir)*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+        ig(2)   = ig(1) + 1
+        ig(3)   = ig(2) + SRF_RADI(iz)
+        ig(4)   = ig(3) - 1
+        r2(1)   = sum(RG(ig))/4.d0
+        r2(2)   = sum(ZG(ig))/4.d0
+        r2(3)   = PHI_PLANE(it+idir + PHI_PL_OS(iz))
+
+        ! intersect boundary at slice it
+        if (intersect_boundary(r1, r2, X, id, tau=tau)) then
+!           ! mark toroidal surface closest to target plate
+!           if (tau < 0.5d0) then
+!              it1(0) = it
+!           else
+!              it1(0) = it+idir
+!           endif
+           ! mark toroidal surface beyond intersection with plate (except for 1st and last slice)
+           it1(0) = it+idir
+           if (it1(0) == it1(idir)) it1(0) = it
+           exit
+        endif
+
+        r1 = r2
+     enddo
+
+     ! 2. mark remaining cells in flux tube
+     if (it1(0) > 0  .and.  it1(0) < ZON_TORO(iz)) then
+        do it=it1(0),it1(idir)-idir,idir
+           ic = ir+(ip+it*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
+           if (idir < 0) ic = ic - ZON_POLO(iz)*ZON_RADI(iz)
+           ID_TEM(ic) = 1
+        enddo
+     endif
+     enddo
+  enddo
+  enddo
+
+  end subroutine map_slice_to_target
+!=======================================================================
+
+
+!=======================================================================
+  subroutine minimum_radial_coordinate(iz)
+  use curve2D
+  use run_control, only: Debug
+  integer, intent(in) :: iz
+
+  real(real64), dimension(:,:), allocatable :: rtouch
+
+  integer, parameter :: nts = 10
+
+  character(len=80)  :: filename
+  type(t_curve) :: C
+  real(real64)  :: t, phi, rmin, x1(2), x2(2), th
+  integer       :: ir, ip, it, its, ib, ig(4)
+
+
+  write (6, 1000) iz
+
+  allocate (rtouch(0:ZON_POLO(iz)-1, 0:ZON_TORO(iz)-1))
+  rtouch = SRF_RADI(iz)-1
+
+  do ib=2,n_boundary1
+     if (boundary_in_zone(ib, PHI_PLANE(PHI_PL_OS(iz)), PHI_PLANE(PHI_PL_OS(iz+1)-1))) then
+        write (6, *) boundary_label(ib)
+     else
+        cycle
+     endif
+
+
+  ! toroidal loop over cells
+  do it=0,ZON_TORO(iz)-1
+  ! sub-resolution in cells
+  do its=1,nts
+     t   = (float(its)-0.5d0) / nts
+     phi = (1.d0-t) * PHI_PLANE(it+PHI_PL_OS(iz))  +  t * PHI_PLANE(it+1+PHI_PL_OS(iz))
+
+     !do ib=1,n_boundary1
+     !do ib=2,n_boundary1
+        C = boundary_slice(ib, phi)
+        if (C%n_seg < 0) cycle
+        if (Debug  .or.  (it==0 .and. its==7)) then
+           write (filename, 9000) iz, it, its, ib
+           call C%plot(filename=filename)
+        endif
+
+        ! set up grid coordinates for boundary segment ib
+        do ip=0,ZON_POLO(iz)-1
+           ir    = 0
+           ig(1) = (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+           ig(2) = ig(1) + SRF_RADI(iz)
+           ig(3) = ig(1) + SRF_RADI(iz) * SRF_POLO(iz)
+           ig(4) = ig(3) + SRF_RADI(iz)
+
+           ! middle point on lower radial cell boundary (ir, ip, it)
+           x1(1) = (1.d0-t) * (RG(ig(1)) + RG(ig(2))) / 2.d0 &
+                 +       t  * (RG(ig(3)) + RG(ig(4))) / 2.d0
+           x1(2) = (1.d0-t) * (ZG(ig(1)) + ZG(ig(2))) / 2.d0 &
+                 +       t  * (ZG(ig(3)) + ZG(ig(4))) / 2.d0
+
+           do ir=1,SRF_RADI(iz)-1
+              ig(1) = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+              ig(2) = ig(1) + SRF_RADI(iz)
+              ig(3) = ig(1) + SRF_RADI(iz) * SRF_POLO(iz)
+              ig(4) = ig(3) + SRF_RADI(iz)
+
+              ! middle point on upper radial cell boundary (ir, ip, it)
+              x2(1) = (1.d0-t) * (RG(ig(1)) + RG(ig(2))) / 2.d0 &
+                    +       t  * (RG(ig(3)) + RG(ig(4))) / 2.d0
+              x2(2) = (1.d0-t) * (ZG(ig(1)) + ZG(ig(2))) / 2.d0 &
+                    +       t  * (ZG(ig(3)) + ZG(ig(4))) / 2.d0
+
+              if (intersect_curve(x1, x2, C, th=th)) then
+                 rtouch(ip,it) = min(rtouch(ip,it), th+ir-1)
+                 rmin          = min(rmin, rtouch(ip,it))
+              endif
+              x1 = x2
+           enddo
+        enddo
+     !enddo
+  enddo
+  enddo
+  enddo
+
+
+  open  (99, file='DEBUG_RTOUCH_FLARE')
+  do ip=0,ZON_POLO(iz)-1
+  do it=0,ZON_TORO(iz)-1
+  write (99, *) rtouch(ip,it)+1
+  enddo
+  enddo
+  close (99)
+
+  ! "upload" rtouch to ID_TEM
+  do it=0,ZON_TORO(iz)-1
+     write (6, 4000) it, minval(rtouch(:,it))
+     do ip=0,ZON_POLO(iz)-1
+        th = rtouch(ip,it)
+        ir = th
+        if (th-ir > 0.5d0) ir = ir + 1
+
+        ib = (ip + it*ZON_POLO(iz)) * ZON_RADI(iz)  +  MESH_P_OS(iz)
+        ID_TEM(ib+ir:ib+ZON_RADI(iz)-1) = 1
+     enddo
+  enddo
+
+
+  ! cleanup
+  deallocate (rtouch)
+
+ 1000 format(8x,'Zone ',i0,': intersect radial mesh coordinate with plates')
+ 4000 format(8x,i0,4x,f12.5)
+ 9000 format('DEBUG_PLATE_Z',i0,'_T',i0,'-',i0,'_B',i0,'.PLT')
+  end subroutine minimum_radial_coordinate
+!=======================================================================
+
+
+!=======================================================================
+! kmin: minimum number of plasma cells between target cells
+!=======================================================================
+  subroutine write_plates_format1(kmin)
+  integer, intent(in) :: kmin
+
+  integer, parameter :: iu = 78
+
+  integer, dimension(:), allocatable :: KBEG, KEND
+  integer :: ir, ip, it, iz, ns, ic, k, k1, k2
+
+
+  open  (iu, file='plates.dat')
+  do iz=0,NZONET-1
+  allocate (KBEG(ZON_TORO(iz)), KEND(ZON_TORO(iz)))
+
+  do ir=0,ZON_RADI(iz)-1
+  do ip=0,ZON_POLO(iz)-1
+     ! 1. set up KBEG and KEND from ID_TEM
+     ns = 0
+     do it=0,ZON_TORO(iz)-2
+        ic = ir + (ip + it * ZON_POLO(iz)) * ZON_RADI(iz)  +  MESH_P_OS(iz)
+
+        ! first cell is already plate cell
+        if (it == 0  .and.  ID_TEM(ic) == 1) then
+           ns       = ns + 1
+           KBEG(ns) = it
+        endif
+
+        ! transition between plasma and plate cells
+        if (ID_TEM(ic) /= ID_TEM(ic + ZON_POLO(iz)*ZON_RADI(iz))) then
+           ! plasma -> target
+           if (ID_TEM(ic) == 0) then
+              ns       = ns + 1
+              KBEG(ns) = it + 1
+
+           ! target -> plasma
+           else
+              KEND(ns) = it
+           endif
+        endif
+     enddo
+     ! last cell is plate cell
+     it = ZON_TORO(iz)-1
+     ic = ir + (ip + it * ZON_POLO(iz)) * ZON_RADI(iz)  +  MESH_P_OS(iz)
+     if (ID_TEM(ic) == 1) then
+        KEND(ns) = it
+     endif
+
+     ! CHECK1: KBEG, KEND
+     do k=1,ns
+        if (KBEG(k) > ZON_TORO(iz)  .or.  KEND(k) > ZON_TORO(iz)) then
+           write (6, *) 'check 1: ', iz, ir, ip, ns
+           !write (6, *) ns, k, KBEG(k), KEND(k)
+           write (6, *) 'k, KBEG(k), KEND(k) = '
+           do k1=1,ns
+              write (6, *) k1, KBEG(k1), KEND(k1)
+           enddo
+
+           write (6, *) 'ID_TEM(it) = '
+           do it=0,ZON_TORO(iz)-1
+              ic = ir + (ip + it * ZON_POLO(iz)) * ZON_RADI(iz)  +  MESH_P_OS(iz)
+              write (6, *) ID_TEM(ic)
+           enddo
+           stop
+        endif
+     enddo
+
+
+     ! 2. adjust definition for kmin
+     if (ns > 0) then
+        ! update KBEG, KEND
+        k2 = ns
+        k1 = 1
+        do
+           if (k1 >= k2) exit
+
+           if (KBEG(k1+1) - KEND(k1) < kmin) then
+              KEND(k1) = KEND(k1+1)
+              k2       = k2 - 1
+              do k=k1+2,k2
+                 KBEG(k) = KBEG(k+1)
+                 KEND(k) = KEND(k+1)
+              enddo
+           else
+              k1 = k1 + 1
+           endif
+        enddo
+        ns = k2
+
+        ! update ID_TEM
+        do k=1,ns
+           do it=KBEG(k),KEND(k)
+              ic = ir + (ip + it * ZON_POLO(iz)) * ZON_RADI(iz)  +  MESH_P_OS(iz)
+              !if (ic >= MESH_P_OS(NZONET)) write (6, *) iz, ir, ip, it
+              ID_TEM(ic) = 1
+           enddo
+        enddo
+     endif
+
+
+     ! 3. write plate definitions
+     if (ns > 0) then
+        write (iu, 1000) iz, ir, ip, 2*ns, (KBEG(k), KEND(k), k=1,ns)
+!        write (iu, 1000) iz, ir, ip, 2*ns, KBEG(1), KEND(1)
+!        if (ns > 1) then
+!           write (iu, *) (KBEG(k), KEND(k), k=2,ns)
+!        endif
+     endif
+  enddo
+  enddo
+
+  deallocate (KBEG, KEND)
+  enddo
+  close (iu)
+
+ 1000 format(1x,i0,1x,i4,1x,i4,1x,i4,1x,i5,1x,i5)
+  end subroutine write_plates_format1
+!=======================================================================
+
+
+!=======================================================================
+  subroutine write_plates()
+  use emc3_grid
+
+  integer, parameter :: output_format = 1
+  integer, parameter :: iu = 78
+
+  integer, dimension(:), allocatable :: ntcell, ntcell_bundle
+  integer :: iz, ir, ip, it, ig, np, np_bundle
+
+
+  allocate (ntcell(maxval(ZON_TORO)), ntcell_bundle(maxval(ZON_TORO)))
+
+
+  open  (iu, file='plates.dat')
+  do iz=0,NZONET-1
+     do ir=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
+     do ip=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
+        ! check number of plate cells in flux tube
+        np     = 0
+        ntcell = 0
+        do it=0,ZON_TORO(iz)
+           ig = ir+(ip+it*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
+           if (ID_TEM(ig) > 0) then
+              np         = np + 1
+              ntcell(np) = it
+           endif
+        enddo
+
+        ! there is at least one plate cell
+        if (np > 0) then
+           select case (output_format)
+           ! 1. bundle plate cells
+           case(1)
+              ! setup bundles of plate cells
+              np_bundle     = 0
+              it            = 0
+              ntcell_bundle = 0
+              flux_tube_loop: do 
+                 ig = ir+(ip+it*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
+
+                 ! find 1st plate cell in bundle
+                 if (ID_TEM(ig) > 0) then
+                    np_bundle = np_bundle + 1
+                    ntcell_bundle(np_bundle) = it
+
+                    ! find last plate cell in bundle
+                    bundle_loop: do
+                       ! reached end of flux tube
+                       if (it == ZON_TORO(iz)-1) exit
+
+                       it = it + 1
+                       ig = ir+(ip+it*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
+                       if (ID_TEM(ig) == 0) exit
+                    enddo bundle_loop
+
+                    np_bundle = np_bundle + 1
+                    ntcell_bundle(np_bundle) = it
+                 endif
+
+                 it = it + 1
+                 if (it >= ZON_TORO(iz)) exit
+              enddo flux_tube_loop
+              write (iu, 1001) iz, ir, ip, np_bundle, ntcell_bundle(1:np_bundle)
+
+           ! 3. write each toroidal cell index for plate cells
+           case(3)
+              write (iu, *) iz, ir, ip, np, ntcell(1:np)
+
+           case default
+              write (6, 9001) output_format
+           end select
+        endif
+     enddo
+     enddo
+  enddo
+  close (iu)
+
+  deallocate (ntcell, ntcell_bundle)
+ 1001 format(1x,i0,1x,i4,1x,i4,1x,i4,1x,i5,1x,i5)
+ 9001 format('error: invalid output format ',i0,' for plate cells!')
+  end subroutine write_plates
+!=======================================================================
+
+end module plates
+!=======================================================================
+
+
+
+
+
+!=======================================================================
+  subroutine generate_plates_v2()
+  use emc3_grid
+  use plates
+  implicit none
+
+  integer :: iz, kmin
+
+
+  write (6, *)
+  write (6, 1000)
+  write (6, *)
+
+  call initialize_plates()
+!  call map_slice_to_target(0, ZON_TORO(0))
+!  call write_plates()
+  do iz=0,NZONET-1
+     call minimum_radial_coordinate(iz)
+  enddo
+  kmin = 2
+  call write_plates_format1(kmin)
+
+ 1000 format(3x,'- Generating plate surface approximation within flux-tube mesh')
+  end subroutine generate_plates_v2
+!=======================================================================

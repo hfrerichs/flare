@@ -20,6 +20,7 @@ OBJECTS =  \
                core_domain.o\
                vacuum_domain.o\
                trace_nodes.o\
+               plates.o\
                check.o
 
 

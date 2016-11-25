@@ -99,8 +99,8 @@ module fieldline_grid
      np_ortho_divertor   =  10, &          ! number of orthogonal surfaces in divertor legs
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
      nr_EIRENE_vac       =   1, &          ! radial resolution in vacuum (EIRENE only)
-     nr_perturbed        =   2             ! number of perturbed flux surfaces at the inner boundary
-! TODO: aligned surfaces for neutrals (nr_EIRENE_core_aligned, ...)
+     nr_perturbed        =   2, &          ! number of perturbed flux surfaces at the inner boundary
+     plate_format        =   1             ! format for plate definition file
 
   real(real64) :: &
      phi0                = -360.d0, &      ! lower boundary of simulation domain [deg]
@@ -382,7 +382,7 @@ module fieldline_grid
      topology, symmetry, stellarator_symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_filter, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, alpha_core, &
-     n_interpolate, nr_perturbed, &
+     n_interpolate, nr_perturbed, plate_format, &
      np_ortho_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
@@ -891,11 +891,11 @@ module fieldline_grid
   ! 2.3 plate surfaces
   write (iu, 2006)
   write (iu, 2002)
-  write (iu, *) -3 ! user defined
+  write (iu, *) -plate_format ! user defined
   write (iu, 2003)
-  write (iu, *) -3 ! user defined
+  write (iu, *) -plate_format ! user defined
   write (iu, 2004)
-  write (iu, *) -3 ! user defined
+  write (iu, *) -plate_format ! user defined
  2000 format ('*** 2. surface definitions')
  2001 format ('*** 2.1 non default surface')
  2002 format ('* radial')

@@ -110,7 +110,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   ! Level 6: generate plate surfaces for EMC3
   if (level(6)) then
      call load_emc3_grid()
-     call generate_plates()
+     call generate_plates_v2()
   endif
 
 
