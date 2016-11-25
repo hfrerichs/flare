@@ -25,6 +25,15 @@ module boundary
                         BNDRY_QUAD_ELE   = 4, &
                         BNDRY_QUAD_ELE_STELLARATOR_SYM   = 40
 
+!  type t_boundary
+!     ! ... data pointer ...
+!
+!     ! boundary type (AXISYM_ELE, BLOCK_ELE, TRI_ELE, QUAD_ELE)
+!     integer :: itype
+!     character(len=80) :: label
+!  end type t_boundary
+
+
   character*120 :: boundary_file(N_BNDRY_MAX) = ''
   integer       :: boundary_type(N_BNDRY_MAX) = 0
 
@@ -38,6 +47,7 @@ module boundary
 
   type(t_curve), dimension(:), allocatable :: S_axi
   type(t_quad_ele), dimension(:), allocatable :: S_quad
+  character(len=80), dimension(:), allocatable :: L_axi, L_block, L_tri, L_quad
 
   integer, dimension(:), allocatable :: elem_os
 
@@ -135,8 +145,10 @@ module boundary
                  call S_axi(n_axi)%load(boundary_file(j), output=SILENT, header=header)
                  if (header .ne. '') then
                     write (6, 3000) trim(header)
+                    L_axi(n_axi) = trim(header)
                  else
                     write (6, 3000) trim(boundary_file(j))
+                    L_axi(n_axi) = trim(boundary_file(j))
                  endif
                  write (6, 3001) S_axi(n_axi)%n_seg
               endif
@@ -148,6 +160,7 @@ module boundary
                  bl_filename = boundary_file(j)
                  call setup_block_limiter (bl_filename, n_block)
                     !write (6, 3000) trim(boundary_file(j))
+                 L_block(n_block) = trim(boundary_file(j))
               endif
 
            ! mesh of triangular elements
@@ -168,8 +181,10 @@ module boundary
                  call S_quad(n_quad)%load(boundary_file(j), title=header)
                  if (header .ne. '') then
                     write (6, 3000) trim(header)
+                    L_quad(n_quad) = trim(header)
                  else
                     write (6, 3000) trim(boundary_file(j))
+                    L_quad(n_quad) = trim(boundary_file(j))
                  endif
               endif
 
@@ -191,9 +206,12 @@ module boundary
 
      ! allocate memory after 1st run
      if (irun == 1) then
-        if (n_axi > 0)   allocate (S_axi(n_axi))
-        if (n_quad > 0)  allocate (S_quad(n_quad))
-        if (n_block > 0) call allocate_bl_arrays (n_block)
+        if (n_axi > 0)   allocate (S_axi(n_axi), L_axi(n_axi))
+        if (n_quad > 0)  allocate (S_quad(n_quad), L_quad(n_quad))
+        if (n_block > 0) then
+           call allocate_bl_arrays (n_block)
+           allocate (L_block(n_block));  L_block = ''
+        endif
      endif
   enddo
 
@@ -552,5 +570,97 @@ module boundary
   end function outside_boundary
 !=======================================================================
 
+
+
+!=======================================================================
+! BOUNDARY_SLICE: return outline of boundary iboundary in phi-plane
+!=======================================================================
+  function boundary_slice(iboundary, phi) result(S)
+  integer,      intent(in) :: iboundary
+  real(real64), intent(in) :: phi
+  type(t_curve)            :: S
+
+  integer :: i
+
+
+  if (iboundary <= n_axi) then
+     S = S_axi(iboundary)
+
+  elseif (iboundary <= n_axi + n_block) then
+     write (6, *) 'error: slicing of block-limiter not yet implemented!'
+
+  elseif (iboundary <= n_axi + n_block + n_quad) then
+     i = iboundary - n_axi - n_block
+     S = S_quad(i)%slice(phi)
+
+  else
+     write (6, *) 'error: boundary id ', iboundary, ' out of range!'
+     stop
+  endif
+
+  end function boundary_slice
+!=======================================================================
+
+
+
+!=======================================================================
+  function boundary_in_zone(iboundary, phi1, phi2)
+  integer,      intent(in) :: iboundary
+  real(real64), intent(in) :: phi1, phi2
+  logical                  :: boundary_in_zone
+
+  integer :: i
+
+
+  if (iboundary <= n_axi) then
+     boundary_in_zone = .true.
+
+  elseif (iboundary <= n_axi + n_block) then
+     ! TODO: check location of block limiter
+     boundary_in_zone = .true.
+
+  elseif (iboundary <= n_axi + n_block + n_quad) then
+     i = iboundary - n_axi - n_block
+     if (S_quad(i)%phi(0) >= phi1 .and. S_quad(i)%phi(S_quad(i)%n_phi) <= phi2) then
+        boundary_in_zone = .true.
+     else
+        boundary_in_zone = .false.
+     endif
+
+  else
+     write (6, *) 'error: boundary id ', iboundary, ' out of range!'
+     stop
+  endif
+  end function boundary_in_zone
+!=======================================================================
+
+
+
+!=======================================================================
+  function boundary_label(iboundary) result(L)
+  integer, intent(in) :: iboundary
+  character(len=80)   :: L
+
+  integer :: i
+
+
+  if (iboundary <= n_axi) then
+     L = L_axi(iboundary)
+
+  elseif (iboundary <= n_axi + n_block) then
+     i = iboundary - n_axi
+     L = L_block(i)
+
+  elseif (iboundary <= n_axi + n_block + n_quad) then
+     i = iboundary - n_axi - n_block
+     L = L_quad(i)
+
+  else
+     write (6, *) 'error: boundary id ', iboundary, ' out of range!'
+     stop
+  endif
+
+  end function boundary_label
+!=======================================================================
 
 end module boundary
