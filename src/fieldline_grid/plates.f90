@@ -606,6 +606,11 @@ end module plates
   ! check axisymmetric (L2-type) surfaces
   do l=1,n_axi
      side = boundary_side(l) == 1
+     if (.not.S_axi(l)%closed) then
+        write (6, *) 'error: boundary needs to be closed!'
+        stop
+     endif
+
      if (S_axi(l)%outside(x(1:2)) .eqv. side) then
         outside_boundary = .true.
         return
@@ -616,6 +621,10 @@ end module plates
   do l=1,n_quad
      if (C(k,l)%n_seg <= 0) cycle
      side = boundary_side(n_axi + n_block + l) == 1
+     if (.not.C(k,l)%closed) then
+        write (6, *) 'error: boundary needs to be closed!'
+        stop
+     endif
      if (C(k,l)%outside(x(1:2)) .eqv. side) then
         outside_boundary = .true.
         return
