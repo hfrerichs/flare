@@ -241,6 +241,7 @@ module modtopo_cdn
         call make_ortho_grid(M_HPR, nr(0), np(0), nr(0), 2+n_interpolate, nr(0)-1, &
                              np(0), npR(0)+1, np(0)-1, npR(0), 2, rpath(0), Zone(iz0)%Sr, Sp_HPR)
      end select
+     call check_connectivity()
 
      ! 2.b scrape-off layer (SOL)
      call make_flux_surfaces_SOL(M_SOL1,nr(1), npR(2), npR(0), npR(1), 1, nr(1), rpath(1), 1, 2, Zone(iz0+1)%Sr, Sp1)
@@ -327,6 +328,23 @@ module modtopo_cdn
   M_SOL2(   0 , 0:npL(2), :) = DL2
 
   end subroutine make_interface_cdn
+  !.....................................................................
+  subroutine check_connectivity()
+  real(real64) :: Psi1, Psi2, Psi
+  integer :: i
+
+
+  Psi1 = Xp(1)%PsiN()
+  Psi2 = Xp(2)%PsiN()
+  ! radial location of last flux surface
+  Psi  = get_PsiN(M_HPR(nr(0)-1,0,1:3))
+
+  if (Psi > Psi2) then
+     write (6, *) 'error: approximate connection between X-points is not good enough for selected radial resolution!'
+     stop
+  endif
+
+  end subroutine check_connectivity
   !.....................................................................
 
   end subroutine make_base_grids_cdn
