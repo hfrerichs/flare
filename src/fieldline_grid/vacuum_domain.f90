@@ -73,7 +73,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   character(len=72) :: tmp
   type(t_quad_ele)  :: S
   real(real64)      :: phi, dl, rho, xplas(2), xvac(2)
-  integer           :: ifilter, nfilter, ig, ir, irdir, ip, is, it
+  integer           :: ifilter, nfilter, ig, ir, irdir, ip, is, it, ib
 
 
   ! 1. set up filter/processing routines for vacuum boundary ...........
@@ -103,15 +103,24 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   ! 2. initialize geometry of vacuum boundary ..........................
   allocate (Bvac(0:SRF_TORO(iz)-1))
   ifilter = 2
+  select case (apply_filter(1))
+  ! 2.0 initialize from configuration boundary
+  case('BOUNDARY')
+     read  (filter_parameter(1), *)  ib
+     write (6, 2000) ib
+     write (6, *) 'NOT IMPLEMENTED YET!'
+     stop
+
+
   ! 2.1 initialize from user defined 2D outline
-  if (apply_filter(1) == 'LOAD2D') then
+  case('LOAD2D')
      !write (6, 2001) trim(filter_parameter(1))
      do it=0,SRF_TORO(iz)-1
         call Bvac(it)%load(filter_parameter(1), output=SILENT)
      enddo
 
   ! 2.2 initialize from user defined surface
-  elseif (apply_filter(1) == 'LOAD3D') then
+  case('LOAD3D')
      !write (6, 2002) trim(filter_parameter(1))
      call S%load(filter_parameter(1))
      do it=0,SRF_TORO(iz)-1
@@ -120,20 +129,20 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
      enddo
 
   ! 2.3 initialize from plasma boundary at base slice
-  elseif (apply_filter(1) == 'INIT_BASE') then
+  case('BASE_GRID')
      write (6, 2003) Zone(iz)%it_base
      do it=0,SRF_TORO(iz)-1
         call export_poloidal_outline(iz, Zone(iz)%it_base, irP, Bvac(it))
      enddo
 
   ! 2.4 (DEFAULT) initialize from 3D plasma boundary
-  else
+  case default
      write (6, 2004)
      do it=0,SRF_TORO(iz)-1
         call export_poloidal_outline(iz, it, irP, Bvac(it))
      enddo
      ifilter = 1
-  endif
+  end select
 
   ! DEBUGING OUTPUT
   if (Debug) then
@@ -142,6 +151,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
         call Bvac(it)%plot(filename=tmp)
      enddo
   endif
+ 2000 format(8x,'initializing from configuration boundary ',i0)
  2001 format(8x,'loading user defined 2D contour from file: ',a)
  2002 format(8x,'loading user defined boundary surface from file: ',a)
  2003 format(8x,'initializing from plasma boundary at base slice (it = ',i0,')')
