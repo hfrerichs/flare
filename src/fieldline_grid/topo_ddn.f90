@@ -119,6 +119,7 @@ module modtopo_ddn
 
 
   dtheta = Xp(2)%theta - Xp(1)%theta
+  if (dtheta < 0.d0) dtheta = dtheta + pi2
 
 
   select case(discretization_method)
