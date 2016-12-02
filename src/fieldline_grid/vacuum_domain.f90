@@ -54,6 +54,7 @@ end subroutine vacuum_domain_for_EIRENE
 ! irP	radial index of plasma boundary
 ! irV	radial index of vacuum boundary
 subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
+!subroutine setup_vacuum_domain_in_zone(iz, irP, irV, filter)
   use iso_fortran_env
   use fieldline_grid
   use emc3_grid
@@ -68,42 +69,34 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
 
   character(len=256), dimension(:), allocatable :: apply_filter, filter_parameter
   type(t_curve),      dimension(:), allocatable :: Bvac, Bplas, Cref
-  type(t_quad_ele)  :: S
+  character(len=len(filter)) :: command, argument
   character(len=72) :: tmp
+  type(t_quad_ele)  :: S
   real(real64)      :: phi, dl, rho, xplas(2), xvac(2)
   integer           :: ifilter, nfilter, ig, ir, irdir, ip, is, it
 
 
   ! 1. set up filter/processing routines for vacuum boundary ...........
   ! 1.1 count filter
-  nfilter = 0
-  do
-     tmp = parse_string(filter, nfilter+1)
-     if (tmp == '') exit
-     nfilter = nfilter + 1
-  enddo
+  nfilter = get_commands(filter)
   allocate (apply_filter(nfilter), filter_parameter(nfilter))
   write (6, 1000) nfilter
 
   ! 1.2. split filter command and parameter
   do ifilter=1,nfilter
-     tmp = parse_string(filter, ifilter)
+     call read_command(filter, ifilter, command, argument)
+     apply_filter(ifilter) = command;  filter_parameter(ifilter) = argument
 
-     is = scan(tmp, '=')
-     if (is == 0) then
-        apply_filter(ifilter)     = tmp
-        filter_parameter(ifilter) = ''
-        write (6, 1001) ifilter, trim(apply_filter(ifilter))
+     if (filter_parameter(ifilter) == 'undefined') then
+        write (6, 1001) ifilter, trim(command)
      else
-        apply_filter(ifilter)     = tmp(1:is-1)
-        filter_parameter(ifilter) = tmp(is+1:len_trim(tmp))
-        write (6, 1002) ifilter, trim(apply_filter(ifilter)), trim(filter_parameter(ifilter))
+        write (6, 1002) ifilter, trim(command), trim(argument)
      endif
   enddo
 
- 1000 format(8x,'using ',i0,' filter to process boundary surface')
+ 1000 format(8x,'using ',i0,' filter(s) to process boundary surface')
  1001 format(8x,i0,': ',a)
- 1002 format(8x,i0,': ',a,' with parameter ',a)
+ 1002 format(8x,i0,': ',a,' ',a)
   !.....................................................................
 
 
@@ -111,14 +104,14 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   allocate (Bvac(0:SRF_TORO(iz)-1))
   ifilter = 2
   ! 2.1 initialize from user defined 2D outline
-  if (apply_filter(1) == 'load2D') then
+  if (apply_filter(1) == 'LOAD2D') then
      !write (6, 2001) trim(filter_parameter(1))
      do it=0,SRF_TORO(iz)-1
         call Bvac(it)%load(filter_parameter(1), output=SILENT)
      enddo
 
   ! 2.2 initialize from user defined surface
-  elseif (apply_filter(1) == 'load3D') then
+  elseif (apply_filter(1) == 'LOAD3D') then
      !write (6, 2002) trim(filter_parameter(1))
      call S%load(filter_parameter(1))
      do it=0,SRF_TORO(iz)-1
@@ -127,7 +120,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
      enddo
 
   ! 2.3 initialize from plasma boundary at base slice
-  elseif (apply_filter(1) == 'init_base') then
+  elseif (apply_filter(1) == 'INIT_BASE') then
      write (6, 2003) Zone(iz)%it_base
      do it=0,SRF_TORO(iz)-1
         call export_poloidal_outline(iz, Zone(iz)%it_base, irP, Bvac(it))
@@ -172,18 +165,18 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   do it=0,SRF_TORO(iz)-1
 
      select case(apply_filter(ifilter))
-     case('expand')
+     case('EXPAND')
         read  (filter_parameter(ifilter), *) dl
         call Bvac(it)%left_hand_shift(dl)
 
-     case('auto_expand')
+     case('AUTO_EXPAND')
         read  (filter_parameter(ifilter), *) dl
         call auto_expand(Bvac(it), dl, Bplas(it))
 
-     case('resample')
+     case('RESAMPLE')
         call resample(Bvac(it), iz, it, irP, filter_parameter(ifilter))
 
-     case('testX')
+     case('INTERPOLATED_NORMAL')
         call export_poloidal_outline(iz, it, -1, Cref(it))
         call interpolated_normal_wrapper(Bvac(it), Bplas(it), Cref(it))
 
