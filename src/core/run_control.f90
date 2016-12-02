@@ -53,7 +53,8 @@ module run_control
 
   logical :: &
      Debug          = .false., &
-     use_boundary_from_equilibrium   = .true.
+     use_boundary_from_equilibrium   = .true., &
+     stop_at_boundary                = .true.
 
 
 
@@ -70,7 +71,7 @@ module run_control
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Run_Level, &
-     Debug, use_boundary_from_equilibrium
+     Debug, use_boundary_from_equilibrium, stop_at_boundary
 
 
   private :: Boundary, RunControl

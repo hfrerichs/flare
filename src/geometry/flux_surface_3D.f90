@@ -219,9 +219,10 @@ module flux_surface_3D
 ! poloidal_coordinate
 ! resample              resolution for re-sampled flux surface
 ! updown_symmetry       select slice which requires up/down symmetric representation
+! stop_at_boundary	(.false. allows to generate a full flux surface beyond the boundary)
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, &
-      poloidal_coordinate, resample, updown_symmetry)
+      poloidal_coordinate, resample, updown_symmetry, stop_at_boundary)
   use equilibrium, only: get_PsiN
   use mesh_spacing
   class(t_flux_surface_3D) :: this
@@ -229,6 +230,7 @@ module flux_surface_3D
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
   integer,      intent(in), optional :: poloidal_coordinate
   integer,      intent(in), optional :: resample, updown_symmetry
+  logical,      intent(in), optional :: stop_at_boundary
 
   type(t_poincare_set)     :: P
   type(t_curve)            :: C
@@ -260,7 +262,11 @@ module flux_surface_3D
   call this%new(nsym, nslice)
   n     = nsteps
   if (n == 0) n = 16
-  call P%generate(y0, npoints, nsym, nslice, n, solver, .true.)
+  if (present(stop_at_boundary)) then
+     call P%generate(y0, npoints, nsym, nslice, n, solver, stop_at_boundary)
+  else
+     call P%generate(y0, npoints, nsym, nslice, n, solver, .true.)
+  endif
 
 
   ! set flux surface label (given by normalized poloidal flux)

@@ -10,12 +10,13 @@
 ! Output_Format         = 1: use poloidal angle to sample points of flux surface slice
 !                       = 2: use distance along flux surface slice to sample points
 !
+! stop_at_boundary	(.false. allows to generate a full flux surface beyond the boundary)
 ! Trace_Method -> see e.g. connection length
 ! Output_File
 !===============================================================================
 subroutine generate_flux_surface_3D
   use iso_fortran_env
-  use run_control, only: x_start, N_points, N_sym, N_mult, N_steps, Trace_Method, Output_File, Output_Format
+  use run_control, only: x_start, N_points, N_sym, N_mult, N_steps, Trace_Method, stop_at_boundary, Output_File, Output_Format
   use flux_surface_3D
   use math
   use parallel
@@ -39,7 +40,7 @@ subroutine generate_flux_surface_3D
   y0    = x_start
   y0(3) = y0(3) / 180.d0 * pi
   if (N_steps == 0) N_steps = 10
-  call S%generate(y0, N_points, N_sym, N_mult, N_steps, Trace_Method, poloidal_coordinate=2)
+  call S%generate(y0, N_points, N_sym, N_mult, N_steps, Trace_Method, poloidal_coordinate=2, stop_at_boundary=stop_at_boundary)
   !call S%generate(y0, N_points, N_sym, N_mult, N_steps, Trace_Method, poloidal_coordinate=Output_Format)
   call S%plot(filename=Output_File, output_format=Output_Format)
   
