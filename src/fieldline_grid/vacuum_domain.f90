@@ -181,7 +181,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
         call interpolated_normal_wrapper(Bvac(it), Bplas(it), Cref(it))
 
      case default
-        write (6, *) 'error: invalid filter type ', apply_filter(1:is-1)
+        write (6, *) 'error: invalid filter type ', apply_filter(ifilter)
         stop
      end select
 
