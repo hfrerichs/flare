@@ -4,20 +4,36 @@
   subroutine setup_core_domain()
   use emc3_grid, only: NZONET
   use fieldline_grid
+  use string
   implicit none
 
-  integer :: iz
+  ! relative radial position of core surface
+  real(real64), parameter :: alpha_core_default = 0.5d0
+
+  character(len=len(core_domain)) :: command, argument
+  real(real64) :: alpha_core
+  integer      :: iz
 
 
   write (6, 1000)
+  call read_command(core_domain, 1, command, argument)
+  if (argument == 'undefined') then
+     alpha_core = alpha_core_default
+  else
+     read  (argument, *) alpha_core
+  endif
+
+
   do iz=0,NZONET-1
   if (Zone(iz)%isfr(1) == SF_CORE) then
-     select case(core_domain)
+     select case(command)
      case(CORE_EXTRAPOLATE)
-        call setup_core_domain_extrapolate(iz, nr_EIRENE_core)
+        write (6, 1001) iz, alpha_core
+        call setup_core_domain_extrapolate(iz, nr_EIRENE_core, alpha_core)
 
      case(CORE_FLUX_SURFACES)
-        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core)
+        write (6, 1002) iz, alpha_core
+        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core)
 
      case default
         write (6, 9000) trim(core_domain)
@@ -28,8 +44,8 @@
   write (6, *)
 
  1000 format(3x,' - Setting up core domain for EIRENE')
- 1001 format(8x,'by extrapolating from inner EMC3 boundary')
- 1002 format(8x,'by generating flux surfaces')
+ 1001 format(8x,'Zone ',i0,': extrapolating from inner EMC3 boundary to r = ',f0.3)
+ 1002 format(8x,'Zone ',i0,': generating flux surfaces to r = ',f0.3)
  9000 format('error: invalid method "',a,'" for core domain!')
   end subroutine setup_core_domain
   !=====================================================================
@@ -37,13 +53,13 @@
 
 
   !=====================================================================
-  subroutine setup_core_domain_extrapolate(iz, nr_core)
+  subroutine setup_core_domain_extrapolate(iz, nr_core, alpha_core)
   use iso_fortran_env
   use emc3_grid
-  use fieldline_grid, only: alpha_core
   implicit none
 
-  integer, intent(in) :: iz, nr_core
+  integer,      intent(in) :: iz, nr_core
+  real(real64), intent(in) :: alpha_core
 
 
   integer, parameter :: &
@@ -117,7 +133,7 @@
 
 
   !=====================================================================
-  subroutine setup_core_domain_from_flux_surfaces(iz, nr_core)
+  subroutine setup_core_domain_from_flux_surfaces(iz, nr_core, alpha_core)
   use iso_fortran_env
   use emc3_grid
   use fieldline_grid
@@ -129,7 +145,8 @@
   use curve2D
   implicit none
 
-  integer, intent(in) :: iz, nr_core
+  integer,      intent(in) :: iz, nr_core
+  real(real64), intent(in) :: alpha_core
 
   type(t_flux_surface_3D) :: F
   type(t_spacing)         :: S

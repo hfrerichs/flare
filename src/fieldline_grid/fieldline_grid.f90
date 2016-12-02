@@ -57,8 +57,8 @@ module fieldline_grid
 
   ! Method for core domain
   character(len=*), parameter :: &
-     CORE_EXTRAPOLATE   = 'extrapolate', &
-     CORE_FLUX_SURFACES = 'flux_surfaces'
+     CORE_EXTRAPOLATE   = 'EXTRAPOLATE', &
+     CORE_FLUX_SURFACES = 'FLUX_SURFACES'
 
   ! Plate definition methods
   character(len=*), parameter :: &
@@ -115,7 +115,6 @@ module fieldline_grid
      d_SOL(2)            =   24.d0, &      ! radial width of scrape-off layer
      d_PFR(4)            =   15.d0, &      ! radial width of private flux region
      d_N0(0:max_layers-1)=   10.d0, &      ! radial width of vacuum region
-     alpha_core          =    0.5d0, &     ! relative radial position of core surface
      d_extend(0:max_layers-1,-1:1) = -1.d0, &      ! poloidal extension of divertor leg (used in close_grid_domain)
      d_cutL(2)           =    6.d0, &      ! cut-off length for flux surfaces behind the wall
      d_cutR(2)           =    8.d0, &      !    (L)eft and (R)ight segments
@@ -387,7 +386,7 @@ module fieldline_grid
   namelist /FieldlineGrid_Input/ &
      topology, symmetry, stellarator_symmetry, blocks, Block, &
      phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_filter, N0_method, d_extend, &
-     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, alpha_core, &
+     nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
      n_interpolate, nr_perturbed, plate_generator, plate_format, &
      np_ortho_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
