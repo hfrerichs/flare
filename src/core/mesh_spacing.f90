@@ -350,6 +350,14 @@ module mesh_spacing
   real(real64) :: t, x(2)
 
 
+  if (i == 0) then
+     xi = 0.d0
+     return
+  elseif (i == n) then
+     xi = 1.d0
+     return
+  endif
+
   t  = 1.d0 * i / n
   xi = this%sample(t)
 
