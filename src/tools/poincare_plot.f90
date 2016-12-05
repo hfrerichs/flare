@@ -128,7 +128,7 @@ subroutine poincare_plot
         enddo
      else
         if (firstP) write (6,2002) R_start
-        G%x(1,1) = R_start; G%x(1,2) = R_start
+        G%x(1,1) = R_start; G%x(1,2) = Z_start
      endif
 
   ! use x_start if N_steps is not specified
@@ -191,6 +191,9 @@ subroutine poincare_plot
               if (theta.le.0.d0) theta = theta + pi2
            case(2)
               ! nothing to be done here, theta is already set in F%intersect_cym_plane
+           case default
+              write (6, *) 'error: invalid output format ', Output_Format
+              stop
            end select
            Pdata%X(ig,imult,j,3  ) = theta / pi2 * 360.d0
            Psi             = get_Psi(X)
