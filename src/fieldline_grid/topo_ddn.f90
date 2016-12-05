@@ -116,6 +116,7 @@ module modtopo_ddn
   use divertor
 
   real(real64) :: dx(2)
+  integer      :: direction
 
 
   dtheta = Xp(2)%theta - Xp(1)%theta
@@ -142,8 +143,15 @@ module modtopo_ddn
      call rpath(0)%generateX(1, DESCENT_CORE, LIMIT_PSIN, PsiN_in)
   end select
   call rpath(0)%plot(filename='rpath_0.plt')
-  ! 4.1 SOL
-  call rpath(1)%generateX(1, ASCENT_LEFT, LIMIT_PSIN, Xp(2)%PsiN())
+  ! 4.1 primary SOL (between 1st and 2nd separatrix)
+  direction = ASCENT_LEFT
+  if (Xp(2)%PsiN() < Xp(1)%PsiN()) then
+     write (6, *) 'error: PsiN(secondary X-point) < PsiN(primary X-point)!'
+     stop
+     write (6, *) 'trying to adjust to this situtation ...'
+     direction = DESCENT_CORE
+  endif
+  call rpath(1)%generateX(1, direction, LIMIT_PSIN, Xp(2)%PsiN())
   call rpath(1)%plot(filename='rpath_1.plt')
   ! 4.2 right outer SOL
   call rpath(2)%generateX(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(1))
