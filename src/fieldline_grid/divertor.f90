@@ -5,6 +5,12 @@ module divertor
   use separatrix
   implicit none
 
+
+  character(len=*), parameter :: &
+     DEBUG_DIVERTOR_LEG        = 'DEBUG_DIVERTOR_LEG.PLT', &
+     DEBUG_DIVERTOR_LEG_BOUNDS = 'DEBUG_DIVERTOR_LEG_BOUNDS.PLT'
+
+
   integer, parameter :: iud     = 72
 
   integer, parameter :: NO_X    = -1
@@ -24,11 +30,24 @@ module divertor
 
 
   !=====================================================================
+  subroutine initialize_debug()
+
+
+  call system('rm -f '//DEBUG_DIVERTOR_LEG)
+  call system('rm -f '//DEBUG_DIVERTOR_LEG_BOUNDS)
+
+  end subroutine initialize_debug
+  !=====================================================================
+
+
+
+  !=====================================================================
   ! setup geometry of simulation domain
   ! based on nx X-points Xp(1:nx) from module equilibrium
   ! and how they connect to each other (connectX(ix) = number of X-point to which separatrix from X-point ix connects to)
   !=====================================================================
   subroutine setup_geometry(nx, connectX, orientationX)
+  use run_control, only: Debug
   use math
   use magnetic_axis
   use equilibrium, only: Xp, get_poloidal_angle
@@ -43,6 +62,10 @@ module divertor
   character(len=2) :: Sstr
   real(real64)     :: tmp(3), theta_cut
   integer          :: ix, ierr, orientation
+
+
+  ! 0. initialize debugging
+  if (Debug) call initialize_debug()
 
 
   ! 1.a set up guiding surface for divertor legs (C_guide) ---------------------
@@ -297,6 +320,7 @@ module divertor
   end subroutine divertor_leg_interface
   !=====================================================================
   subroutine divertor_leg_discretization(C, eta, np, D, ierr_out)
+  use run_control, only: Debug
   use mesh_spacing
   type(t_curve), intent(in)  :: C
   real(real64),  intent(in)  :: eta
@@ -325,6 +349,9 @@ module divertor
   !if (ierr .ne. 0) then
   !   return
   !endif
+  if (Debug) then
+     call C%plot(filename=DEBUG_DIVERTOR_LEG, append=.true.)
+  endif
 
   call Sguide%init_spline_X1(eta, xi0, ierr)
   if (ierr .ne. 0) then
@@ -336,6 +363,12 @@ module divertor
      call C%sample_at(xi, x)
      D(j,:) = x
   enddo
+  if (Debug) then
+     open  (99, file=DEBUG_DIVERTOR_LEG_BOUNDS, position='append')
+     write (99, *) D( 0,:), Sguide%node( 0,np)
+     write (99, *) D(np,:), Sguide%node(np,np)
+     close (99)
+  endif
 
   end subroutine divertor_leg_discretization
   !=====================================================================
