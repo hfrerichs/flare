@@ -154,10 +154,10 @@ module modtopo_ddn
   call rpath(1)%generateX(1, direction, LIMIT_PSIN, Xp(2)%PsiN())
   call rpath(1)%plot(filename='rpath_1.plt')
   ! 4.2 right outer SOL
-  call rpath(2)%generateX(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(1))
+  call rpath(2)%generateX(2, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(1))
   call rpath(2)%plot(filename='rpath_2.plt')
   ! 4.3 left outer SOL
-  call rpath(3)%generateX(2, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(2))
+  call rpath(3)%generateX(2, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(2))
   call rpath(3)%plot(filename='rpath_3.plt')
   ! 4.4 PFR1
   call rpath(4)%generateX(1, DESCENT_PFR, LIMIT_LENGTH, d_PFR(1))
