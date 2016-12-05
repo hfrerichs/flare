@@ -289,14 +289,14 @@ module modtopo_ddn
      call make_flux_surfaces_SOLo(M_SOL1,nr(1), npL(1), np(0), npR(1), 1, nr(1), npR(1)+np(0), npR(1), 1, rpath(1), Zone(iz0+1)%Sr)
      call update_separatrix2()
 
-     call make_flux_surfaces_SOLo(M_SOL2a,nr(2), npR(2), npR(0), npR(1),1, nr(2), npR(1)+npR(0), NO_X,1, rpath(2), Zone(iz0+2)%Sr)
-     call make_flux_surfaces_SOLo(M_SOL2b,nr(3), npL(1), npL(0), npL(2),1, nr(3), npL(2), NO_X, 1, rpath(3), Zone(iz0+3)%Sr)
+     call make_flux_surfaces_SOLo(M_SOL2a,nr(2), npR(2), npR(0), npR(1),1, nr(2), npR(1)+npR(0), NO_X, 2, rpath(2), Zone(iz0+2)%Sr)
+     call make_flux_surfaces_SOLo(M_SOL2b,nr(3), npL(1), npL(0), npL(2),1, nr(3), npL(2),        NO_X, 2, rpath(3), Zone(iz0+3)%Sr)
      end select
 
 
      ! 2.c private flux region (PFR)
-     call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
-     call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 1, nr(5), rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), 1, rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
+     call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 1, nr(5), 2, rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
 
      ! 3. interpolated surfaces
      select case(discretization_method)
@@ -389,7 +389,7 @@ module modtopo_ddn
   M_SOL2a(   0 , 0:npR(1), :) = DR1
 
   ! 1.3 secondary divertor segment
-  call divertor_leg_discretization(S(2)%M4%t_curve, etaR(1), npR(2), DR2)
+  call divertor_leg_discretization(S(2)%M4%t_curve, etaL(2), npR(2), DR2)
   M_PFR2 (nr(5), npL(2)       :npL(2)       +npR(2), :) = DR2
   M_SOL2a(   0 , npR(1)+npR(0):npR(1)+npR(0)+npR(2), :) = DR2
 
@@ -414,7 +414,7 @@ module modtopo_ddn
   M_SOL2b(   0 ,        npL(2)+npL(0):       npL(2)+npL(0)+npL(1), :) = DL1
 
   ! 2.3 secondary divertor segment
-  call divertor_leg_discretization(S(2)%M3%t_curve, 1.d0-etaL(1), npL(2), DL2)
+  call divertor_leg_discretization(S(2)%M3%t_curve, 1.d0-etaR(2), npL(2), DL2)
   M_PFR2 (nr(5), 0:npL(2), :) = DL2
   M_SOL2b(   0 , 0:npL(2), :) = DL2
 

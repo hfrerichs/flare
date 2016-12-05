@@ -670,7 +670,7 @@ module divertor
 
 
      ! right divertor leg
-     call divertor_leg_discretization(CR, 1.d0-etaR(1), npR, DR, ierr)
+     call divertor_leg_discretization(CR, 1.d0-etaR(abs(ix1)), npR, DR, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,0:npR,:) = DR
 
@@ -683,7 +683,7 @@ module divertor
      enddo
 
      ! left divertor leg
-     call divertor_leg_discretization(CL, etaL(1), npL, DL, ierr)
+     call divertor_leg_discretization(CL, etaL(abs(ix2)), npL, DL, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,npR+np0:npR+np0+npL,:) = DL
   enddo
@@ -715,7 +715,7 @@ module divertor
   type(t_spacing) :: Sp
   type(t_flux_surface_2D) :: FR, FL
   real(real64) :: x0(2), DL(0:npL, 2), DR(0:npR, 2)
-  integer      :: i, ierr, ip1, ip2
+  integer      :: i, ierr, ip1, ip2, ix1, ix2
   integer :: np
 
 
@@ -731,20 +731,35 @@ module divertor
   if (ipx == ip2) ip2 = ip2-1
   if (ip0 == ip2) ip2 = ip2-1
   call make_ortho_grid(M, nr, np, 0, ir1, ir2, ip0, ip1, ip2, ipx, ix, rpath, Sr, Sp)
+
+  ! set up X-point ids in order to select etaL and etaR
+  ix1 = 1
+  ix2 = 1
+  if (ipx < 0) then
+     if (ip0 == npR) then
+        ix2 = ix
+     elseif (ip0 == npR+np0) then
+        ix1 = ix
+     else
+        write (6, *) 'error: unexpected setup in make_flux_surfaces_SOLo!'
+        stop
+     endif
+  endif
+
   do i=ir1,ir2
      write (6, *) i
 
      ! right divertor leg
      x0 = M(i,npR,:)
      call FR%generate(x0, direction=LEFT_HANDED, AltSurf=C_cutR, sampling=ARCLENGTH, retrace=.true.)
-     call divertor_leg_discretization(FR%t_curve, 1.d0-etaR(1), npR, DR, ierr)
+     call divertor_leg_discretization(FR%t_curve, 1.d0-etaR(abs(ix1)), npR, DR, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,0:npR,:) = DR
 
      ! left divertor leg
      x0 = M(i,npR+np0,:)
      call FL%generate(x0, direction=RIGHT_HANDED, AltSurf=C_cutL, sampling=ARCLENGTH, retrace=.true.)
-     call divertor_leg_discretization(FL%t_curve, etaL(1), npL, DL, ierr)
+     call divertor_leg_discretization(FL%t_curve, etaL(abs(ix2)), npL, DL, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,npR+np0:npR+np0+npL,:) = DL
   enddo
@@ -764,7 +779,7 @@ module divertor
   !=============================================================================
   ! private flux region
   !=============================================================================
-  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ir1, ir2, rpath, Sr, Sp)
+  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ir1, ir2, ix, rpath, Sr, Sp)
   use run_control, only: Debug
   use xpaths
   use mesh_spacing
@@ -772,7 +787,7 @@ module divertor
   use fieldline_grid, only: etaR, etaL
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
-  integer, intent(in) :: nr, npL, npR, ir1, ir2
+  integer, intent(in) :: nr, npL, npR, ir1, ir2, ix
   type(t_xpath),   intent(in) :: rpath
   type(t_spacing), intent(in) :: Sr, Sp
 
@@ -791,13 +806,13 @@ module divertor
 
      ! right divertor leg
      call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(1), npR, DR)
+     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(abs(ix)), npR, DR)
      M(i,0:npR,:) = DR
 
 
      ! left divertor leg
      call F%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, etaL(1), npL, DL)
+     call divertor_leg_discretization(F%t_curve, etaL(abs(ix)), npL, DL)
      M(i,npR:npR+npL,:) = DL
   enddo
 

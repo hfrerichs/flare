@@ -247,8 +247,8 @@ module modtopo_cdn
      call make_flux_surfaces_SOL(M_SOL2,nr(2), npL(1), npL(0), npL(2), 1, nr(2), rpath(2), 2, 1, Zone(iz0+2)%Sr, Sp2)
 
      ! 2.c private flux region (PFR)
-     call make_flux_surfaces_PFR(M_PFR1, nr(3), npL(1), npR(1), 1, nr(3), rpath(3), Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
-     call make_flux_surfaces_PFR(M_PFR2, nr(4), npR(2), npL(2), 1, nr(4), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1, nr(3), npL(1), npR(1), 1, nr(3), 1, rpath(3), Zone(iz0+3)%Sr, Zone(iz0+3)%Sp)
+     call make_flux_surfaces_PFR(M_PFR2, nr(4), npR(2), npL(2), 1, nr(4), 2, rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
 
      ! 3. interpolated surfaces
      select case(discretization_method)
