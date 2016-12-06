@@ -19,7 +19,7 @@ subroutine vacuum_domain_for_EIRENE()
            irP = nr_EIRENE_vac
            irV = 0
            write (6, 1001) iz, nr_EIRENE_vac
-           call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%N0_filter)
+           call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%vacuum_domain)
         else
         call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
         endif
@@ -29,7 +29,7 @@ subroutine vacuum_domain_for_EIRENE()
            irP = Zone(iz)%nr - nr_EIRENE_vac
            irV = Zone(iz)%nr
            write (6, 1002) iz, nr_EIRENE_vac
-           call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%N0_filter)
+           call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%vacuum_domain)
         else
         call setup_vacuum_domain(iz, nr_EIRENE_vac, 2)
         endif
@@ -388,7 +388,7 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   case (MANUAL_2D)
       call vacuum_domain_manual(iz, ir0, idir, ir2, Zone(iz)%N0_file)
   case (MANUAL_3D)
-      call vacuum_domain_manual_3D(iz, ir0, idir, ir2, Zone(iz)%N0_file, Zone(iz)%N0_filter, dl)
+      call vacuum_domain_manual_3D(iz, ir0, idir, ir2, Zone(iz)%N0_file, Zone(iz)%vacuum_domain, dl)
   end select
 
 

@@ -90,7 +90,7 @@ module fieldline_grid
      toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface                  = '', &
      N0_file(0:max_layers-1)          = '', &
-     N0_filter(0:max_layers-1)        = '', &
+     vacuum_domain(0:max_layers-1)    = '', &
      N0_method(0:max_layers-1)        = '', &
      core_domain                      = CORE_EXTRAPOLATE, &
      plate_generator                  = PLATES_DEFAULT
@@ -206,7 +206,7 @@ module fieldline_grid
      ! additional domain for neutral particles
      real(real64) :: d_N0 = 0.d0
      real(real64) :: d_extend(-1:1) = 0.d0
-     character(len=80) :: N0_file, N0_filter, N0_method
+     character(len=80) :: N0_file, vacuum_domain, N0_method
 
      contains
      procedure :: setup
@@ -289,7 +289,7 @@ module fieldline_grid
   this%d_N0      = d_N0(ilayer)
   this%d_extend  = d_extend(ilayer,-1:1)
   this%N0_file   = N0_file(ilayer)
-  this%N0_filter = N0_filter(ilayer)
+  this%vacuum_domain = vacuum_domain(ilayer)
   this%N0_method = N0_method(ilayer)
 
 
@@ -388,7 +388,7 @@ module fieldline_grid
 
   namelist /FieldlineGrid_Input/ &
      topology, symmetry, stellarator_symmetry, blocks, Block, &
-     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, N0_filter, N0_method, d_extend, &
+     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, vacuum_domain, N0_method, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
      n_interpolate, nr_perturbed, plate_generator, plate_format, &
      np_ortho_divertor, &
