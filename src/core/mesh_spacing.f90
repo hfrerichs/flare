@@ -57,9 +57,7 @@ module mesh_spacing
   character(len=max(len(distribution), len(LINEAR))) :: distribution_type
   character(len=len(distribution))                   :: arguments
 
-  character(len=256) :: s1, s2, s3
-  real(real64) :: eps, kap, del, phi0, dphi, Delta, R
-  integer :: iB
+  real(real64) :: eps, kap, del, phi0, dphi, Delta, R, eta1, xi1
 
 
   if (allocated(this%c)) deallocate(this%c)
@@ -88,10 +86,12 @@ module mesh_spacing
      allocate(this%c(this%nc))
      read (arguments, *, err=5000, end=5000) this%c
 
+
   ! spline with reference node
-!  elseif (dist(1:3) == 'X1:') then
-     !this%dist = SPLINE_X1
-     !call this%init_spline_x1()
+  case(SPLINE_X1)
+     read (arguments, *, err=5000, end=5000) eta1, xi1
+     call this%init_spline_X1(eta1, xi1)
+
 
   ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
   ! Symmetric version
