@@ -11,14 +11,15 @@ module plates
 
   character(len=*), parameter :: plates_file = 'plates.dat'
 
+  ! slices of Q4-type surfaces, used by outside_boundary
   type(t_curve), dimension(:,:), allocatable :: C
 
 
   public :: initialize_plates
   public :: cell_center_outside
   public :: minimum_radial_coordinate
+  public :: set_minimum_cells_in_flux_tube
   public :: write_plates
-  public :: write_plates_format1
 
   contains
 !=======================================================================
@@ -354,7 +355,7 @@ module plates
 !=======================================================================
 ! kmin: minimum number of plasma cells between target cells
 !=======================================================================
-  subroutine write_plates_format1(kmin)
+  subroutine set_minimum_cells_in_flux_tube(kmin)
   integer, intent(in) :: kmin
 
   integer, parameter :: iu = 78
@@ -430,12 +431,6 @@ module plates
            enddo
         enddo
      endif
-
-
-     ! 3. write plate definitions
-     if (ns > 0) then
-        write (iu, 1000) iz, ir, ip, 2*ns, (KBEG(k), KEND(k), k=1,ns)
-     endif
   enddo
   enddo
 
@@ -444,21 +439,7 @@ module plates
   close (iu)
 
  1000 format(1x,i0,1x,i4,1x,i4,1x,i4,1x,i5,1x,i5)
-  end subroutine write_plates_format1
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine write_plates_format3()
-
-  integer, parameter :: iu = 78
-
-
-  open  (iu, file=plates_file)
-  close (iu)
-
-  end subroutine write_plates_format3
+  end subroutine set_minimum_cells_in_flux_tube
 !=======================================================================
 
 
@@ -477,10 +458,10 @@ module plates
   allocate (ntcell(maxval(ZON_TORO)), ntcell_bundle(maxval(ZON_TORO)))
 
 
-  open  (iu, file='plates.dat')
+  open  (iu, file=plates_file)
   do iz=0,NZONET-1
-     do ir=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
-     do ip=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
+     do ir=0,ZON_RADI(iz)-1
+     do ip=0,ZON_POLO(iz)-1
         ! check number of plate cells in flux tube
         np     = 0
         ntcell = 0
@@ -514,9 +495,9 @@ module plates
                        ! reached end of flux tube
                        if (it == ZON_TORO(iz)-1) exit
 
-                       it = it + 1
-                       ig = ir+(ip+it*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
+                       ig = ir+(ip+(it+1)*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
                        if (ID_TEM(ig) == 0) exit
+                       it = it + 1
                     enddo bundle_loop
 
                     np_bundle = np_bundle + 1
@@ -583,230 +564,7 @@ end module plates
   real(real64) :: x(3), phi
   integer      :: nr, np, nt, iz, i, j, k, l, l1, l2, irun, icut, ig(8), ic
 
-
-  write (6, 9000)
- 9000 format(3x,'- Set up plate surfaces')
-
-
-  allocate (RC_TEM(0:MESH_P_OS(NZONET)-1))
-  allocate (ZC_TEM(0:MESH_P_OS(NZONET)-1))
-  ID_TEM = 0
-  open  (iu, file='plates.dat')
-  do iz=0,NZONET-1
-     nr = ZON_RADI(iz)
-     np = ZON_POLO(iz)
-     nt = ZON_TORO(iz)
-     allocate (iindex(0:nr-1, 0:np-1))
-     iindex = 0
-
-     write (6, 1000) iz, nr, np, nt
- 1000 format (8x,'zone ',i0,' (',i0,' x ',i0,' x ',i0,')')
-
-     ! setup slices for Q4-type surfaces
-     if (n_quad > 0) then
-     allocate (C(0:nt-1, n_quad))
-     do k=0,nt-1
-     do l=1,n_quad
-         phi  = (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz))) / 2.d0
-         phi  = phi_sym(phi, symmetry)
-         C(k,l) = S_quad(l)%slice(phi)
-
-         if (Debug) then
-            call C(k,l)%plot(filename='debug/Q4surf_'//trim(str(l))//'_zone'//trim(str(iz))// &
-                                      '_t'//trim(str(k)))
-         endif
-     enddo
-     enddo
-     endif
-
-
-     ! (0) count plate cells, (1) setup plate cells
-     do irun=0,1
-        icut = 0
-        ! loop over all flux tubes
-        do i=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
-        do j=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
-        do k=0,nt-1
-           ig(1)   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
-           ig(2)   = ig(1) + 1
-           ig(3)   = ig(2) + SRF_RADI(iz)
-           ig(4)   = ig(3) - 1
-           ig(5:8) = ig(1:4) + SRF_POLO(iz)*SRF_RADI(iz)
-
-           x(1)    = sum(RG(ig))/8.d0
-           x(2)    = sum(ZG(ig))/8.d0
-           x(3)    = (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz))) / 2.d0
-           x(3)    = phi_sym(x(3), symmetry)
-
-           ic      = i + (j + k*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
-           RC_TEM(ic) = x(1)
-           ZC_TEM(ic) = x(2)
-
-           plate_cell = outside_boundary()
-
-           if (plate_cell) then
-              ID_TEM(ic) = 1
-              icut = icut + 1
-              if (irun == 1) then
-                 iindex(i,j) = iindex(i,j) + 1
-                 knumb(icut) = k
-              endif
-           endif
-        enddo
-        enddo
-        enddo
-
-        ! allocate knumb array after 1st run
-        if (irun == 0) then
-           allocate (knumb(icut))
-           knumb = 0
-
-        ! write plate cells after 2nd run
-        else
-           icut = 0
-           do i=0,nr-1
-           do j=0,np-1
-              if (iindex(i,j) .ne. 0) then
-                 l1 = icut + 1
-                 l2 = icut + iindex(i,j)
-                 write (iu, *) iz, i, j, iindex(i,j),(knumb(l),l=l1,l2)
-                 icut = icut + iindex(i,j)
-              endif
-           enddo
-           enddo
-
-           write (6, 2000) icut
-           2000 format (8x,i0,' plate cells')
-           deallocate (knumb, iindex)
-        endif
-     enddo
-
-     ! cleanup slices of Q4-type surfaces
-     if (n_quad > 0) then
-     do k=0,nt-1
-     do l=1,n_quad
-        call C(k,l)%destroy()
-     enddo
-     enddo
-     deallocate (C)
-     endif
-  enddo
-  close (iu)
-
-
-  ! additional output for debugging
-  if (Debug) then
-     do iz=0,NZONET-1
-     do k=0,ZON_TORO(iz)-1
-        open  (99, file='debug/SlicePlasma_zone'//trim(str(iz))//'_t'//trim(str(k))//'.plt')
-        open  (98, file='debug/SliceBoundary_zone'//trim(str(iz))//'_t'//trim(str(k))//'.plt')
-
-        do i=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
-        do j=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
-           ic      = i + (j + k*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
-           if (ID_TEM(ic) == 1) then
-              write (98, *) RC_TEM(ic), ZC_TEM(ic)
-           else
-              write (99, *) RC_TEM(ic), ZC_TEM(ic)
-           endif
-        enddo
-        enddo
-        close (99)
-        close (98)
-     enddo
-     enddo
-
-     call plate_check_all()
-  endif
-  deallocate (ID_TEM, RC_TEM, ZC_TEM)
   contains
-  !-------------------------------------------------------------------
-  function outside_boundary()
-  ! input:
-  !    k: toroidal index
-  !    C: slices of Q4-type surfaces at phi(k)
-  !    x: reference point
-  logical :: outside_boundary, side
-
-
-  ! set default
-  outside_boundary = .false.
-
-
-  ! check axisymmetric (L2-type) surfaces
-  do l=1,n_axi
-     side = boundary_side(l) == 1
-     if (.not.S_axi(l)%closed) then
-        write (6, *) 'error: boundary needs to be closed!'
-        stop
-     endif
-
-     if (S_axi(l)%outside(x(1:2)) .eqv. side) then
-        outside_boundary = .true.
-        return
-     endif
-  enddo
-
-  ! check Q4-type surfaces
-  do l=1,n_quad
-     if (C(k,l)%n_seg <= 0) cycle
-     side = boundary_side(n_axi + n_block + l) == 1
-     if (.not.C(k,l)%closed) then
-        write (6, *) 'error: boundary needs to be closed!'
-        stop
-     endif
-     if (C(k,l)%outside(x(1:2)) .eqv. side) then
-        outside_boundary = .true.
-        return
-     endif
-  enddo
-
-  ! check block limiters (CSG-type)
-  do l=1,n_block
-     if (bl_outside(l, x)) then
-        outside_boundary = .true.
-        return
-     endif
-  enddo
-
-  end function outside_boundary
-  !-------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------
-  subroutine outside_boundary_check
-
-  integer, parameter :: iu = 99, iu2 = 98, n = 101
-
-  character(len=72) :: s
-  real(real64) :: x(2), Phi
-  integer :: i
-
-  allocate (C(0:n-1, n_quad))
-  open  (iu, file='fl+.dat')
-  open  (iu2, file='fl+B.dat')
-  read  (iu, *) s
-  do i=0,n-1
-     read (iu, *) x, Phi
-
-     phi  = phi_sym(phi, symmetry)
-     C(i,1) = S_quad(1)%slice(phi)
-
-     if (C(i,1)%outside(x)) then
-        !write (iu2, *) Phi, 1
-     else
-        !write (iu2, *) Phi, 0
-        write (iu2, *) x, Phi
-     endif
-  enddo
-  close (iu)
-  close (iu2)
-
-  stop
-  end subroutine outside_boundary_check
-  !-------------------------------------------------------------------
-
-
   !-------------------------------------------------------------------
   subroutine plate_check_all
   integer :: iz, k, j, i, ic1, ic2, iplate
@@ -941,31 +699,30 @@ end module plates
 
   write (6, *)
   write (6, 1000)
+  write (6, 1001) plate_format
   write (6, *)
 
   call initialize_plates()
-  write (6, *) 'plate format is ', plate_format
   select case(plate_generator)
   case(PLATES_DEFAULT)
      do iz=0,NZONET-1
         call cell_center_outside(iz)
      enddo
-     call write_plates()
 
   case(PLATES_RADIAL_INTERSECT)
      do iz=0,NZONET-1
         call minimum_radial_coordinate(iz)
      enddo
      kmin = 2
-     call write_plates_format1(kmin)
+     call set_minimum_cells_in_flux_tube(kmin)
 
   case default
      write (6, *) 'error: invalid plate generator ', trim(plate_generator)
      stop
   end select
-!  call map_slice_to_target(0, ZON_TORO(0))
-!  call write_plates()
+  call write_plates()
 
  1000 format(3x,'- Generating plate surface approximation within flux-tube mesh')
+ 1001 format(8x,'plate format is ',i0)
   end subroutine generate_plates
 !=======================================================================
