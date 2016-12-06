@@ -234,10 +234,6 @@ module boundary
   enddo
   n_elem = elem_os(n_boundary1)
 
-  write (6, *) 'elem_os = '
-  do i=0,n_boundary1
-     write (6, *) elem_os(i)
-  enddo
 
   return
  1000 format (/ '========================================================================')
