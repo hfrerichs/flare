@@ -25,9 +25,10 @@ module fieldline_grid
 
   ! Discretization type definitions
   character(len=*), parameter :: &
-     POLOIDAL_ANGLE    = 'poloidal_angle_fixed', &
-     ORTHOGONAL        = 'quasi_orthogonal', &
-     ARC_LENGTH        = 'arc_length'
+     POLOIDAL_ANGLE_FIXED = 'poloidal_angle_fixed', &
+     ORTHOGONAL           = 'quasi_orthogonal', &
+     POLOIDAL_ANGLE       = 'poloidal_angle', &
+     ARC_LENGTH           = 'arc_length'
 
 
   ! zone type definitions
@@ -80,6 +81,8 @@ module fieldline_grid
      topology                         = TOPO_SC, &
      Innermost_Flux_Surface           = SF_EXACT, &
      discretization_method            = POLOIDAL_ANGLE, &
+     poloidal_discretization          = POLOIDAL_ANGLE, &
+     radial_discretization            = POLOIDAL_ANGLE_FIXED, &
      radial_spacing(-1:max_layers-1)   = '', &
      poloidal_spacing(0:max_layers-1) = '', &
      poloidal_spacing_L(0:max_layers-1) = '', &
@@ -392,7 +395,7 @@ module fieldline_grid
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
      Dtheta_sampling, Dtheta_separatrix, &
-     discretization_method, guiding_surface
+     discretization_method, poloidal_discretization, radial_discretization, guiding_surface
 
 
   ! 1. read user configuration from input file

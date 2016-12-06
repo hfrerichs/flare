@@ -51,9 +51,10 @@ module modtopo_stel
      write (6, 1002) iz, Zone(iz)%nr, Zone(iz)%np, Zone(iz)%nt
   enddo
   Zone(0)%isft(1) = SF_UPDOWN
+  write (6, *)
+
  1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')
  1002 format(12x,i3,3x,'(',i0,' x ',i0,' x ',i0,')')
-
   end subroutine setup_topo_stel
   !=====================================================================
 
@@ -63,26 +64,57 @@ module modtopo_stel
   subroutine setup_domain()
   use equilibrium
   use divertor, only: Pmag
+  use string
 
-  real(real64) :: x1(2), x2(2), d(2), tmp(3), theta0
+  character(len=len(guiding_surface)) :: command, argument
+  real(real64) :: x1(2), tmp(3), theta0, dl
+  integer :: i, n
 
 
+  ! 0. initialize magnetic axis
   tmp    = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
   x1     = x_in2(1:2)
   theta0 = get_poloidal_angle(x_in2)
 
-  call B%load(guiding_surface)
-  call B%sort_loop(Pmag)
+
+  ! 1. set up outer simulation boundary
+  write (6, 1000)
+  n = get_commands(guiding_surface)
+  do i=1,n
+     call read_command(guiding_surface, i, command, argument)
+     select case(command)
+     case('LOAD')
+        write (6, 1001) trim(argument)
+        call B%load(argument, output=SILENT)
+
+     case('EXPAND')
+        read  (argument, *, err=9000) dl
+        write (6, 1002) dl
+        ! negative sign for expanding surface with nodes in counter-clockwise direction
+        call B%left_hand_shift(-dl)
+
+     case('SORT')
+        write (6, 1003)
+        call B%sort_loop(Pmag)
+
+     case default
+        write (6, *) 'error: invalid command ', trim(command), ' for guiding surface!'
+        stop
+     end select
+  enddo
+  write (6, *)
+  if (B%n_seg < 0) then
+     write (6, *) 'error: outer boundary undefined!'
+     stop
+  endif
 
 
-  select case(discretization_method)
+  ! 2. set up inner simulation boundary and sampling
+  select case(poloidal_discretization)
   case(POLOIDAL_ANGLE)
      ! use geometric poloidal angle as reference coordinate
      theta0 = 0.d0
      call load_inner_boundaries(theta0)
-     x2    = x1
-     x2(1) = x2(1) - d_SOL(1)
-     d     = x1-x2
 
      ! setup outer boundary
      call B%setup_angular_sampling(Pmag)
@@ -97,7 +129,14 @@ module modtopo_stel
   end select
 
 
-
+  return
+ 1000 format(3x,'- Outer simulation boundary:')
+ 1001 format(8x,'loading from file ',a)
+ 1002 format(8x,'expanding surface by dl=',f0.3)
+ 1003 format(8x,'sorting points with respect to geometric poloidal angle')
+ 9000 write (6, 9001) trim(argument)
+ 9001 format('error: cannot obtain floating point value from argument ', a)
+  stop
   end subroutine setup_domain
   !=====================================================================
 
