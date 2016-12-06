@@ -4,13 +4,21 @@
 module plates
   use iso_fortran_env
   use emc3_grid
-  use boundary
+  use boundary, unused => outside_boundary
+  use curve2D
   implicit none
+  private
 
   character(len=*), parameter :: plates_file = 'plates.dat'
 
-  !integer, dimension(:), allocatable :: ID_TEM
+  type(t_curve), dimension(:,:), allocatable :: C
 
+
+  public :: initialize_plates
+  public :: cell_center_outside
+  public :: minimum_radial_coordinate
+  public :: write_plates
+  public :: write_plates_format1
 
   contains
 !=======================================================================
@@ -25,6 +33,128 @@ module plates
   ID_TEM = 0
 
   end subroutine initialize_plates
+!=======================================================================
+
+
+
+!=======================================================================
+! check if cell center is outside of boundary
+!=======================================================================
+  subroutine cell_center_outside(iz)
+  use run_control, only: Debug
+  use math
+  use fieldline_grid, only: symmetry
+  use emc3_grid
+  integer, intent(in) :: iz
+
+  character(len=256)  :: filename
+  real(real64) :: phi, x(3)
+  integer      :: i, j, k, l, ig(8), ic
+
+
+  write (6, 1000) iz
+
+  ! 1. set up slices for Q4-type surfaces
+  if (n_quad > 0) then
+     allocate (C(0:ZON_TORO(iz)-1, n_quad))
+     do k=0,ZON_TORO(iz)-1
+     do l=1,n_quad
+         phi  = (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz))) / 2.d0
+         phi  = phi_sym(phi, symmetry)
+         C(k,l) = S_quad(l)%slice(phi)
+
+         if (Debug) then
+            write (filename, 8000) iz, k, l
+            call C(k,l)%plot(filename=filename)
+         endif
+     enddo
+     enddo
+  endif
+
+  ! 2. check if cell center is outside boundary, and if so, mark this cell
+  do i=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
+  do j=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
+  do k=0,ZON_TORO(iz)-1
+     ! id of this cell
+     ic      = i + (j + k*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
+
+     ! ids of the nodes of this cell
+     ig(1)   = i + (j + k*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
+     ig(2)   = ig(1) + 1
+     ig(3)   = ig(2) + SRF_RADI(iz)
+     ig(4)   = ig(3) - 1
+     ig(5:8) = ig(1:4) + SRF_POLO(iz)*SRF_RADI(iz)
+
+     ! cell center
+     x(1)    = sum(RG(ig))/8.d0
+     x(2)    = sum(ZG(ig))/8.d0
+     x(3)    = (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz))) / 2.d0
+     x(3)    = phi_sym(x(3), symmetry)
+
+
+     if (outside_boundary(x, k)) ID_TEM(ic) = 1
+  enddo
+  enddo
+  enddo
+
+  ! 99. cleanup
+  if (n_quad > 0) then
+     do k=0,ZON_TORO(iz)-1
+     do l=1,n_quad
+        call C(k,l)%destroy()
+     enddo
+     enddo
+     deallocate (C)
+  endif
+
+ 1000 format(8x,'Zone ',i0,': checking if cell center is outside of boundary')
+ 8000 format('DEBUG_PLATES_Z',i0,'_T',i0,'_B',i0,'.PLT')
+  end subroutine cell_center_outside
+!=======================================================================
+
+
+
+!=======================================================================
+  function outside_boundary(x, k)
+  real(real64), intent(in) :: x(3)
+  integer,      intent(in) :: k
+  logical                  :: outside_boundary
+
+  logical :: side
+  integer :: l
+
+
+  outside_boundary = .false.
+  ! check axisymmetric (L2-type) surfaces
+  do l=1,n_axi
+     side = boundary_side(l) == 1
+     if (S_axi(l)%outside(x(1:2)) .eqv. side) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+  ! check block limiters (CSG-type)
+  do l=1,n_block
+     if (bl_outside(l, x)) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+  ! THE FOLLOWING PART IS DIFFERENT FROM outside_boundary IN MODULE boundary,
+  ! IT USED THE PRE-DEFINED SLICES C
+  ! check Q4-type surfaces
+  do l=1,n_quad
+     if (C(k,l)%n_seg <= 0) cycle
+     side = boundary_side(n_axi + n_block + l) == 1
+     if (C(k,l)%outside(x(1:2)) .eqv. side) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+  end function outside_boundary
 !=======================================================================
 
 
@@ -335,9 +465,9 @@ module plates
 
 !=======================================================================
   subroutine write_plates()
+  use fieldline_grid, only: plate_format
   use emc3_grid
 
-  integer, parameter :: output_format = 1
   integer, parameter :: iu = 78
 
   integer, dimension(:), allocatable :: ntcell, ntcell_bundle
@@ -354,7 +484,7 @@ module plates
         ! check number of plate cells in flux tube
         np     = 0
         ntcell = 0
-        do it=0,ZON_TORO(iz)
+        do it=0,ZON_TORO(iz)-1
            ig = ir+(ip+it*ZON_POLO(iz))*ZON_RADI(iz)+MESH_P_OS(iz)
            if (ID_TEM(ig) > 0) then
               np         = np + 1
@@ -364,7 +494,7 @@ module plates
 
         ! there is at least one plate cell
         if (np > 0) then
-           select case (output_format)
+           select case (plate_format)
            ! 1. bundle plate cells
            case(1)
               ! setup bundles of plate cells
@@ -403,7 +533,7 @@ module plates
               write (iu, *) iz, ir, ip, np, ntcell(1:np)
 
            case default
-              write (6, 9001) output_format
+              write (6, 9001) plate_format
            end select
         endif
      enddo
@@ -814,9 +944,13 @@ end module plates
   write (6, *)
 
   call initialize_plates()
+  write (6, *) 'plate format is ', plate_format
   select case(plate_generator)
   case(PLATES_DEFAULT)
-     call generate_plates_old()
+     do iz=0,NZONET-1
+        call cell_center_outside(iz)
+     enddo
+     call write_plates()
 
   case(PLATES_RADIAL_INTERSECT)
      do iz=0,NZONET-1
