@@ -10,7 +10,7 @@ module string
 
 
 !=======================================================================
-! parse string str for n-th sub-string delimited by "," or delimiter
+! parse string str for n-th sub-string delimited by ";" or delimiter
 !=======================================================================
   function parse_string(str, n, delimiter)
   character(len=*), intent(in)  :: str
@@ -22,7 +22,7 @@ module string
   integer :: i, i1_tmp(n+1), nstr, i1, i2
 
 
-  X = ','
+  X = ';'
   if (present(delimiter)) X = delimiter
 
 
@@ -62,7 +62,7 @@ module string
 
   n = 0
   do
-     stmp = parse_string(string, n+1, ';')
+     stmp = parse_string(string, n+1)
      if (stmp == '') exit
 
      n = n + 1

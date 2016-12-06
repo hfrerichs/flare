@@ -9,19 +9,21 @@ module mesh_spacing
   private
 
 
-  integer, parameter :: &
-     LINEAR      = 0, &
-     EXPONENTIAL = 1, &
-     SPLINE_X1   = 2, &
-     DELTA_R_SYM = 3, &
-     X1          = 4, &
-     D_CURVE     = 5, &
-     USER_DEF    = -1, &
-     S_RECURSIVE = -2
+  character(len=*), parameter :: &
+     LINEAR      = 'LINEAR', &
+     EXPONENTIAL = 'EXPONENTIAL', &
+     SPLINE_X1   = 'SPLINE_X1', &
+     DELTA_R_SYM = 'DELTA_R_SYM', &
+     DELTA_R_LB  = 'DELTA_R_LB', &
+     DELTA_R_UB  = 'DELTA_R_UB', &
+     X1          = 'X1', &
+     D_CURVE     = 'D_CURVE', &
+     USER_DEF    = 'LOAD', &
+     S_RECURSIVE = 'RECURSIVE'
 
 
   type, public :: t_spacing
-     integer :: mode = 0
+     character(len=256) :: dist = LINEAR
 
      integer :: nc ! number of coefficients
      real(real64), dimension(:), allocatable :: c ! internal coefficients
@@ -39,7 +41,7 @@ module mesh_spacing
      procedure init_Dcurve
   end type t_spacing
   
-  type(t_spacing), public, parameter :: Equidistant = t_spacing(0,0,null(),Empty_curve,null())
+  type(t_spacing), public, parameter :: Equidistant = t_spacing(LINEAR,0,null(),Empty_curve,null())
 
   contains
 !=======================================================================
@@ -47,10 +49,13 @@ module mesh_spacing
 
 
 !=======================================================================
-  subroutine init(this, mode)
+  subroutine init(this, distribution)
   use string
   class(t_spacing) :: this
-  character(len=*) :: mode
+  character(len=*) :: distribution
+
+  character(len=max(len(distribution), len(LINEAR))) :: distribution_type
+  character(len=len(distribution))                   :: arguments
 
   character(len=256) :: s1, s2, s3
   real(real64) :: eps, kap, del, phi0, dphi, Delta, R
@@ -58,113 +63,94 @@ module mesh_spacing
 
 
   if (allocated(this%c)) deallocate(this%c)
-  iB = len_trim(mode)
-  if (iB > 256) iB = 256
+  ! default distribution is linear i.e. equidistant
+  arguments = ''
+  if (distribution == '') then
+     distribution_type = LINEAR
+  else
+     read (distribution, *) distribution_type
+     if (len_trim(distribution_type)+2  <=  len_trim(distribution)) then
+        arguments         = distribution(len_trim(distribution_type)+2:len_trim(distribution))
+     endif
+  endif
 
 
+  this%dist = distribution_type
+  select case(distribution_type)
   ! equidistant spacing
-  if (mode == '') then
-     this%mode = LINEAR
+  case(LINEAR)
+     ! nothing to be done here
+
 
   ! exponential spacing function
-  elseif (mode(1:4) == 'exp:') then
-     this%mode = EXPONENTIAL
+  case(EXPONENTIAL)
      this%nc   = 1
      allocate(this%c(this%nc))
-     read (mode(5:iB), *, err=5000) this%c(1)
-     write (6, *) 'exp: ', this%c
+     read (arguments, *, err=5000, end=5000) this%c
 
   ! spline with reference node
-!  elseif (mode(1:3) == 'X1:') then
-     !this%mode = SPLINE_X1
+!  elseif (dist(1:3) == 'X1:') then
+     !this%dist = SPLINE_X1
      !call this%init_spline_x1()
 
   ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
   ! Symmetric version
-  elseif (mode(1:8) == 'Delta-R:') then
-     this%mode = DELTA_R_SYM
+  case(DELTA_R_SYM)
      this%nc   = 2
      allocate (this%c(this%nc))
-     s1        = parse_string(mode(9:iB),1)
-     s2        = parse_string(mode(9:iB),2)
-     read (s1, *, err=5000) this%c(1)
-     read (s2, *, err=5000) this%c(2)
-     write (6, *) 'Delta-R: ', this%c
+     read (arguments, *, err=5000, end=5000) this%c
 
 
   ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
   ! at lower boundary
-  elseif (mode(1:9) == 'Delta-R0:') then
-     this%mode = X1
+  case(DELTA_R_LB)
+     this%dist = X1
      this%nc   = 2
      allocate (this%c(this%nc))
-     s1        = parse_string(mode(10:iB),1)
-     s2        = parse_string(mode(10:iB),2)
-     read (s1, *, err=5000) Delta
-     read (s2, *, err=5000) R
+     read (arguments, *, err=5000, end=5000) Delta, R
      this%c(1) = R * Delta / (1.d0 + Delta * (R-1.d0))
      this%c(2) = Delta
-     write (6, *) 'Delta-R0: ', Delta, R
 
 
   ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
   ! at upper boundary
-  elseif (mode(1:9) == 'Delta-R1:') then
-     this%mode = X1
+  case(DELTA_R_UB)
+     this%dist = X1
      this%nc   = 2
      allocate (this%c(this%nc))
-     s1        = parse_string(mode(10:iB),1)
-     s2        = parse_string(mode(10:iB),2)
-     read (s1, *, err=5000) Delta
-     read (s2, *, err=5000) R
+     read (arguments, *, err=5000, end=5000) Delta, R
      this%c(1) = (1.d0 - Delta) / (1.d0 + Delta * (R-1.d0))
      this%c(2) = 1.d0 - Delta
-     write (6, *) 'Delta-R1: ', Delta, R
 
 
-  ! 1 additional node
-  elseif (mode(1:3) == 'X1:') then
-     this%mode = X1
+  ! 1 additional node (piecewise linear)
+  case(X1)
      this%nc   = 2
      allocate (this%c(this%nc))
-     s1        = parse_string(mode(4:iB),1)
-     s2        = parse_string(mode(4:iB),2)
-     read (s1, *, err=5000) this%c(1)
-     read (s2, *, err=5000) this%c(2)
-     write (6, *) 'X1: ', this%c
+     read (arguments, *, err=5000, end=5000) this%c
 
 
   ! D-curve
-  elseif (mode(1:8) == 'D-curve:') then
-     s1        = parse_string(mode(9:iB),1)
-     read (s1, *, err=5000) eps
-     s1        = parse_string(mode(9:iB),2)
-     read (s1, *, err=5000) kap
-     s1        = parse_string(mode(9:iB),3)
-     read (s1, *, err=5000) del
-     s1        = parse_string(mode(9:iB),4)
-     read (s1, *, err=5000) phi0
-     s1        = parse_string(mode(9:iB),5)
-     read (s1, *, err=5000) dphi
-     write (6, *) 'D-curve: ', eps, kap, del, phi0, dphi
+  case(D_CURVE)
+     read (arguments, *, err=5000, end=5000) eps, kap, del, phi0, dphi
      call this%init_Dcurve(eps, kap, del, phi0, dphi)
 
 
   ! user defined (external) spacing function
-  elseif (mode(1:5) == 'file:') then
-     this%mode = USER_DEF
-     call this%D%load(mode(6:iB))
+  case(USER_DEF)
+     call this%D%load(arguments)
      call check_manual_stretching_function(this%D)
      call this%D%setup_coordinate_sampling(1)
 
+
   ! undefined mode string
-  else
-     write (6, *) 'error: undefined mode string "', trim(mode), '"!'
+  case default
+     write (6, *) 'error: undefined distribution "', trim(distribution), '"!'
      stop
-  endif
+  end select
 
   return
- 5000 write (6, *) 'error in t_spacing%init: could not read value from string ', this%mode
+ 5000 write (6, *) 'error in t_spacing%init: could not read value from string "', trim(arguments), '"'
   stop
   end subroutine init
 !=======================================================================
@@ -183,7 +169,7 @@ module mesh_spacing
 
   if (present(ierr)) ierr = 0
 
-  this%mode = SPLINE_X1
+  this%dist = SPLINE_X1
   this%nc   = 2
   if (allocated(this%c)) deallocate(this%c)
   allocate(this%c(this%nc))
@@ -227,7 +213,7 @@ module mesh_spacing
   real(real64), intent(in) :: eta1, xi1
 
 
-  this%mode = X1
+  this%dist = X1
   this%nc   = 2
   if (allocated(this%c)) deallocate(this%c)
   allocate(this%c(this%nc))
@@ -260,7 +246,7 @@ module mesh_spacing
 
 
   ! 1. recursive definition of spacing function
-  this%mode = S_RECURSIVE
+  this%dist = S_RECURSIVE
   allocate (this%S(2))
   this%S(1) = S_left
   this%S(2) = S_right
@@ -286,7 +272,7 @@ module mesh_spacing
   integer            :: i
 
 
-  this%mode = USER_DEF
+  this%dist = USER_DEF
   alp       = asin(del)
 
   call this%D%new(n)
@@ -399,7 +385,7 @@ module mesh_spacing
   real(real64) :: x(2)
 
 
-  select case(this%mode)
+  select case(this%dist)
   ! linear spacing
   case(LINEAR)
      xi = t
@@ -553,18 +539,34 @@ module mesh_spacing
 
 
 !=======================================================================
-  subroutine plot(this, iu, filename, nsample)
+  subroutine plot(this, iu, filename, nsample, style)
   class(t_spacing) :: this
   integer, intent(in), optional          :: iu, nsample
-  character(len=*), intent(in), optional :: filename
+  character(len=*), intent(in), optional :: filename, style
+
+  integer, parameter :: &
+     STYLE_FUNCTION = 1, &
+     STYLE_MESH     = 2
 
   real(real64) :: t, xi
-  integer :: i, n, iu0 = 99
+  integer :: i, n, istyle, iu0 = 99
 
 
   if (present(iu)) iu0 = iu
   if (present(filename)) then
      open  (iu0, file=filename)
+  endif
+  istyle = STYLE_MESH
+  if (present(style)) then
+     select case(style)
+     case('function')
+        istyle = STYLE_FUNCTION
+     case('mesh')
+        istyle = STYLE_MESH
+     case default
+        write (6, *) 'error in t_spacing%plot: invalid style ', trim(style)
+        stop
+     end select
   endif
 
   ! set number of sampling points
@@ -581,6 +583,7 @@ module mesh_spacing
   write (iu0, *)
 
 
+  if (istyle == STYLE_MESH) then
   ! write horizontal and vertical bars
   do i=1,n-1
      t  = 1.d0 * i / n
@@ -591,6 +594,7 @@ module mesh_spacing
      write (iu0, *) 0.d0, xi
      write (iu0, *)
   enddo
+  endif
 
 
   if (present(filename)) then
