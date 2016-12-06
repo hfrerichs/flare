@@ -82,7 +82,7 @@ module string
   character(len=len(string)) :: stmp
 
 
-  stmp     = parse_string(string, n, ';')
+  stmp     = parse_string(string, n, ';');  stmp = adjustl(stmp)
   command  = 'undefined'
   argument = 'undefined'
   read (stmp, *) command
