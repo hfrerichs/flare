@@ -96,6 +96,35 @@ module string
 
 
 !=======================================================================
+  function read_vector(s, n) result(v)
+  use iso_fortran_env
+  character(len=*), intent(in) :: s
+  integer,          intent(in) :: n
+  real(real64)                 :: v(n)
+
+  integer :: i, i1, di
+
+
+  i1 = scan(s, '(')
+  v  = 0.d0
+  do i=1,n
+     di = scan(s(i1:len(s)), ',)')
+
+     if (di > 0) then
+        read  (s(i1+1:i1+di-2), *) v(i)
+        i1 = i1 + di
+     else
+        write (6, *) 'error: insufficient size ',i-1,' < ',n,'!'
+        stop
+     endif
+  enddo
+
+  end function read_vector
+!=======================================================================
+
+
+
+!=======================================================================
 ! Convert an integer to string
 !=======================================================================
   character(len=20) function str(k)

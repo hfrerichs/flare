@@ -62,13 +62,17 @@ module modtopo_stel
 
   !=====================================================================
   subroutine setup_domain()
+  use run_control, only: Debug, N_points, Trace_Method
   use equilibrium
+  use poincare_set
   use divertor, only: Pmag
   use string
 
   character(len=len(guiding_surface)) :: command, argument
-  real(real64) :: x1(2), tmp(3), theta0, dl
-  integer :: i, n
+  character(len=256)                  :: filename
+  type(t_poincare_set) :: P
+  real(real64)         :: x1(2), tmp(3), theta0, dl
+  integer              :: i, n
 
 
   ! 0. initialize magnetic axis
@@ -87,20 +91,44 @@ module modtopo_stel
         write (6, 1001) trim(argument)
         call B%load(argument, output=SILENT)
 
+
      case('EXPAND')
         read  (argument, *, err=9000) dl
         write (6, 1002) dl
         ! negative sign for expanding surface with nodes in counter-clockwise direction
         call B%left_hand_shift(-dl)
 
+
      case('SORT')
         write (6, 1003)
         call B%sort_loop(Pmag)
+
+
+     case('FLUX_SURFACE')
+        tmp = read_vector(argument, 3)
+        write (6, 1004) tmp
+        ! set default number of points
+        if (N_points == 0) N_points = 1000
+        call P%generate(tmp, N_points, symmetry, 1, 3600/symmetry, Trace_Method, .false.)
+        call B%new(P%slice(0)%nrow-1)
+        B%x = P%slice(0)%x(:,1:2)
+
+
+     case('PLOT')
+        write (6, 1005) trim(argument)
+        call B%plot(filename=argument)
+
 
      case default
         write (6, *) 'error: invalid command ', trim(command), ' for guiding surface!'
         stop
      end select
+
+     ! DEBUGGING OUTPUT
+     if (Debug) then
+        write (filename, 8000) i
+        call B%plot(filename=filename)
+     endif
   enddo
   write (6, *)
   if (B%n_seg < 0) then
@@ -131,9 +159,12 @@ module modtopo_stel
 
   return
  1000 format(3x,'- Outer simulation boundary:')
- 1001 format(8x,'loading from file ',a)
+ 1001 format(8x,'loading from file "',a,'"')
  1002 format(8x,'expanding surface by dl=',f0.3)
  1003 format(8x,'sorting points with respect to geometric poloidal angle')
+ 1004 format(8x,'generating flux surace from reference point at (',f0.3,', ',f0.3,', ',f0.3,')')
+ 1005 format(8x,'writing boundary surface to file "',a,'"')
+ 8000 format('DEBUG_OUTER_BOUNDARY_STEP',i0,'.PLT')
  9000 write (6, 9001) trim(argument)
  9001 format('error: cannot obtain floating point value from argument ', a)
   stop
