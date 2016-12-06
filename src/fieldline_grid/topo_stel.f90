@@ -210,7 +210,7 @@ module modtopo_stel
      ! set up discretization
      call setup_inner_boundaries(G(iblock), iblock, 0, Zone(iz)%Sp)
      call sample_flux_surface(M, B, nr(0), np(0), Zone(iz)%Sp)
-     call interpolate_flux_surfaces(M, nr(0), np(0), 1, nr(0))
+     call interpolate_flux_surfaces(M, nr(0), np(0), 1, nr(0), Zone(iz)%Sr)
      call force_up_down_symmetry(M, nr(0), np(0))
 
 
@@ -247,9 +247,10 @@ module modtopo_stel
 
 
   !=====================================================================
-  subroutine interpolate_flux_surfaces(M, nr, np, ir1, ir2)
+  subroutine interpolate_flux_surfaces(M, nr, np, ir1, ir2, Sr)
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
   integer,                                 intent(in)    :: nr, np, ir1, ir2
+  type(t_spacing),                         intent(in)    :: Sr
 
   real(real64) :: x1(2), x2(2), s
   integer      :: i, j
@@ -259,7 +260,7 @@ module modtopo_stel
      x1 = M(ir1, j, :)
      x2 = M(ir2, j, :)
      do i=ir1+1,ir2-1
-        s = 1.d0 * (i-ir1) / (ir2-ir1)
+        s = Sr%node(i-ir1, ir2-ir1)
         M(i, j, :) = x1 + s * (x2-x1)
      enddo
   enddo
