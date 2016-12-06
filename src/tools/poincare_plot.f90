@@ -79,7 +79,7 @@ subroutine poincare_plot
      write (6, *) 'Generate Poincare plot, output in: ', adjustl(trim(Output_File))
      write (6, 1001) N_sym
      if (N_mult > 1) write (6, 1002) N_mult
-     write (6, 1003) Phi_output
+     write (6, 1003) Phi_output / pi * 180.d0
      write (6, 1004) COORDINATES(Trace_Coords)
      write (6, *)
   endif

@@ -5,8 +5,9 @@
 !    Grid_File          filename for grid to be generated
 !    Output_File        filename for deposition grid for EMC3-EIRENE
 !
-!    surf_id            select boundary surface on which the grid is generated
+!    Surface_Id         select boundary surface on which the grid is generated
 !                       NOT IMPLEMENTED YET (set to 1)
+!    Surface_Type       1: axisymmetric surface, 4: quadrilateral mesh
 !
 !    R_start, R_end     Reference markers on boundary surface
 !    N_psi
@@ -42,7 +43,7 @@
 subroutine footprint_grid
   use iso_fortran_env
   use run_control, only: Grid_File, Output_File, Output_Format, N_theta, N_phi, offset, &
-                         R_start, R_end, Phi_Output, N_sym, N_psi, Side
+                         R_start, R_end, Phi_Output, N_sym, N_psi, Side, Surface_Id, Surface_Type
   use parallel
   use separatrix
   use boundary
@@ -73,6 +74,15 @@ subroutine footprint_grid
   else
      return
   endif
+
+
+!  select case(surf_type)
+!  end select
+  if (Surface_Type == BNDRY_QUAD_ELE) then
+     call footprint_grid_Q4(Surface_Id)
+     return
+  endif
+
 
   surf_id = 1
   phi0    = Phi_output / pi * 180.d0
@@ -126,7 +136,6 @@ subroutine footprint_grid
 
 
   call footprint_grid_axi(surf_id, R_start, R_end, offset)
-  !call footprint_grid_Q(1)
   contains
 !=======================================================================
   subroutine footprint_grid_axi (iele, R_start, R_end, offset)
@@ -264,7 +273,7 @@ subroutine footprint_grid
  3004 format (2e18.10,2x,f8.3,e18.10)
   end subroutine footprint_grid_axi
 !=======================================================================
-  subroutine footprint_grid_Q (iele)
+  subroutine footprint_grid_Q4 (iele)
   use boundary
   use mesh_spacing
   use math
@@ -398,6 +407,6 @@ subroutine footprint_grid
 ! 2000 format ('# grid_id = 20      (local coordinates: Phi[deg], Theta[deg]')
 ! 2001 format ('# Toroidal angle     n_phi   =  ',i10)
 ! 2002 format ('# Poloidal angle     n_theta =  ',i10)
-  end subroutine footprint_grid_Q
+  end subroutine footprint_grid_Q4
 !=======================================================================
 end subroutine footprint_grid

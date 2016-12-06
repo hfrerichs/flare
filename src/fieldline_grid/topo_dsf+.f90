@@ -309,11 +309,11 @@ module modtopo_dsfp
 
 
      ! 2.c private flux region (PFR)
-     call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp, 1, nr(4)-1)
-     call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(3), npL(3), rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
-     call make_flux_surfaces_PFR(M_PFR1a, nr(6), npL(2), npR(2), rpath(6), Zone(iz0+6)%Sr, Zone(iz0+6)%Sp)
-     call make_flux_surfaces_PFR(M_PFR1b, nr(7), npL(2), npR(1), rpath(7), Zone(iz0+7)%Sr, Zone(iz0+7)%Sp)
-     call make_flux_surfaces_PFR(M_PFR1c, nr(8), npL(1), npR(2), rpath(8), Zone(iz0+8)%Sr, Zone(iz0+8)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1,  nr(4), npL(1), npR(1), 1, rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp, 1, nr(4)-1)
+     call make_flux_surfaces_PFR(M_PFR2,  nr(5), npR(3), npL(3), 3, rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1a, nr(6), npL(2), npR(2), 2, rpath(6), Zone(iz0+6)%Sr, Zone(iz0+6)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1b, nr(7), npL(2), npR(1), 1, rpath(7), Zone(iz0+7)%Sr, Zone(iz0+7)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1c, nr(8), npL(1), npR(2), 1, rpath(8), Zone(iz0+8)%Sr, Zone(iz0+8)%Sp)
 
      ! 3. interpolated surfaces
      select case(discretization_method)

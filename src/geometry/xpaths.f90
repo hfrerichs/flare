@@ -48,7 +48,7 @@ module xpaths
 
 !=======================================================================
 ! Generate path along grad-Psi from Px (X-point)
-! orientation = 1: ascent PsiN in left SOL direction
+! orientation = 1: ascent PsiN in left SOL direction (with respect to Xp(iPx) -> Magnetic axis)
 !             = 2: ascent PsiN in right SOL direction
 !             = 3: descent PsiN to core
 !             = 4: descent PsiN to PFR
@@ -64,7 +64,7 @@ module xpaths
   logical,      intent(in), optional :: debug
 
   type(t_ODE)  :: Path
-  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), dl
+  real(real64) :: Px(2), H(2,2), v1(2), v2(2), x0(2), dl, MAxis(3), o(2), n(2)
   logical      :: screen_output
 
 
@@ -79,10 +79,19 @@ module xpaths
   Px = Xp(iPx)%X
   H  = Xp(iPx)%H
   call H_eigenvectors(H, v1, v2) ! v1: ascending,right   v2: descending,upward
+
+  ! orientation X-points vs. magnetic axis
+  Maxis = get_magnetic_axis(0.d0)
+  o     = Maxis(1:2) - Px
+  ! n: normal to o (clockwise)
+  n(1)  =  o(2)
+  n(2)  = -o(1)
+  if (sum(v1*n) < 0.d0) v1 = -v1
+  if (sum(v2*o) < 0.d0) v2 = -v2
+
+
   ! offset from X-point for tracing
   dl    = Px(1) / 1.d3
-  ! position of X-point with respect to midplane
-  if (Px(2) > 0.d0) v2 = - v2
 
 
   ! 1. select orientation from saddle point (X-point)

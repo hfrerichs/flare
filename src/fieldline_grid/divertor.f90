@@ -5,6 +5,12 @@ module divertor
   use separatrix
   implicit none
 
+
+  character(len=*), parameter :: &
+     DEBUG_DIVERTOR_LEG        = 'DEBUG_DIVERTOR_LEG.PLT', &
+     DEBUG_DIVERTOR_LEG_BOUNDS = 'DEBUG_DIVERTOR_LEG_BOUNDS.PLT'
+
+
   integer, parameter :: iud     = 72
 
   integer, parameter :: NO_X    = -1
@@ -24,11 +30,24 @@ module divertor
 
 
   !=====================================================================
+  subroutine initialize_debug()
+
+
+  call system('rm -f '//DEBUG_DIVERTOR_LEG)
+  call system('rm -f '//DEBUG_DIVERTOR_LEG_BOUNDS)
+
+  end subroutine initialize_debug
+  !=====================================================================
+
+
+
+  !=====================================================================
   ! setup geometry of simulation domain
   ! based on nx X-points Xp(1:nx) from module equilibrium
   ! and how they connect to each other (connectX(ix) = number of X-point to which separatrix from X-point ix connects to)
   !=====================================================================
   subroutine setup_geometry(nx, connectX, orientationX)
+  use run_control, only: Debug
   use math
   use magnetic_axis
   use equilibrium, only: Xp, get_poloidal_angle
@@ -43,6 +62,10 @@ module divertor
   character(len=2) :: Sstr
   real(real64)     :: tmp(3), theta_cut
   integer          :: ix, ierr, orientation
+
+
+  ! 0. initialize debugging
+  if (Debug) call initialize_debug()
 
 
   ! 1.a set up guiding surface for divertor legs (C_guide) ---------------------
@@ -297,6 +320,7 @@ module divertor
   end subroutine divertor_leg_interface
   !=====================================================================
   subroutine divertor_leg_discretization(C, eta, np, D, ierr_out)
+  use run_control, only: Debug
   use mesh_spacing
   type(t_curve), intent(in)  :: C
   real(real64),  intent(in)  :: eta
@@ -325,6 +349,9 @@ module divertor
   !if (ierr .ne. 0) then
   !   return
   !endif
+  if (Debug) then
+     call C%plot(filename=DEBUG_DIVERTOR_LEG, append=.true.)
+  endif
 
   call Sguide%init_spline_X1(eta, xi0, ierr)
   if (ierr .ne. 0) then
@@ -336,6 +363,12 @@ module divertor
      call C%sample_at(xi, x)
      D(j,:) = x
   enddo
+  if (Debug) then
+     open  (99, file=DEBUG_DIVERTOR_LEG_BOUNDS, position='append')
+     write (99, *) D( 0,:), Sguide%node( 0,np)
+     write (99, *) D(np,:), Sguide%node(np,np)
+     close (99)
+  endif
 
   end subroutine divertor_leg_discretization
   !=====================================================================
@@ -637,7 +670,7 @@ module divertor
 
 
      ! right divertor leg
-     call divertor_leg_discretization(CR, 1.d0-etaR(1), npR, DR, ierr)
+     call divertor_leg_discretization(CR, 1.d0-etaR(abs(ix1)), npR, DR, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,0:npR,:) = DR
 
@@ -650,7 +683,7 @@ module divertor
      enddo
 
      ! left divertor leg
-     call divertor_leg_discretization(CL, etaL(1), npL, DL, ierr)
+     call divertor_leg_discretization(CL, etaL(abs(ix2)), npL, DL, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,npR+np0:npR+np0+npL,:) = DL
   enddo
@@ -682,7 +715,7 @@ module divertor
   type(t_spacing) :: Sp
   type(t_flux_surface_2D) :: FR, FL
   real(real64) :: x0(2), DL(0:npL, 2), DR(0:npR, 2)
-  integer      :: i, ierr, ip1, ip2
+  integer      :: i, ierr, ip1, ip2, ix1, ix2
   integer :: np
 
 
@@ -698,20 +731,35 @@ module divertor
   if (ipx == ip2) ip2 = ip2-1
   if (ip0 == ip2) ip2 = ip2-1
   call make_ortho_grid(M, nr, np, 0, ir1, ir2, ip0, ip1, ip2, ipx, ix, rpath, Sr, Sp)
+
+  ! set up X-point ids in order to select etaL and etaR
+  ix1 = 1
+  ix2 = 1
+  if (ipx < 0) then
+     if (ip0 == npR) then
+        ix2 = ix
+     elseif (ip0 == npR+np0) then
+        ix1 = ix
+     else
+        write (6, *) 'error: unexpected setup in make_flux_surfaces_SOLo!'
+        stop
+     endif
+  endif
+
   do i=ir1,ir2
      write (6, *) i
 
      ! right divertor leg
      x0 = M(i,npR,:)
      call FR%generate(x0, direction=LEFT_HANDED, AltSurf=C_cutR, sampling=ARCLENGTH, retrace=.true.)
-     call divertor_leg_discretization(FR%t_curve, 1.d0-etaR(1), npR, DR, ierr)
+     call divertor_leg_discretization(FR%t_curve, 1.d0-etaR(abs(ix1)), npR, DR, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,0:npR,:) = DR
 
      ! left divertor leg
      x0 = M(i,npR+np0,:)
      call FL%generate(x0, direction=RIGHT_HANDED, AltSurf=C_cutL, sampling=ARCLENGTH, retrace=.true.)
-     call divertor_leg_discretization(FL%t_curve, etaL(1), npL, DL, ierr)
+     call divertor_leg_discretization(FL%t_curve, etaL(abs(ix2)), npL, DL, ierr)
      if (ierr > 0) call divertor_leg_discretization_error()
      M(i,npR+np0:npR+np0+npL,:) = DL
   enddo
@@ -731,7 +779,7 @@ module divertor
   !=============================================================================
   ! private flux region
   !=============================================================================
-  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, rpath, Sr, Sp, ir1, ir2)
+  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ix, rpath, Sr, Sp, ir1, ir2)
   use run_control, only: Debug
   use xpaths
   use mesh_spacing
@@ -739,7 +787,7 @@ module divertor
   use fieldline_grid, only: etaR, etaL
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
-  integer, intent(in) :: nr, npL, npR
+  integer, intent(in) :: nr, npL, npR, ix
   type(t_xpath),   intent(in) :: rpath
   type(t_spacing), intent(in) :: Sr, Sp
   integer,         intent(in), optional :: ir1, ir2
@@ -750,8 +798,8 @@ module divertor
   integer      :: i, j, i1, i2
 
 
-  i1 = 0
-  i2 = nr-1
+  i1 = 1
+  i2 = nr
   if (present(ir1)) i1 = ir1
   if (present(ir2)) i2 = ir2
 
@@ -765,13 +813,13 @@ module divertor
 
      ! right divertor leg
      call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(1), npR, DR)
+     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(abs(ix)), npR, DR)
      M(i,0:npR,:) = DR
 
 
      ! left divertor leg
      call F%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, etaL(1), npL, DL)
+     call divertor_leg_discretization(F%t_curve, etaL(abs(ix)), npL, DL)
      M(i,npR:npR+npL,:) = DL
   enddo
 

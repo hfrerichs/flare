@@ -606,7 +606,7 @@ module fieldline_grid
   use system
 
   type(t_grid) :: G
-  real(real64) :: phi
+  real(real64) :: phi, delta
   integer :: iz, it, itz, ip, ip0, ir, ir0, ig, nr1, nr2, np1, np2
 
 
@@ -678,12 +678,13 @@ module fieldline_grid
 
 
      ! 4.2 set position of slices
+     delta = machine_precision*1000.d0
      do it=0,nt
         phi = Zone(iz)%phi(it)
-        if (abs(phi-G%x3(it)) > machine_precision*1.d3) then
+        if (abs(phi-G%x3(it)) > delta) then
            write (6, *) 'error: mismatching toroidal positions: ', phi, G%x3(it)
            write (6, *) 'at slice ', it, ' in zone ', iz
-           write (6, *) 'delta phi = ', abs(phi-G%x3(it)), ' > ', machine_precision*1.d3
+           write (6, *) 'delta phi = ', abs(phi-G%x3(it)), ' > ', delta
            stop
         endif
 
