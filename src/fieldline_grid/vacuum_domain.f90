@@ -15,23 +15,25 @@ subroutine vacuum_domain_for_EIRENE()
   do iz=0,NZONET-1
      ! set up vacuum domain in far SOL
      if (Zone(iz)%isfr(1) == SF_VACUUM) then
-        if (Zone(iz)%N0_method == 'v2') then
+        if (Zone(iz)%vacuum_domain(1:2) == 'v1') then
+           Zone(iz)%vacuum_domain = Zone(iz)%vacuum_domain(4:80)
+           call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
+        else
            irP = nr_EIRENE_vac
            irV = 0
            write (6, 1001) iz, nr_EIRENE_vac
            call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%vacuum_domain)
-        else
-        call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
         endif
      endif
      if (Zone(iz)%isfr(2) == SF_VACUUM) then
-        if (Zone(iz)%N0_method == 'v2') then
+        if (Zone(iz)%vacuum_domain(1:2) == 'v1') then
+           Zone(iz)%vacuum_domain = Zone(iz)%vacuum_domain(4:80)
+           call setup_vacuum_domain(iz, nr_EIRENE_vac, 2)
+        else
            irP = Zone(iz)%nr - nr_EIRENE_vac
            irV = Zone(iz)%nr
            write (6, 1002) iz, nr_EIRENE_vac
            call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%vacuum_domain)
-        else
-        call setup_vacuum_domain(iz, nr_EIRENE_vac, 2)
         endif
      endif
 
@@ -329,7 +331,7 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   integer      :: Method, ir0, idir, ir2
 
 
-  select case(Zone(iz)%N0_method)
+  select case(Zone(iz)%vacuum_domain)
   case('scale_boundary','')
      Method = SCALE_BOUNDARY
   case('cell_extend')
@@ -341,7 +343,7 @@ subroutine setup_vacuum_domain(iz, nr_vac, boundary)
   case('manual_3D')
      Method = MANUAL_3D
   case default
-     write (6, *) 'error: invalid method ', trim(Zone(iz)%N0_method), ' for N0 domain!'
+     write (6, *) 'error: invalid method ', trim(Zone(iz)%vacuum_domain), ' for N0 domain!'
      stop
   end select
 
