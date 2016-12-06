@@ -688,11 +688,21 @@ module curve2D
      !dxl  = tmp_arr(0,1:2) - x_0
      !x_0  = x_0 + t * dxl
      ! interpolate radius between x_0 and x_n
-     dxl(1) = sqrt(sum((tmp_arr(n,1:2) - xr)**2))
-     dxl(2) = sqrt(sum((tmp_arr(0,1:2) - xr)**2))
-     R      = dxl(1) + t * (dxl(2) - dxl(1))
-     x_0(1) = xr(1) + R * cos(theta_0)
-     x_0(2) = xr(2) + R * sin(theta_0)
+     !dxl(1) = sqrt(sum((tmp_arr(n,1:2) - xr)**2))
+     !dxl(2) = sqrt(sum((tmp_arr(0,1:2) - xr)**2))
+     !R      = dxl(1) + t * (dxl(2) - dxl(1))
+     !x_0(1) = xr(1) + R * cos(theta_0)
+     !x_0(2) = xr(2) + R * sin(theta_0)
+     ! intersect x_0 -> x_n with ray from xr in theta_0 direction
+     if (intersect_lines (tmp_arr(0,1:2), tmp_arr(n,1:2), xr, xr+dr, tmp(1), tmp(2), x_0)) then
+     else
+        write (6, *) 'error in sort_by_angle: cannot find point for closure!'
+        write (6, *) 'x(first)  = ', tmp_arr(0,1:2)
+        write (6, *) 'x(last)   = ', tmp_arr(n,1:2)
+        write (6, *) 'x(center) = ', xr
+        write (6, *) 'theta     = ', theta
+        stop
+     endif
 
      ! copy data to output variable L
      if (x_0(1).eq.tmp_arr(0,1) .and. x_0(2).eq.tmp_arr(0,2)) then
