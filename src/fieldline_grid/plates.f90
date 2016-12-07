@@ -459,6 +459,7 @@ module plates
 
 
   open  (iu, file=plates_file)
+  write (iu, 1000) plate_format
   do iz=0,NZONET-1
      do ir=0,ZON_RADI(iz)-1
      do ip=0,ZON_POLO(iz)-1
@@ -523,6 +524,7 @@ module plates
   close (iu)
 
   deallocate (ntcell, ntcell_bundle)
+ 1000 format('# FORMAT=',i0)
  1001 format(1x,i0,1x,i4,1x,i4,1x,i4,1x,i5,1x,i5)
  9001 format('error: invalid output format ',i0,' for plate cells!')
   end subroutine write_plates
