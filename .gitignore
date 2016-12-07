@@ -1,0 +1,8 @@
+*.mod
+*.o
+*~
+flare_bin*
+config.h
+configure.log
+include.mk
+

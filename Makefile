@@ -5,6 +5,9 @@ include include.mk
 all:
 	cd src; $(MAKE)
 
+.PHONY: debug
+debug:
+	cd src; $(MAKE) debug
 
 .PHONY: install
 install:
