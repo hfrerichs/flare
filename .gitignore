@@ -1,10 +1,11 @@
-bin/flare_bin*
+flare_bin*
 configure.log
 config.h
 include*
 *.o
 *.mod
 *.swp
+*~
 src/benchmark/mesh_spacing/benchmark_mesh_spacings
 src/benchmark/mesh_spacing/*.dat
 src/benchmark/mesh_spacing/*.plt
