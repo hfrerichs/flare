@@ -1337,6 +1337,9 @@ subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac)
   do i=0,np-1
      if (icheck(i) < 1) then
         write (6, *) 'error: node ', i, ' is not set up!'
+        call Bvac%plot(filename='ERROR_BOUNDARY_VACUUM.PLT')
+        call Dplas%plot(filename='ERROR_BOUNDARY_PLASMA.PLT')
+        call Cref%plot(filename='ERROR_BOUNDARY_INTERNAL.PLT')
         stop
      endif
   enddo
