@@ -64,6 +64,7 @@ module modtopo_stel
   subroutine setup_domain()
   use run_control, only: Debug, N_points, Trace_Method
   use equilibrium
+  use boundary
   use poincare_set
   use divertor, only: Pmag
   use string
@@ -71,12 +72,13 @@ module modtopo_stel
   character(len=len(guiding_surface)) :: command, argument
   character(len=256)                  :: filename
   type(t_poincare_set) :: P
-  real(real64)         :: x1(2), tmp(3), theta0, dl
-  integer              :: i, n, nsample
+  real(real64)         :: phi0, x1(2), tmp(3), theta0, dl
+  integer              :: i, iboundary, n, nsample
 
 
   ! 0. initialize magnetic axis
-  tmp    = get_magnetic_axis(0.d0); Pmag = tmp(1:2)
+  phi0   = Block(0)%phi_base / 180.d0 * pi
+  tmp    = get_magnetic_axis(phi0); Pmag = tmp(1:2)
   x1     = x_in2(1:2)
   theta0 = get_poloidal_angle(x_in2)
 
@@ -125,6 +127,12 @@ module modtopo_stel
         call B%plot(filename=argument)
 
 
+     case('BOUNDARY')
+        read  (argument, *, err=9010) iboundary
+        B = boundary_slice(iboundary, phi0)
+        write (6, 1007)
+
+
      case default
         write (6, *) 'error: invalid command ', trim(command), ' for guiding surface!'
         stop
@@ -171,6 +179,7 @@ module modtopo_stel
  1004 format(8x,'generating flux surace from reference point at (',f0.3,', ',f0.3,', ',f0.3,')')
  1005 format(8x,'writing boundary surface to file "',a,'"')
  1006 format(8x,'resampling surface with ',i0,' points')
+ 1007 format(8x,'loading shape from boundary ',i0)
  8000 format('DEBUG_OUTER_BOUNDARY_STEP',i0,'.PLT')
  9000 write (6, 9001) trim(argument);  stop
  9001 format('error: cannot obtain floating point value from argument ', a)
