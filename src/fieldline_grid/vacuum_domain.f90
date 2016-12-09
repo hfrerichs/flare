@@ -60,6 +60,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   use iso_fortran_env
   use fieldline_grid
   use emc3_grid
+  use boundary
   use string
   use curve2D
   use quad_ele
@@ -110,8 +111,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   case('BOUNDARY')
      read  (filter_parameter(1), *)  ib
      write (6, 2000) ib
-     write (6, *) 'NOT IMPLEMENTED YET!'
-     stop
+     Bvac(it) = boundary_slice(ib, phi)
 
 
   ! 2.1 initialize from user defined 2D outline
