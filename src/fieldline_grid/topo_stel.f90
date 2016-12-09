@@ -72,7 +72,7 @@ module modtopo_stel
   character(len=256)                  :: filename
   type(t_poincare_set) :: P
   real(real64)         :: x1(2), tmp(3), theta0, dl
-  integer              :: i, n
+  integer              :: i, n, nsample
 
 
   ! 0. initialize magnetic axis
@@ -112,6 +112,12 @@ module modtopo_stel
         call P%generate(tmp, N_points, symmetry, 1, 3600/symmetry, Trace_Method, .false.)
         call B%new(P%slice(0)%nrow-1)
         B%x = P%slice(0)%x(:,1:2)
+
+
+     case('RESAMPLE')
+        read  (argument, *, err=9010) nsample
+        write (6, 1006) nsample
+        call B%resample(nsample)
 
 
      case('PLOT')
@@ -164,10 +170,12 @@ module modtopo_stel
  1003 format(8x,'sorting points with respect to geometric poloidal angle')
  1004 format(8x,'generating flux surace from reference point at (',f0.3,', ',f0.3,', ',f0.3,')')
  1005 format(8x,'writing boundary surface to file "',a,'"')
+ 1006 format(8x,'resampling surface with ',i0,' points')
  8000 format('DEBUG_OUTER_BOUNDARY_STEP',i0,'.PLT')
- 9000 write (6, 9001) trim(argument)
+ 9000 write (6, 9001) trim(argument);  stop
  9001 format('error: cannot obtain floating point value from argument ', a)
-  stop
+ 9010 write (6, 9011) trim(argument);  stop
+ 9011 format('error: cannot obtain integer value from argument ', a)
   end subroutine setup_domain
   !=====================================================================
 
