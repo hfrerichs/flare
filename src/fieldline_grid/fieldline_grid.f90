@@ -77,7 +77,7 @@ module fieldline_grid
 !.......................................................................
 ! user defined variables
 !.......................................................................
-  character(len=80) :: &
+  character(len=256) :: &
      topology                         = TOPO_SC, &
      Innermost_Flux_Surface           = SF_EXACT, &
      discretization_method            = POLOIDAL_ANGLE, &
