@@ -138,9 +138,15 @@ end subroutine trace_nodes
               Dphi = abs(Zone(iz)%phi(it) - Zone(iz)%phi(it-idir)) / 180.d0 * pi
               call F%trace_Dphi(Dphi, .false., y1, ierr)
               if (ierr .ne. 0) then
+              select case(ierr)
+              case(2)
+                 write (6, *) 'error: field line at boundary of magnetic field domain!'
+                 stop
+              case default
                  write (6, *) 'error in subroutine trace_grid: ', &
                               'trace_Dphi returned error ', ierr
                  stop
+              end select
               endif
 
               G%mesh3D(ir,ip,it,1:2) = y1(1:2)

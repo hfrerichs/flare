@@ -32,6 +32,10 @@ module numerics
      Spline_Order   = 5
 
 
+  logical :: &
+     OUT_OF_BOUNDS  = .false.
+
+
   contains
   !---------------------------------------------------------------------
 

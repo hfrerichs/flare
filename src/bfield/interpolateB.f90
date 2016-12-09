@@ -166,6 +166,7 @@ module interpolateB
 !=======================================================================
   function interpolateB_get_Bf(r3) result(Bf)
   use math
+  use numerics
   real(real64), intent(in)  :: r3(3)
   real(real64)              :: Bf(3)
 
@@ -187,7 +188,10 @@ module interpolateB
 
   Bf  = 0.d0
   OUTSIDE=R<RBOX(1) .OR. R>RBOX(3) .OR. Z<ZBOX(1) .OR. Z>ZBOX(3)
-  IF(OUTSIDE) RETURN
+  IF(OUTSIDE) THEN
+     OUT_OF_BOUNDS = .true.
+     RETURN
+  ENDIF
 
   K   = PHI/FIPER
   F   = PHI -K*FIPER

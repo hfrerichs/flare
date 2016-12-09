@@ -206,8 +206,10 @@ module fieldline
 ! phi_int will be reset after a call to this subroutine
 !
 ! ierr = 1 if stop_at_boundary == .true. and field line intersects boundary
+!        2 if OUT_OF_BOUNDS
 !=======================================================================
   subroutine trace_Dphi(this, Dphi, stop_at_boundary, yout, ierr)
+  use numerics
   class (t_fieldline)       :: this
   real(real64), intent(in)  :: Dphi
   logical,      intent(in)  :: stop_at_boundary
@@ -227,6 +229,11 @@ module fieldline
      ! check intersection with boundary
      if (stop_at_boundary  .and.  this%intersect_boundary(yout)) then
         ierr = 1
+        return
+     endif
+
+     if (OUT_OF_BOUNDS) then
+        ierr = 2
         return
      endif
 
