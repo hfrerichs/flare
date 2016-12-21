@@ -54,6 +54,13 @@ module bfield
      call load_reconstruct_config (iu, iconfig(BF_RECONSTRUCT ))
      call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
      call load_equilibrium_config (iu, iconfig(BF_EQ2D        ))
+     call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
+     call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
+     call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
+     call         HINT_load       (iu, iconfig(BF_HINT        ))
+     close (iu)
+
+
      ! supplemental equilibrium information
      ! direction of toroidal magnetic field and plasma current
      ! if Bt_sign (and Ip_sign) is not set by equilibrium
@@ -76,13 +83,6 @@ module bfield
         if (Bf(2) < 0.d0) Ip_sign = -1
         write (6, 1002) Ip_sign
      endif
-
-
-     call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
-     call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
-     call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
-     call         HINT_load       (iu, iconfig(BF_HINT        ))
-     close (iu)
   endif
 
 
