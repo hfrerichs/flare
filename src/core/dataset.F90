@@ -252,6 +252,7 @@ module dataset
   integer :: n, n0, m
 
 
+#ifdef FLARE
   m  = this%ncol
   if (icol < 1  .or.  icol > m) then
      write (6, *) 'error in t_dataset%sort_rows: invalid column number ', icol, '!'
@@ -260,6 +261,10 @@ module dataset
   n  = this%nrow
   n0 = this%nrow_offset
   call quicksort(this%x, n, m, 1, n, icol)
+#else
+  write (6, *) 'error: support for sorting datasets is not included!'
+  stop
+#endif
 
   end subroutine sort_rows
 !=======================================================================
