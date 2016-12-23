@@ -19,6 +19,7 @@ module slicer
      contains
      procedure :: new
      procedure :: add_node
+     procedure :: insert_node
      procedure :: current_node
      procedure :: current_type
      procedure :: write
@@ -42,6 +43,7 @@ module slicer
   if (n <= 0) return
   !allocate (this%x(0:n-1,2), this%itype(0:n-1))
   allocate (this%x(0:n-1,2))
+  this%x = 1.2345d-6
 
   end subroutine new
   !---------------------------------------------------------------------
@@ -69,6 +71,93 @@ module slicer
   this%i = i + 1
 
   end subroutine add_node
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
+  subroutine insert_node(this, x)
+  class(t_polygon)         :: this
+  real(real64), intent(in) :: x(2)
+
+  real(real64) :: x1(2), x2(2), p1(2), p2(2)
+  integer :: i, i2, j, j2, n
+  logical :: XX1, XX2
+
+
+  ! last existing node
+  n = this%i - 1
+
+
+  ! scan through all possible new triangles (x1,x,x2)
+  scan_loop: do i=0,n
+     i2 = mod(i+1,n+1)
+     x1 = this%x(i ,:)
+     x2 = this%x(i2,:)
+
+     ! check if v1 (x->x1) or v2 (x->x2) intersect any segments
+     do j=0,n
+        j2 = mod(j+1,n+1)
+        p1 = this%x(j ,:)
+        p2 = this%x(j2,:)
+
+        !write (6, *) 'x  = ', x
+        !write (6, *) 'x1 = ', x1
+        !write (6, *) 'x2 = ', x2
+        !write (6, *) 'p1 = ', p1
+        !write (6, *) 'p2 = ', p2
+        XX1 = .false.;  XX2 = .false.
+        if (i  .ne. j  .and.  i  .ne. j2) XX1 = intersect(x, x1, p1, p2)
+        if (i2 .ne. j  .and.  i2 .ne. j2) XX2 = intersect(x, x2, p1, p2)
+        !write (6, *) i, j, XX1, XX2
+        if (XX1 .or. XX2) cycle scan_loop
+     enddo
+
+     ! here is a good position to insert this point
+!     write (6, *) 'position = ', i+1
+!     do j=0,n
+!        write (6, *) j, this%x(j,:)
+!     enddo
+
+
+     ! move all following points
+     call this%add_node(x)
+     do j=n,i+1,-1
+        this%x(j+1,:) = this%x(j,:)
+     enddo
+     this%x(i+1,:) = x
+     return
+  enddo scan_loop
+
+  write (6, *) 'error: cannot insert point to polygon!'
+  write (6, *) 'x = ', x
+  do j=0,n
+     write (6, *) j, this%x(j,:)
+  enddo
+  stop
+  contains
+  !.....................................................................
+  function intersect(x1, x2, p1, p2)
+  real(real64), intent(in) :: x1(2), x2(2), p1(2), p2(2)
+  logical                  :: intersect
+
+  real(real64) :: det, dp(2), dx(2), b(2), xi(2)
+
+
+  intersect = .false.
+  dp = p2 - p1;  dx = x1 - x2
+  det = dp(1)*dx(2) - dp(2)*dx(1)
+  if (det == 0.d0) return
+
+  b = x1 - p1
+  xi(1) = 1.d0/det * ( dx(2)*b(1) - dx(1)*b(2))
+  xi(2) = 1.d0/det * (-dp(2)*b(1) + dp(1)*b(2))
+  !write (6, *) 'xi = ', xi
+  if (xi(1) > 0.d0  .and.  xi(1) < 1.d0  .and.  xi(2) > 0.d0  .and.  xi(2) < 1.d0) intersect = .true.
+
+  end function intersect
+  !.....................................................................
+  end subroutine insert_node
   !---------------------------------------------------------------------
 
 
@@ -127,8 +216,10 @@ module slicer
   integer :: i
 
 
-  if (this%i+1 .ne. this%n) then
+  if (this%i .ne. this%n) then
      write (6, *) 'error: polygon has not been set up properly yet!'
+     write (6, *) 'i = ', this%i
+     write (6, *) 'n = ', this%n
      stop
   endif
 
@@ -311,6 +402,15 @@ module slicer
   endif
 
 
+  ! DIAGNOSTIC OUTPUT
+  do i=-1,1;  do j=-1,1;  do k=-1,1
+     if (Ncube(i,j,k) == 1) then
+        x(1) = xcube(i,j,k,3);  x(2) = xcube(i,j,k,1)
+        write (98, *) x
+     endif
+  enddo;  enddo;  enddo
+
+
   ! exactly 3 intersections with Z0-plane
   if (m == 3) then
   do i=-1,1;  do j=-1,1;  do k=-1,1
@@ -327,6 +427,47 @@ module slicer
   ! done
   return
   endif
+
+
+  ! more than 3 intersections with Z0-plane
+  mm = 0
+  ! first triangle
+  loop3: do i=-1,1;  do j=-1,1;  do k=-1,1
+  if ((is_node(i,j,k)  .or.  is_edge(i,j,k))  .and.  Ncube(i,j,k) == 1) then
+     Ncube(i,j,k) = Ncube(i,j,k) + 1
+     x(1) = xcube(i,j,k,3);  x(2) = xcube(i,j,k,1)
+     call P%add_node(x)
+     mm   = mm + 1
+     if (mm == 3) exit loop3
+  endif
+  enddo;  enddo;  enddo loop3
+
+  ! add mode triangles
+  loopm: do i=-1,1;  do j=-1,1;  do k=-1,1
+  if ((is_node(i,j,k)  .or.  is_edge(i,j,k))  .and.  Ncube(i,j,k) == 1) then
+     x(1) = xcube(i,j,k,3);  x(2) = xcube(i,j,k,1)
+     call P%insert_node(x)
+     !call P%add_node(x)
+     ! find segment where this point needs to be inserted
+
+
+     !Ncube(i,j,k) = Ncube(i,j,k) + 1
+     !x(1) = xcube(i,j,k,3);  x(2) = xcube(i,j,k,1)
+     !call P%add_node(x)
+     !mm   = mm + 1
+     !if (mm == 3) exit loopm
+  endif
+  enddo;  enddo;  enddo loopm
+
+
+
+  return
+
+
+
+
+
+
 
 
 
@@ -707,8 +848,14 @@ program slice_grid
   do it=0,ZON_TORO(iz)-1
   do ip=0,ZON_POLO(iz)-1
   do ir=0,ZON_RADI(iz)-1
+  !do ir=4,4
+     !write (6, *)
+     !write (6, *)
+     !write (6, *)
+     !write (6, *) ir, ip, it, iz
      call Zslice_cell(ir, ip, it, iz, Z, P)
-     !call P%write(99)
+
+     if (P%n > 2) call P%write(99)
   enddo
   enddo
   enddo
