@@ -15,9 +15,10 @@ module bfield
      BF_M3DC1        = 3, &
      BF_INTERPOLATEB = 4, &
      BF_SPLINEB      = 5, &
-     BF_HINT         = 6
+     BF_HINT         = 6, &
+     BF_TOR_HARMONICS= 7
 
-  integer, parameter :: BF_MAX_CONFIG = 6
+  integer, parameter :: BF_MAX_CONFIG = 7
 
 
   integer :: iconfig(0:BF_MAX_CONFIG), icall(2)
@@ -39,6 +40,7 @@ module bfield
   use interpolateB
   use splineB
   use HINT
+  use toroidal_harmonics
 
   integer, parameter :: iu = 24
 
@@ -58,6 +60,7 @@ module bfield
      call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
      call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
      call         HINT_load       (iu, iconfig(BF_HINT        ))
+     call tor_harmonics_load      (iu, iconfig(BF_TOR_HARMONICS))
      close (iu)
 
 
@@ -96,6 +99,7 @@ module bfield
   if (iconfig(BF_INTERPOLATEB) == 1) call interpolateB_broadcast()
   if (iconfig(BF_SPLINEB     ) == 1) call      splineB_broadcast()
   if (iconfig(BF_HINT        ) == 1) call         HINT_broadcast()
+  if (iconfig(BF_TOR_HARMONICS) == 1) call tor_harmonics_broadcast()
 
 
 
@@ -117,6 +121,7 @@ module bfield
   use interpolateB
   use splineB
   use HINT
+  use toroidal_harmonics
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -129,6 +134,7 @@ module bfield
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
+  if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
   icall(1) = icall(1) + 1
 
 
@@ -141,6 +147,7 @@ module bfield
   use interpolateB
   use splineB
   use HINT
+  use toroidal_harmonics
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -152,6 +159,7 @@ module bfield
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
+  if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
   icall(1) = icall(1) + 1
 
 
@@ -168,6 +176,7 @@ module bfield
   use equilibrium
   use splineB
   use interpolateB
+  use toroidal_harmonics
   real(real64), intent(in) :: r(3)
   real(real64)             :: J(3,3)
 
@@ -177,6 +186,7 @@ module bfield
   if (iconfig(BF_EQ2D   )       == 1) J = J + get_JBf_eq2D(r)
   if (iconfig(BF_SPLINEB)       == 1) J = J + splineB_get_JBf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) J = J + interpolateB_get_JBf(r) / 100.d0
+  if (iconfig(BF_TOR_HARMONICS) == 1) J = J + tor_harmonics_get_JBf(r)
 
   end function get_JBf_Cyl
 !========================================================================
@@ -214,6 +224,7 @@ module bfield
   use interpolateB
   use splineB
   use HINT
+  use toroidal_harmonics
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 
@@ -237,6 +248,7 @@ module bfield
   if (iconfig(BF_INTERPOLATEB)  == 1) Bcyl = Bcyl + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bcyl = Bcyl +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bcyl = Bcyl +         HINT_get_Bf(r)
+  if (iconfig(BF_TOR_HARMONICS) == 1) Bcyl = Bcyl + tor_harmonics_get_Bf(r)
 
 
   ! combine Cartesian and cylindrical components
