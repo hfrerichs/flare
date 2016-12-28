@@ -6,12 +6,12 @@ module toroidal_harmonics
 
   type, public :: t_harmonic
      ! toroidal mode number
-     integer :: n
+     integer :: mode_number
 
      ! resolution in R and Z direction
      integer :: nr, nz
 
-     real(real64) :: R_range(0:1), Z_range(0:1)
+     real(real64) :: R_range(0:1), Z_range(0:1), scale_factor
      type(t_bspline2D) :: Bn(3,2)
 
      contains
@@ -36,10 +36,11 @@ module toroidal_harmonics
 
 
 !===============================================================================
-  subroutine load(this, filename, mode_number)
+  subroutine load(this, filename, mode_number, scale_factor)
   class(t_harmonic)            :: this
   character(len=*), intent(in) :: filename
   integer,          intent(in) :: mode_number
+  real(real64),     intent(in) :: scale_factor
 
   integer, parameter :: iu = 99
 
@@ -65,7 +66,8 @@ module toroidal_harmonics
   read  (iu, 1000) str
   read  (iu, 1000) str
  1000 format(a80)
-  this%n = mode_number
+  this%mode_number  = mode_number
+  this%scale_factor = scale_factor
 
 
   ! 2. read data
@@ -176,7 +178,7 @@ module toroidal_harmonics
 
 
   x2   = x(1:2)
-  nphi = this%n * x(3)
+  nphi = this%mode_number * x(3)
   cosnphi = cos(nphi)
   sinnphi = sin(nphi)
 
@@ -190,6 +192,7 @@ module toroidal_harmonics
   Bf(1) = B_Rc * cosnphi  +  B_Rs * sinnphi
   Bf(2) = B_Zc * cosnphi  +  B_Zs * sinnphi
   Bf(3) = B_Pc * cosnphi  +  B_Ps * sinnphi
+  Bf    = Bf * this%scale_factor
 
   end function get_Bf
 !===============================================================================
@@ -224,11 +227,12 @@ module toroidal_harmonics
   integer :: i, j
 
 
-  call broadcast_inte_s(this%n)
+  call broadcast_inte_s(this%mode_number)
   call broadcast_inte_s(this%nr)
   call broadcast_inte_s(this%nz)
   call broadcast_real  (this%R_range, 2)
   call broadcast_real  (this%Z_range, 2)
+  call broadcast_real_s(this%scale_factor)
   do i=1,3;  do j=1,2
      call this%Bn(i,j)%broadcast()
   enddo;  enddo
@@ -247,13 +251,14 @@ module toroidal_harmonics
   integer, parameter :: MAX_HARMONICS = 128
 
   character(len=256) :: filename(MAX_HARMONICS)
+  real(real64)       :: scale_factor(MAX_HARMONICS) = 1.d0
   integer            :: mode_number(MAX_HARMONICS)
 
   integer :: i
 
 
   namelist /Toroidal_Harmonics_Input/ &
-     n_harmonics, mode_number, filename
+     n_harmonics, mode_number, filename, scale_factor
 
 
   rewind (iu)
@@ -275,7 +280,7 @@ module toroidal_harmonics
      write (6, 2000) mode_number(i), trim(filename(i))
 
      filename(i) = trim(Prefix)//filename(i)
-     call H(i)%load(filename(i), mode_number(i))
+     call H(i)%load(filename(i), mode_number(i), scale_factor(i))
   enddo
 
   return
