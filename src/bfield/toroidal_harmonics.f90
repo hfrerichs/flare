@@ -50,7 +50,7 @@ module toroidal_harmonics
   real(real64), dimension(:,:), allocatable :: R, Z
 
   real(real64), dimension(:),   allocatable :: R1D, Z1D
-  real(real64) :: A, A2, Atmp, dA, dR, dZ, v1(2), v2(2), b, b2, dB, btmp
+  real(real64) :: Rtmp(0:2), Ztmp(0:2)
   integer :: i, j, l, n, nr, nz
 
 
@@ -71,6 +71,8 @@ module toroidal_harmonics
 
 
   ! 2. read data
+  ! R,Z: grid nodes [m]
+  ! B_*: field components [T]
   allocate (R(nr,nz), Z(nr,nz))
   allocate (B_Rc(nr,nz), B_Rs(nr,nz))
   allocate (B_Zc(nr,nz), B_Zs(nr,nz))
@@ -84,56 +86,38 @@ module toroidal_harmonics
   close (iu)
 
 
-  ! 3. setup bspline
-  A  = 0.d0
-  A2 = 0.d0
-  n  = 0
-  do i=1,nr-1
-  do j=1,nz-1
-     dR = 0.5d0*(R(i+1,j)-R(i,j) + R(i+1,j+1)-R(i,j+1))
-     dZ = 0.5d0*(Z(i,j+1)-Z(i,j) + Z(i+1,j+1)-Z(i+1,j))
-     dA = dR * dZ
-
-     n    = n  + 1
-     Atmp = A
-     A    = A  + (dA - A) / n
-     A2   = A2 + (dA - Atmp) * (dA - A)
+  ! 3. check orthogonality of mesh
+  ! 3.1 R-nodes
+  do i=1,nr
+     Rtmp = 0.d0
+     do j=1,nz
+        Rtmp(0) = Rtmp(1)
+        Rtmp(1) = Rtmp(1) + (R(i,j) - Rtmp(1)) / j
+        Rtmp(2) = Rtmp(2) + (R(i,j) - Rtmp(0)) * (R(i,j) - Rtmp(1))
+     enddo
+     if (abs(sqrt(Rtmp(2)) / Rtmp(1)) > 1.d-8) then
+        write (6, 9000)
+        write (6, 9001) Rtmp
+        stop
+     endif
   enddo
+  ! 3.2 Z-nodes
+  do j=1,nz
+     Ztmp = 0.d0
+     do i=1,nr
+        Ztmp(0) = Ztmp(1)
+        Ztmp(1) = Ztmp(1) + (Z(i,j) - Ztmp(1)) / i
+        Ztmp(2) = Ztmp(2) + (Z(i,j) - Ztmp(0)) * (Z(i,j) - Ztmp(1))
+     enddo
+     if (abs(sqrt(Ztmp(2)) / Ztmp(1)) > 1.d-8) then
+        write (6, 9000)
+        write (6, 9002) Ztmp
+        stop
+     endif
   enddo
-  A2 = A2 / n
-  write (6, *) "A = ", A, " +/- ", sqrt(A2)
-
-  ! check orthogonality
-  A  = 0.d0
-  A2 = 0.d0
-  b  = 0.d0
-  b2 = 0.d0
-  n  = 0
-  do i=1,nr-1
-  do j=1,nz-1
-     v1(1) = 0.5d0 * (R(i+1,j)+R(i+1,j+1)-R(i,j)-R(i,j+1))
-     v1(2) = 0.5d0 * (Z(i+1,j)+Z(i+1,j+1)-Z(i,j)-Z(i,j+1))
-     v2(1) = 0.5d0 * (R(i,j+1)+R(i+1,j+1)-R(i,j)-R(i+1,j))
-     v2(2) = 0.5d0 * (Z(i,j+1)+Z(i+1,j+1)-Z(i,j)-Z(i+1,j))
-
-     n     = n + 1
-     dA    = abs(v1(1)*v2(2) - v1(2)*v2(1))
-     Atmp  = A
-     A     = A  + (dA - A) / n
-     A2    = A2 + (dA - Atmp) * (dA - A)
-
-     dB    = sum(v1*v2)
-     btmp  = b
-     b     = b + (dB-B) / n
-     b2    = b2 + (db - btmp) * (db - b)
-  enddo
-  enddo
-  A2 = A2 / n
-  b2 = b2 / n
-  write (6, *) 'A_check = ', A, ' +/- ', sqrt(A2)
-  write (6, *) 'b_check = ', b, ' +/- ', sqrt(b2)
 
 
+  ! 4. setup bspline
   allocate (R1D(nr), Z1D(nz))
   do i=1,nr
      R1D(i) = R(i,1)
@@ -162,6 +146,9 @@ module toroidal_harmonics
   deallocate (R1D, Z1D)
   deallocate (R, Z, B_Rc, B_Rs, B_Zc, B_Zs, B_Pc, B_Ps)
 
+ 9000 format('error: non-orthogonal mesh is not supported yet!')
+ 9001 format('R(',i0,') = ',e18.9,' +/- ',e18.9)
+ 9002 format('Z(',i0,') = ',e18.9,' +/- ',e18.9)
   end subroutine load
 !===============================================================================
 
