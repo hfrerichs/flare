@@ -11,12 +11,17 @@ module interpolateB
 
   integer, parameter :: n_max = 32
 
+  character(len=*), parameter :: &
+     ASCII  = 'ascii', &
+     BINARY = 'binary'
+
+
   integer            :: n_sets = 0
-  character(len=120) :: filename(n_max), fileformat(n_max) = 'ascii'
+  character(len=120) :: filename(n_max), fileformat(n_max) = ASCII
   real(real64)       :: amplitude(n_max) = 1.d0, amplitude0 = 1.d0
 
   namelist /InterpolateB_Input/ &
-     n_sets, filename, amplitude, amplitude0
+     n_sets, filename, fileformat, amplitude, amplitude0
 
 
   ! internal variables
@@ -52,10 +57,12 @@ module interpolateB
 
   integer, parameter   :: iu1 = 70
 
-  real(real64), dimension(:,:), allocatable :: rtmp
+  real(real64), dimension(:,:), allocatable :: r8tmp
+  real(real32), dimension(:,:), allocatable :: r4tmp
   character(len=120) :: Data_File
   character(len=72)  :: title, dummy
-  integer :: i, io, j, ntmp(4), m
+  real(real64)       :: r1tmp
+  integer :: i, io, j, itmp, ntmp(4), nhellu, m
 
 
   ! read user configuration
@@ -70,9 +77,9 @@ module interpolateB
   do i=1,n_sets
      Data_File = trim(Prefix)//filename(i)
      select case(fileformat(i))
-     case('ascii')
+     case(ASCII)
         open  (iu1, file=Data_File, iostat=io)
-     case('binary')
+     case(BINARY)
         open  (iu1, file=Data_File, iostat=io, form='unformatted')
      case default
         write (6, *) 'error: undefined file format ', trim(fileformat(i))
@@ -84,20 +91,47 @@ module interpolateB
      endif
 
      ! read header
+     select case(fileformat(i))
+     case(ASCII)
      read  (iu1, '(a)') title
-     write (6, 1002) adjustl(title)
      read  (iu1, *) DELTA_PHI, DELTA_R, DELTA_Z, RBOX(1), RBOX(3), RBOX(2), ZBOX(1), ZBOX(3), &
                  NF, NR, NS, NZ, ntmp
+     case(BINARY)
+     read  (iu1) title, DELTA_PHI, DELTA_R, DELTA_Z, RBOX(1), RBOX(3), RBOX(2), ZBOX(1), ZBOX(3), &
+                 NF, NR, NS, NZ, ntmp
+     end select
+     write (6, 1002) adjustl(title)
      ZBOX(2) = 0.5d0 * (ZBOX(1) + ZBOX(3))
 
-     do j=1,4
-        if (ntmp(j).gt.0) read (iu1, *) dummy
+
+     ! additional components (unsupported) .............................
+     nhellu = ntmp(1)
+     if (nhellu .ne. 0) then
+        select case(fileformat(i))
+        case(ASCII)
+           read  (iu1, *) dummy
+        case(BINARY)
+           read  (iu1) (r1tmp, j=1,nhellu), (r1tmp, j=1,10), (itmp, j=1,nhellu+3)
+        end select
+     endif
+
+     do j=2,4
+     if (ntmp(j) .gt. 0) then
+        select case(fileformat(i))
+        case(ASCII)
+           read  (iu1, *) dummy
+        case(BINARY)
+           write (6, *) 'error: unsupported input at j = ', j
+           stop
+        end select
+     endif
      enddo
+     !..................................................................
 
      if (i == 1) then
         m     = NF * NR * NZ
         FIPER = pi2 / NS
-        allocate (BA(8, 0:m-1), rtmp(8, 0:m-1))
+        allocate (BA(8, 0:m-1), r8tmp(8, 0:m-1), r4tmp(8, 0:m-1))
         BA = 0.d0
         !write (6, 1003) RBOX(1), RBOX(3)
         !write (6, 1004) ZBOX(1), ZBOX(3)
@@ -109,14 +143,20 @@ module interpolateB
         endif
      endif
 
-     read  (iu1, *) rtmp
-     BA = BA + amplitude(i)*rtmp
+     select case(fileformat(i))
+     case(ASCII)
+        read  (iu1, *) r8tmp
+        BA = BA + amplitude(i)*r8tmp
+     case(BINARY)
+        read  (iu1) r4tmp
+        BA = BA + amplitude(i)*r4tmp
+     end select
      close (iu1)
   enddo
   BA = BA * amplitude0
 
 
-  deallocate (rtmp)
+  deallocate (r8tmp, r4tmp)
   return
  1000 iconfig = 0
  1001 format (3x,'- Pre-calculated field for interpolation:')
