@@ -10,15 +10,16 @@ module splineB
 
   integer, parameter :: n_max = 32
 
-  integer, parameter :: &
-     BFIELD = 1, &
-     VECTOR_POTENTIAL = 2
+  character(len=*), parameter :: &
+     BFIELD    = 'BFIELD', &
+     POTENTIAL = 'POTENTIAL'
 
 
-  integer            :: n_sets = 0, spline_order = 5, data_type = VECTOR_POTENTIAL
+  integer            :: n_sets = 0, spline_order = 5
   character(len=120) :: &
      grid_layout     = 'layout.dat', &
      basename(n_max) = '', &
+     data_type       = POTENTIAL, &
      R_suffix        = '_r.dat', &
      Z_suffix        = '_z.dat', &
      Phi_suffix      = '_phi.dat'
@@ -73,7 +74,7 @@ module splineB
   write (6, *)
   write (6, 1001)
   select case(data_type)
-  case(VECTOR_POTENTIAL)
+  case(POTENTIAL)
      write (6, 1002)
   case(BFIELD)
      write (6, 1003)
@@ -235,7 +236,7 @@ module splineB
   call broadcast_inte_s (nphi)
   call broadcast_inte_s (nsym)
   call broadcast_inte_s (nord)
-  call broadcast_inte_s (data_type)
+  call broadcast_char   (data_type, 120)
 
   if (mype == 0) then
      allocate (Rnot(nr+nord), Znot(nz+nord), Phinot(nphi+nord))
@@ -272,7 +273,7 @@ module splineB
 
 
   ! vector potential given on grid nodes
-  if (data_type == VECTOR_POTENTIAL) then
+  if (data_type == POTENTIAL) then
   dAr_dz = dbs3dr(0,1,0,rr,zz,phi,nord,nord,nord,Rnot,Znot,Phinot,nr,nz,nphi,Arcoeff)
   dAr_dp = dbs3dr(0,0,1,rr,zz,phi,nord,nord,nord,Rnot,Znot,Phinot,nr,nz,nphi,Arcoeff)
   dAz_dr = dbs3dr(1,0,0,rr,zz,phi,nord,nord,nord,Rnot,Znot,Phinot,nr,nz,nphi,Azcoeff)
@@ -318,7 +319,7 @@ module splineB
   zz  = r3(2) / 100.d0
   phi = phi_sym(r3(3),nsym)
 
-  if (data_type == VECTOR_POTENTIAL) then
+  if (data_type == POTENTIAL) then
      write (6, *) 'warning: JBf not yet implemented for vector potential!'
      J = 0.d0
 
