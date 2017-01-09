@@ -25,7 +25,7 @@ module inner_boundary
   integer,      intent(in), optional :: sample_method
 
   character(len=72) :: filename
-  real(real64)     :: d(2), phi, r3(3), Pmag(2), delta, PsiN_x
+  real(real64)     :: phi, r3(3), Pmag(2), delta, PsiN_x
   integer          :: i, iblock, n, sort_method, apply_sample_method
 
 
@@ -33,12 +33,8 @@ module inner_boundary
   write (6, 1001)
 
   ! set reference direction
-  d(1) = 1.d0
-  d(2) = 0.d0
   sort_method = DISTANCE
   if (present(theta0)) then
-     d(1) = cos(theta0)
-     d(2) = sin(theta0)
      sort_method = ANGLE
   endif
 
@@ -66,7 +62,7 @@ module inner_boundary
            stop
         endif
 
-        call C_in(iblock,i)%sort_loop(Pmag, d, sort_method)
+        call C_in(iblock,i)%sort_loop(Pmag, theta0, sort_method)
         if (apply_sample_method .ne. sort_method) then
            call C_in(iblock,i)%setup_sampling_by_method(sample_method, Pmag)
         endif

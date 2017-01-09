@@ -582,13 +582,13 @@ module curve2D
 
 !=======================================================================
 ! sort points on a closed curve 'C' with regard to center/reference point 'xc'
-! and direction 'd'
+! and direction 'theta_0'
 !=======================================================================
-  subroutine sort_loop (C, xc, d, method)
+  subroutine sort_loop (C, xc, theta_0, method)
   implicit none
 
   class(t_curve), intent(inout)        :: C
-  real(real64),   intent(in), optional :: xc(2), d(2)
+  real(real64),   intent(in), optional :: xc(2), theta_0
   integer,        intent(in), optional :: method
 
   integer :: sort_method
@@ -600,7 +600,7 @@ module curve2D
 
   select case (sort_method)
   case(ANGLE)
-     call C%sort_by_angle(xc, d)
+     call C%sort_by_angle(xc, theta_0)
   case(DISTANCE)
      call C%sort_by_distance(xc)
   case default
@@ -610,15 +610,15 @@ module curve2D
 
   end subroutine sort_loop
 !=======================================================================
-  subroutine sort_by_angle (C, xc, d)
+  subroutine sort_by_angle (C, xc, theta_0)
   implicit none
 
   class(t_curve), intent(inout)        :: C
-  real(real64),   intent(in), optional :: xc(2), d(2)
+  real(real64),   intent(in), optional :: xc(2), theta_0
 
   real(real64), dimension(:,:), allocatable :: tmp_arr
   real(real64) :: xr(2), dr(2), xmax, xmin, ymax, ymin
-  real(real64) :: theta_0, theta, dxl(2), x_0(2), tmp(3), t, R
+  real(real64) :: theta_00, theta, dxl(2), x_0(2), tmp(3), t, R
   integer      :: i, j, n
 
 
@@ -643,13 +643,14 @@ module curve2D
 
 
   ! check if reference direction is given
-  if (present(d)) then
-     dr    = d
+  if (present(theta_0)) then
+     theta_00 = theta_0
   ! set default values otherwise
   else
-     dr(1) = 1.d0
-     dr(2) = 0.d0
+     theta_00 = 0.d0
   endif
+  dr(1) = cos(theta_00)
+  dr(2) = sin(theta_00)
 
 
   ! allocate memory for temporary array
@@ -657,11 +658,10 @@ module curve2D
   tmp_arr(:,1:2) = C%x
 
   ! calculate angles w.r.t. xr
-  theta_0  = datan2(dr(2), dr(1))
   do i=0,n
      dxl   = C%x(i,:) - xr
      theta = datan2(dxl(2), dxl(1))
-     if (theta .lt. theta_0) theta = theta + pi2
+     if (theta .lt. theta_00) theta = theta + pi2
      tmp_arr(i,3) = theta
   enddo
 
@@ -682,7 +682,7 @@ module curve2D
      ! loop already closed
      C%x(0:n,:) = tmp_arr(0:n,1:2)
   else
-     t    = (theta_0      - tmp_arr(n,3) + pi2) / t
+     t    = (theta_00     - tmp_arr(n,3) + pi2) / t
      x_0  = tmp_arr(n,1:2)
      ! linear interpolation between x_0 and x_n
      !dxl  = tmp_arr(0,1:2) - x_0
