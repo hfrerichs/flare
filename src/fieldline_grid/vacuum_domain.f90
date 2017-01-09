@@ -1482,7 +1482,7 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter, dl
 
      ! setup sampling on slice C
      A   = get_magnetic_axis(phi)
-     call C%sort_loop(A)
+     call C%sort_loop(A(1:2))
      call C%setup_angular_sampling(A(1:2))
      if (Debug) then
         write (tmp, 9003) iz, it

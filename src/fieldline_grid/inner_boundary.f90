@@ -64,7 +64,7 @@ module inner_boundary
 
         call C_in(iblock,i)%sort_loop(Pmag, theta0, sort_method)
         if (apply_sample_method .ne. sort_method) then
-           call C_in(iblock,i)%setup_sampling_by_method(sample_method, Pmag)
+           call C_in(iblock,i)%setup_sampling_by_method(apply_sample_method, Pmag)
         endif
         if (Debug) then
            write (filename, 2001) i, iblock
