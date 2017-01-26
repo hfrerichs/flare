@@ -310,7 +310,7 @@ module divertor
 
   ierr = 0
   if (.not.C_leg%intersect_curve(C_cut, x, eta)) then
-     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     write (6, *) 'error1: could not find intersection between divertor leg and guiding surface!'
      write (6, *) 'check divertor_leg.plt vs C_cutL.plt/C_cutR.plt!'
      call C_leg%plot(filename='divertor_leg.plt')
      ierr = 1
@@ -335,7 +335,7 @@ module divertor
 
   if (present(ierr_out)) ierr_out = 0
   if (.not.C%intersect_curve(C_guide, x, xi0)) then
-     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     write (6, *) 'error2: could not find intersection between divertor leg and guiding surface!'
      write (6, *) 'check divertor_leg.plt vs C_cutL.plt/C_cutR.plt!'
      call C%plot(filename='divertor_leg.plt')
      if (present(ierr_out)) then
@@ -795,7 +795,7 @@ module divertor
   type(t_flux_surface_2D) :: F
   type(t_spacing) :: Sdr, Sdl
   real(real64) :: eta, xi, xiL, xiR, x0(2), x(2), DL(0:npL, 2), DR(0:npR, 2)
-  integer      :: i, j, i1, i2
+  integer      :: i, j, i1, i2, ierr
 
 
   i1 = 1
@@ -813,18 +813,27 @@ module divertor
 
      ! right divertor leg
      call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(abs(ix)), npR, DR)
+     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(abs(ix)), npR, DR, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
      M(i,0:npR,:) = DR
 
 
      ! left divertor leg
      call F%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, etaL(abs(ix)), npL, DL)
+     call divertor_leg_discretization(F%t_curve, etaL(abs(ix)), npL, DL, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
      M(i,npR:npR+npL,:) = DL
   enddo
 
  1030 format (8x,'generating private flux region: 0 -> ', i0)
  1031 format (8x,'d_PFR = ',f8.3)
+  contains
+  subroutine divertor_leg_discretization_error()
+     write (6, *) 'error occured in subroutine divertor_leg_discretization'
+     write (6, *) 'for flux surface "flux_surface.err"'
+     call F%plot(filename='flux_surface.err')
+     stop
+  end subroutine divertor_leg_discretization_error
   end subroutine make_flux_surfaces_PFR
   !=============================================================================
 
