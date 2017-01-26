@@ -80,6 +80,7 @@ module fieldline_grid
   character(len=256) :: &
      topology                         = TOPO_SC, &
      Innermost_Flux_Surface           = SF_EXACT, &
+     x_in_coordinates                 = COORDINATES(2),&
      discretization_method            = POLOIDAL_ANGLE, &
      poloidal_discretization          = POLOIDAL_ANGLE, &
      radial_discretization            = POLOIDAL_ANGLE_FIXED, &
@@ -379,14 +380,17 @@ module fieldline_grid
 
 !=======================================================================
   subroutine setup_grid_configuration
+  use equilibrium, only: get_cylindrical_coordinates
 
   integer, parameter :: iu = 12
 
   type(t_block_input) :: Block(0:max_blocks-1)
+  real(real64) :: tmp(3)
+  integer      :: ierr
 
   namelist /FieldlineGrid_Input/ &
      topology, symmetry, stellarator_symmetry, blocks, Block, &
-     phi0, x_in1, x_in2, d_SOL, d_PFR, d_N0, N0_file, vacuum_domain, d_extend, &
+     phi0, x_in1, x_in2, x_in_coordinates, d_SOL, d_PFR, d_N0, N0_file, vacuum_domain, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
      n_interpolate, nr_perturbed, plate_generator, plate_format, &
      np_ortho_divertor, &
@@ -411,6 +415,32 @@ module fieldline_grid
   endif
   Dtheta_sampling   = Dtheta_sampling / 180.d0 * pi
   Dtheta_separatrix = Dtheta_separatrix / 180.d0 * pi
+  select case(x_in_coordinates)
+  ! cylindrical coordinates
+  case(COORDINATES(2))
+     ! nothing to be done here
+
+  ! toroidal / flux coordinates
+  case(COORDINATES(3))
+     write (6, 1000)
+     tmp = x_in1;  x_in1 = get_cylindrical_coordinates(tmp, ierr)
+     if (ierr == 0) then
+        write (6, 1001) tmp, x_in1
+     else
+        write (6, 9001) tmp;  stop
+     endif
+
+     tmp = x_in2;  x_in2 = get_cylindrical_coordinates(tmp, ierr)
+     if (ierr == 0) then
+        write (6, 1001) tmp, x_in2
+     else
+        write (6, 9001) tmp;  stop
+     endif
+
+  case default
+     write (6, *) 'error: invalid x_in_coordinates = ', trim(x_in_coordinates)
+     stop
+  end select
 
 
   ! 2. setup size and position of toroidal blocks
@@ -422,7 +452,9 @@ module fieldline_grid
 
 
   return
- 1000 format(3x,'- Topology of configuration: ',a)
+ 1000 format(3x,'- Calculating cylindrical coordinates for reference points:')
+ 1001 format(8x,'( ',f0.3,', ',f0.3,', ',f0.3,')  ->  ( ',f0.3,', ',f0.3,', ',f0.3,')')
+ 9001 format('error: cannot convert ( ',f0.3,', ',f0.3,', ',f0.3,') to cylindrical coordinates!')
  9000 write (6, *) 'error while reading input file ', trim(config_file), '!'
   stop
  9100 write (6, *) 'error: cannot find FieldlineGrid_Input namelist in run control file!'
