@@ -798,8 +798,8 @@ module divertor
   integer      :: i, j, i1, i2, ierr
 
 
-  i1 = 1
-  i2 = nr
+  i1 = 0
+  i2 = nr-1
   if (present(ir1)) i1 = ir1
   if (present(ir2)) i2 = ir2
 
