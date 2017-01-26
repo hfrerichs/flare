@@ -553,7 +553,7 @@ module mfs_mesh
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
   subroutine make_divertor_grid(this, Rside, ip0, Z, ierr)
-  use fieldline_grid, only: t_toroidal_discretization
+  use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
   use curve2D
   use mesh_spacing
@@ -566,7 +566,7 @@ module mfs_mesh
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
-  integer, parameter :: nsub = 2, nskip = 0, nextend = 1, iu_err = 66
+  integer, parameter :: nskip = 0, nextend = 1, iu_err = 66
 
   type(t_flux_surface_2D) :: F
   type(t_toroidal_discretization) :: TSP
@@ -575,7 +575,7 @@ module mfs_mesh
   real(real64), dimension(:,:), allocatable :: MSP
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L, dphi
   integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir, iextend, np_SP
-  integer       :: it, its, it_start, it_end, dirT, downstream, np_skip
+  integer       :: it, its, it_start, it_end, dirT, downstream, nsub, np_skip
 
 
   ! check intersection of R with guiding surface
@@ -588,6 +588,7 @@ module mfs_mesh
 
 
   ! set up effective resolution for strike point area
+  nsub  = np_sub_divertor
   np_SP = Z%nt * nsub / (nskip+1) + nextend
 
 
