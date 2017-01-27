@@ -172,6 +172,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
 
   ! 4. process boundary geometry .......................................
   allocate (Cref(0:SRF_TORO(iz)-1))
+  irdir = 1;  if (irP > irV) irdir = -1
   filter_loop: do
   if (ifilter > nfilter) exit
   do it=0,SRF_TORO(iz)-1
@@ -179,7 +180,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
      select case(apply_filter(ifilter))
      case('EXPAND')
         read  (filter_parameter(ifilter), *) dl
-        call Bvac(it)%left_hand_shift(dl)
+        call Bvac(it)%left_hand_shift(-irdir*dl)
 
      case('AUTO_EXPAND')
         read  (filter_parameter(ifilter), *) dl
@@ -216,8 +217,6 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
 
 
   ! 5. setup discretization of vacuum domain ...........................
-  irdir = 1
-  if (irP > irV) irdir = -1
   do it=0,SRF_TORO(iz)-1
      ! at this point Bvac(it) should have SRF_POLO(iz) nodes!
      if (Bvac(it)%n_seg .ne. SRF_POLO(iz)-1) then
