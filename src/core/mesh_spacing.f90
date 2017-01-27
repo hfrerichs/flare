@@ -17,6 +17,7 @@ module mesh_spacing
      DELTA_R_LB  = 'DELTA_R_LB', &
      DELTA_R_UB  = 'DELTA_R_UB', &
      X1          = 'X1', &
+     X1_SMOOTH   = 'X1_SMOOTH', &
      D_CURVE     = 'D_CURVE', &
      USER_DEF    = 'LOAD', &
      S_RECURSIVE = 'RECURSIVE'
@@ -125,6 +126,13 @@ module mesh_spacing
 
   ! 1 additional node (piecewise linear)
   case(X1)
+     this%nc   = 2
+     allocate (this%c(this%nc))
+     read (arguments, *, err=5000, end=5000) this%c
+
+
+  ! 1 additional node (linear segment + smooth extension)
+  case(X1_SMOOTH)
      this%nc   = 2
      allocate (this%c(this%nc))
      read (arguments, *, err=5000, end=5000) this%c
@@ -414,6 +422,10 @@ module mesh_spacing
   case(X1)
      xi = sample_X1(t, this%c(1), this%c(2))
 
+  ! 1 additional node (linear segment + smooth extension)
+  case(X1_SMOOTH)
+     xi = sample_X1_SMOOTH(t, this%c(1), this%c(2))
+
   ! user defined spacings
   case(USER_DEF)
      call this%D%sample_at(t, x)
@@ -521,6 +533,28 @@ module mesh_spacing
   endif
 
   end function sample_X1
+!=======================================================================
+
+
+
+!=======================================================================
+  function sample_X1_smooth(eta, eta1, xi1) result(xi)
+  real(real64), intent(in) :: eta, eta1, xi1
+  real(real64)             :: xi
+
+  real(real64) :: a, b, c
+
+
+  if (eta < eta1) then
+     xi = eta * xi1 / eta1
+  else
+     a  = (eta1 - xi1) / (1.d0 - eta1)**2 / eta1
+     b  = xi1 / eta1 - 2.d0 * a * eta1
+     c  = 1.d0 - a - b
+     xi = a*eta**2 + b*eta + c
+  endif
+
+  end function sample_X1_smooth
 !=======================================================================
 
 
