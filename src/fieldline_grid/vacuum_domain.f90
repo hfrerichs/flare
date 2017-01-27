@@ -279,7 +279,7 @@ subroutine resample(C, iz, it, irP, weights)
      call C%resample(n)
 
   ! DEFAULT: resampling based on segment lengths on plasma boundary at slice it
-  case('','default','plasma_boundary')
+  case('','default','undefined','plasma_boundary')
      w = 0.d0
      do ip=1,SRF_POLO(iz)-1
         ig    = irP + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
