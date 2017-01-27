@@ -229,6 +229,7 @@ module mfs_mesh
      if (i22 < i11) idir = -1
      do ir=i11,i22,idir
         tau = spacings%node(ir-i11, i22-i11)
+        if (boundary_side == UPPER) tau = 1.d0 - spacings%node(i22-ir, i22-i11)
         call C_boundary%sample_at(tau, x)
         M(ir, ip, :) = x
         if (screen_output) write (6, *) x
