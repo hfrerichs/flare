@@ -459,7 +459,7 @@ module plates
 
 
   open  (iu, file=plates_file)
-  write (iu, 1000) plate_format
+  !write (iu, 1000) plate_format
   do iz=0,NZONET-1
      do ir=0,ZON_RADI(iz)-1
      do ip=0,ZON_POLO(iz)-1
