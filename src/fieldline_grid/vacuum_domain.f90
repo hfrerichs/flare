@@ -286,7 +286,7 @@ subroutine resample(C, iz, it, irP, weights)
      w = 0.d0
      do ip=1,SRF_POLO(iz)-1
         ig    = irP + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
-        dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz))))
+        dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz)))**2)
         w(ip) = w(ip-1) + dl
      enddo
      w = w / w(SRF_POLO(iz)-1)
@@ -297,7 +297,7 @@ subroutine resample(C, iz, it, irP, weights)
      w = 0.d0
      do ip=1,SRF_POLO(iz)-1
         ig    = irP + (ip + Zone(iz)%it_base*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
-        dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz))))
+        dl    = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz)))**2)
         w(ip) = w(ip-1) + dl
      enddo
      w = w / w(SRF_POLO(iz)-1)
