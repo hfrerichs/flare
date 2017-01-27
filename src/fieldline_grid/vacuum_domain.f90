@@ -76,7 +76,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   character(len=72) :: tmp
   type(t_quad_ele)  :: S
   real(real64)      :: phi, dl, rho, xplas(2), xvac(2)
-  integer           :: ifilter, nfilter, ig, ir, irdir, ip, is, it, ib
+  integer           :: ifilter, nfilter, ig, ir, irdir, ip, is, it, ib, ierr
 
 
   ! 1. set up filter/processing routines for vacuum boundary ...........
@@ -190,7 +190,10 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
 
      case('INTERPOLATED_NORMAL')
         call export_poloidal_outline(iz, it, -1, Cref(it))
-        call interpolated_normal_wrapper(Bvac(it), Bplas(it), Cref(it))
+        call interpolated_normal_wrapper(Bvac(it), Bplas(it), Cref(it), ierr)
+        if (ierr > 0) then
+           write (6, 4990) it, iz;  stop
+        endif
 
      case default
         write (6, *) 'error: invalid filter type ', apply_filter(ifilter)
@@ -208,6 +211,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   enddo filter_loop
 
  4900 format('DEBUG_VACBOUND_Z',i0,'_T',i0,'_FILTER',i0,'.PLT')
+ 4990 format('error at toroidal slice ',i0,' in zone ',i0)
   !.....................................................................
 
 
@@ -1247,7 +1251,10 @@ end subroutine auto_expand
 !
 ! output:
 !    Dvac	discretization of vacuum boundary
-subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac)
+!    ierr       = 0: successfull operation
+!                 1: called with incompatible Dplas and Cref
+!                 2: some nodes on Dvac are not set up properly
+subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac, ierr)
   use iso_fortran_env
   use curve2D
   use math
@@ -1255,6 +1262,7 @@ subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac)
 
   type(t_curve), intent(in)  :: Bvac, Dplas, Cref
   type(t_curve), intent(out) :: Dvac
+  integer,       intent(out) :: ierr
 
   integer, parameter :: NSP = 31
 
@@ -1265,12 +1273,13 @@ subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac)
   integer :: i, ip, jn, jp, j, np, icheck(0:Dplas%n_seg)
 
 
+  ierr = 0
   ! check input
   if (Dplas%n_seg .ne. Cref%n_seg) then
      write (6, *) 'error: Dplas and Cref must have the same resolution!'
      write (6, *) 'n_Dplas = ', Dplas%n_seg
      write (6, *) 'n_Cref  = ', Cref%n_seg
-     stop
+     ierr = 1;  return
   endif
 
 
@@ -1336,11 +1345,11 @@ subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac)
   ! check successful generation of Dvac
   do i=0,np-1
      if (icheck(i) < 1) then
-        write (6, *) 'error: node ', i, ' is not set up!'
+        write (6, *) 'error in interpolated_normal: node ', i, ' is not set up!'
         call Bvac%plot(filename='ERROR_BOUNDARY_VACUUM.PLT')
         call Dplas%plot(filename='ERROR_BOUNDARY_PLASMA.PLT')
         call Cref%plot(filename='ERROR_BOUNDARY_INTERNAL.PLT')
-        stop
+        ierr = 2;  return
      endif
   enddo
 
@@ -1350,19 +1359,20 @@ end subroutine interpolated_normal
 
 
 !===============================================================================
-subroutine interpolated_normal_wrapper(Bvac, Bplas, Cref)
+subroutine interpolated_normal_wrapper(Bvac, Bplas, Cref, ierr)
   use iso_fortran_env
   use curve2D
   implicit none
 
   type(t_curve), intent(inout) :: Bvac
   type(t_curve), intent(in)    :: Bplas, Cref
+  integer,       intent(out)   :: ierr
 
   type(t_curve) :: Bvac0
 
 
   call Bvac0%copy(Bvac)
-  call interpolated_normal(Bvac0, Bplas, Cref, Bvac)
+  call interpolated_normal(Bvac0, Bplas, Cref, Bvac, ierr)
 
 end subroutine interpolated_normal_wrapper
 !===============================================================================
@@ -1390,7 +1400,7 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter, dl
   character(len=256), dimension(:), allocatable :: apply_filter, filter_parameter
   character(len=72):: tmp
   real(real64)     :: phi, A(3), theta, xi, x1(2), x2(2), rho
-  integer          :: ir, ir1, ip, it, ig, ig0, ifilter, is, nfilter, irA, irB
+  integer          :: ir, ir1, ip, it, ig, ig0, ifilter, is, nfilter, irA, irB, ierr
 
 
   ! set up filter/processing routines for boundary surfaces ............
@@ -1459,7 +1469,8 @@ subroutine vacuum_domain_manual_3D(iz, ir0, idir, ir2, boundary_file, filter, dl
 !        write (99, *) RW(ip), ZW(ip)
 !     enddo
 !     close (99)
-     call interpolated_normal(C, CI, CF, CW)
+     call interpolated_normal(C, CI, CF, CW, ierr)
+     if (ierr > 0) stop
 
 
 !     ! apply filter for slice C
