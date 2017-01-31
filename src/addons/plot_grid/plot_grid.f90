@@ -79,7 +79,7 @@
 
   type(t_grid) :: G
   real(real64) :: c
-  integer      :: ir, ir1, ir2, ip, ip1, ip2, ig, nr, np, ig4(0:4)
+  integer      :: ir, ir1, ir2, ip, ip1, ip2, it1, ig, nr, np, ig4(0:4)
 
 
   write (s_iz, '(i4)') iz
@@ -122,12 +122,13 @@
   !call G%store(filename=plot_file)
   plot_file = 'grid_'//trim(adjustl(s_iz))//'_'//trim(adjustl(s_it))//'.plt'
   if (idomain == 2) then
+     it1 = it;  if (it1 == ZON_TORO(iz)) it1 = ZON_TORO(iz)-1
      open  (iu, file=plot_file)
      write (iu, 1000) G%fixed_coord_value / c
  1000 format('# ', f0.5)
      do ir=ir1,ir2-1
      do ip=ip1,ip2-1
-        ig = ir + (ip + it*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
+        ig = ir + (ip + it1*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
         if (ID_TEM(ig) == 0) then
            ig4(0) = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
            ig4(1) = ig4(0) + 1
