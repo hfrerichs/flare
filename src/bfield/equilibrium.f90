@@ -317,7 +317,7 @@ module equilibrium
   integer, parameter :: iu_scan = 17
 
   character(len=120) :: filename
-  character*80 :: s
+  character*80 :: s, stype
 
 
   filename = trim(Prefix)//Data_File
@@ -330,7 +330,8 @@ module equilibrium
      endif
      open  (iu_scan, file=filename)
      read  (iu_scan, '(a80)') s
-     if (s(3:5) == 'TEQ'  .or.  s(3:6) == 'EFIT') then
+     read  (s, *) stype
+     if (s(3:5) == 'TEQ'  .or.  stype(1:4) == 'EFIT') then
         i_equi = EQ_GEQDSK
      elseif (s(5:11) == 'jm   :=') then
         i_equi = EQ_JET
