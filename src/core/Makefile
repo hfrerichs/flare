@@ -7,6 +7,7 @@ OBJECTS =  \
                quicksort.o\
                math.o\
                numerics.o\
+               linalg.o\
                run_control.o\
                dataset.o\
                grid.o\

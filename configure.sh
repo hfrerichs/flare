@@ -106,10 +106,12 @@ echo "" >> include.mk
 FGSL_CFLAGS=`pkg-config --cflags fgsl`
 FGSL_LIBS=`pkg-config --libs fgsl`
 if [ "$FGSL_LIBS" == "" ]; then
-	echo "Warning: FGSL not found! Some tools may not work properly!"
+	echo "Compiling without FGSL support"
+else
+	echo "Compiling with FGSL support"
 fi
 echo "# GNU Scientific Library"				>> include.mk
-echo "FGSL_CFLAGS    = $FGSL_CFLAGS"			>> include.mk
+echo "FGSL_FLAGS     = -DFGSL $FGSL_CFLAGS"		>> include.mk
 echo "FGSL_LIBS      = $FGSL_LIBS"			>> include.mk
 echo ""							>> include.mk
 # ------------------------------------------------------------------------------
@@ -207,7 +209,7 @@ echo "" >> include.mk
 
 # Flags and libraries
 echo "# Flags and libraries"				>> include.mk
-echo 'FLAGS          = $(FGSL_CFLAGS) $(ODE_FLAGS)'	>> include.mk
+echo 'FLAGS          = $(FGSL_FLAGS) $(ODE_FLAGS)'	>> include.mk
 echo 'LIBS           = $(FGSL_LIBS) $(M3DC1_LIBS)'	>> include.mk
 echo ""							>> include.mk
 

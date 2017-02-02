@@ -1,7 +1,9 @@
 module cspline
   use iso_fortran_env
   use dataset
+#if defined(FGSL)
   use fgsl
+#endif
   implicit none
   private
 
@@ -12,11 +14,14 @@ module cspline
 
 
   type, public :: t_cspline
-     real(real64) :: L1, L2
+     integer      :: ndim
 
-     integer(fgsl_size_t)    :: n, ndim
+#if defined(FGSL)
+     real(real64) :: L1, L2
+     integer(fgsl_size_t)    :: n
      type(fgsl_spline), dimension(:), allocatable :: S
      type(fgsl_interp_accel), dimension(:), allocatable :: acc
+#endif
 
      contains
      procedure :: setup
@@ -38,6 +43,7 @@ module cspline
   logical, intent(in), optional :: periodic
 
   real(real64), dimension(:), allocatable :: t
+#if defined(FGSL)
   integer(fgsl_int)    :: i, i0, m0, stat
 
 
@@ -91,6 +97,10 @@ module cspline
   ! cleanup
   deallocate (t)
 
+#else
+  write (6, *) 'error in subroutine t_cspline%setup: FLARE has been compiled without FGSL support!'
+  stop
+#endif
   end subroutine setup
 !=======================================================================
 
@@ -103,11 +113,13 @@ module cspline
   integer :: i
 
 
+#if defined(FGSL)
   do i=1,this%ndim
      call fgsl_spline_free(this%S(i))
      call fgsl_interp_accel_free(this%acc(i))
   enddo
 
+#endif
   end subroutine destroy
 !=======================================================================
 
@@ -120,6 +132,7 @@ module cspline
   real(real64)             :: y(this%ndim)
   integer,      intent(in), optional :: base, derivative
 
+#if defined(FGSL)
   real(real64) :: l
   integer      :: i, m
 
@@ -151,6 +164,7 @@ module cspline
   end select
   enddo
 
+#endif
   end function eval
 !=======================================================================
 

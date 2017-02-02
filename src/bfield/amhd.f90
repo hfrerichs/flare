@@ -1,7 +1,6 @@
 ! "One size fits all" analytical solutions to the Grad-Shafranov equiation, A.J. Cerfon et al., Physics of Plasmas 17, 032502 (2010)
 module amhd
   use iso_fortran_env
-  use fgsl
   implicit none
 
   private
@@ -67,7 +66,6 @@ module amhd
   integer,      intent(out) :: iconfig
   real(real64), intent(in)  :: Ip_, Bt_, R0_
 
-  integer(fgsl_size_t) :: npass
 
   ! set up toroidal magnetic field and plasma current
   Ip = Ip_
@@ -96,8 +94,7 @@ module amhd
   n     = 12
   if (up_down_symmetry) n = 7
   if (snowflake)        n = 14 ! up-down asymmetric snowflake
-  npass = n
-  call setup_amhd(npass)
+  call setup_amhd(n)
 
 
   return
@@ -116,15 +113,12 @@ module amhd
 
 !===============================================================================
   subroutine setup_amhd(n)
-  integer(fgsl_size_t), intent(in) :: n
+  use linalg
+  integer, intent(in) :: n
 
-  real(fgsl_double), target :: M(n, n), b(n), x(n), vpsi(0:nmax)
-  type(fgsl_matrix)         :: Mfgsl
-  type(fgsl_vector)         :: bfgsl, xfgsl
-  integer(fgsl_int)         :: stat, sig
-  type(fgsl_permutation)    :: p
 
-  real(real64)              :: alp, N1, N2, N3, r(3), Bf(3), Bpol
+  real(real64) :: M(n,n), b(n), x(n), vpsi(0:nmax)
+  real(real64) :: alp, N1, N2, N3, r(3), Bf(3), Bpol
 
 
   ! set default position of X-point
@@ -231,28 +225,10 @@ module amhd
   endif
 
 
-  ! solve linear system
-  Mfgsl  = fgsl_matrix_init(type=1.0_fgsl_double)
-  bfgsl  = fgsl_vector_init(type=1.0_fgsl_double)
-  xfgsl  = fgsl_vector_init(type=1.0_fgsl_double)
-  p      = fgsl_permutation_alloc(n)
-  stat   = fgsl_matrix_align(M, n, n, n, Mfgsl)
-  stat   = fgsl_vector_align(b, n, bfgsl, n, 0_fgsl_size_t, 1_fgsl_size_t)
-  stat   = fgsl_vector_align(x, n, xfgsl, n, 0_fgsl_size_t, 1_fgsl_size_t)
-
-  stat   = fgsl_linalg_LU_decomp(Mfgsl, p, sig)
-  stat   = fgsl_linalg_LU_solve(Mfgsl, p, bfgsl, xfgsl)
-
+  call solve(n, M, b, x)
   ! gather results
   allocate(ceq(n))
   ceq    = x
-
-
-  ! cleanup
-  call fgsl_matrix_free(Mfgsl)
-  call fgsl_vector_free(bfgsl)
-  call fgsl_vector_free(xfgsl)
-  call fgsl_permutation_free(p)
 
 
   ! calculate scaling factor
@@ -481,7 +457,6 @@ module amhd
 ! Sample (derivative of) poloidal magnetic flux at r=(R,Z [cm], phi [rad])
 !===============================================================================
   function amhd_get_Psi(r) result(Psi)
-  use fgsl
   real(real64), intent(in)  :: r(3)
   real(real64)              :: Psi
 
@@ -491,7 +466,6 @@ module amhd
   end function amhd_get_Psi
 !===============================================================================
   function amhd_get_DPsi(r, mR, mZ) result(DPsi)
-  use fgsl
   real(real64), intent(in) :: r(2)
   integer,      intent(in) :: mR, mZ
   real(real64)             :: DPsi
