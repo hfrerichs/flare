@@ -1,3 +1,4 @@
+#include "../../config.h"
 module cspline
   use iso_fortran_env
   use dataset
@@ -90,7 +91,11 @@ module cspline
 
   ! initialize spline
   do i=1,this%ndim
+#if GSL_VERSION_MAJOR_FORTRAN > 1
+     stat   = fgsl_spline_init(this%S(i), t, D%x(:,i))
+#else
      stat   = fgsl_spline_init(this%S(i), t, D%x(:,i), this%n)
+#endif
   enddo
 
 

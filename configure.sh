@@ -30,7 +30,7 @@ for opt in "$@"; do
         echo "Configuration script for FLARE"
         echo ""
         echo "Optional arguments are:"
-        echo "  --base_dir=DIR          base directory for magnetic configuration"
+        echo "  --base_dir=DIR          database directory for magnetic configuration"
 	echo "	                        database (relative to home directory)"
 	echo ""
 	echo "  --bin_dir=DIR           directory with links to executables"
@@ -64,6 +64,8 @@ echo
 # generate configuration file
 rm -rf include.mk
 touch include.mk
+rm -rf config.h
+touch config.h
 
 LOG_FILE=configure.log
 echo "command: $0 $@" > $LOG_FILE
@@ -105,13 +107,20 @@ echo "" >> include.mk
 # GNU Scientific Library -------------------------------------------------------
 FGSL_CFLAGS=`pkg-config --cflags fgsl`
 FGSL_LIBS=`pkg-config --libs fgsl`
+local_gsl_version=`pkg-config --modversion gsl`
+gsl_version_major_fortran=`echo $local_gsl_version | sed -e 's/\([[:digit:]]\{1,\}\)\.\([[:digit:]]\{1,\}\)/\1/'`
+gsl_version_minor_fortran=`echo $local_gsl_version | sed -e 's/\([[:digit:]]\{1,\}\)\.\([[:digit:]]\{1,\}\)/\2/'`
+
 if [ "$FGSL_LIBS" == "" ]; then
 	echo "Compiling without FGSL support"
 else
 	echo "Compiling with FGSL support"
+	echo "#define FGSL" >> config.h
+	echo "#define GSL_VERSION_MAJOR_FORTRAN $gsl_version_major_fortran" >> config.h
+	echo "#define GSL_VERSION_MINOR_FORTRAN $gsl_version_minor_fortran" >> config.h
 fi
 echo "# GNU Scientific Library"				>> include.mk
-echo "FGSL_FLAGS     = -DFGSL $FGSL_CFLAGS"		>> include.mk
+echo "FGSL_FLAGS     = $FGSL_CFLAGS"		        >> include.mk
 echo "FGSL_LIBS      = $FGSL_LIBS"			>> include.mk
 echo ""							>> include.mk
 # ------------------------------------------------------------------------------
@@ -221,11 +230,7 @@ echo 'FC_DEBUG       = $(COMPILER) $(FLAGS) -DFLARE $(OPT_DEBUG)' >> include.mk
 
 
 # generating header file config.h
-echo "Base directory is" $HOME/$base_dir
-echo "  character(*), parameter :: base_dir             =  '"$base_dir"'"    > config.h
-
-echo "  character(*), parameter :: Boundary_input_file  =  'boundary.conf'" >> config.h
-echo "  character(*), parameter :: Boundary_sub_dir     =  'boundary'"      >> config.h
-echo "  character(*), parameter :: TAG                  =  'master'"        >> config.h
+echo "Database directory is" $HOME/$base_dir
+echo "#define DATABASE_DIR '$base_dir'" >> config.h
 ################################################################################
 echo

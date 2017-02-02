@@ -1,8 +1,11 @@
+#include "../../config.h"
 module run_control
   use parallel
   use numerics
   implicit none
-  include '../config.h'
+
+
+  character(len=*), parameter :: base_dir = DATABASE_DIR
 
   integer, parameter :: &
      ZERO_TOLERANCE = 0, &

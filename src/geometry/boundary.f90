@@ -63,9 +63,11 @@ module boundary
   subroutine load_boundary()
   use run_control, only: Prefix, Boundary_Prefix
   use equilibrium
-  include '../config.h'
 
   integer, parameter :: iu = 24
+
+  character(*), parameter :: Boundary_input_file  =  'boundary.conf'
+  character(*), parameter :: Boundary_sub_dir     =  'boundary'
 
   character*120 :: boundary_dir(4)
   character*80  :: header
