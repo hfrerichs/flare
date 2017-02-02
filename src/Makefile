@@ -22,7 +22,10 @@ TOOLS_OBJ      = $(TOOLS_DIR)/*.o
 DEVEL_INC      = -I $(DEVEL_DIR)
 DEVEL_OBJ      = $(DEVEL_DIR)/*.o
 
+VERSION_F90    = version.f90
+
 OBJECTS = \
+               version.o\
                parallel.o
 
 
@@ -37,6 +40,16 @@ all: $(OBJECTS)
 	cd $(DEVEL_DIR); $(MAKE) FC='$(FC)'
 	$(FC) -c $(EXTERNAL_INC) $(CORE_INC) $(GEOMETRY_INC) $(BFIELD_INC) main.f90
 	$(FC) -o ../bin/$(PROGRAM) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS) main.o
+
+
+.PHONY: $(VERSION_F90)
+$(VERSION_F90):
+	rm -f $(VERSION_F90)
+	echo "subroutine print_version()" > $(VERSION_F90)
+	echo -n "  write(6, *) 'Running FLARE " >> $(VERSION_F90)
+	git log --pretty=format:"%d %ci %h" -1 >> $(VERSION_F90)
+	echo "'" >> $(VERSION_F90)
+	echo "end subroutine print_version" >> $(VERSION_F90)
 
 
 %.o: %.f90

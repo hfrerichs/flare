@@ -2,6 +2,7 @@ bin/flare_bin*
 configure.log
 config.h
 include*
+src/version.f90
 *.o
 *.mod
 *.swp
