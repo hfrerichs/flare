@@ -225,9 +225,10 @@ module modtopo_stel
 
 
      ! set up discretization
-     call setup_inner_boundaries(G(iblock), iblock, 0, Zone(iz)%Sp)
+     call setup_inner_boundary(iblock, 1, Zone(iz)%Sp, G(iblock))
      call sample_flux_surface(M, B, nr(0), np(0), Zone(iz)%Sp)
      call interpolate_flux_surfaces(M, nr(0), np(0), 1, nr(0), Zone(iz)%Sr)
+     call setup_inner_boundary0(iblock, G(iblock))
      call force_up_down_symmetry(M, nr(0), np(0))
 
 

@@ -168,6 +168,58 @@ module inner_boundary
 
   end subroutine setup_inner_boundaries
   !=====================================================================
+  subroutine setup_inner_boundary(iblock, ir, S, G)
+  use grid
+  use mesh_spacing
+  integer,         intent(in)    :: iblock, ir
+  type(t_grid),    intent(inout) :: G
+  type(t_spacing), intent(in)    :: S
+
+  real(real64) :: xi, x(2)
+  integer :: j, np
+
+
+  if (ir < 0  .or.  ir > nr_perturbed-1) then
+     write (6, *) 'error in setup_inner_boundary: ir out of range!'
+     write (6, *) '0 <= ir <= ', nr_perturbed-1, ' required!'
+     stop
+  endif
+
+
+  np = G%n2-1
+  do j=0,np
+     xi = S%node(j,np)
+     call C_in(iblock,ir)%sample_at(xi, x)
+     G%mesh(ir, j, :) = x
+  enddo
+
+  end subroutine setup_inner_boundary
+  !=====================================================================
+  subroutine setup_inner_boundary0(iblock, G)
+  use grid
+  use mesh_spacing
+  integer,         intent(in)    :: iblock
+  type(t_grid),    intent(inout) :: G
+
+  real(real64) :: x1(2), x2(2), x(2)
+  integer :: j, np
+
+
+  np = G%n2-1
+  do j=0,np
+     x1 = G%mesh(1, j, :)
+     x2 = G%mesh(2, j, :)
+     if (intersect_curve(x1, x2, C_in(iblock,0), x, intersect_mode=-1)) then
+        G%mesh(0, j, :) = x
+     else
+        write (6, *) 'error in setup_inner_boundary0 at grid node ', j
+        write (6, *) 'x = ', x1
+        stop
+     endif
+  enddo
+
+  end subroutine setup_inner_boundary0
+  !=====================================================================
 
 end module inner_boundary
 
