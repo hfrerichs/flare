@@ -52,13 +52,14 @@ module flux_surface_3D
 
 
 !=======================================================================
-  subroutine setup(this, phi, nsample, D)
+  subroutine setup(this, phi, nsample, D, S)
   use search
   use mesh_spacing
   class(t_surface_cut)         :: this
   real(real64),     intent(in) :: phi
   integer,          intent(in) :: nsample
   class(t_dataset), intent(in) :: D
+  type(t_spacing),  intent(in), optional :: S
 
   type(t_curve) :: C
   real(real64)  :: t, x(2)
@@ -76,7 +77,11 @@ module flux_surface_3D
 
   ! re-sample points on flux surface
   do j=0,nsample-1
-     t = Equidistant%node(j, nsample-1)
+     if (present(S)) then
+        t = S%node(j, nsample-1)
+     else
+        t = Equidistant%node(j, nsample-1)
+     endif
      call C%sample_at(t, x)
      this%x(j,:) = x
   enddo
@@ -87,13 +92,14 @@ module flux_surface_3D
 
 
 !=======================================================================
-  subroutine setup_updown_symmetric(this, phi, nsample, D)
+  subroutine setup_updown_symmetric(this, phi, nsample, D, S)
   use search
   use mesh_spacing
   class(t_surface_cut)         :: this
   real(real64),     intent(in) :: phi
   integer,          intent(in) :: nsample
   class(t_dataset), intent(in) :: D
+  type(t_spacing),  intent(in), optional :: S
 
   type(t_curve) :: C
   real(real64)  :: t, x(2)
@@ -129,11 +135,19 @@ module flux_surface_3D
   ! re-sample points on flux surface
   do j=0,nsample-1
      if (j < nsample / 2) then
-        t = Equidistant%node(j, nsample-1) * 2.d0
+        if (present(S)) then
+           t = S%node(j, nsample-1) * 2.d0
+        else
+           t = Equidistant%node(j, nsample-1) * 2.d0
+        endif
         call C%sample_at(t, x)
         this%x(j,:) = x
      else
-        t = (1.d0 - Equidistant%node(j, nsample-1)) * 2.d0
+        if (present(S)) then
+           t = (1.d0 - S%node(j, nsample-1)) * 2.d0
+        else
+           t = (1.d0 - Equidistant%node(j, nsample-1)) * 2.d0
+        endif
         call C%sample_at(t, x)
         this%x(j,1) = x(1)
         this%x(j,2) = -x(2)
@@ -222,7 +236,7 @@ module flux_surface_3D
 ! stop_at_boundary	(.false. allows to generate a full flux surface beyond the boundary)
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, &
-      poloidal_coordinate, resample, updown_symmetry, stop_at_boundary)
+      poloidal_coordinate, resample, spacings, updown_symmetry, stop_at_boundary)
   use equilibrium, only: get_PsiN
   use mesh_spacing
   class(t_flux_surface_3D) :: this
@@ -231,6 +245,7 @@ module flux_surface_3D
   integer,      intent(in), optional :: poloidal_coordinate
   integer,      intent(in), optional :: resample, updown_symmetry
   logical,      intent(in), optional :: stop_at_boundary
+  type(t_spacing), intent(in), optional :: spacings
 
   type(t_poincare_set)     :: P
   type(t_curve)            :: C
@@ -285,11 +300,11 @@ module flux_surface_3D
 
      ! set up flux surface slice from Poincare plot P%slice(i)
      if (nupdown .ne. i) then
-       call this%slice(i)%setup(phi, nsample, P%slice(i))
+        call this%slice(i)%setup(phi, nsample, P%slice(i), spacings)
 
      ! generate up/down symmetric representation for this slice
      else
-       call this%slice(i)%setup_updown_symmetric(phi, nsample, P%slice(i))
+        call this%slice(i)%setup_updown_symmetric(phi, nsample, P%slice(i), spacings)
      endif
   enddo
 

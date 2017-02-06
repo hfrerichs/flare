@@ -149,7 +149,7 @@
   real(real64), intent(in) :: alpha_core
 
   type(t_flux_surface_3D) :: F
-  type(t_spacing)         :: S
+  type(t_spacing)         :: Sr, Sp
   type(t_grid)            :: B, G
   character(len=80)       :: filename
   real(real64) :: x0(3), xmag(3), x(3), r
@@ -174,7 +174,8 @@
   x0(2) = ZG(ig)
   x0(3) = Zone(iz)%phi(Zone(iz)%it_base) / 180.d0 * pi
   xmag  = get_magnetic_axis(x0(3))
-  call S%init(radial_spacing(-1))
+  call Sr%init(radial_spacing(-1))
+  call Sp%init(poloidal_spacing(0))
 
 
   ! initialize base grid for core region
@@ -191,12 +192,12 @@
 
   ! generate flux surfaces for core region -> setup base grid
   do ir=0,nr_core-1
-     r = S%node(ir,nr_core)
+     r = Sr%node(ir,nr_core)
      r = alpha_core + (1.d0 - alpha_core) * r
      x = xmag + r * (x0-xmag)
 
      call F%generate(x, N_points, symmetry, 1, 360, Trace_Method, poloidal_coordinate=ipc, &
-        resample=SRF_POLO(iz), updown_symmetry=updown_symmetry)
+        resample=SRF_POLO(iz), spacings=Sp, updown_symmetry=updown_symmetry)
      do ip=0,SRF_POLO(iz)-1
         B%mesh(ir,ip,:) = F%slice(0)%x(ip,:)
      enddo
