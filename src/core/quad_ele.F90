@@ -10,6 +10,8 @@ module quad_ele
      real*8, dimension(:), allocatable   :: phi    ! dimension(0:n_phi)
      real*8, dimension(:,:), allocatable :: R, Z   ! dimension(0:n_phi, 0:n_RZ)
 
+     character(len=256) :: label
+
      ! working array
      real*8, dimension(:,:,:), allocatable :: cA, cB, cC, cD    ! dimension(nphi,nRZ,2)
 
@@ -46,6 +48,7 @@ module quad_ele
   this%n_sym = n_sym
   allocate (this%phi(0:n_phi))
   allocate (this%R(0:n_phi, 0:n_RZ), this%Z(0:n_phi, 0:n_RZ))
+  this%label = ''
 
   end subroutine new
 !=======================================================================
@@ -70,7 +73,7 @@ module quad_ele
 
   ! read data from file
   open  (iu, file=filename)
-  read  (iu, '(a)') s
+  read  (iu, '(a)') s;  this%label = s
   if (present(title)) title = s
 
   read  (iu, *) n, m, this%n_sym, this%dR, this%dZ
