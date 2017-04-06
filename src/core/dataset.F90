@@ -136,14 +136,17 @@ module dataset
 ! iu             output unit number
 ! filename       output filename
 ! nelem          number of elements to output
+! append         append to existing file (in conjunction with filename)
 !=======================================================================
-  subroutine plot(this, iu, filename, nelem, formatstr)
+  subroutine plot(this, iu, filename, nelem, formatstr, append)
   class (t_dataset), intent(in)           :: this
   integer,           intent(in), optional :: iu, nelem
   character(len=*),  intent(in), optional :: filename, formatstr
+  logical,           intent(in), optional :: append
 
 
   character(len=11) :: f
+  logical           :: append_
   integer           :: i, iu0, n0, n
 
 
@@ -155,7 +158,15 @@ module dataset
 
   ! Output_File given?
   if (present(filename)) then
-     open  (iu0, file=filename)
+     append_ = .false.
+     if (present(append)) append_ = append
+
+     if (append_) then
+        open  (iu0, file=filename, position='append')
+        write (iu0, *)
+     else
+        open  (iu0, file=filename)
+     endif
   endif
 
 

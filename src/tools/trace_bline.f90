@@ -2,7 +2,10 @@
 ! Field line tracing
 !
 ! Input (taken from run control file):
-!    x_start(3)         Initial position for tracing (see Trace_Coords)
+!    x_start(3)         Initial position for tracing (see Input_Format)
+!    Input_Format       = 0: Magnetic flux coordinates (Theta, PsiN, Phi)
+!                       = 1: Cartesian coordinates (x[cm], y[cm], z[cm])
+!                       = 2: Cylindrical coordinates (R[cm], Z[cm], Phi[deg])
 !    Grid_File          Provide initial positions for several field lines
 !			Either "x_start" or "Grid_File" is required
 !
@@ -34,21 +37,24 @@
 subroutine trace_bline
   use iso_fortran_env
   use run_control, only: x_start, Trace_Step, N_steps, Trace_Method, Trace_Coords, &
-                         Grid_File, Output_File, Output_Format
+                         Input_Format, Grid_File, Output_File, Output_Format
   use fieldline
   use parallel
   use math
+  use dataset
   use grid
+  use equilibrium, only: get_cylindrical_coordinates
   implicit none
 
   integer, parameter :: iu = 42
 
   type(t_fieldline) :: F
   type(t_grid)      :: G
+  type(t_dataset)   :: O
   real(real64), dimension(:,:), pointer :: grid_ptr
   real(real64)  :: rb(3), tau, y(3), l, dl
-  integer       :: i, ig
-  logical       :: Stop_at_Boundary
+  integer       :: i, ig, ierr, points
+  logical       :: Stop_at_Boundary, append
 
 
   ! Initialize
@@ -70,23 +76,30 @@ subroutine trace_bline
   endif
 
   ! Open output file and write information about coordinate system
-  open  (iu, file=Output_File)
-  select case(Output_Format)
-  case(0)
-     write(iu, 2000)
-  case(1)
-     write(iu, 2001)
-  case(2)
-     write(iu, 2002)
-  case(3)
-     write(iu, 2002)
-  end select
+  !call O%new(Output_Format, UNSTRUCTURED, 0, abs(N_steps)+1)
+  call O%new(abs(N_steps)+1, 3)
 
 
   ! select initial position(s) for tracing
   if (sum(x_start) .ne. 0.d0) then
+     select case(Input_Format)
+     case(0)
+        x_start(3) = x_start(3) / 180.d0 * pi
+        rb         = get_cylindrical_coordinates(x_start, ierr)
+        if (ierr > 0) then
+           write (6, *) 'error: cannot calculate cylindrical coordinates for starting point ', x_start
+           stop
+        endif
+        call coord_trans(rb, CYLINDRICAL, y, Trace_Coords)
+     case(1)
+        call coord_trans(x_start, CARTESIAN, y, Trace_Coords)
+     case(2)
+        x_start(3) = x_start(3) / 180.d0 * pi
+        call coord_trans(x_start, CYLINDRICAL, y, Trace_Coords)
+     end select
+
      call G%new(Trace_Coords, UNSTRUCTURED, 0, 1)
-     G%x(1,:) = x_start
+     G%x(1,:) = y
   else
      call G%load(Grid_file)
   endif
@@ -100,10 +113,11 @@ subroutine trace_bline
      ! trace one field line
      call F%init(x_start, Trace_Step, Trace_Method, Trace_Coords)
      y = output_coordinates()
-     write (iu, 1003) y
+     O%x(1,:) = y
      write (6,  1004) y
 
-     l = 0.d0
+     l      = 0.d0
+     points = N_steps+1
      do i=1,N_steps
         dl = F%trace_1step()
 
@@ -112,27 +126,25 @@ subroutine trace_bline
            rb = output_coordinates()
            rb = y + tau * (rb-y)
            l  = l + tau * dl
-           write (iu, 1003) rb
+           O%x(i+1,:) = rb
+           points     = i+1
            write (6, *) 'Field line tracing is stopped at the boundary'
            exit
         endif
 
         l = l + dl
         y = output_coordinates()
-        write (iu, 1003) y
+        O%x(i+1,:) = y
      enddo
-     write (iu, *)
+     write (6, *) points
+     append = ig > 1
+     call O%store(filename=Output_File, append=append, nelem=points)
      write (6, 3000) l
   enddo field_line_loop
-  close (iu)
 
  1001 format (8x,'Number of trace steps: ',i8)
  1002 format (8x,'Initial position:')
- 1003 format (3(e25.18,1x))
  1004 format (8x,3(e18.10,1x))
- 2000 format ('# Flux coordinates: Theta[rad], PsiN, Phi[rad]')
- 2001 format ('# Cartesian coordinates: x[cm], y[cm], z[cm]')
- 2002 format ('# Cylindrical coordinates: R[cm], Z[cm], Phi[rad]')
  3000 format (8x,'trace length: ',f12.4)
   contains
 !.......................................................................
