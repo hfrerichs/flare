@@ -111,7 +111,10 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
   case('BOUNDARY')
      read  (filter_parameter(1), *)  ib
      write (6, 2000) ib
-     Bvac(it) = boundary_slice(ib, phi)
+     do it=0,SRF_TORO(iz)-1
+        phi      = PHI_PLANE(it + PHI_PL_OS(iz))
+        Bvac(it) = boundary_slice(ib, phi)
+     enddo
 
 
   ! 2.1 initialize from user defined 2D outline
