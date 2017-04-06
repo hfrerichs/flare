@@ -3,7 +3,7 @@
 !===============================================================================
 subroutine separatrix_manifolds
   use iso_fortran_env
-  use run_control, only: N_sym, N_phi, N_psi, Label, Trace_Step, Grid_File
+  use run_control, only: N_sym, N_phi, N_psi, Label, Trace_Step, Grid_File, Side
   use magnetic_axis
   use equilibrium, only: Xp
   use grid
@@ -25,6 +25,7 @@ subroutine separatrix_manifolds
 
      orientation = 1;  if (Xp(iPx)%x(2) > 0.d0) orientation = -1
      Label0 = '';      if (Label .ne. '') Label0 = '_'//trim(Label)
+     orientation = orientation * Side
 
 
      ! initialize grid
@@ -60,6 +61,7 @@ subroutine separatrix_manifolds
   enddo
 
 end subroutine separatrix_manifolds
+!===============================================================================
 
 
 
