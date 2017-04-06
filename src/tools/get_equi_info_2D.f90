@@ -21,7 +21,7 @@ subroutine get_equi_info_2D
   type(t_xpath)      :: X
   character(len=120) :: fout, sboundary
   character(len=8)   :: cid
-  logical            :: append
+  logical            :: append, parts
   real(real64)       :: Rbox(2), Zbox(2), r(3), Psi, Ip_int, Bpol, betaP, betaT, lmax
   integer            :: i, j, nR, nZ, ix, idir
 
@@ -44,14 +44,15 @@ subroutine get_equi_info_2D
 
 
   ! generate separatrix
-  if (Output_Format == 2) then
+  if (Output_Format == 2 .or. Output_Format == 3) then
+  parts = .false.;  if (Output_Format == 3) parts = .true.
   write (6, 1020)
   do ix=1,nx_max
      if (Xp(ix)%undefined) cycle
      write (6, 1021) ix
 
      call S(ix)%generate_iX(ix, stop_at_boundary=.false.)
-     call S(ix)%plot(filename_prefix='S'//trim(str(ix)))
+     call S(ix)%plot(filename_prefix='S'//trim(str(ix)), parts=parts)
   enddo
   write (6, *)
   endif
