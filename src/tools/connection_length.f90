@@ -6,7 +6,7 @@
 !
 !    Trace_Step         Size of trace steps (see Trace_Coords)
 !    Limit              Maximum distance for field line tracing (in one direction)
-!    N_theta            Maximum number of poloidal turns
+!    max_pt             Maximum number of poloidal turns
 !
 !    Trace_Method	> 0: Integration (see module ODE_solver)
 !                       = 0: Reconstruction from field aligned grid
@@ -50,7 +50,7 @@
 !===============================================================================
 subroutine connection_length
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Trace_Coords, &
-                         Output_Format, Limit, Psi, N_theta
+                         Output_Format, Limit, Psi, max_pt
   use grid
   use parallel
   use math
@@ -162,7 +162,7 @@ subroutine connection_length
            ! update connection length
            lc(idir)   = lc(idir) + dl
            if (abs(lc(idir)) .ge. Limit) exit trace_loop
-           if (N_theta > 0  .and.  abs(F%theta_int) .ge. N_theta*pi2) exit trace_loop
+           if (max_pt > 0.d0  .and.  abs(F%theta_int) .ge. max_pt*pi2) exit trace_loop
 
 
            ! update field line penetration

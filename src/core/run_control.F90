@@ -34,7 +34,8 @@ module run_control
      Theta(2)       = 0.d0, &
      Psi(2)         = 0.d0, &
      offset         = 1.d-2, &
-     tolerance      = 0.2d0
+     tolerance      = 0.2d0, &
+     max_pt         = 0.d0          ! max. number of poloidal turns
 
 
   integer :: &
@@ -72,7 +73,7 @@ module run_control
   namelist /RunControl/ &
      Machine, Configuration, Boundary, &
      Run_Type, Output_File, Label, Grid_File, Input_Format, Output_Format, Panic_Level, &
-     x_start, N_steps, Limit, &
+     x_start, N_steps, Limit, max_pt, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Run_Level, &
@@ -131,6 +132,7 @@ module run_control
   call broadcast_char   (Output_File, 120)
   call broadcast_real   (x_start    ,   3)
   call broadcast_real_s (Limit           )
+  call broadcast_real_s (max_pt          )
   call broadcast_real_s (R_start         )
   call broadcast_real_s (R_end           )
   call broadcast_real_s (Z_start         )
