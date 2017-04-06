@@ -115,7 +115,7 @@ end; read_data
 
 
 ;- device --------------------------------------------------------------
-pro open_device, ps_plot=ps_plot, ct=ct, white0=white0, xsize=xsize, ysize=ysize
+pro open_device, ps_plot=ps_plot, ct=ct, white0=white0, xsize=xsize, ysize=ysize, reverse_color=reverse_color
 	common	cb_plot,	char_thick, char_size, $
 				XL_Margin, XR_Margin, XL_Margin_CBar, XR_Margin_CBar
 
@@ -170,6 +170,22 @@ endelse
 	;ct_green(255)	= 255
 	;ct_blue(255)	= 255
 	tvlct, ct_red, ct_green, ct_blue
+
+	; reverse colorbar
+	if (keyword_set(reverse_color)) then begin
+	for i=1,32 do begin
+		ir	= ct_red  (i)
+		ig	= ct_green(i)
+		ib	= ct_blue (i)
+		ct_red  (i)	= ct_red  (65-i)
+		ct_green(i)	= ct_green(65-i)
+		ct_blue (i)	= ct_blue (65-i)
+		ct_red  (65-i)	= ir
+		ct_green(65-i)	= ig
+		ct_blue (65-i)	= ib
+	endfor
+	endif
+
 end; open_device
 pro close_device, ps_plot=ps_plot
 	if (keyword_set(ps_plot)) then device, /close
@@ -268,7 +284,7 @@ pro overlay_data, data_files, plot_style=plot_style
 		; plot data
 		case style of
 		0:	oplot, xy_data(0,*), xy_data(1,*), thick=3.0
-		1:	polyfill, xym_data(0,*), xy_data(1,*), color=fill_color, noclip=0
+		1:	polyfill, xy_data(0,*), xy_data(1,*), color=fill_color, noclip=0
 		2:	oplot, xy_data(0,*), xy_data(1,*), thick=3.0, color=0
 		2:	oplot, xy_data(0,*), xy_data(1,*), thick=3.0, color=0
 		3:	oplot, xy_data(0,*), xy_data(1,*), thick=3.0, color=251, psym=1
@@ -408,7 +424,7 @@ pro plot_data, grid_file, data_file, idata, zrange=zrange, ps_plot=ps_plot, poin
 		xtitle=xtitle, ytitle=ytitle, utitle=utitle, ct=ct, white0=white0, $
 		xselect=xselect, yselect=yselect, xfile=xfile, yfile=yfile, xsize=xsize, ysize=ysize, $
 		zticks=zticks, ztickinterval=ztickinterval, $
-		swap_xy=swap_xy
+		swap_xy=swap_xy, reverse_color=reverse_color
 	common	grid
 	common	data
 	common	cb_plot
@@ -422,7 +438,7 @@ pro plot_data, grid_file, data_file, idata, zrange=zrange, ps_plot=ps_plot, poin
 
 	read_data, data_file, idata, log10=log10, zrange=zrange, scale=scale
 
-	open_device, ps_plot=ps_plot, ct=ct, white0=white0, xsize=xsize, ysize=ysize
+	open_device, ps_plot=ps_plot, ct=ct, white0=white0, xsize=xsize, ysize=ysize, reverse_color=reverse_color
 
 	if (keyword_set(zrange)) then begin
 		z_min	= zrange(0)
