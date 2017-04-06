@@ -7,12 +7,13 @@
 !    Output_File
 !    Output_Format      = 1: |B|, Cartesian components (Bx,By,Bz), PsiN
 !                       = 2: |B|, Cylindrical components (BR,BZ,Bphi), PsiN
-!                       = 3: Bpol, Btor, R
+!                       = 3: Bpol, Btor, R, Bpol / Btor
 !                       = 4: |grad PsiN|, e_Psi * e_B
 !                       = 5: divB
 !                       = 6: Psi, PsiN, dPsi_dR, dPsi_dZ
 !                       = 7: Psi, d2Psi_dR2, d2Psi_dRdZ, d2Psi_dZ2
-!                       = 8: toroidal, poloidal and radial components and strength of non-equilibrium field
+!                       = 8: toroidal, poloidal and radial components of non-equilibrium field
+!                       = 9: Jacobian
 !===============================================================================
 subroutine sample_bfield
   use iso_fortran_env
@@ -29,7 +30,7 @@ subroutine sample_bfield
 
   type(t_grid)    :: G
   type(t_dataset) :: D
-  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Psi, Bpol, divB, Beq(3)
+  real(real64)    :: Bmod, Bf(3), xvec(3), r(3), PsiN, Psi, Bpol, divB, Beq(3), JBf(3,3)
   real(real64)    :: DPsiDR, DPsiDZ, ePsi(2), ePol(2)
   integer         :: ig, n
 
@@ -38,7 +39,7 @@ subroutine sample_bfield
      write (6, *) 'Sample magnetic field, output in: ', adjustl(trim(Output_File))
      write (6, *)
 
-     if (Output_Format < 1 .or. Output_Format > 8) then
+     if (Output_Format < 1 .or. Output_Format > 9) then
         write (6, *) 'undefined output format ', Output_Format
         stop
      endif
@@ -55,12 +56,13 @@ subroutine sample_bfield
 
   ! initialize output data
   n = 5
-  if (Output_Format == 3) n = 3
+  if (Output_Format == 3) n = 4
   if (Output_Format == 4) n = 2
   if (Output_Format == 5) n = 4
   if (Output_Format == 6) n = 4
   if (Output_Format == 7) n = 4
   if (Output_Format == 8) n = 4
+  if (Output_Format == 9) n = 9
   call D%new(G%nodes(), n)
 
 
@@ -105,6 +107,7 @@ subroutine sample_bfield
         D%x(ig,1)   = Bpol
         D%x(ig,2)   = Bf(3)
         D%x(ig,3)   = r(1)
+        D%x(ig,4)   = Bpol / Bf(3)
      endif
      if (Output_Format == 4) then
         DPsiDR      = get_DPsiN(r, 1, 0)
@@ -136,12 +139,18 @@ subroutine sample_bfield
      endif
      if (Output_Format == 8) then
         ! non-equilibrium field
-        Bf          = Bf - Beq
+        Bf          = get_Bf_Cyl_non2D(r)/1.d4
 
         D%x(ig,1)   = Bf(3)
         D%x(ig,2)   = sum(Bf(1:2)*ePol)
         D%x(ig,3)   = sum(Bf(1:2)*ePsi)
-        D%x(ig,4)   = sqrt(sum(Bf**2))
+        D%x(ig,4)   = D%x(ig,3) / sqrt(sum(Beq**2))
+     endif
+     if (Output_Format == 9) then
+        JBf         = get_JBf_Cyl(r)
+        D%x(ig,1:3) = JBf(1,1:3)
+        D%x(ig,4:6) = JBf(2,1:3)
+        D%x(ig,7:9) = JBf(3,1:3)
      endif
   enddo grid_loop
   call D%mpi_allreduce()
