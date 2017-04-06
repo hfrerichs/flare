@@ -4,27 +4,42 @@
 module flux_surface_2D
   use iso_fortran_env
   use curve2D
+  use cspline
   implicit none
   private
 
   integer, parameter, public :: &
      RIGHT_HANDED =  1, &
-     LEFT_HANDED  = -1
+     LEFT_HANDED  = -1, &
+     FORWARD      =  1, &
+     BACKWARD     = -1, &
+     CCW          =  1001, &
+     CW           = -1001
 
   type, extends(t_curve) :: t_flux_surface_2D
-     real(real64) :: PsiN
+     real(real64) :: PsiN, q
+
+     type(t_cspline) :: theta_map, theta_star_map, RZ_geo
 
      contains
-     procedure :: generate
+     procedure :: generate ! to be replaced by generate_branch
+     procedure :: generate_branch
      procedure :: generate_closed
      procedure :: generate_open
      procedure :: setup_sampling
      procedure :: surface
      procedure :: surface_analysis
      procedure :: volume
+     procedure :: broadcast
+     procedure :: setup_theta_map
+     procedure :: theta
+     procedure :: theta_star
+     procedure :: get_RZ_geo
+     procedure :: get_spectrum
   end type t_flux_surface_2D
 
   public :: t_flux_surface_2D
+  public :: adaptive_step_size
 
   contains
 !=======================================================================
@@ -60,7 +75,7 @@ module flux_surface_2D
   type(t_curve), pointer :: C_boundary
   type(t_ODE) :: F
   real*8, dimension(:,:), allocatable :: tmp
-  real*8  :: yl(3), yc(3), thetal, thetac, dtheta, X(3), ds, r3(3)
+  real*8  :: yl(3), yc(3), thetal, thetac, dtheta_cutl, dtheta_cutc, X(3), ds, r3(3)
   integer :: idir, i, nmax, imethod, id, n(-1:1)
   logical :: retrace_from_boundary = .false.
 
@@ -128,6 +143,10 @@ module flux_surface_2D
      call F%init_ODE(2, r, idir*ds, Bpol_sub, imethod)
      yl(1:2)  = r
      thetal   = get_poloidal_angle(r3)
+     if (present(theta_cut)) then
+        dtheta_cutl = thetal - theta_cut
+        if (abs(dtheta_cutl) > pi) dtheta_cutl = dtheta_cutl - sign(pi2,dtheta_cutl)
+     endif
      tmp(0,:) = F%yc
 
      do i=1,nmax
@@ -158,13 +177,18 @@ module flux_surface_2D
 
         ! cross cut-off poloidal angle?
         if (present(theta_cut)) then
-           dtheta = thetac - thetal
-           if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
-           if ((thetal+dtheta-theta_cut)*(thetal-theta_cut) < 0.d0) then
-              tmp(idir*i,:) = tmp(idir*(i-1),:) + abs((thetal-theta_cut)/dtheta)*(yc(1:2)-tmp(idir*(i-1),:))
-              n(idir)       = i
-              exit
+           dtheta_cutc = thetac - theta_cut
+           if (abs(dtheta_cutc) > pi) dtheta_cutc = dtheta_cutc - sign(pi2,dtheta_cutc)
+
+           ! are we anywhere near the cut-off angle?
+           if (abs(dtheta_cutc) < pi/2.d0) then
+              if (dtheta_cutl * dtheta_cutc < 0.d0) then
+                 tmp(idir*i,:) = tmp(idir*(i-1),:) + abs(dtheta_cutl/(dtheta_cutc-dtheta_cutl))*(yc(1:2)-tmp(idir*(i-1),:))
+                 n(idir)       = i
+                 exit
+              endif
            endif
+           dtheta_cutl = dtheta_cutc
         endif
 
         ! prepare next step
@@ -206,6 +230,236 @@ module flux_surface_2D
   endif
 
   end subroutine generate
+!=======================================================================
+
+
+
+!=======================================================================
+! Generate flux surface branch from reference point xinit = (R,Z [cm])
+!
+! direction =
+!    FORWARD         in forward Bpol direction
+!    BACKWARD        in backward Bpol direction
+!    CCW             in counter-clockwise direction
+!    CW              in clockwise direction
+!
+! x0                 add 0th point (e.g. X-point)
+! stop_at_boundary   stop tracing at configuration boundary (defined in
+!                    module boundary)
+! theta_cutoff       stop tracing at poloidal angle [rad]
+! cutoff_boundary    stop tracing at this boundary
+! cutoff_X           stop tracing at this distance from an X-point
+!
+! return ierr =
+!    0               successful generation of flux surface branch
+!    -1              flux surface branch leaves equilibrium domain
+!    -2              flux surface branch connects to X-point
+!=======================================================================
+  subroutine generate_branch(this, xinit, direction, ierr, &
+                             x0, trace_step, &
+                             stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X, connectX)
+  use ode_solver
+  use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, &
+      leave_equilibrium_domain, nx_max, Xp, get_flux_surface_curvature, correct_PsiN
+  use boundary
+  use math
+  use curve2D
+  class(t_flux_surface_2D)   :: this
+  real(real64),  intent(in)  :: xinit(2)
+  integer,       intent(in)  :: direction
+  integer,       intent(out) :: ierr
+  real(real64),  intent(in),  optional :: x0(2), trace_step, theta_cutoff, cutoff_X
+  logical,       intent(in),  optional :: stop_at_boundary
+  type(t_curve), intent(in),  optional :: cutoff_boundary
+  integer,       intent(out), optional :: connectX
+
+  integer, parameter       :: chunk_size = 1024
+
+  real(real64), dimension(:,:), allocatable :: xtmp, xtmp_tmp
+  type(t_ODE)  :: F
+  real(real64) :: L, ds, X(2), dX, t, thetal, thetac, dtheta
+  integer      :: i, idir, ix, ierrPsiN, nchunks, ntmp, boundary_id
+  logical      :: check_boundary
+
+
+  ! 0. set up defaults for optional input/output
+  ! 0.1. stop tracing at boundary?
+  check_boundary = .true.
+  if (present(stop_at_boundary)) then
+     check_boundary = stop_at_boundary
+  endif
+  ! 0.2. connecting X-point id
+  if (present(connectX)) then
+     connectX = 0
+  endif
+
+
+  ! 1. initialize ------------------------------------------------------
+  ! 1.1 trace direction
+  select case(direction)
+  case(FORWARD)
+     idir = 1
+  case(BACKWARD)
+     idir = -1
+  case(CCW)
+     idir = -Ip_sign
+  case(CW)
+     idir = Ip_sign
+  case default
+     write (6, 9000)
+     write (6, 9001) direction
+     stop
+  end select
+
+  ! 1.2 temporary data array
+  nchunks     = 1
+  ntmp        = chunk_size
+  allocate (xtmp(ntmp, 2))
+
+  ! 1.3 set 0th data point (if present)
+  i = 0
+  L = 0.d0
+  if (present(x0)) then
+     i           = 1
+     xtmp(1,1:2) = x0
+     L           = sqrt(sum((xinit-x0)**2))
+  endif
+  ! set 1st data point
+  i           = i + 1
+  xtmp(i,1:2) = xinit
+  this%PsiN   = get_PsiN(xinit)
+
+  !---------------------------------------------------------------------
+
+
+  ! 2. generate flux surface branch
+  ierr = 0
+  call F%init_ODE(2, xinit, 0.d0, epol_sub, NM_RUNGEKUTTA4)
+  trace_loop: do
+     i = i + 1
+
+     ! A. increase temporary array, if necessary
+     if (i > ntmp) then
+        allocate (xtmp_tmp(ntmp, 2))
+        xtmp_tmp       = xtmp
+        deallocate (xtmp)
+
+        nchunks        = nchunks + 1
+        allocate (xtmp(nchunks*chunk_size, 2))
+        xtmp(1:ntmp,:) = xtmp_tmp
+        ntmp           = ntmp + chunk_size
+        deallocate (xtmp_tmp)
+     endif
+
+
+     ! B. calculate next trace step size
+     if (present(trace_step)) then
+        ds       = idir * trace_step
+     else
+        ! calculate local curvature
+        ds       = idir * adaptive_step_size(xtmp(i-1,1:2))
+     endif
+     ! D.5 check proximity to X-points
+     if (present(cutoff_X)) then
+        do ix=1,nx_max
+           if (Xp(ix)%undefined) cycle
+
+           dX = sqrt(sum((xtmp(i-1,1:2) - Xp(ix)%X)**2)) ! present distance from X-point
+
+           ! stop tracing near X-point
+           if (dX < cutoff_X) then
+              ! check PsiN at present position vs. Xp(ix)%PsiN()
+              xtmp(i,1:2) = Xp(ix)%X
+              ierr        = -2
+              if (present(connectX)) connectX = ix
+              exit trace_loop
+           endif
+
+           ! else, adapt step size near X-point
+           if (abs(ds) > dX/2.d0) ds = idir * dX/2.d0
+        enddo
+     endif
+
+
+     ! C. trace one step
+     X           = F%step_ds(ds)
+     xtmp(i,1:2) = correct_PsiN(X, this%PsiN, ierrPsiN) ! perform correction step
+     if (ierrPsiN > 0) xtmp(i,1:2) = X
+     F%yc(1:2)   = xtmp(i,1:2) ! update ODE solver
+     L           = L + abs(ds)
+     thetac      = get_poloidal_angle(xtmp(i,1:2))
+
+
+     ! D. boundary check
+     ! D.1 check configuration boundary
+     if (check_boundary) then
+     if (intersect_axisymmetric_boundary(xtmp(i-1,1:2), xtmp(i,1:2), X, boundary_id)) then
+        xtmp(i,1:2) = X
+        exit
+     endif
+     endif
+     ! D.2 check equilibrium boundary
+     if (leave_equilibrium_domain(xtmp(i-1,1:2), xtmp(i,1:2), X)) then
+        xtmp(i,1:2) = X
+        if (present(connectX)) connectX = -1
+        ierr        = -1
+        exit
+     endif
+     ! D.3 check cut-off poloidal angle
+     if (present(theta_cutoff)) then
+        dtheta = thetac - thetal
+        if (abs(dtheta) > pi) dtheta = dtheta - sign(pi2,dtheta)
+        if ((thetal+dtheta-theta_cutoff)*(thetal-theta_cutoff) < 0.d0) then
+           xtmp(i,:) = xtmp(i-1,:) + abs((thetal-theta_cutoff)/dtheta)*(xtmp(i,:)-xtmp(i-1,:))
+           exit
+        endif
+     endif
+     ! D.4 check cut-off boundary
+     if (present(cutoff_boundary)) then
+     if (intersect_curve(xtmp(i-1,1:2), xtmp(i,1:2), cutoff_boundary, X)) then
+        xtmp(i,1:2) = X
+        exit
+     endif
+     endif
+
+
+     ! Z. prepare for next step
+     thetal = thetac
+  enddo trace_loop
+  call this%new(i-1)
+  this%x(:,:) = xtmp(1:i,1:2)
+  call this%setup_length_sampling()
+
+
+  ! 99. cleanup
+  deallocate(xtmp)
+
+ 9000 format('error in t_flux_surface_2D%generate_branch:')
+ 9001 format('invalid direction ', i0, '!')
+  end subroutine generate_branch
+!=======================================================================
+
+
+
+!=======================================================================
+  function adaptive_step_size(r) result(ds)
+  use equilibrium, only: get_flux_surface_curvature
+  use math
+  real(real64), intent(in) :: r(2)
+  real(real64)             :: ds
+
+  real(real64) :: dalpha, ds_min, ds_max
+
+
+  ! internal parameters
+  dalpha = pi/1800.d0 ! resolve 0.1 deg of local curvature
+  ds_min = 1.d-6      ! minimum step size
+  ds_max = 1.d0       ! maximum step size
+
+  ds     = get_flux_surface_curvature(r) * dalpha
+  ds     = max(min(abs(ds), ds_max), ds_min)
+
+  end function adaptive_step_size
 !=======================================================================
 
 
@@ -297,6 +551,23 @@ module flux_surface_2D
   f       = - Bf(1:2)/Bpol / Ip_sign
 
   end subroutine Bpol_sub
+!=======================================================================
+  subroutine epol_sub (n, t, y, f)
+  use equilibrium, only: get_Bf_eq2D
+  integer,      intent(in)  :: n
+  real(real64), intent(in)  :: t, y(n)
+  real(real64), intent(out) :: f(n)
+
+  real(real64) :: Bf(3), Bpol, y3(3)
+
+
+  y3(1:2) = y
+  y3(3)   = 0.d0
+  Bf      = get_Bf_eq2D(y3)
+  Bpol    = sqrt(Bf(1)**2 + Bf(2)**2)
+  f       = Bf(1:2)/Bpol
+
+  end subroutine epol_sub
 !=======================================================================
 
 
@@ -533,5 +804,252 @@ module flux_surface_2D
 
   end function volume
 !===============================================================================
+
+
+
+!=======================================================================
+  subroutine broadcast(this)
+  use parallel
+  class(t_flux_surface_2D) :: this
+
+  call this%t_curve%broadcast()
+  call broadcast_real_s(this%PsiN)
+
+  end subroutine broadcast
+!=======================================================================
+
+
+
+!=======================================================================
+! set up mapping between geometric poloidal angle and natural (straight
+! field line) poloidal angle
+!=======================================================================
+  subroutine setup_theta_map(this, PsiN, nturns)
+  use math
+  use numerics
+  use bfield
+  use fieldline
+  use equilibrium
+  use dataset
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: PsiN
+  integer,      intent(in), optional :: nturns
+
+  !real(real64), dimension(:,:), allocatable :: theta_map
+  type(t_dataset)   :: theta_map, RZ_geo
+  type(t_fieldline) :: F
+  real(real64)      :: x0(3), y0(3), dphi, L, s, q
+  integer           :: i, ierr, n, iconfig_store(0:BF_MAX_CONFIG), chunk_size
+
+
+  ! initialize reference point
+  y0(1) = 0.d0
+  y0(2) = PsiN
+  y0(3) = 0.d0
+  x0    = get_cylindrical_coordinates(y0, ierr)
+  if (ierr > 0) call get_cylindrical_coordinates_error(ierr)
+
+
+  ! set equilibrium field
+  iconfig_store = iconfig
+  iconfig = 0
+  iconfig(BF_EQ2D) = 1
+
+
+  ! initialize theta map
+  chunk_size = 1024
+  call theta_map%new(chunk_size, 2)
+  call RZ_geo%new(chunk_size, 3)
+
+
+  ! initialize reference field line
+  dphi  = 0.1d0 / 180.d0 * pi
+  call F%init(x0, dphi, ADAMS_BASHFORTH_4, FL_ANGLE)
+  n     = 1
+  if (present(nturns)) then
+     if (nturns > 1) n = nturns
+  endif
+  q     = 0.d0
+  L     = 0.d0
+  i     = 1
+  theta_map%x(1,1) = 0.d0
+  theta_map%x(1,2) = 0.d0
+  RZ_geo%x(1,1)    = 0.d0
+  RZ_geo%x(1,2:3)  = x0(1:2)
+
+
+  ! generate flux surface
+  trace_loop: do
+     L = L + F%trace_1step()
+     if (F%intersect_boundary(x0)) exit trace_loop
+
+     i = i + 1
+     if (i > theta_map%nrow) call theta_map%extend(chunk_size)
+     if (i > RZ_geo%nrow)    call RZ_geo%extend(chunk_size)
+     theta_map%x(i,1) = F%theta_int
+     theta_map%x(i,2) = F%phi_int
+     RZ_geo%x(i,1)    = F%theta_int
+     RZ_geo%x(i,2:3)  = F%rc(1:2)
+
+     if (abs(F%theta_int) > n*pi2) then
+        s = (n*pi2 - theta_map%x(i-1,1)) / (theta_map%x(i,1) - theta_map%x(i-1,1))
+        theta_map%x(i,1) = n*pi2
+        theta_map%x(i,2) = theta_map%x(i-1,2) + s * (theta_map%x(i,2) - theta_map%x(i-1,2))
+        RZ_geo%x(i,1)    = n*pi2
+        RZ_geo%x(i,2:3)  = RZ_geo%x(i-1,2:3) + s * (RZ_geo%x(i,2:3) - RZ_geo%x(i-1,2:3))
+
+        q = theta_map%x(i,2) / theta_map%x(i,1)
+        exit trace_loop
+     endif
+  enddo trace_loop
+  this%q           = q
+  theta_map%x(:,2) = theta_map%x(:,2) / q
+  call theta_map%resize(i)
+  call RZ_geo%resize(i)
+
+  ! set up mapping theta -> theta_star
+  call this%theta_star_map%setup_explicit(i, theta_map%x(:,1), theta_map%x(:,2))
+  ! set up mapping theta_star -> theta
+  call this%theta_map%setup_explicit(i, theta_map%x(:,2), theta_map%x(:,1))
+
+  call this%RZ_geo%setup(RZ_geo, 1)
+  !call theta_map%plot(filename='theta_map.raw')
+  call theta_map%destroy()
+  call this%new(i-1)
+  this%x(0:i-1,1:2) = RZ_geo%x(1:i,2:3)
+  call RZ_geo%destroy()
+  !call this%theta_map%plot(filename='theta_map.plt', nsample=100000)
+
+  ! restore field configuration
+  iconfig = iconfig_store
+
+  end subroutine setup_theta_map
+!=======================================================================
+
+
+
+!=======================================================================
+! Return natural (straight field line) poloidal angle theta_start for given
+! geometric poloidal angle theta
+!=======================================================================
+  function theta_star(this, theta)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: theta
+  real(real64)             :: theta_star
+
+  real(real64) :: x(1)
+
+
+  x          = this%theta_star_map%eval(theta, base=ABSOLUTE)
+  theta_star = x(1)
+
+  end function theta_star
+!=======================================================================
+
+
+
+!=======================================================================
+! Return geometric poloidal angle theta for given natural (straight field line)
+! poloidal angle theta_start
+!=======================================================================
+  function theta(this, theta_star)
+  use math
+  class(t_flux_surface_2D) :: this
+  real(real64), intent(in) :: theta_star
+  real(real64)             :: theta
+
+  real(real64) :: x(1)
+
+
+  x     = this%theta_map%eval(theta_star, base=ABSOLUTE)
+  theta = x(1)
+
+  end function theta
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine get_RZ_geo(this, theta, x, dx)
+  class(t_flux_surface_2D)  :: this
+  real(real64), intent(in)  :: theta
+  real(real64), intent(out) :: x(2)
+  real(real64), intent(out), optional :: dx(2)
+
+  real(real64) :: y(3)
+
+
+  y = this%RZ_geo%eval(theta, base=ABSOLUTE)
+  x = y(2:3)
+  if (present(dx)) then
+     y  = this%RZ_geo%eval(theta, base=ABSOLUTE, derivative=1)
+     dx = y(2:3)
+  endif
+
+  end subroutine get_RZ_geo
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine get_spectrum(this, n, mmax, Bpsi_harm)
+  use math
+  use equilibrium, only: get_DPsiN, get_Bf_eq2D
+  use bfield
+  class(t_flux_surface_2D)  :: this
+  integer,      intent(in)  :: n, mmax
+  real(real64), intent(out) :: Bpsi_harm(-mmax:mmax)
+
+  real(real64) :: dphi, dtheta, theta, theta_star, S, ds(2), x(2), dx(2)
+  real(real64) :: B(3), Bpsi, Bpsic(-mmax:mmax), Bpsis(-mmax:mmax), ePsi(2), x3(3)
+  integer :: i, j, k, nphi, ntheta, m
+
+
+  nphi   = 256
+  ntheta = 256
+  dphi   = pi2 / nphi
+  dtheta = pi2 / ntheta
+
+  S      = 0.d0
+  BPsic  = 0.d0
+  BPsis  = 0.d0
+
+  do i=1,ntheta
+     theta_star = pi2 * (i-0.5d0) / ntheta
+     theta      = this%theta(theta_star)
+     !theta      = pi2 * (i-0.5d0) / ntheta
+     !theta_star = this%theta_star(theta)
+
+     call this%get_RZ_geo(theta, x, dx)
+     ds(1) = x(1) * dphi
+     !ds(2) = dtheta * sqrt(sum(dx**2))
+     x3(1) = x(1);  x3(2) = x(2);  x3(3) = 0.d0
+     B     = get_Bf_eq2D(x3)
+     ds(2) = ds(1) * sqrt(B(1)**2 + B(2)**2) / B(3)
+
+     ePsi(1) = get_DPsiN(x, 1, 0)
+     ePsi(2) = get_DPsiN(x, 0, 1)
+     ePsi    = ePsi / sqrt(sum(ePsi**2))
+
+     do j=1,nphi
+        x3(3)   = pi2 * (j-0.5d0) / nphi
+
+        S       = S + ds(1)*ds(2)
+        B       = get_Bf_Cyl_non2D(x3)
+        Bpsi    = sum(B(1:2)*ePsi)
+
+        do k=-mmax,mmax
+           Bpsic(k)   = Bpsic(k) + ds(1)*ds(2) * Bpsi * cos(n*x3(3) - k*theta_star)
+           Bpsis(k)   = Bpsic(k) + ds(1)*ds(2) * Bpsi * sin(n*x3(3) - k*theta_star)
+        enddo
+     enddo
+  enddo
+  Bpsic   = Bpsic / S
+  Bpsis   = Bpsic / S
+  Bpsi_harm = sqrt(Bpsic**2 + Bpsis**2)
+
+  end subroutine get_spectrum
+!=======================================================================
 
 end module flux_surface_2D

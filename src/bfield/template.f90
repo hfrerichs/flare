@@ -1,10 +1,13 @@
 module TEMPLATE
+  use iso_fortran_env
   implicit none
 
   private
 
-  public :: load_TEMPLATE_configuration, &
-            get_Bf_r3_TEMPLATE, get_Bf_x3_TEMPLATE
+  public :: TEMPLATE_load, &
+            TEMPLATE_broadcast, &
+            TEMPLATE_get_Bf, &
+            TEMPLATE_get_JBf
 
   contains
   !=====================================================================
@@ -14,32 +17,49 @@ module TEMPLATE
   !=====================================================================
   ! load configuration and setup related variables
   !=====================================================================
-  subroutine load_TEMPLATE_configuration (iu)
-  integer, intent(in) :: iu
-  end subroutine load_TEMPLATE_configuration
+  subroutine TEMPLATE_load (iu, iconfig)
+  integer, intent(in)  :: iu
+  integer, intent(out) :: iconfig
+
+
+  iconfig = 0
+
+  end subroutine TEMPLATE_load
   !=====================================================================
+
+
+
+  !=====================================================================
+  ! broadcast data for parallel execution
+  !=====================================================================
+  subroutine TEMPLATE_broadcast()
+  end subroutine TEMPLATE_broadcast
+  !=====================================================================
+
 
 
   !=====================================================================
   ! return magnetic field components using cylindrical coordinates (R, Z, phi)
   !=====================================================================
-  function get_Bf_r3_TEMPLATE(r)
-  real*8             :: get_Bf_r3_TEMPLATE(3)
-  real*8, intent(in) :: r(3)
+  function TEMPLATE_get_Bf(r) result(Bf)
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: Bf(3)
 
-  end function get_Bf_r3_TEMPLATE
+  end function TEMPLATE_get_Bf
   !=====================================================================
 
 
-  !=====================================================================
-  ! return magnetic field components using Cartesian coordinates
-  !=====================================================================
-  function get_Bf_x3_TEMPLATE(x)
-  real*8             :: get_Bf_x3_TEMPLATE(3)
-  real*8, intent(in) :: x(3)
 
-  end function get_Bf_x3_TEMPLATE
   !=====================================================================
+  ! return Jacobian of magnetic field [T/m] in cylindrical coordinates
+  !=====================================================================
+  function TEMPLATE_get_JBf(r) result(JBf)
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: JBf(3,3)
+
+  end function TEMPLATE_get_JBf
+  !=====================================================================
+
 
 
   !=====================================================================

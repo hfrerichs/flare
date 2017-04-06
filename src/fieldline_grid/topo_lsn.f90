@@ -260,7 +260,7 @@ module modtopo_lsn
 
      ! 2.c private flux region (PFR)
      if (generate_flux_surfaces_PFR) then
-        call make_flux_surfaces_PFR(M_PFR, nr2, np1l, np1r, 1, nr2, 1, rpath(2), Zone(iz2)%Sr, Zone(iz2)%Sp)
+        call make_flux_surfaces_PFR(M_PFR, nr2, np1l, np1r, 1, rpath(2), Zone(iz2)%Sr, Zone(iz2)%Sp)
      else
         G_PFR(iblock)%mesh = G_PFR(iblock-1)%mesh
      endif

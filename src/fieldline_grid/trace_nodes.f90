@@ -3,11 +3,8 @@
 !===============================================================================
 subroutine trace_nodes(post_process_grid)
   use emc3_grid, only: NZONET
-  use fieldline_grid
-  use fieldline
   use grid
   use string
-  use math
   implicit none
 
   interface
@@ -17,8 +14,7 @@ subroutine trace_nodes(post_process_grid)
 
   type(t_grid), dimension(:), allocatable :: G3D
   type(t_grid) :: B
-  real(real64) :: phi1, phi2, ts
-  integer :: iz, nr1, nr2, np1, np2, tm, tc
+  integer      :: iz
 
 
   write (6, *)
@@ -26,42 +22,13 @@ subroutine trace_nodes(post_process_grid)
   write (6, *)
 
 
-  ! set parameters for field line tracing
-  ts = pi2 / 3600.d0
-  tm = NM_AdamsBashforth4
-  tc = FL_ANGLE
-
-
   allocate (G3D(0:NZONET-1))
   do iz=0,NZONET-1
-     ! 1. load base grid
+     ! load base grid
      call B%load('base_grid_'//trim(str(iz))//'.dat')
 
-
-     ! 2. check input --------------------------------------------------
-     ! 2.1 layout
-     if (B%layout /= MESH_2D) then
-        write (6, *) 'error: unexpected grid layout ', B%layout
-        stop
-     endif
-     if (B%fixed_coord /= 3) then
-        write (6, *) 'error: grid is not located at fixed toroidal location'
-        stop
-     endif
-
-     ! 2.2 toroidal position of base grid
-     phi1 = Zone(iz)%phi(Zone(iz)%it_base)
-     phi2 = B%fixed_coord_value / pi * 180.d0
-     if (abs((phi1-phi2)/phi2) > 1.d-6) then
-        write (6, *) 'error: unexpected toroidal position of base grid: ', phi2, ' deg'
-        write (6, *) 'expected position: ', phi1, ' deg'
-        stop
-     endif
-     ! -----------------------------------------------------------------
-
-
-     ! 3. generate 3D grid
-     call trace_nodes_1zone(G3D(iz))
+     ! generate 3D grid
+     call trace_nodes_1zone(iz, B, G3D(iz))
   enddo
 
 
@@ -77,7 +44,7 @@ subroutine trace_nodes(post_process_grid)
   ! cleanup
   deallocate (G3D)
  1000 format(3x,'- Tracing fieldlines from base grids ...')
-  contains
+end subroutine trace_nodes
 !-----------------------------------------------------------------------
 
 
@@ -91,25 +58,61 @@ subroutine trace_nodes(post_process_grid)
 ! output:
 !    G          slices with nodes on field lines
 !-----------------------------------------------------------------------
-  subroutine trace_nodes_1zone(G)
+  subroutine trace_nodes_1zone(iz, B, G)
+  use grid
+  use fieldline
+  use fieldline_grid
+  implicit none
+
+  integer,      intent(in)  :: iz
+  type(t_grid), intent(in)  :: B
   type(t_grid), intent(out) :: G
 
   type(t_fieldline) :: F
   real(real64) :: y0(3), y1(3), Dphi
+  real(real64) :: phi1, phi2, ts
   integer :: ir, ip, it, idir, it_end, ig, ierr
+  integer :: nr1, nr2, np1, np2, tm, tc
 
 
+  ! set parameters for field line tracing
+  ts = pi2 / 3600.d0
+  tm = NM_AdamsBashforth4
+  tc = FL_ANGLE
+
+
+  ! 1. check input --------------------------------------------------
+  ! 1.1 layout
+  if (B%layout /= MESH_2D) then
+     write (6, *) 'error: unexpected grid layout ', B%layout
+     stop
+  endif
+  if (B%fixed_coord /= 3) then
+     write (6, *) 'error: grid is not located at fixed toroidal location'
+     stop
+  endif
+
+  ! 1.2 toroidal position of base grid
+  phi1 = Zone(iz)%phi(Zone(iz)%it_base)
+  phi2 = B%fixed_coord_value / pi * 180.d0
+  if (abs((phi1-phi2)/phi2) > 1.d-6) then
+     write (6, *) 'error: unexpected toroidal position of base grid: ', phi2, ' deg'
+     write (6, *) 'expected position: ', phi1, ' deg'
+     stop
+  endif
+  ! -----------------------------------------------------------------
+
+
+  ! 2. initialize 3D grid
   nt = Zone(iz)%nt
   call G%new(CYLINDRICAL, MESH_3D, 3, B%n1, B%n2, nt+1)
-
-
-  ! 1. setup toroidal segments
+  ! setup toroidal segments
   do it=0,nt
      G%x3(it) = Zone(iz)%phi(it) / 180.d0 * pi
   enddo
 
 
-  ! 2. field line tracing from base grid
+  ! 3. field line tracing from base grid
   write (6, *) 'progress:'
   ! loop over all grid nodes
   do ir=0,B%n1-1
@@ -135,9 +138,15 @@ subroutine trace_nodes(post_process_grid)
               Dphi = abs(Zone(iz)%phi(it) - Zone(iz)%phi(it-idir)) / 180.d0 * pi
               call F%trace_Dphi(Dphi, .false., y1, ierr)
               if (ierr .ne. 0) then
+              select case(ierr)
+              case(2)
+                 write (6, *) 'error: field line at boundary of magnetic field domain!'
+                 stop
+              case default
                  write (6, *) 'error in subroutine trace_grid: ', &
                               'trace_Dphi returned error ', ierr
                  stop
+              end select
               endif
 
               G%mesh3D(ir,ip,it,1:2) = y1(1:2)
@@ -148,4 +157,3 @@ subroutine trace_nodes(post_process_grid)
 
   end subroutine trace_nodes_1zone
 !-----------------------------------------------------------------------
-end subroutine trace_nodes

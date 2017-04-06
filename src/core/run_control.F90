@@ -51,7 +51,6 @@ module run_control
      Side           = 1, &
      Input_Format   = 1, &
      Output_Format  = 1, &          ! See individual tools
-     Spline_Order   = 5, &
      Panic_Level    = IMODERATE, &
      Surface_Id     = 1, &
      Surface_Type   = 1
@@ -59,7 +58,8 @@ module run_control
 
   logical :: &
      Debug          = .false., &
-     use_boundary_from_equilibrium   = .true.
+     use_boundary_from_equilibrium   = .true., &
+     stop_at_boundary                = .true.
 
 
 
@@ -75,9 +75,9 @@ module run_control
      x_start, N_steps, Limit, &
      R_start, R_end, Z_start, Z_end, Phi_output, N_points, N_sym, N_mult, Side, &
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
-     Spline_Order, Run_Level, &
+     Run_Level, &
      Surface_Id, Surface_Type, &
-     Debug, use_boundary_from_equilibrium
+     Debug, use_boundary_from_equilibrium, stop_at_boundary
 
 
   private :: Boundary, RunControl
@@ -101,8 +101,10 @@ module run_control
 
      Boundary_Prefix = ''
      if (Machine .ne. ' ') then
-        write (6, *) 'Machine:                ', trim(Machine)
-        write (6, *) 'Configuration:          ', trim(Configuration)
+        write (6, *)
+        write (6, 1000)
+        write (6, 1001) trim(Machine)
+        write (6, 1002) trim(Configuration)
         call getenv("HOME", homedir)
         Prefix = trim(homedir)//'/'//base_dir//'/'//trim(Machine)//'/'// &
                  trim(Configuration)//'/'
@@ -154,6 +156,9 @@ module run_control
   call broadcast_logi   (Debug           )
 
   return
+ 1000 format(3x,'- Magnetic setup:')
+ 1001 format(8x,'Machine:                ',a)
+ 1002 format(8x,'Configuration:          ',a)
  5000 write  (6,5001)
  5001 format ('error reading control table from input file')
   stop
@@ -185,6 +190,8 @@ module run_control
      call poincare_plot
   case ('connection_length')
      call connection_length
+  case ('initialize_equilibrium')
+     call initialize_equilibrium()
   case ('get_equi_info_2D')
      call get_equi_info_2D
   case ('generate_flux_surface_2D')
@@ -233,6 +240,8 @@ module run_control
      call export_gfile()
   case ('quasi_surfaces')
      call quasi_surfaces()
+  case ('perturbation_spectrum')
+     call perturbation_spectrum()
   case default
 !     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
 !        read (Run_Type(40:42), *) i

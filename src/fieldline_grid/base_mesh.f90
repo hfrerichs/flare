@@ -4,32 +4,42 @@ module base_mesh
   use curve2D
   use separatrix
   use xpaths
+  use mesh_interface
+  use elements
+  use mfs_mesh
+  use fieldline_grid, only: t_toroidal_discretization
   implicit none
   private
 
-  integer, parameter, public :: &
-     RADIAL         = 1, &
-     POLOIDAL       = 2, &
-     LOWER_TO_UPPER = 1, &
-     UPPER_TO_LOWER = 2
+
+  integer, parameter :: &
+     LEFT   =  1, &
+     CENTER =  0, &
+     RIGHT  = -1
+
+  type t_layer
+     ! number of (poloidal) elements in layer
+     integer   :: nz
+
+     ! element indices
+     integer, dimension(:), allocatable :: iz
+
+     ! base element index (i0), poloidal layer (ipl) and side (ipl_side)
+     integer   :: i0
+
+     ! radial and poloidal resolution in layer
+     integer   :: nr = UNDEFINED, np = UNDEFINED
+
+     ! toroidal discretization
+     type(t_toroidal_discretization) :: T
 
 
-  ! orthogonal, flux surface aligned mesh with strike point adjustment
-  type, extends(t_grid), public :: t_base_mesh
-     integer :: nr, np
-     integer :: &
-        ir0 = -1, & ! reference radial surface for mesh generation
-        ip0 = -1    ! reference poloidal surface for mesh generation
      contains
      procedure :: initialize
-     procedure :: connect_to
-     !procedure :: connect_partial_to
-     procedure :: setup_boundary_nodes
-     procedure :: make_orthogonal_grid
-     procedure :: make_interpolated_mesh
-     procedure :: make_divertor_grid
-     ! procedure :: merge(M1, M2, ...)
-  end type t_base_mesh
+     procedure :: setup_resolution
+     procedure :: map_poloidal_resolution
+  end type t_layer
+  type(t_layer), dimension(:), allocatable :: L
 
 
   ! magnetic axis
@@ -45,9 +55,12 @@ module base_mesh
   ! guiding surface
   type(t_curve) :: C_guide
 
+  type(t_mfs_mesh), dimension(:), allocatable :: M, Mtmp
 
+
+  public :: setup_topology
   public :: setup_geometry
-  !public :: setup_topology
+  public :: setup_interfaces
   public :: generate_base_mesh
 
   contains
@@ -56,15 +69,23 @@ module base_mesh
 
 
 !=======================================================================
-  subroutine initialize(this, nr, np, phi)
-  class(t_base_mesh)       :: this
-  integer, intent(in)      :: nr, np
-  real(real64), intent(in) :: phi
+  subroutine initialize(this, nz, iz, i0)
+  class(t_layer)      :: this
+  integer, intent(in) :: nz, iz(nz), i0
 
 
-  this%nr = nr
-  this%np = np
-  call this%new(CYLINDRICAL, MESH_2D, 3, nr+1, np+1, fixed_coord_value=phi)
+  if (nz <= 0) then
+     write (6, *) 'error in t_layer%initialize: number of elements must be positive!'
+     stop
+  endif
+
+
+  this%nz = nz
+  allocate (this%iz(nz))
+  this%iz = iz
+
+  ! set base element index
+  this%i0 = i0
 
   end subroutine initialize
 !=======================================================================
@@ -72,552 +93,364 @@ module base_mesh
 
 
 !=======================================================================
-! Connect this bock to next block (M)
-! direction:	boundary direction (radial or poloidal)
-! side:		lower-to-upper or upper-to-lower boundary
-!=======================================================================
-  subroutine connect_to(this, M, direction, side)
-  class(t_base_mesh)  :: this, M
-  integer, intent(in) :: direction, side
+  subroutine setup_resolution(this, il)
+  use fieldline_grid, only: nr, np, npR, npL
+  class(t_layer)      :: this
+  integer, intent(in) :: il
 
-  real(real64), dimension(:,:,:), pointer :: M1, M2
-  integer :: ir, ir1, ir2, ip, ip1, ip2
+  integer :: i, i1, iz, ipl, ipl0
 
 
-  M1 => this%mesh
-  M2 => M%mesh
+  ! 1. set radial resolution in this layer..............................
+  this%nr = nr(il)
+  !.....................................................................
 
 
+  ! 2. set resolution in elements.......................................
+  ! case A: innermost domain
+  if (il == 0) then
+     if (this%nz == 1) then
+        iz = this%iz(1);  Z(iz)%nr = nr(il);  Z(iz)%np = np(il)
+        Z(iz)%ipl      = 0
+        Z(iz)%ipl_side = CENTER
+     elseif (this%nz == 2) then
+        iz = this%iz(1);  Z(iz)%nr = nr(il);  Z(iz)%np = npL(il)
+        Z(iz)%ipl      = 0
+        Z(iz)%ipl_side = LEFT
 
-  select case(direction)
-  ! CONNECT IN RADIAL DIRECTION
-  case(RADIAL)
-     ! 1. check poloidal resolution of interface
-     if (this%np .ne. M%np) then
-        write (6, 9000)
-        write (6, 9010) this%np, M%np
-        stop
-     endif
-
-     ! 2. setup radial indices
-     select case(side)
-     case(LOWER_TO_UPPER)
-        ir1 = 0
-        ir2 = M%nr
-     case(UPPER_TO_LOWER)
-        ir1 = this%nr
-        ir2 = 0
-     case default
-        write (6, 9000)
-        write (6, 9002) side
-        stop
-     end select
-
-     ! 3. copy boundary nodes
-     do ip=0,this%np
-        M2(ir2, ip, :) = M1(ir1, ip, :)
-     enddo
-     M%ir0 = ir2
-
-  ! CONNECT IN POLOIDAL DIRECTION
-  case(POLOIDAL)
-     ! 1. check radial resolution of interface
-     if (this%nr .ne. M%nr) then
-        write (6, 9000)
-        write (6, 9011) this%nr, M%nr
-        stop
-     endif
-
-     ! 2. setup poloidal indices
-     select case(side)
-     case(LOWER_TO_UPPER)
-        ip1 = 0
-        ip2 = M%np
-     case(UPPER_TO_LOWER)
-        ip1 = this%np
-        ip2 = 0
-     case default
-        write (6, 9000)
-        write (6, 9002) side
-        stop
-     end select
-
-     ! 3. copy boundary nodes
-     do ir=0,this%nr
-        M2(ir, ip2, :) = M1(ir, ip2, :)
-     enddo
-     M%ip0 = ip2
-
-  case default
-     write (6, 9000)
-     write (6, 9001) direction
-     stop
-  end select
-
- 9000 format('error in t_base_mesh%connect_to')
- 9010 format('invalid poloidal resolution in neighboring blocks: ', i0, 2x, i0)
- 9011 format('invalid radial resolution in neighboring blocks: ', i0, 2x, i0)
- 9001 format('invalid boundary direction: ', i0)
- 9002 format('invalid boundary side id: ', i0)
-  end subroutine connect_to
-!=======================================================================
-
-
-
-!=======================================================================
-! Setup boundary nodes in mesh
-! boundary_type:	radial or poloidal block boundary
-! boundary_side:	lower or upper boundary
-
-! C_boundary:	boundary definition
-! spacings:	spacing function for nodes on boundary
-!=======================================================================
-  subroutine setup_boundary_nodes(this, boundary_type, boundary_side, C_boundary, spacings, i1, i2)
-  use mesh_spacing
-  use curve2D
-  class(t_base_mesh)          :: this
-  integer,         intent(in) :: boundary_type, boundary_side
-  type(t_curve),   intent(in) :: C_boundary
-  type(t_spacing), intent(in) :: spacings
-  integer,         intent(in), optional :: i1, i2
-
-  real(real64), dimension(:,:,:), pointer :: M
-  real(real64) :: tau, x(2)
-  integer      :: ir, ip, i11, i22, idir
-
-
-  M => this%mesh
-  call C_boundary%setup_length_sampling()
-
-
-  select case(boundary_side)
-  case(LOWER)
-     ir = 0
-     ip = 0
-  case(UPPER)
-     ir = this%nr
-     ip = this%np
-  case default
-     write (6, *) 'error in t_base_mesh%setup_boundary_nodes:'
-     write (6, *) 'invalid boundary side ', boundary_side
-     stop
-  end select
-
-
-  idir = 1
-  select case(boundary_type)
-  case(RADIAL)
-     this%ir0 = ir
-     i11      = 0
-     i22      = this%np
-     if (present(i1)) i11 = i1
-     if (present(i2)) i22 = i2
-     if (i22 < i11) idir = -1
-     do ip=i11,i22,idir
-        tau = spacings%node(ip-i11, i22-i11)
-        call C_boundary%sample_at(tau, x)
-        M(ir, ip, :) = x
-     enddo
-  case(POLOIDAL)
-     this%ip0 = ip
-     i11      = 0
-     i22      = this%nr
-     if (present(i1)) i11 = i1
-     if (present(i2)) i22 = i2
-     if (i22 < i11) idir = -1
-     do ir=i11,i22,idir
-        tau = spacings%node(ir-i11, i22-i11)
-        call C_boundary%sample_at(tau, x)
-        M(ir, ip, :) = x
-     enddo
-  end select
-
-  end subroutine setup_boundary_nodes
-!=======================================================================
-
-
-
-!=======================================================================
-! Make (quasi) orthogonal grid
-!=======================================================================
-  subroutine make_orthogonal_grid(this, rrange, prange, periodic, addX)
-  use equilibrium, only: get_PsiN
-  class(t_base_mesh)  :: this
-  integer, intent(in), optional :: rrange(2), prange(2), addX(2)
-  logical, intent(in), optional :: periodic
-
-  real(real64), dimension(:,:,:), pointer :: M
-  type(t_xpath) :: R
-  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final
-  integer       :: ir, ir0, ir1, ir2, ir_final, ip, ip0, ip1, ip2, ipp, direction, ix, ipx
-
-
-  M => this%mesh
-
-
-  ! set poloidal range
-  ip0 = this%ip0
-  if (ip0 == 0) then
-     ip1 = 1
-     ip2 = this%np
-     ipp = this%np
-  elseif (ip0 == this%np) then
-     ip1 = 0
-     ip2 = this%np - 1
-     ipp = 0
-  else
-     write (6, 9000)
-     write (6, 9001) ip0
-     stop
-  endif
-  if (present(periodic)) then
-  if (periodic) then
-     ip1 = 1
-     ip2 = this%np - 1
-  endif
-  endif
-  if (present(prange)) then
-     ip1 = prange(1)
-     ip2 = prange(2)
-  endif
-
-
-  ! set radial range
-  ir0 = this%ir0
-  if (ir0 == 0) then
-     ir1        = 1
-     ir2        = this%nr
-     direction  = ASCENT
-  elseif (ir0 == this%nr) then
-     ir1        = 0
-     ir2        = this%nr - 1
-     direction  = DESCENT
-  else
-     write (6, 9000)
-     write (6, 9002) ir0
-     stop
-  endif
-  if (present(rrange)) then
-     ir1 = rrange(1)
-     ir2 = rrange(2)
-  endif
-
-
-  ! setup reference PsiN values
-  do ir=ir1,ir2
-     x        = M(ir,ip0,:)
-     PsiN(ir) = get_PsiN(x)
-  enddo
-
-  select case(direction)
-  case(ASCENT)
-     ir_final = ir2
-  case(DESCENT)
-     ir_final = ir1
-  end select
-  PsiN_final = PsiN(ir_final)
-
-
-  ! additional X-point to take into account
-  ipx = -1
-  if (present(addX)) then
-     ix  = addX(1)
-     ipx = addX(2)
-  endif
-
-
-  ! set up nodes in poloidal range ip1->ip2 and radial range ir1->ir2
-  write (6, 1000) ir0, ir1, ir2, ip0, ip1, ip2
-  do ip=ip1,ip2
-     call progress(ip-ip1, ip2-ip1, 0.1d0)
-     if (ip == ipx) then
-        call R%generateX(ix,         direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
+        iz = this%iz(2);  Z(iz)%nr = nr(il);  Z(iz)%np = npR(il)
+        Z(iz)%ipl      = 0
+        Z(iz)%ipl_side = RIGHT
      else
-        call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
+        write (6, 9000);  write(6, 9001);  stop
      endif
 
-     do ir=ir1,ir2
-        call R%sample_at_PsiN(PsiN(ir), x, enforce_boundary=.true.)
-        M(ir,ip,:) = x
+  ! case B: outer layers -> poloidal resolution is already defined in at least one element
+  else
+     ! 1. set radial resolution throughout layer
+     do i=1,this%nz
+        iz = this%iz(i);  Z(iz)%nr = nr(il)
+     enddo
+
+     ! 2. set poloidal resolution on lower/right side of layer
+     ! 2.1 find index of first element with defined poloidal resolution
+     do i1=1,this%nz
+        iz = this%iz(i1)
+        if (Z(iz)%np /= UNDEFINED) exit
+     enddo
+     if (i1 > this%nz) then
+        write (6, 9000);  write(6, 9002);  stop
+     endif
+     ipl0 = Z(iz)%ipl; if (Z(iz)%ipl_side == LEFT) ipl0 = ipl0 + 1
+     ! 2.2 go backwards and set up poloidal layer and corresponding resolution
+     do i=i1-1,1,-1
+        iz             = this%iz(i)
+        ipl            = ipl0 + i1-i
+        Z(iz)%np       = npR(ipl)
+        Z(iz)%ipl      = ipl
+        Z(iz)%ipl_side = RIGHT
+     enddo
+
+     ! 3. set poloidal resolution on upper/left side of layer
+     ! 3.1 find index of first element with defined poloidal resolution
+     do i1=this%nz,1,-1
+        iz = this%iz(i1)
+        if (Z(iz)%np /= UNDEFINED) exit
+     enddo
+     if (i1 < 1) then
+        write (6, 9000);  write(6, 9002);  stop
+     endif
+     ipl0 = Z(iz)%ipl; if (Z(iz)%ipl_side == RIGHT) ipl0 = ipl0 + 1
+     ! 3.2 go backwards and set up poloidal layer and corresponding resolution
+     do i=i1+1,this%nz
+        iz             = this%iz(i)
+        ipl            = ipl0 + i-i1
+        Z(iz)%np       = npL(ipl)
+        Z(iz)%ipl      = ipl
+        Z(iz)%ipl_side = LEFT
+     enddo
+  endif
+  !.....................................................................
+
+
+  ! 3. set poloidal resolution in layer.................................
+  this%np = 0
+  do i=1,this%nz
+     iz      = this%iz(i)
+     this%np = this%np + Z(iz)%np
+  enddo
+  !.....................................................................
+
+
+ 9000 format('error in t_layer%setup_resolution:')
+ 9001 format('innermost domain with ', i0, ' > 2 elements not supported!')
+ 9002 format('poloidal resolution undefined in all elements!')
+  end subroutine setup_resolution
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine map_poloidal_resolution(this)
+  class(t_layer)      :: this
+
+  integer :: i, iside, iz, iz_map
+
+
+  do i=1,this%nz
+     iz = this%iz(i)
+
+     do iside=-1,1,2
+        iz_map = Z(iz)%map_r(iside)
+        ! map to another element?
+        if (iz_map < 0) cycle
+
+        ! map poloidal resolution
+        if (Z(iz_map)%np == UNDEFINED) then
+           Z(iz_map)%np       = Z(iz)%np
+           Z(iz_map)%ipl      = Z(iz)%ipl
+           Z(iz_map)%ipl_side = Z(iz)%ipl_side
+
+        ! poloidal resolution in mapped element already defined?
+        elseif (Z(iz_map)%np /= Z(iz)%np) then
+           write (6, 9000) iz, iz_map, Z(iz)%np, Z(iz_map)%np;  stop
+        endif
      enddo
   enddo
 
-
-  ! set up periodic boundaries
-  if (present(periodic)) then
-  if (periodic) then
-     M(:,ipp,:) = M(:,ip0,:)
-  endif
-  endif
-
-
- 1000 format(8x,'generate orthogonal mesh: (',i0,': ',i0,' -> ',i0,') x (',i0,': ',i0,' -> ',i0,')')
- 9000 format('error in t_base_mesh%make_orthogonal_grid')
- 9001 format('invalid poloidal reference index ', i0)
- 9002 format('invalid radial reference index ', i0)
-  end subroutine make_orthogonal_grid
+ 9000 format('error in t_layer%map_poloidal_resolution:'//, 'element ', i0, ' maps to ', i0, &
+             ', but poloidal resolution is ', i0, ' vs. ', i0, '!')
+  end subroutine map_poloidal_resolution
 !=======================================================================
 
 
 
 !=======================================================================
-! Generate interpolated mesh to inner simulation boundary (2 -> ir2)
-!=======================================================================
-  subroutine make_interpolated_mesh(this, ir2, Sr, C, PsiN1_max)
-  use equilibrium, only: get_PsiN, Xp
-  use mesh_spacing
-  class(t_base_mesh)          :: this
-  integer,         intent(in) :: ir2
-  type(t_spacing), intent(in) :: Sr
-  type(t_curve),   intent(in) :: C(0:1)
-  real(real64),    intent(in) :: PsiN1_max
+  subroutine setup_topology()
+  use fieldline_grid
 
-  real(real64), dimension(:,:,:), pointer :: M
-  type(t_xpath) :: Rtmp
-  real(real64)  :: PsiN2, eta, x(2)
-  integer       :: i, ir1, j, nr, np
+  ! 1. initialize topology
+  layers = -1
+  select case(topology)
+  ! lower single null (LSN)
+  case(TOPO_LSN, TOPO_LSN1)
+     call initialize_elements(6)
+     call initialize_interfaces(3) ! radial interfaces
+     nX = 1;  allocate(connectX(nX))
+     connectX(1) = 1
 
+  ! disconnected double null (DDN)
+  case(TOPO_DDN, TOPO_DDN1)
+     call initialize_elements(16)
+     call initialize_interfaces(10) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = -2
+     connectX(2) = -2
 
-  M  => this%mesh
-  nr  = this%nr
-  ir1 = 1
-  write (6, 1001) ir1+1, ir2-1
+  ! connected double null (CDN)
+  case(TOPO_CDN, TOPO_CDN1)
+     !call initialize_zones(6)
+     !call initialize_interfaces(3) ! radial interfaces
+     nX = 2;  allocate(connectX(nX))
+     connectX(1) = 2
+     connectX(2) = 1
 
-  ! sanity check
-  PsiN2 = get_PsiN(M(ir2,0,:)) ! radial location of innermost unperturbed flux surface
-  if (PsiN2 < PsiN1_max) then
-     write (6, 9000) ir2, PsiN2
-     write (6, 9001) PsiN1_max
+  ! snowflake + (in disconnected double null)
+  case(TOPO_DSFP, TOPO_DSFP1)
+     call initialize_elements(22)
+     call initialize_interfaces(14) ! radial interfaces
+     nX = 3;  allocate(connectX(nX))
+     connectX(1) = -3
+     connectX(2) = -1
+     connectX(3) = -3
+
+  case default
+     write (6, 9000) trim(topology)
      stop
-  endif
-
-  np = this%np
-  do j=0,np
-     call progress(j, np, 0.1d0)
-     x = M(ir2,j,:)
-     call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1_max, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
-
-     ! interpolated surfaces
-     do i=ir1,ir2-1
-        eta = 1.d0 - Sr%node(i-1, nr-1) / Sr%node(ir2-1, nr-1)
-        call Rtmp%sample_at(eta, x)
-
-        M(i,j,:) = x
-     enddo
-
-     ! innermost surface
-     x = M(ir1,j,:)
-     call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, -1.d0, C_limit=C(0))
-     M(0,j,:) = Rtmp%boundary_node(UPPER)
-  enddo
-
- 1001 format(8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
-             i0, ' -> ', i0)
- 9000 format('error: last unperturbed flux surface at radial index ', i0, ' is at PsiN = ', &
-             f0.3, ' but it must be completely outside of inner simulation boundary!'// &
-             'try using a larger n_interpolate!')
- 9001 format('outer most point on inner simulation boundary is at PsiN = ', f0.3)
-  end subroutine make_interpolated_mesh
-!=======================================================================
-
-
-
-!=======================================================================
-! Generate nodes in the base plane so that field lines connect to the
-! strike point x0
-!=======================================================================
-  subroutine align_strike_points(x0, Z, nsub, M)
-  use fieldline_grid, only: t_zone
-  use fieldline
-  real(real64), intent(in)  :: x0(2)
-  type(t_zone), intent(in)  :: Z
-  integer,      intent(in)  :: nsub
-  real(real64), intent(out) :: M(0:Z%nt*nsub, 2)
-
-  type(t_fieldline) :: F
-  real(real64)      :: ts, y0(3), y1(3), Dphi
-  integer           :: tm, tc, idir, it, it0, it_sub, it_end, ierr
-
-
-  ! set parameters for field line tracing
-  ! (taken from subroutine trace_nodes)
-  ts = pi2 / 3600.d0
-  tm = NM_AdamsBashforth4
-  tc = FL_ANGLE
-
-
-
-  ! set initial point
-  y0(1:2)    = x0
-  y0(3)      = Z%phi(Z%it_base)
-  it0        = Z%it_base * nsub
-  M(it0,1:2) = y0(1:2)
-
-  do idir=-1,1,2
-     call F%init(y0, idir*ts, tm, tc)
-
-     ! trace from base location to zone boundaries
-     it_end = 0
-     if (idir > 0) it_end = Z%nt
-     do it=Z%it_base+idir,it_end, idir
-        Dphi = abs(Z%phi(it) - Z%phi(it-idir)) / nsub / 180.d0 * pi
-
-        ! sub-resolution
-        do it_sub=1,nsub
-           call F%trace_Dphi(Dphi, .false., y1, ierr)
-           if (ierr .ne. 0) then
-              write (6, 9000) ierr
-              stop
-           endif
-
-           M((it-idir)*nsub + it_sub*idir,1:2) = y1(1:2)
-        enddo
-     enddo
-  enddo
- 9000 format('error in subroutine align_strike_point: ',//, &
-             't_fieldline%trace_Dphi returned ierr = ', i0)
-  end subroutine align_strike_points
-!=======================================================================
-
-
-
-!=======================================================================
-! Generate grid in divertor legs
-!=======================================================================
-!  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
-  subroutine make_divertor_grid(this, Rside, ip0, Z, ierr)
-  use fieldline_grid, only: t_zone
-  use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
-  use curve2D
-  use mesh_spacing
-  use flux_surface_2D
-  class(t_base_mesh)           :: this
-!  type(t_curve),   intent(in)  :: R, P
-!  integer,         intent(in)  :: Rside, Pside
-!  type(t_spacing), intent(in)  :: Sr, Sp
-  integer,         intent(in)  :: Rside, ip0
-  type(t_zone),    intent(in)  :: Z
-  integer,         intent(out) :: ierr
-
-  integer, parameter :: nsub = 2
-
-  type(t_flux_surface_2D) :: F
-
-  real(real64), dimension(:,:,:), pointer :: M
-  real(real64), dimension(:,:), allocatable :: MSP
-  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L
-  integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir
-  integer       :: it, its, it_start, it_end, dirT, downstream
-
-
-  ! check intersection of R with guiding surface
-!  if (R%intersect_curve(C_guide, x, tau)) then
-!     L    = R%length() * tau
-!     write (6, 9000) L
-!     ierr = 1
-!     return
-!  endif
-
-
-  ! check resolution
-  if (Z%nt * nsub > this%np) then
-     write (6, 9010) this%np, Z%nt, nsub
-     stop
-  endif
-
-
-  ! setup poloidal boundary with reference nodes for flux surfaces
-  !call this%setup_boundary_nodes(POLOIDAL, Rside, R, Sr)
-  select case(Rside)
-  case(LOWER)
-     dir        = RIGHT_HANDED
-     downstream = 1
-     ips        = this%np - Z%nt*nsub
-  case(UPPER)
-     dir        = LEFT_HANDED
-     downstream = -1
-     ips        = Z%nt*nsub
-     ! ip_ds    = 0
   end select
+  call initialize_poloidal_interfaces(4*nX)
 
 
-  ! find downstream direction
-  dirT       = dir * Ip_sign * Bt_sign
-  it_start   = Z%nt * nsub
-  it_end     = 0
-  if (dirT > 0) then
-     it_start = 0
-     it_end   = Z%nt * nsub
-  endif
+
+  ! 2. setup element topology
+  select case(topology)
+  ! lower single null (LSN)
+  case(TOPO_LSN, TOPO_LSN1)
+     ! innermost domain
+     call Z(1)%setup_boundary(LOWER, POLOIDAL, PERIODIC, 1) ! periodic poloidal boundaries at interface R1
+     call Z(1)%setup_boundary(UPPER, POLOIDAL, PERIODIC, 1) ! periodic poloidal boundaries
+     call Z(1)%setup_boundary(LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping (UPPER, RADIAL,   Z(2), 1)  ! connect to main SOL at interface I1
+
+     ! main SOL
+     call Z(2)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(2)%setup_mapping (LOWER, POLOIDAL, Z(3), 2)     ! connect to right divertor leg at interface R2
+     call Z(2)%setup_mapping (UPPER, POLOIDAL, Z(4))  ! connect to left divertor leg
+
+     ! right divertor leg (SOL)
+     call Z(3)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(3)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
+     call Z(3)%setup_mapping (LOWER, RADIAL,   Z(5), 2)  ! connect to right PFR at interface I2
+
+     ! left divertor leg (SOL)
+     call Z(4)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(4)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! divertor target
+     call Z(4)%setup_mapping (LOWER, RADIAL,   Z(6), 3)  ! connect to right PFR at interface I3
+
+     ! right divertor leg (PFR)
+     call Z(5)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(5)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! divertor target
+     call Z(5)%setup_mapping (UPPER, POLOIDAL, Z(6), 4)  ! connect to left PFR at interface R4
+
+     ! left divertor leg (PFR)
+     call Z(6)%setup_boundary(LOWER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(6)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! divertor target
 
 
-  M => this%mesh
-  allocate (MSP(0:Z%nt*nsub, 2))
-  do ir=0,this%nr
-     x = M(ir,ip0,:)
+  ! DDN
+  case(TOPO_DDN, TOPO_DDN1)
+     ! innermost domain
+     call Z(1)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping  (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL at interface 1
+     call Z(2)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(2)%setup_mapping  (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL at interface 2
+     call Z(1)%setup_mapping  (UPPER, POLOIDAL, Z(2))     ! connect left and right segments
+     call Z(2)%setup_mapping  (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments at interface R1
 
-     ! generate flux surface from "upstream" location x to target
-     call F%generate(x, dir, Trace_Step=0.1d0)
-     call F%plot(filename='F.plt', append=.true.)
+     ! primary SOL
+     call Z(3)%setup_mapping  (UPPER, RADIAL,   Z(5), 8)  ! connect to right secondary SOL at PARTIAL interface I6 (this should only be used to find the poloidal side for the generating radial path!)
+     call Z(4)%setup_mapping  (UPPER, RADIAL,   Z(6), 7)  ! connect to left secondary SOL at interface I5 (SAME NOTE AS ABOVE)
+     call Z(3)%setup_mapping  (UPPER, POLOIDAL, Z(4))     ! connect left and right segments
+     call Z(3)%setup_mapping  (LOWER, POLOIDAL, Z(7), 2)  ! connect to right divertor leg at interface R2
+     call Z(7)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(4)%setup_mapping  (UPPER, POLOIDAL, Z(8))     ! connect to left divertor leg
+     call Z(8)%setup_boundary (UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(7)%setup_mapping  (UPPER, RADIAL,   Z(9), 5)  ! VIRTUAL interface I5
+     call Z(8)%setup_mapping  (UPPER, RADIAL,   Z(12),6)  ! VIRTUAL interface I6
 
-     ! generate nodes from which field lines connect to strike point x
-     select case(dir)
-     case(RIGHT_HANDED)
-        x = F%x(F%n_seg, :)
-     case(LEFT_HANDED)
-        x = F%x(0,:)
-     end select
-     !write (99, *) x
-     call align_strike_points(x, Z, nsub, MSP)
+     ! secondary SOL
+     ! right branch
+     call Z(5)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(5)%setup_mapping  (LOWER, POLOIDAL, Z(9))     ! connect to right divertor leg (right branch)
+     call Z(9)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(5)%setup_mapping  (UPPER, POLOIDAL, Z(10), 6)    ! connect to left divertor leg  (right branch) at interface R6
+     call Z(10)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(9)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(10)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     ! left branch
+     call Z(6)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(6)%setup_mapping  (LOWER, POLOIDAL, Z(11), 7)    ! connect to right divertor leg (left branch) at interface R7
+     call Z(11)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(6)%setup_mapping  (UPPER, POLOIDAL, Z(12))    ! connect to left divertor leg  (left branch)
+     call Z(12)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(11)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(12)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+
+     ! primary PFR
+     call Z(7)%setup_mapping  (LOWER, RADIAL,   Z(13), 3)  ! connect to right primary PFR at interface I3
+     call Z(13)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(8)%setup_mapping  (LOWER, RADIAL,   Z(14), 4)  ! connect to left primary PFR at interface I4
+     call Z(14)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(13)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(13)%setup_mapping (UPPER, POLOIDAL, Z(14), 4)  ! connect to left primary PFR at interface R4
+     call Z(14)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
+
+     ! secondary PFR
+     call Z(10)%setup_mapping (LOWER, RADIAL,   Z(15),10)  ! connect to right secondary PFR at interface I10
+     call Z(15)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(11)%setup_mapping (LOWER, RADIAL,   Z(16), 9)  ! connect to left secondary PFR at interface I9
+     call Z(16)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(16)%setup_mapping (UPPER, POLOIDAL, Z(15), 8)  ! connect to left secondary PFR at interface R8
+     call Z(16)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(15)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
 
 
-     ! setup downstream strike point nodes
-     do it=it_start,it_end,dirT
-        ip = ips + abs(it - it_end)*dir
-        M(ir,ip,:) = MSP(it,:)
-     enddo
+  ! connected double null (CDN)
+  case(TOPO_CDN, TOPO_CDN1)
+
+  ! snowflake + (in disconnected double null)
+  case(TOPO_DSFP, TOPO_DSFP1)
+     ! innermost domain
+     call Z(1)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping  (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL at interface 1
+     call Z(2)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(2)%setup_mapping  (UPPER, RADIAL,   Z(4), 2)  ! connect to main SOL at interface 2
+     call Z(1)%setup_mapping  (UPPER, POLOIDAL, Z(2))     ! connect left and right segments
+     call Z(2)%setup_mapping  (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments at interface R1
+
+     ! primary SOL
+     call Z(3)%setup_mapping  (UPPER, RADIAL,   Z(5), 12)  ! connect to right secondary SOL at PARTIAL interface I6 (this should only be used to find the poloidal side for the generating radial path!)
+     call Z(4)%setup_mapping  (UPPER, RADIAL,   Z(6), 11)  ! connect to left secondary SOL at interface I5 (SAME NOTE AS ABOVE)
+     call Z(3)%setup_mapping  (UPPER, POLOIDAL, Z(4))     ! connect left and right segments
+     call Z(3)%setup_mapping  (LOWER, POLOIDAL, Z(7), 2)  ! connect to right divertor leg at interface R2
+     call Z(7)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(4)%setup_mapping  (UPPER, POLOIDAL, Z(8))     ! connect to left divertor leg
+     call Z(8)%setup_boundary (UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(7)%setup_mapping  (UPPER, RADIAL,   Z(9), 5)  ! VIRTUAL interface I5
+     call Z(8)%setup_mapping  (UPPER, RADIAL,   Z(12),6)  ! VIRTUAL interface I6
+
+     ! secondary SOL
+     ! right branch
+     call Z(5)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(5)%setup_mapping  (LOWER, POLOIDAL, Z(9))     ! connect to right divertor leg (right branch)
+     call Z(9)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(5)%setup_mapping  (UPPER, POLOIDAL, Z(10),10) ! connect to left divertor leg  (right branch) at interface R10
+     call Z(10)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(9)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(10)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     ! left branch
+     call Z(6)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(6)%setup_mapping  (LOWER, POLOIDAL, Z(11),11) ! connect to right divertor leg (left branch) at interface R11
+     call Z(11)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(6)%setup_mapping  (UPPER, POLOIDAL, Z(12))    ! connect to left divertor leg  (left branch)
+     call Z(12)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(11)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(12)%setup_boundary(UPPER, RADIAL,   VACUUM)   ! vacuum domain
+
+     ! primary PFR
+     call Z(7)%setup_mapping  (LOWER, RADIAL,   Z(13), 3)  ! connect to right primary PFR at interface I3
+     call Z(8)%setup_mapping  (LOWER, RADIAL,   Z(14), 4)  ! connect to left primary PFR at interface I4
+     call Z(13)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(13)%setup_mapping (UPPER, POLOIDAL, Z(14), 4)  ! connect to left primary PFR at interface R4
+     call Z(14)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
+     ! right snowflake PFR
+     call Z(13)%setup_mapping (LOWER, RADIAL,   Z(17), 9)  ! connect to right primary PFR at interface I9
+     call Z(17)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(18)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(17)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)
+     call Z(17)%setup_mapping (UPPER, POLOIDAL, Z(18), 6)  ! connect to left primary PFR at interface R6
+     call Z(18)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)
+     ! left snowflake PFR
+     call Z(14)%setup_mapping (LOWER, RADIAL,   Z(19), 7)  ! connect to right primary PFR at interface I7
+     call Z(19)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(20)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(19)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)
+     call Z(19)%setup_mapping (LOWER, POLOIDAL, Z(20), 7)  ! connect to left primary PFR at interface R7
+     call Z(20)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)
+     ! center snowflake PFR
+     call Z(18)%setup_mapping (UPPER, RADIAL,   Z(21), 10) ! connect to right primary PFR at interface I10
+     call Z(20)%setup_mapping (UPPER, RADIAL,   Z(22), 8)  ! connect to right primary PFR at interface I10
+     call Z(21)%setup_boundary(UPPER, RADIAL,   VACUUM)    !
+     call Z(22)%setup_boundary(UPPER, RADIAL,   VACUUM)    !
+     call Z(21)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)
+     call Z(21)%setup_mapping (LOWER, POLOIDAL, Z(22), 8)  ! connect to left primary PFR at interface R6
+     call Z(22)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)
 
 
-     ! length on flux surface for strike point mesh
-     L0 = F%length()
-     L  = 0.d0
-     do it=Z%it_base*nsub+dirT,it_end,dirT
-        L = L + sqrt(sum(  (MSP(it-dirT,:)-MSP(it,:))**2))
-        !write (92, *) MSP(it, :)
-     enddo
+     ! secondary PFR
+     call Z(10)%setup_mapping (LOWER, RADIAL,   Z(15),14)  ! connect to right secondary PFR at interface I10
+     call Z(15)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(11)%setup_mapping (LOWER, RADIAL,   Z(16),13)  ! connect to left secondary PFR at interface I9
+     call Z(16)%setup_boundary(LOWER, RADIAL,   VACUUM)    !
+     call Z(16)%setup_mapping (UPPER, POLOIDAL, Z(15),12)  ! connect to left secondary PFR at interface R12
+     call Z(16)%setup_boundary(LOWER, POLOIDAL, DIVERTOR)  ! right divertor target
+     call Z(15)%setup_boundary(UPPER, POLOIDAL, DIVERTOR)  ! left divertor target
 
-     ! aligned strike point mesh extends beyond upstream reference location?
-     if (L > L0) then
-        write (6, 9020) ir
-        stop
-     endif
-     ! interpolate nodes on flux surface between upstream orthogonal grid nodes
-     ! and downstream strike point nodes
-     call F%setup_length_sampling()
-     select case(dir)
-     case(RIGHT_HANDED)
-        F%w = F%w / (1.d0 - L/L0)
-     case(LEFT_HANDED)
-        F%w = (F%w - L/L0) / (1.d0 - L/L0)
-     end select
+  end select
+  call undefined_element_boundary_check(.false.)
 
-     do ip=ip0+dir,ips-dir,dir
-        tau = 1.d0 * (ip - ip0) / (ips - ip0)
-        if (dir == LEFT_HANDED) tau = 1.d0 - tau
-        call F%sample_at(tau, x)
-        M(ir,ip,:) = x
-        !write (93, *) x, tau
-     enddo
-  enddo
-
-  deallocate (MSP)
- 9000 format('ERROR: reference path for radial discretization crosses guiding surface!', &
-             'intersection at L = ', f0.3)
- 9010 format('ERROR: poloidal grid resolution too small!'//,&
-             i0, ' < ', i0, ' x ', i0)
- 9020 format('ERROR: aligned strike point mesh extends beyond upstream reference point ', &
-             'at radial index ', i0)
-  end subroutine make_divertor_grid
+ 9000 format('error: invalid topology ', a, '!')
+  end subroutine setup_topology
 !=======================================================================
 
 
@@ -627,7 +460,7 @@ module base_mesh
 ! Magnetic axis, X-points, separatrix(ces) and radial paths from X-points
 ! SHOULD THIS BE MOVED TO MODULE fieldline_grid?
 !=======================================================================
-  subroutine setup_geometry(nX_, connectX_)
+  subroutine setup_geometry()
   use fieldline_grid, only: guiding_surface, d_SOL, d_PFR
   use boundary,       only: S_axi, n_axi
   use equilibrium,    only: get_magnetic_axis, get_poloidal_angle, get_PsiN, Xp
@@ -636,11 +469,9 @@ module base_mesh
   use inner_boundary
   use string
 
-  integer, intent(in) :: nX_, connectX_(nX_)
-
   character(len=2) :: Sstr
   real(real64)     :: dx, tmp(3), theta_cut, PsiN
-  integer          :: ix, ierr, iSOL, iPFR, jx, k, orientation
+  integer          :: ix, ierr, iSOL, iPFR, ipi, jx, k, orientation, o(4)
 
 
   ! 1. set up guiding surface for divertor legs (C_guide) --------------
@@ -657,6 +488,7 @@ module base_mesh
   endif
  1000 format(8x,'User defined guiding surface for divertor strike points')
  1001 format(8x,'First axisymmetric surface used for divertor strike points')
+  call initialize_module_mfs_mesh(C_guide)
 
 
   ! 2. CRITICAL POINTS -------------------------------------------------
@@ -667,7 +499,6 @@ module base_mesh
 
 
   ! 2.b check X-points -------------------------------------------------
-  nX = nX_
   do ix=1,nX
      tmp(1:2) = Xp(ix)%load(ierr)
      if (ierr .ne. 0) then
@@ -689,14 +520,17 @@ module base_mesh
 
 
   ! 4.1 generate separatrix(ces) ---------------------------------------
-  allocate (connectX(nX), S(nX), R(nX,4))
-  connectX = connectX_
+  write (6, 4100)
+  allocate (S(nX), R(nX,4))
   do ix=1,nX
+     write (6, 4101) ix
      ! find cut-off poloidal angle for guiding X-point
      jx = connectX(ix)
-     if (jx < 0  .and.  abs(jx).ne.ix) then
+     if (jx < 0  .and.  abs(jx).ne.ix  .and.  connectX(abs(jx)) == jx) then
+        write (6, 4102) abs(jx), ix
         orientation = DESCENT_CORE ! TODO: find orientation from PsiN(ix)-PsiN(abs(connectX(ix)))
         call R(abs(jx),orientation)%generateX(abs(jx), orientation, LIMIT_PSIN, Xp(ix)%PsiN())
+        call poloidal_interface((abs(jx)-1)*4+1)%set_curve(R(abs(jx), orientation)%t_curve) ! FOR REFERENCE ONLY, THIS SHOULDN'T BE NECESSARY
         theta_cut = get_poloidal_angle(R(abs(jx),orientation)%boundary_node(UPPER))
 
         call S(ix)%generate(ix, C_cutl=C_guide, C_cutR=C_guide, theta_cut=theta_cut)
@@ -724,23 +558,58 @@ module base_mesh
      S0R = S(1)%M1%t_curve
      S0L = S(1)%M2%t_curve
   endif
+  write (6, *)
 
 
   ! 4.2 generate radial paths from X-points ----------------------------
+     ! and set up interfaces between elements
+     !call Iface(1)%set_curve(S0)
   write (6, 3000)
   iSOL = 0
   iPFR = 0
+  ipi  = 0
   do ix=1,nX
      jx = connectX(ix)
+
+     o(ASCENT_LEFT ) = ASCENT_LEFT
+     o(ASCENT_RIGHT) = ASCENT_RIGHT
+     o(DESCENT_CORE) = DESCENT_CORE
+     o(DESCENT_PFR ) = DESCENT_PFR
+     ! orientation for secondary X-points
+     orientation = 0
+     if (ix > 1) then
+        ! X-point is in private flux region of main X-point
+        if (Xp(ix)%PsiN() < Xp(1)%PsiN()) then
+           ! set direction of PFR and core
+           if (Xp(ix)%X(1) < Xp(1)%X(1)) then
+              o(DESCENT_PFR ) = ASCENT_LEFT
+              o(DESCENT_CORE) = ASCENT_RIGHT
+           else
+              o(DESCENT_PFR ) = ASCENT_RIGHT
+              o(DESCENT_CORE) = ASCENT_LEFT
+           endif
+
+           ! ...
+           o(ASCENT_LEFT ) = DESCENT_CORE
+           o(ASCENT_RIGHT) = DESCENT_PFR
+        endif
+     endif
 
 
      ! "core-interface"
      if (ix == 1  .or.  jx > 0) then
         write (6, 3010) ix
         call R(ix, DESCENT_CORE)%generateX(ix, DESCENT_CORE, LIMIT_PSIN, PsiN_in)
+        call R(ix, DESCENT_CORE)%flip()
+        call poloidal_interface(ipi+1)%set_curve(R(ix, DESCENT_CORE)%t_curve)
      else
+        ! secondary X-point in radial connection to another X-point
+        if (abs(jx) .ne. ix) then
+           write (6, 3032) ix, abs(jx)
+           call R(ix, DESCENT_CORE)%setup_linear(Xp(abs(jx))%X, Xp(ix)%X-Xp(abs(jx))%X)
+        endif
         if (R(ix, DESCENT_CORE)%n_seg < 0) then
-           write (6, *) "WARNING: rpath segment ", ix, DESCENT_CORE, " is not set up!"
+           write (6, *) "ERROR: rpath segment ", ix, DESCENT_CORE, " is not set up!"
            stop
         endif
      endif
@@ -752,20 +621,25 @@ module base_mesh
         iSOL = iSOL + 1
         write (6, 3020) ix, d_SOL(iSOL)
         call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
+
         PsiN = get_PsiN(R(ix, ASCENT_LEFT)%boundary_node(boundary=UPPER))
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
 
      elseif (jx > ix) then
         ! connected X-points, left and right branch on individual flux surfaces
         iSOL = iSOL + 1
         write (6, 3021) ix, jx, d_SOL(iSOL)
         call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
         PsiN = get_PsiN(R(ix, ASCENT_LEFT)%boundary_node(boundary=UPPER))
         call R(jx, ASCENT_RIGHT)%generateX(jx, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
 
         iSOL = iSOL + 1
         write (6, 3022) ix, jx, d_SOL(iSOL)
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
         PsiN = get_PsiN(R(ix, ASCENT_RIGHT)%boundary_node(boundary=UPPER))
         call R(jx, ASCENT_LEFT)%generateX(jx, ASCENT_LEFT, LIMIT_PSIN, PsiN)
 
@@ -774,32 +648,79 @@ module base_mesh
         iSOL = iSOL + 1
         write (6, 3023) ix, d_SOL(iSOL)
         call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
 
         iSOL = iSOL + 1
         write (6, 3024) ix, d_SOL(iSOL)
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(iSOL))
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
 
-     elseif (jx < 0) then
+     elseif (jx < 0  .and.  connectX(abs(jx)) == jx) then
         ! this SOL's boundary is another separatrix
         PsiN = Xp(abs(jx))%PsiN()
         write (6, 3025) ix, abs(jx), PsiN
         call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_PSIN, PsiN)
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
      endif
 
 
+     ! additional PFRs from X-point in PFR of the primary X-point
+     if (jx < 0  .and.  connectX(abs(jx)) /= jx) then
+        iPFR = iPFR + 1
+        write (6, 3033) ix, d_PFR(iPFR)
+        call R(ix, ASCENT_LEFT)%generateX(ix, o(ASCENT_LEFT), LIMIT_LENGTH, d_PFR(iPFR))
+        call R(ix, ASCENT_LEFT)%flip()
+        call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
+
+        iPFR = iPFR + 1
+        write (6, 3034) ix, d_PFR(iPFR)
+        call R(ix, ASCENT_RIGHT)%generateX(ix, o(ASCENT_RIGHT), LIMIT_LENGTH, d_PFR(iPFR))
+        call R(ix, ASCENT_RIGHT)%flip()
+        call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
+     endif
      ! private flux region
      iPFR = iPFR + 1
-     write (6, 3030) ix, d_PFR(iPFR)
-     call R(ix, DESCENT_PFR)%generateX(ix, DESCENT_PFR, LIMIT_LENGTH, d_PFR(iPFR))
+     do jx=1,nX
+        if (jx == ix) cycle
+        if (connectX(jx) == -ix) then
+           if (connectX(ix) == -ix) cycle
+           exit
+        endif
+     enddo
+     ! regular PFR
+     if (jx > nX) then
+        write (6, 3030) ix, d_PFR(iPFR)
+        call R(ix, DESCENT_PFR)%generateX(ix, o(DESCENT_PFR), LIMIT_LENGTH, d_PFR(iPFR))
+        if (o(DESCENT_PFR) == DESCENT_PFR) call R(ix, DESCENT_PFR)%flip()
+        call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
+
+     ! connect to another X-points
+     else
+        write (6, 3032) ix, jx
+        call R(ix, DESCENT_PFR)%setup_linear(Xp(jx)%X, Xp(ix)%X-Xp(jx)%X)
+        call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
+     endif
 
 
      ! plot paths
-     do k=1,4
-        call R(ix, k)%plot(filename='rpath_'//trim(str(ix))//'_'//trim(str(k))//'.plt')
-     enddo
+!     do k=1,4
+!        call R(ix, k)%plot(filename='rpath_'//trim(str(ix))//'_'//trim(str(k))//'.plt')
+!     enddo
+
+     ipi = ipi + 4
+  enddo
+  write (6, *)
+
+  do ipi=1,poloidal_interfaces
+     call poloidal_interface(ipi)%C%plot(filename='R'//trim(str(ipi))//'.plt')
   enddo
 
+
+ 4100 format(3x,'- Setting up block-structured decomposition')
+ 4101 format(8x,'generating separatrix for X-point ', i0)
+ 4102 format(8x,'connecting X-point ', i0, ' along radial path to separatrix ', i0)
  3000 format(3x,'- Setting up radial paths for block-structured decomposition')
  3010 format(8x,'generating core segment for X-point ', i0)
  3020 format(8x,'generating SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
@@ -807,71 +728,422 @@ module base_mesh
  3022 format(8x,'generating right SOL segment for X-points ', i0, ', ', i0, ' (length = ', f0.3, ' cm)')
  3023 format(8x,'generating left SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
  3024 format(8x,'generating right SOL segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
- 3025 format(8x,'generating SOL segment for X-point ', i0, ' up to separatrix from X-point ', &
+ 3025 format(8x,'generating SOL segments for X-point ', i0, ' up to separatrix from X-point ', &
                 i0, ' at PsiN = ', f0.3)
  3030 format(8x,'generating PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 3032 format(8x,'generating PFR segment from X-point ', i0, ' to X-point ', i0)
+ 3033 format(8x,'generating left PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 3034 format(8x,'generating right PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
   end subroutine setup_geometry
 !=======================================================================
 
 
+
 !=======================================================================
+  subroutine setup_interfaces()
+  use mesh_interface
+  use string
+
+
+  integer :: ix, ix1, jx, iri, iconnect
+
+
+  iri = 0
+  do ix=1,nX
+     jx = connectX(ix)
+
+     ! connect back to same X-point
+     if (jx == ix) then
+        if (ix .ne. 1) then
+           write (6, 9000) ix
+           stop
+        endif
+
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S0)
+        call radial_interface(iri)%setup(ix, ix)
+
+     ! all branches connect to divertor targets
+     elseif (jx == -ix  .or.  (jx < 0  .and.  connectX(abs(jx)) /= jx)) then
+        iconnect  = STRIKE_POINT
+        ! are these "upstream" branches?
+        do ix1=1,ix-1
+           if (abs(connectX(ix1)) == ix) then
+              iconnect = -ix1
+              exit
+           endif
+        enddo
+        iri = iri + 1
+        if (iconnect == STRIKE_POINT) call radial_interface(iri)%set_curve(S(ix)%M1%t_curve)
+        call radial_interface(iri)%setup(ix, iconnect)
+        iri = iri + 1
+        if (iconnect == STRIKE_POINT) call radial_interface(iri)%set_curve(S(ix)%M2%t_curve)
+        call radial_interface(iri)%setup(iconnect, ix)
+
+     ! connect to other X-point OR
+     ! main separatrix decomposition is guided by secondary X-point
+     elseif (jx > ix  .or.  jx < 0) then
+        if (ix .ne. 1) then
+           if (jx > ix) then
+              write (6, 9001) ix
+           else
+              write (6, 9002) ix, abs(jx)
+           endif
+           stop
+        endif
+
+        ! right core interface
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S0R)
+        call radial_interface(iri)%setup(ix, jx)
+
+        ! left core interface
+        iri = iri + 1
+        call radial_interface(iri)%set_curve(S0L)
+        call radial_interface(iri)%setup(jx, ix)
+
+     ! nothing to be done here anymore
+     else
+
+     endif
+
+     ! divertor branches
+     iri = iri + 1
+     call radial_interface(iri)%set_curve(S(ix)%M3%t_curve)
+     call radial_interface(iri)%setup(STRIKE_POINT, ix)
+     iri = iri + 1
+     call radial_interface(iri)%set_curve(S(ix)%M4%t_curve)
+     call radial_interface(iri)%setup(ix, STRIKE_POINT)
+     ! add divertor branches for outer separatrix
+     if (jx < -ix) then
+        iri = iri + 1
+        call radial_interface(iri)%setup(STRIKE_POINT, -ix)
+        iri = iri + 1
+        call radial_interface(iri)%setup(-ix, STRIKE_POINT)
+     endif
+
+
+  enddo
+
+
+  !write (6, *) 'radial interfaces:'
+  do iri=1,radial_interfaces
+     !write (6, *) iri, radial_interface(iri)%inode(-1), radial_interface(iri)%inode(1)
+     call radial_interface(iri)%C%plot(filename='I'//trim(str(iri))//'.plt')
+  enddo
+
+ 9000 format('error: seconday X-point ', i0, ' connects back to itself!')
+ 9001 format('error: seconday X-point ', i0, ' does not connect back to primary one!')
+ 9002 format('error: seconday X-point ', i0, ' used as guiding point for separatrix ', i0, '!')
+  end subroutine setup_interfaces
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine initialize_layers(iblock)
+  use fieldline_grid
+  integer, intent(in) :: iblock
+
+  integer, parameter :: COUNT_RUN = 1, SETUP_RUN = 2
+  integer, dimension(:), allocatable :: markz, izl
+  type(t_toroidal_discretization)    :: T
+  character(len=1) :: cside(-1:1) = (/'R','C','L'/)
+  real(real64) :: phi
+  integer      :: i, il, iz, iz0, iz_map, idir, irun, nzl(-1:1)
+
+
+  ! initialize block
+  call load_local_resolution(iblock)
+  phi = Block(iblock)%phi_base / 180.d0 * pi
+
+
+  write (6, 1000)
+  allocate (markz(nelement), izl(-nelement:nelement))
+
+  do irun=COUNT_RUN,SETUP_RUN
+  markz = 0
+  il    = 0
+  if (irun == SETUP_RUN) allocate(L(0:layers-1))
+  layer_loop: do
+     ! exit if no more elements are unmarked
+     if (sum(markz) == nelement) exit
+
+     ! start new layer
+     il  = il + 1
+     izl = 0;  nzl = 0
+
+     ! find first unmarked element
+     do iz=1,nelement
+        if (markz(iz) == 0) exit
+     enddo
+
+     ! set base element in layer
+     iz0 = iz;  markz(iz) = 1;  izl(0) = iz0
+
+     ! scan in both poloidal directions
+     dir_loop: do idir=-1,1,2
+        ! start poloidal scan at base element
+        iz = iz0
+        poloidal_scan: do
+           iz_map = Z(iz)%map_p(idir)
+           ! poloidal scan in both directions finished when returning to base element
+           if (iz_map == PERIODIC) exit dir_loop
+           if (iz_map == iz0) exit dir_loop
+           ! poloidal scan in this direction finished at divertor targets
+           if (iz_map == DIVERTOR) exit
+
+           iz = iz_map;  markz(iz) = 1
+           nzl(idir) = nzl(idir) + 1;  izl(idir*nzl(idir)) = iz
+        enddo poloidal_scan
+     enddo dir_loop
+
+     if (irun == SETUP_RUN) then
+        ! now set up element indices in this layer
+        call L(il-1)%initialize(nzl(-1)+1+nzl(1), izl(-nzl(-1):nzl(1)), nzl(-1)+1)
+
+        ! set up resolution in each element
+        call L(il-1)%setup_resolution(il-1)
+
+        ! map poloidal resolution in radial direction
+        call L(il-1)%map_poloidal_resolution()
+     endif
+  enddo layer_loop
+  layers = il
+  enddo
+
+
+  ! initialize toroidal discretization
+  call T%setup(nt, Block(iblock)%it_base, Block(iblock)%phi)
+  do il=0,layers-1;  L(il)%T = T;  enddo
+  do iz=1,nelement;  Z(iz)%T = T;  enddo
+
+
+  ! initialize mesh for each domain element
+  allocate (Mtmp(nelement))
+  allocate (M(0:layers-1))
+  do il=0,layers-1
+     write (6, 1001) il
+     do i=1,L(il)%nz
+        iz = L(il)%iz(i)
+        call Mtmp(iz)%initialize(Z(iz)%nr, Z(iz)%np, phi)
+        write (6, 1002) iz, Z(iz)%np, Z(iz)%nr, Z(iz)%ipl, cside(Z(iz)%ipl_side)
+     enddo
+     call M(il)%initialize(L(il)%nr, L(il)%np, phi)
+  enddo
+
+
+  ! cleanup
+  deallocate (markz, izl)
+
+ 1000 format(3x,'- Setting up radial layers:')
+ 1001 format(8x,'Layer ',i0)
+ 1002 format(8x,i3,': ',i5,' x ',i3,5x,'(',i0,a1,')')
+  end subroutine initialize_layers
+!=======================================================================
+
+
+
 !=======================================================================
   subroutine generate_base_mesh(iblock)
   use fieldline_grid
   use mesh_spacing
   use inner_boundary
+  use string
   integer, intent(in) :: iblock
 
-  type(t_base_mesh)   :: M(0:layers-1)
-  type(t_spacing)     :: Sp, SpL, SpR, Sr
-
-  real(real64) :: phi
-  integer      :: il, iz, iz0
+  integer, dimension(:), allocatable :: markz
+  type(t_spacing) :: Sp, SpL, SpR, Sr
+  integer         :: i, il, il0, iz, iz0, iz_map, iside
 
 
   ! initialize block
-  iz0 = iblock * layers
-  call load_local_resolution(iblock)
-
-  phi = Block(iblock)%phi_base / 180.d0 * pi
-  do il=0,layers-1
-     call M(il)%initialize(nr(il), np(il), phi)
-  enddo
+  call initialize_layers(iblock)
 
 
   ! generate core-interface
+  il = 0
   if (connectX(1) == 1) then
-     ! single zone
-     call Sp%init(poloidal_spacing(0))
-     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0, Sp)
+     ! single element
+     call Sp%init(poloidal_spacing(il))
+     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0, Sp)
   else
-     ! left and right sub-zones
-     call SpL%init(poloidal_spacing(0))
-     call SpR%init(poloidal_spacing(1))
-     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0R, SpR, 0,      npR(0))
-     call M(0)%setup_boundary_nodes(RADIAL, UPPER, S0L, SpL, npR(0), np(0) )
+     ! left and right elements
+     call SpR%init(poloidal_spacing_R(il))
+     call Mtmp(1)%setup_boundary_nodes(UPPER, RADIAL, S0R, SpR)
+
+     call SpL%init(poloidal_spacing_L(il))
+     call Mtmp(2)%setup_boundary_nodes(UPPER, RADIAL, S0L, SpL)
   endif
 
 
-  ! generate "closed" domain
-  call Sr%init(radial_spacing(0))
-  call M(0)%setup_boundary_nodes(POLOIDAL, LOWER, R(1,DESCENT_CORE)%t_curve, Sr, nr(0), 1)
-  if (connectX(1) == 1  .or. connectX(1) < 0) then
-     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/))
-  else
-     call M(0)%make_orthogonal_grid(periodic=.true., rrange=(/2+n_interpolate, nr(0)-1/), addX=(/abs(connectX(1)), npR(0)/))
-  endif
-  call M(0)%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
+  ! main loop: generate mesh for each layer
+  write (6, *)
+  allocate (markz(nelement));  markz = 0
+  do il=0,layers-1
+     ! base element index
+     iz0 = L(il)%iz(L(il)%i0)
 
+     ! set up radial spacings for this layer
+     call Sr%init(radial_spacing(il))
+
+     ! generate mesh for this layer
+     call generate_layer(il, iz0, iblock, Sr)
+
+     ! map radial interface to next element
+     do i=1,L(il)%nz
+        iz = L(il)%iz(i)
+        markz(iz) = 1 ! mark elements in this layer
+
+        do iside=-1,1,2
+           iz_map = Z(iz)%map_r(iside)
+           ! map to another element?
+           if (iz_map < 0) cycle
+
+           ! map poloidal resolution
+           if (markz(iz_map) == 0) then
+              call Mtmp(iz)%connect_to(Mtmp(iz_map), RADIAL, iside)
+
+              ! status of radial interface
+              !write (6, *) 'radial interface in element ', iz, ' side ', iside, ' is ', Z(iz)%rad_bound(iside)
+           endif
+        enddo
+     enddo
+  enddo
 
 
   ! write output files
+  il0 = iblock * layers
   do il=0,layers-1
-     iz = iz0 + il
+     iz = il0 + il
      call write_base_grid(M(il)%t_grid, iz)
   enddo
 
+
+  ! cleanup
+  deallocate (M, Mtmp, markz)
+
   end subroutine generate_base_mesh
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine generate_layer(il, iz0, iblock, Sr)
+  use run_control, only: Debug
+  use fieldline_grid, only: poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R
+  use mesh_spacing
+  use string
+  integer,         intent(in) :: il, iz0, iblock
+  type(t_spacing), intent(in) :: Sr
+
+  type(t_spacing) :: Sp
+  integer :: i, idir, irside, iri, ipside, ipi, ip0, iz, iz_map, npz(-1:1)
+
+
+  write (6, 1000) il, iz0
+  write (6, *) 'reference discretization at:'
+
+
+  ! select upper or lower radial boundary for reference nodes
+  if (Mtmp(iz0)%ir0 == 0) then
+     irside = LOWER
+  elseif (Mtmp(iz0)%ir0 > 0) then
+     irside = UPPER
+  else
+     write (6, 9000) il, iz0
+     write (6, 9001)
+     stop
+  endif
+  iri = Z(iz0)%rad_bound(irside)
+  write (6, *) 'radial boundary ', irside, ' which is interface ', iri
+  if (iri == UNDEFINED) then
+     write (6, 9000) il, iz0
+     write (6, 9002)
+     stop
+  endif
+
+
+  ! select upper or lower poloidal boundary -> start from an X-point
+  do ipside=-1,1,2
+     if (radial_interface(iri)%inode(ipside) > 0) exit
+  enddo
+  ipi = Z(iz0)%pol_bound(ipside)
+  write (6, *) 'poloidal boundary ', ipside, ' which is interface ', ipi
+  if (ipi == UNDEFINED) then
+     write (6, 9000) il, iz0
+     write (6, 9003)
+     stop
+  endif
+
+
+  ! initialize radial discretization in layer
+  call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr)
+
+
+  ! generate mesh in base element
+  ! no Sp needed in base element
+  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp)
+  if (Debug) call Mtmp(iz0)%plot_mesh('Mtmp'//trim(str(iz0))//'.plt')
+
+
+  ! scan through poloidal elements in this layer
+  npz    = 0
+  npz(0) = 1
+  idir_loop: do idir=1,-1,-2
+     iz = iz0
+     poloidal_scan: do
+        iz_map = Z(iz)%map_p(idir)
+        ! 1. poloidal boundary of layer?
+        ! 1.1 periodic boundaries: connect element back to itself
+        if (iz_map == PERIODIC) then
+           call Mtmp(iz)%connect_to(Mtmp(iz), POLOIDAL, LOWER_TO_UPPER)
+           exit idir_loop
+        endif
+        ! 1.2 back to initial/base element
+        if (iz_map == iz0) then
+           call Mtmp(iz)%connect_to(Mtmp(iz0), POLOIDAL, LOWER_TO_UPPER)
+           exit idir_loop
+        endif
+        ! 1.3 divertor targets
+        if (iz_map == DIVERTOR) exit
+
+        ! 2. connect mesh to next element
+        write (6, *) 'connect element ', iz, ' to ', iz_map
+        call Mtmp(iz)%connect_to(Mtmp(iz_map), POLOIDAL, idir)
+        iz        = iz_map
+
+        ! 3. generate mesh in next element
+        select case(Z(iz)%ipl_side)
+        case(LEFT)
+           call Sp%init(poloidal_spacing_L(Z(iz)%ipl))
+        case(CENTER)
+           call Sp%init(poloidal_spacing(Z(iz)%ipl))
+        case(RIGHT)
+           call Sp%init(poloidal_spacing_R(Z(iz)%ipl))
+        end select
+        call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr, Sp)
+        if (Debug) call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
+        npz(idir) = npz(idir) + 1
+     enddo poloidal_scan
+  enddo idir_loop
+  write (6, *)
+
+
+  ! merge elements
+  ip0 = 0
+  do i=1,L(il)%nz
+     iz  = L(il)%iz(i)
+     call M(il)%copy(0, ip0, Mtmp(iz))
+     ip0 = ip0 + Z(iz)%np
+  enddo
+
+ 1000 format('Generate layer ', i0, ' from base element ', i0)
+ 9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
+ 9001 format('undefined reference nodes on radial boundary!')
+ 9002 format('undefined radial interface!')
+ 9003 format('undefined poloidal interface!')
+  end subroutine generate_layer
 !=======================================================================
 
 end module base_mesh

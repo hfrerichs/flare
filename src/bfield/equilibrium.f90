@@ -26,7 +26,7 @@ module equilibrium
      EQ_AMHD        = 5
 
 
-  integer, parameter :: nX_max = 10
+  integer, parameter :: nX_max = 20
 
 
   type t_Xpoint ! critical point
@@ -37,6 +37,7 @@ module equilibrium
      contains
      procedure :: analysis
      procedure :: load
+     procedure :: setup
      procedure :: PsiN => t_Xpoint__PsiN
   end type t_Xpoint
 
@@ -55,7 +56,8 @@ module equilibrium
      Z_axis       = 0.d0, &
      R_sepx       = 0.d0, &        ! user defined position of separatrix
      Z_sepx       = 0.d0, &
-     Bt, R0, &   ! reference toroidal magnetic field [T] and radial position [cm]
+     Bt           = 0.d0, &        ! reference toroidal magnetic field [T]
+     R0           = 0.d0, &        ! and radial position [cm]
      Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
 
 
@@ -147,7 +149,6 @@ module equilibrium
      type(t_curve), intent(out) :: S
      end subroutine export_curve
   end interface
-  procedure(logical_inquiry), pointer :: equilibrium_provides_boundary
   procedure(export_curve), pointer    :: export_boundary
 
   ! Broadcast data for parallel execution
@@ -182,11 +183,20 @@ module equilibrium
 
   integer              :: ix
   real(real64)         :: r(3), x0(2)
-  real(real64)         :: Rbox(2), Zbox(2)
 
 
 ! 0. initialize
-  i_format = STRICT
+  i_format         = STRICT
+  get_Bf_eq2D      => default_get_Bf
+  get_JBf_eq2D     => default_get_JBf
+  get_Psi          => default_get_Psi
+  get_DPsi         => default_get_DPsi
+  get_domain       => default_get_domain
+  get_pressure     => default_pressure
+  export_boundary  => null()
+  equilibrium_info => null()
+  post_setup_equilibrium        => null()
+  call initialize_magnetic_axis()
 
 
 ! 1. read user configuration
@@ -218,17 +228,6 @@ module equilibrium
 
 
 ! set default values
-  get_Bf_eq2D      => default_get_Bf
-  get_JBf_eq2D     => default_get_JBf
-  get_Psi          => default_get_Psi
-  get_DPsi         => default_get_DPsi
-  get_domain       => default_get_domain
-  get_pressure     => default_pressure
-  export_boundary  => null()
-  equilibrium_info => null()
-  post_setup_equilibrium        => null()
-  equilibrium_provides_boundary => default_equilibrium_provides_boundary
-  call initialize_magnetic_axis()
   use_boundary = (use_boundary .and. use_boundary_from_equilibrium)
 
 
@@ -275,36 +274,7 @@ module equilibrium
 
 
 ! 4. set up X-points ...................................................
-  write (6, 4000)
-  do ix=1,nx_max
-     if (Xp(ix)%R_estimate <= 0.d0) then
-        if (ix == 1) then
-           call get_domain (Rbox, Zbox)
-           Xp(ix)%R_estimate = Rbox(1) + 1.d0/3.d0 * (Rbox(2)-Rbox(1))
-           Xp(ix)%Z_estimate = Zbox(1) + 1.d0/6.d0 * (Zbox(2)-Zbox(1))
-        else
-           cycle
-        endif
-     endif
-
-     x0(1)        = Xp(ix)%R_estimate
-     x0(2)        = Xp(ix)%Z_estimate
-     Xp(ix)%X     = find_x(x0, Hout=Xp(ix)%H)
-     if (Xp(ix)%X(1) > 0.d0) then
-        Xp(ix)%undefined = .false.
-
-        r(1:2)       = Xp(ix)%X; r(3) = 0.d0
-        Xp(ix)%Psi   = get_Psi(r)
-        Xp(ix)%theta = get_poloidal_angle(r)
-        if (ix == 1) Psi_sepx = Xp(ix)%Psi
-     endif
-
-     write (6, 4001) Xp(ix)%X, Xp(ix)%Psi
-     if (Debug) then
-        write (6, 4002) Xp(ix)%H(1,1), Xp(ix)%H(1,2)
-        write (6, 4002) Xp(ix)%H(2,1), Xp(ix)%H(2,2)
-     endif
-  enddo
+  call setup_xpoints()
 
 
 ! 5. set dependent variables ...........................................
@@ -323,12 +293,10 @@ module equilibrium
 
 
   return
- 1000 iconfig = 0
+ 1000 iconfig  = 0
+  use_boundary = .false.
  1001 format (3x,'- Equilibrium configuration:')
  3000 format (8x,'Psi_axis = ', e12.4)
- 4000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
- 4001 format (8x,2f12.4,2x,e12.4)
- 4002 format (8x,2e12.4)
  5000 format (8x,'Psi_sepx = ', e12.4)
   end subroutine load_equilibrium_config
 !=======================================================================
@@ -349,7 +317,7 @@ module equilibrium
   integer, parameter :: iu_scan = 17
 
   character(len=120) :: filename
-  character*80 :: s
+  character*80 :: s, stype
 
 
   filename = trim(Prefix)//Data_File
@@ -357,13 +325,13 @@ module equilibrium
 ! determine equilibrium type (if not provided) .........................
   if (i_equi == EQ_GUESS) then
      if (Data_File == '') then
+        use_boundary = .false.
         return
-        !write (6, *) 'error: cannot guess equilibrium type without data file!'
-        !stop
      endif
      open  (iu_scan, file=filename)
      read  (iu_scan, '(a80)') s
-     if (s(3:5) == 'TEQ'  .or.  s(3:6) == 'EFIT') then
+     read  (s, *) stype
+     if (s(3:5) == 'TEQ'  .or.  stype(1:4) == 'EFIT') then
         i_equi = EQ_GEQDSK
      elseif (s(5:11) == 'jm   :=') then
         i_equi = EQ_JET
@@ -384,7 +352,7 @@ module equilibrium
 ! load equilibrium data
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (filename, Ip, Bt, use_boundary, Current_Fix, Diagnostic_Level, Psi_axis, Psi_sepx, Header_Format=i_format)
+     call geqdsk_load (filename, Ip, Bt, Current_Fix, Psi_axis, Psi_sepx, Header_Format=i_format)
   case (EQ_DIVAMHD)
      call divamhd_load (filename, Ip, Bt, R0)
 
@@ -429,7 +397,6 @@ module equilibrium
      get_DPsi                      => geqdsk_get_DPsi
      get_pressure                  => geqdsk_get_pressure
      get_domain                    => geqdsk_get_domain
-     equilibrium_provides_boundary => geqdsk_provides_boundary
      export_boundary               => geqdsk_export_boundary
      broadcast_equilibrium         => geqdsk_broadcast
      equilibrium_info              => geqdsk_info
@@ -438,11 +405,13 @@ module equilibrium
      get_Psi                       => divamhd_get_Psi
      get_DPsi                      => divamhd_get_DPsi
      get_domain                    => divamhd_get_domain
+     use_boundary                  = .false.
      broadcast_equilibrium         => divamhd_broadcast
   case (EQ_M3DC1)
      get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
      get_Psi                       => m3dc1_get_Psi
      get_DPsi                      => m3dc1_get_DPsi
+     use_boundary                  = .false.
      broadcast_equilibrium         => m3dc1_broadcast
   case (EQ_AMHD)
      get_Bf_eq2D                   => amhd_get_Bf
@@ -450,6 +419,7 @@ module equilibrium
      get_DPsi                      => amhd_get_DPsi
      get_pressure                  => amhd_get_pressure
      get_domain                    => amhd_get_domain
+     use_boundary                  = .false.
      broadcast_equilibrium         => amhd_broadcast
      post_setup_equilibrium        => amhd_post_setup_equilibrium
   end select
@@ -494,6 +464,102 @@ module equilibrium
   call broadcast_equilibrium()
 
   end subroutine broadcast_mod_equilibrium
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_xpoints()
+  use run_control, only: Prefix, Debug
+
+  integer, parameter :: iu = 32
+
+  character(len=120) :: xpoint_file
+  logical      :: ex
+  real(real64) :: x(2)
+  integer      :: ix, nx
+
+
+  write (6, 4000)
+
+  ! 1. pre-defined X-points
+  xpoint_file = trim(Prefix)//'xpoints.dat'
+  inquire (file=xpoint_file, exist=ex)
+
+  ! 1.1. run subroutine initialize_equilibrium if file doesn't exist
+  !if (.not.ex) call initialize_equilibrium()
+
+  ! 1.2. read pre-defined X-points
+  if (ex) then
+  open  (iu, file=xpoint_file)
+  read  (iu, *) nx
+  do ix=1,nx
+     read (iu, *) x
+     call Xp(ix)%setup(x)
+     if (Xp(ix)%undefined) then
+        write (6, 9001) ix;  stop
+     endif
+
+     ! update Psi_sepx
+     if (ix == 1) Psi_sepx = Xp(1)%Psi
+
+     ! screen output
+     write (6, 4001) ix, Xp(ix)%X, Xp(ix)%PsiN()
+  enddo
+  close (iu)
+  endif
+
+
+  ! 2. user defined X-points
+  do ix=1,nx_max
+     if (Xp(ix)%R_estimate <= 0.d0) cycle
+
+     ! set up X-point from estimate
+     call Xp(ix)%setup()
+     if (Xp(ix)%undefined) then
+        write (6, 9002) ix;  stop
+     endif
+
+     ! update Psi_sepx
+     if (ix == 1) Psi_sepx = Xp(1)%Psi
+
+     ! screen output
+     write (6, 4001) ix, Xp(ix)%X, Xp(ix)%PsiN()
+     if (Debug) then
+        write (6, 4002) Xp(ix)%H(1,1), Xp(ix)%H(1,2)
+        write (6, 4002) Xp(ix)%H(2,1), Xp(ix)%H(2,2)
+     endif
+  enddo
+
+ 4000 format (3x,'- Configuring X-point(s): (R, Z, Psi)')
+ 4001 format(8x,i0,'. ',2f12.4,2x,e12.4)
+ 4002 format(8x,2e12.4)
+ 9001 format('error in subroutine setup_xpoints: cannot set up prefined X-point ',i0,'!')
+ 9002 format('error in subroutine setup_xpoints: cannot set up user defined X-point ',i0,'!')
+  end subroutine setup_xpoints
+!=======================================================================
+
+
+
+!=======================================================================
+  function get_r3(r)
+  real(real64), dimension(:), intent(in) :: r
+  real(real64)                           :: get_r3(3)
+
+
+  select case(size(r))
+  case(2)
+     get_r3(1:2) = r
+     get_r3(  3) = 0.d0
+  case(3)
+     get_r3      = r
+  case default
+     write (6, *) 'error in function get_r3: invalid size of argument r!'
+     write (6, *) 'size(r) = ', size(r)
+     stop
+  end select
+
+  end function get_r3
 !=======================================================================
 
 
@@ -691,6 +757,7 @@ module equilibrium
 
 !=======================================================================
 ! Return poloidal angle [rad] at r=(R,Z [cm], phi [rad])
+! default toroidal position: phi = 0
 !=======================================================================
   function get_poloidal_angle(r) result(theta)
   real(real64), dimension(:), intent(in) :: r
@@ -730,6 +797,42 @@ module equilibrium
   rmin  = sqrt((r(1)-Maxis(1))**2 + (r(2)-Maxis(2))**2)
 
   end function get_rmin
+!=======================================================================
+
+
+
+!=======================================================================
+! return local curvature of flux surface (in R-Z plane)
+!=======================================================================
+  function get_flux_surface_curvature(r) result(curv)
+  real(real64), dimension(:), intent(in) :: r
+  real(real64)                           :: curv
+
+  real(real64) :: v(2), x1, y1, gradx1(2), grady1(2), x2, y2, kappa
+
+  if (size(r) < 2  .or. size(r) > 3) then
+     write (6, 9000)
+     write (6, 9001) size(r)
+     stop
+  endif
+
+
+  v(1)      = - get_DPsiN(r, 0, 1)
+  v(2)      =   get_DPsiN(r, 1, 0)
+  x1        = v(1)
+  y1        = v(2)
+  gradx1(1) = - get_DPsiN(r, 1, 1)
+  gradx1(2) = - get_DPsiN(r, 0, 2)
+  grady1(2) =   get_DPsiN(r, 2, 0)
+  grady1(2) = - gradx1(1)
+  x2        = sum(v * gradx1)
+  y2        = sum(v * grady1)
+  kappa     = (x1*y2 - y1*x2) / (x1**2 + y1**2)**1.5d0
+  curv      = 1.d0/kappa
+
+ 9000 format('error in get_flux_surface_curvature:')
+ 9001 format('invalid size(r) = ', i0, '!')
+  end function get_flux_surface_curvature
 !=======================================================================
 
 
@@ -855,6 +958,115 @@ module equilibrium
 
   end function get_cylindrical_coordinates
 !=======================================================================
+  subroutine get_cylindrical_coordinates_error(ierr)
+  integer, intent(in) :: ierr
+
+  write (6, *) 'error in subroutine get_cylindrical_coordinates!'
+  stop
+
+  end subroutine get_cylindrical_coordinates_error
+!=======================================================================
+
+
+
+!=======================================================================
+! from r0, go in gradPsiN direction to match PsiN_target
+!
+! return ierr <= 0:   correction step is successfull
+!               -1:   at least one iteration with 1st order approximation
+!                1:   required accuracy exceeded aver max. number of iterations
+!                2:   required accuracy (ds) exceeded although iterations may be successful
+!=======================================================================
+  function correct_PsiN(r0, PsiN_target, ierr, ds, delta_PsiN, iterations, debug) result(rc)
+  use math
+  real(real64), intent(in)  :: r0(2)
+  real(real64), intent(in)  :: PsiN_target
+  integer,      intent(out) :: ierr
+  real(real64)              :: rc(2)
+  real(real64), intent(in),  optional :: ds, delta_PsiN
+  integer,      intent(out), optional :: iterations
+  integer,      intent(in),  optional :: debug
+
+  integer, parameter                  :: imax = 100
+  real(real64), parameter             :: damping = 0.2d0
+
+
+  real(real64) :: PsiN, dPsiN, dPsi_dR, dPsi_dZ, ePsi(2), H(2,2), dPsi_dl, dPsi_dl2, P, Q, delta, tolerance
+  integer      :: iter
+  logical      :: debug_output
+
+
+  ! 0. set up optional input
+  ! 0.1 accuracy
+  tolerance = 1.d-10
+  if (present(delta_PsiN)) tolerance = delta_PsiN
+
+  ! 0.2 debugging
+  debug_output = .false.
+  if (present(debug)) then
+     debug_output = .true.
+     if (debug < 10  .or.  debug > 99) then
+        write (6, *) 'error: unit number for debugging must be in [10,99]!'
+        stop
+     endif
+  endif
+
+
+  ! 1. initialize
+  rc    = r0
+  PsiN  = get_PsiN(rc)
+  ierr  = 0
+
+
+  ! 2. iterative search for PsiN_target
+  do iter=1,imax
+     dPsiN    = PsiN_target - PsiN
+
+     ! are we there yet?
+     if (abs(dPsiN) < tolerance) exit
+
+     ! if not, go in this direction
+     dPsi_dR  = get_DPsiN(rc, 1, 0)
+     dPsi_dZ  = get_DPsiN(rc, 0, 1)
+     ePsi(1)  = dPsi_dR / sqrt(dPsi_dR**2 + dPsi_dZ**2)
+     ePsi(2)  = dPsi_dZ / sqrt(dPsi_dR**2 + dPsi_dZ**2)
+
+     ! Hessian
+     H        = get_HN(rc)
+     dPsi_dl  = dPsi_dR*ePsi(1) + dPsi_dZ*ePsi(2)
+     dPsi_dl2 = H(1,1)*ePsi(1)**2  +  2.d0*H(1,2)*ePsi(1)*ePsi(2)  +  H(2,2)*ePsi(2)**2
+
+     ! 1st order approximation
+     delta    = dPsiN / dPsi_dl * damping
+     ! 2nd order approximation
+     P        = - dPsi_dl / dPsi_dl2
+     Q        = P**2 + 2.d0 * dPsiN / dPsi_dl2
+     if (Q > 0.d0) then
+        delta = P - sign(sqrt(Q),P)
+     else
+        ierr  = -1
+     endif
+
+     if (debug_output) then
+        write (debug, *) rc, delta, dPsi_dl, dPsi_dl2
+     endif
+     rc       = rc + delta * ePsi
+     PsiN     = get_PsiN(rc)
+  enddo
+
+
+  ! 3. update output variables
+  ! 3.1 exceed required accuracy (iteration limit)?
+  if (iter > imax) ierr = 1
+  ! output number of iterations
+  if (present(iterations)) iterations = iter
+  ! 3.2 exceed required accuracy (step size)
+  if (present(ds)) then
+     if (sqrt(sum((rc-r0)**2)) > ds) ierr = 2
+  endif
+
+  end function correct_PsiN
+!=======================================================================
 
 
 
@@ -901,17 +1113,79 @@ module equilibrium
 
   end function
 !=======================================================================
+  function leave_equilibrium_domain(r1, r2, X) result(leave)
+  real(real64), dimension(:),        intent(in)  :: r1, r2
+  real(real64), dimension(size(r1)), intent(out) :: X
+  logical                                        :: leave
+
+  real(real64) :: phi1, phi2, tv, th, t
+
+  if (size(r1) .ne. size(r2)) then
+     write (6, 9000)
+     write (6, 9001)
+     stop
+  endif
+
+  select case(size(r1))
+  case(2)
+     phi1 = 0.d0;  phi2 = 0.d0
+  case(3)
+     phi1 = r1(3); phi2 = r2(3)
+  case default
+     write (6, 9000)
+     write (6, 9002) size(r1)
+     stop
+  end select
+
+  leave = .false.
+  tv    = 2.d0
+  th    = 2.d0
+  ! check left vertical boundary
+  if (r1(1) > EQBox(1,1)  .and.  r2(1) < EQBox(1,1)) then
+     tv    = (EQBox(1,1)-r1(1)) / (r2(1) - r1(1))
+     leave = .true.
+  endif
+  ! check right vertical boundary
+  if (r1(1) < EQBox(1,2)  .and.  r2(1) > EQBox(1,2)) then
+     tv    = (EQBox(1,2)-r1(1)) / (r2(1) - r1(1))
+     leave = .true.
+  endif
+  ! check lower horizontal boundary
+  if (r1(2) > EQBox(2,1)  .and.  r2(2) < EQBox(2,1)) then
+     th    = (EQBox(2,1)-r1(2)) / (r2(2) - r1(2))
+     leave = .true.
+  endif
+  ! check upper horizontal boundary
+  if (r1(2) < EQBox(2,2)  .and.  r2(2) > EQBox(2,2)) then
+     th    = (EQBox(2,2)-r1(2)) / (r2(2) - r1(2))
+     leave = .true.
+  endif
+
+  X = 0.d0
+  if (leave) then
+     t = min(tv, th)
+     X(1:2) = r1(1:2) + t * (r2(1:2) - r1(1:2))
+     X(3)   = phi1    + t * (phi2    - phi1)
+  endif
+
+ 9000 format('error in leave_equilibrium_domain:')
+ 9001 format('arguments r1 and r2 must have the same size!')
+ 9002 format('invalide argument size ', i0)
+  end function leave_equilibrium_domain
+!=======================================================================
 
 
 
 !=======================================================================
 ! boundary provided by equilibrium
 !=======================================================================
-  function default_equilibrium_provides_boundary() result(l)
+  function equilibrium_provides_boundary() result(l)
   logical :: l
 
-  l = .false.
-  end function default_equilibrium_provides_boundary
+
+  l = use_boundary
+
+  end function equilibrium_provides_boundary
 !=======================================================================
 ! export axisymmetric boundary provided by equilibrium
 !=======================================================================
@@ -1186,22 +1460,24 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine find_hyperbolic_points(nR, nZ)
+  subroutine find_hyperbolic_points(nR, nZ, setup_Xpoints)
   integer, intent(in)  :: nR, nZ
+  logical, intent(in)  :: setup_Xpoints
 
   integer, parameter   :: iu = 54
 
   real(real64)         :: Rbox(2), Zbox(2)
-  type(t_Xpoint) :: Xp
-  real(real64)   :: x(2), H(2,2), xk(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
-  real(real64)   :: DPsi, DPsi1, r3(3)
-  integer        :: i, j, k, ind, ierr, iPsi
+  type(t_Xpoint) :: Xp0
+  real(real64)   :: x(2), H(2,2), xh(nR*nZ, 2), r, lambda1, lambda2, v1(2), v2(2)
+  real(real64)   :: DPsi, DPsi1, r3(3), xm(nR*nZ, 2)
+  integer        :: i, j, k, indh, indm, ierr, iPsi
 
 
   call get_domain (Rbox, Zbox)
   write (6, 1000) Rbox, Zbox
 
-  ind = 0
+  indh   = 0
+  indm   = 0
   r3(3) = 0.d0
   open  (iu, file='hyperbolic_points.dat')
   write (iu, 1001)
@@ -1215,27 +1491,54 @@ module equilibrium
      if (x(1) < 0.d0) cycle ! not a valid critical point
 
      ! check if present critical point is identical to previous ones
-     do k=1,ind
-        r = sqrt(sum((xk(k,:)-x)**2))
+     ! check all hyperbolic points
+     do k=1,indh
+        r = sqrt(sum((xh(k,:)-x)**2))
+        if (r < 1.d-5) cycle loop1
+     enddo
+     ! check all minima/maxima
+     do k=1,indm
+        r = sqrt(sum((xm(k,:)-x)**2))
         if (r < 1.d-5) cycle loop1
      enddo
 
      ! so this is a new critical point, run analysis
-     Xp%X = x; Xp%H = H
-     r3(1:2) = x; Xp%Psi = get_Psi(r3)
-     call Xp%analysis(lambda1, lambda2, v1, v2, ierr)
-     if (ierr .ne. 0) cycle ! this is not a hyperbolic point
+     Xp0%X   = x;  Xp0%H = H
+     r3(1:2) = x;  Xp0%Psi = get_Psi(r3);  Xp0%theta = get_poloidal_angle(r3)
+     call Xp0%analysis(lambda1, lambda2, v1, v2, ierr)
+     if (ierr .ne. 0) then
+        indm       = indm + 1
+        xm(indm,:) = x
+        cycle ! this is not a hyperbolic point
+     endif
 
      ! add present point to list
-     ind = ind + 1
-     xk(ind,:) = x
-     write (6, 1003) ind, x, Xp%PsiN(), lambda1, lambda2
-     write (iu, *) x, Xp%PsiN(), lambda1, lambda2
+     indh = indh + 1
+     xh(indh,:) = x
+     write (6, 1003) indh, x, Xp0%PsiN(), lambda1, lambda2
+     write (iu, *) x, Xp0%PsiN(), lambda1, lambda2
+
+     if (setup_Xpoints) then
+        if (indh > nx_max) then
+           write (6, *) 'error: number of hyperbolic points exceeds limit!'
+           stop
+        endif
+
+        Xp(indh)           = Xp0
+        Xp(indh)%undefined = .false.
+     endif
   enddo loop1
   enddo loop2
   close (iu)
 
 
+  ! store minima/maxima
+  open  (iu, file='minima_and_maximat.dat')
+  do k=1,indm
+     x = xm(k,:)
+     write (iu, *) x, get_PsiN(x)
+  enddo
+  close (iu)
 !  ! find primary X-point
 !  DPsi1 = huge(1.d0)
 !  iPsi  = 0
@@ -1279,6 +1582,12 @@ module equilibrium
 
 
 !=======================================================================
+! run analysis of Jacobian at X-point
+!
+! lambda1, v1	eigenvalue and eigenvector in unstable direction
+! lambda2, v2   eigenvalue and eigenvector in stable direction
+! eigenvectors are facing towards the magnetic axis
+!
 ! ierr = 0: successfull
 !        1: eigenvalues are non-real
 !=======================================================================
@@ -1289,7 +1598,8 @@ module equilibrium
   real(real64), intent(out) :: lambda1, lambda2, v1(2), v2(2)
   integer,      intent(out) :: ierr
 
-  real(real64) :: A(2,2), P, Q, phi(2)
+  real(real64) :: A(2,2), P, Q, phi(2), l(2), delta
+  integer      :: i
 
 
   ierr = 0
@@ -1312,11 +1622,23 @@ module equilibrium
      ierr    = 1
      return
   endif
-  lambda1 = P + sqrt(Q)
-  lambda2 = P - sqrt(Q)
+  ! calculate eigenvalues
+  lambda1 = P + sqrt(Q);  l(1) = lambda1
+  lambda2 = P - sqrt(Q);  l(2) = lambda2
 
-  phi(1) = atan2(-A(1,1) + lambda1, A(1,2)); if (phi(1) < 0.d0) phi(1) = phi(1) + pi
-  phi(2) = atan2(-A(1,1) + lambda2, A(1,2)); if (phi(2) < 0.d0) phi(2) = phi(2) + pi
+  ! calculate eigenvectors
+  do i=1,2
+     phi(i) = atan2(-A(1,1) + l(i), A(1,2))
+     !write (80, *) phi(i)
+
+     ! find orientation with respect to magnetic axis (poloidal angle of X-point)
+     delta  = phi(i) - this%theta
+     ! make eigenvector facing towards magnetic axis
+     if (abs(delta) < pi/2.d0  .or.  abs(delta) > 3.d0*pi/2.d0) then
+        phi(i) = phi(i) - sign(pi, delta)
+     endif
+     !write (80, *) phi(i), delta, this%theta
+  enddo
 
   v1(1) = cos(phi(1))
   v1(2) = sin(phi(1))
@@ -1337,6 +1659,9 @@ module equilibrium
      write (96, *) this%X
      write (96, *) this%X + v2
      close (96)
+     open  (95, file='lambda.tmp')
+     write (95, *) lambda1, lambda2
+     close (95)
   endif
 
   end subroutine analysis
@@ -1365,6 +1690,30 @@ module equilibrium
 
 
 !=======================================================================
+  subroutine setup(this, x_guess)
+  class(t_Xpoint)          :: this
+  real(real64), intent(in), optional :: x_guess(2)
+
+  real(real64) :: x(2), r(3)
+
+
+  x(1) = this%R_estimate;  x(2) = this%Z_estimate
+  if (present(x_guess)) x = x_guess
+  this%X = find_x(x, Hout=this%H)
+  if (this%X(1) > 0.d0) then
+     this%undefined = .false.
+
+     r(1:2)         = this%X;  r(3) = 0.d0
+     this%Psi       = get_Psi(r)
+     this%theta     = get_poloidal_angle(this%X)
+  endif
+
+  end subroutine setup
+!=======================================================================
+
+
+
+!=======================================================================
   function t_Xpoint__PsiN(this) result(PsiN)
   class(t_Xpoint) :: this
   real(real64)    :: PsiN
@@ -1380,6 +1729,8 @@ module equilibrium
 
 !=======================================================================
 ! calculate eigenvectors v1,v2 of Hessian matrix of pol. magn. flux at x
+! v1 points in ascending PsiN direction to the right
+! v2 points in descending PsiN direction upwards
 !=======================================================================
   subroutine H_eigenvectors (H, v1, v2)
   real(real64), intent(in)  :: H(2,2)

@@ -16,6 +16,16 @@ subroutine run_control_development (Run_Type)
      call TEST_setup_domain()
   case ('TEST_base_grid')
      call TEST_base_grid()
+  case ('TEST_flux_surface_2D')
+     call TEST_flux_surface_2D()
+  case ('TEST_correct_PsiN')
+     call TEST_correct_PsiN()
+  case ('TEST_adaptive_step_size')
+     call TEST_adaptive_step_size()
+  case ('TEST_base_mesh')
+     call TEST_base_mesh()
+  case ('BENCHMARK_theta_map')
+     call BENCHMARK_theta_map()
   case default
      write (6, *) 'run type "', trim(Run_Type), '" not defined!'
      stop
@@ -94,4 +104,226 @@ end subroutine TEST_setup_domain
   call make_base_grids_auto()
 
   end subroutine TEST_base_grid
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine TEST_flux_surface_2D()
+  use iso_fortran_env
+  use flux_surface_2D
+  use equilibrium
+  use separatrix
+  implicit none
+
+  type(t_flux_surface_2D) :: F
+  type(t_separatrix)      :: S
+  real(real64)            :: r(3), y(3)
+  integer                 :: ierr
+
+
+  y(1) = 0.d0
+  y(2) = 1.1d0
+  y(3) = 0.d0
+  r    = get_cylindrical_coordinates(y, ierr)
+  if (ierr > 0) then
+     write (6, *) 'error: ierr > 0!'
+     stop
+  endif
+
+
+  !call F%generate(r(1:2), direction=RIGHT_HANDED)
+  !call F%plot(filename='F_RH.plt')
+  !call F%generate(r(1:2), direction=LEFT_HANDED)
+  !call F%plot(filename='F_LH.plt')
+
+  !call F%generate_branch(r(1:2), FORWARD, ierr, stop_at_boundary=.false.)
+  !call F%plot(filename='test_forward.plt')
+  !call F%generate_branch(r(1:2), BACKWARD, ierr, stop_at_boundary=.false.)
+  !call F%plot(filename='test_backward.plt')
+  !call F%generate_branch(r(1:2), CCW, ierr, stop_at_boundary=.false.)
+  !call F%plot(filename='test_ccw.plt')
+  !call F%generate_branch(r(1:2), CW, ierr, stop_at_boundary=.false.)
+  !call F%plot(filename='test_cw.plt')
+
+  call S%generate_iX(1, debug=.true.)
+  call S%plot(filename_prefix='S', parts=.true.)
+
+  end subroutine TEST_flux_surface_2D
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine TEST_correct_PsiN()
+  use iso_fortran_env
+  use equilibrium, only: get_PsiN, correct_PsiN
+  use grid
+  use fgsl
+  implicit none
+
+  type(fgsl_rng)      :: r
+  type(fgsl_rng_type) :: t
+  real(fgsl_double)   :: dx, dy
+
+  type(t_grid) :: G
+  real(real64) :: x(3), xp(2), xc(2), PsiN, PsiNc, dPsiN, ds, ds_min, ds_max
+  integer      :: i, ierr, iterations
+
+
+  call G%load('grid.dat')
+
+
+  ! set up rng
+  t = fgsl_rng_env_setup()
+  t = fgsl_rng_default
+  r = fgsl_rng_alloc (t)
+
+
+  dPsiN = 0.001d0
+  ds_min = HUGE(1.d0)
+  ds_max = 0.d0
+  ds     = 0.1d0
+  do i=1,G%nodes()
+     write (6, *) i
+     x    = G%node(i)
+     PsiN = get_PsiN(x)
+
+     ! perturb node
+     call fgsl_ran_dir_2D(r, dx, dy)
+
+     xp(1) = x(1) + ds*dx;     xp(2) = x(2) + ds*dy
+     write (98, *) xp(1:2)
+
+     xc    = correct_PsiN(xp(1:2), PsiN, ierr, iterations=iterations)
+     if (ierr > 0) then
+        xc    = correct_PsiN(xp(1:2), PsiN, ierr, iterations=iterations, debug=80)
+        stop
+     endif
+     PsiNc = get_PsiN(xc)
+     write (99, *) x(1:2), xc, abs(PsiN-PsiNc), PsiNc, iterations, ierr
+!
+!     if (ierr == 0) then
+!        ds = sqrt(sum((x(1:2)-xc)**2))
+!        if (ds > ds_max) ds_max = ds
+!        if (ds < ds_min) ds_min = ds
+!        write (99, *) xc(1:2), PsiN+dPsiN, iterations
+!     else
+!        write (98, *) x(1:2), ierr
+!     endif
+  enddo
+
+!  write (6, *) 'min. correction step: ', ds_min
+!  write (6, *) 'max. correction step: ', ds_max
+
+  call fgsl_rng_free(r)
+  end subroutine TEST_correct_PsiN
+!===============================================================================
+
+
+
+
+!===============================================================================
+  subroutine TEST_adaptive_step_size()
+  use iso_fortran_env
+  use run_control, only: Grid_File, Output_File
+  use grid
+  use dataset
+  use flux_surface_2D
+  implicit none
+
+  type(t_grid)    :: G
+  type(t_dataset) :: D
+
+  real(real64)    :: r(3)
+  integer :: i, n
+
+
+  call G%load(Grid_File)
+  n = G%nodes()
+
+  call D%new(n,1)
+  do i=1,n
+     r        = G%node(i)
+     D%x(i,1) = adaptive_step_size(r(1:2))
+  enddo
+  call D%store(filename=Output_File)
+
+  end subroutine TEST_adaptive_step_size
+!===============================================================================
+
+
+
+!===============================================================================
+  subroutine TEST_base_mesh
+  use fieldline_grid
+  use base_mesh
+  use modtopo_lsn
+  use modtopo_ddn
+  use modtopo_cdn
+
+  integer, dimension(:), allocatable :: connectX
+  integer            :: nX
+
+
+  ! load and initialize grid configuration
+  call setup_grid_configuration()
+
+
+  ! setup geometry of computational domain
+  call setup_topology()
+  call setup_geometry()
+  call setup_interfaces()
+
+
+  ! generate base meshs
+  call generate_base_mesh(0)
+  end subroutine TEST_base_mesh
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine BENCHMARK_theta_map()
+  use iso_fortran_env
+  use run_control, only: Psi, N_Psi, N_theta, Grid_File, Output_File
+  use flux_surface_2D
+  use grid
+  use dataset
+  use math
+  implicit none
+
+  type(t_flux_surface_2D) :: F
+  type(t_grid)            :: G
+  type(t_dataset)         :: D
+  real(real64) :: Psi0, theta, x(2)
+  integer      :: i, j, ig, n
+
+  write (6, *) 'benchmarking setup_theta_map ...'
+  n = (N_Psi+1) * (N_theta+1)
+  call G%new(CYLINDRICAL, UNSTRUCTURED, 3, n)
+  call D%new(n, 3)
+  ig = 0
+  do i=0,N_Psi
+     write (6, *) i
+     Psi0 = Psi(1) + (Psi(2)-Psi(1)) * i / N_Psi
+
+     call F%setup_theta_map(Psi0)
+
+     do j=0,N_theta
+        theta = pi2 / N_theta * j
+
+        call F%get_RZ_geo(theta, x)
+        ig = ig + 1
+        G%x(ig,1:2) = x
+        D%x(ig,1) = theta
+        D%x(ig,2) = F%theta_star(theta)
+        D%x(ig,3) = F%theta(min(D%x(ig,2),pi2))
+     enddo
+  enddo
+
+  call G%store(Grid_File)
+  call D%store(filename=Output_File)
+
+end subroutine BENCHMARK_theta_map
 !===============================================================================

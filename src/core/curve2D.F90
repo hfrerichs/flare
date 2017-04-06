@@ -68,6 +68,7 @@ module curve2D
      procedure :: new
      procedure :: destroy
      procedure :: copy
+     procedure :: copy_to
      procedure :: broadcast
      procedure :: plot
      procedure :: boundary_node
@@ -94,6 +95,7 @@ module curve2D
      procedure :: outside
      procedure :: intersect_curve => t_curve_intersect_curve
      procedure :: remove_node
+     procedure :: resample
   end type t_curve
 
   type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
@@ -253,6 +255,20 @@ module curve2D
   this%closed = C%closed
 
   end subroutine copy
+!=======================================================================
+  subroutine copy_to(this, C)
+  class(t_curve)             ::  this
+  type(t_curve), intent(out) :: C
+
+  integer :: n_seg
+
+
+  n_seg    = this%n_seg
+  call C%new(n_seg)
+  C%x      = this%x
+  C%closed = this%closed
+
+  end subroutine copy_to
 !=======================================================================
 
 
@@ -566,13 +582,13 @@ module curve2D
 
 !=======================================================================
 ! sort points on a closed curve 'C' with regard to center/reference point 'xc'
-! and direction 'd'
+! and direction 'theta_0'
 !=======================================================================
-  subroutine sort_loop (C, xc, d, method)
+  subroutine sort_loop (C, xc, theta_0, method)
   implicit none
 
   class(t_curve), intent(inout)        :: C
-  real(real64),   intent(in), optional :: xc(2), d(2)
+  real(real64),   intent(in), optional :: xc(2), theta_0
   integer,        intent(in), optional :: method
 
   integer :: sort_method
@@ -584,7 +600,7 @@ module curve2D
 
   select case (sort_method)
   case(ANGLE)
-     call C%sort_by_angle(xc, d)
+     call C%sort_by_angle(xc, theta_0)
   case(DISTANCE)
      call C%sort_by_distance(xc)
   case default
@@ -594,15 +610,15 @@ module curve2D
 
   end subroutine sort_loop
 !=======================================================================
-  subroutine sort_by_angle (C, xc, d)
+  subroutine sort_by_angle (C, xc, theta_0)
   implicit none
 
   class(t_curve), intent(inout)        :: C
-  real(real64),   intent(in), optional :: xc(2), d(2)
+  real(real64),   intent(in), optional :: xc(2), theta_0
 
   real(real64), dimension(:,:), allocatable :: tmp_arr
   real(real64) :: xr(2), dr(2), xmax, xmin, ymax, ymin
-  real(real64) :: theta_0, theta, dxl(2), x_0(2), tmp(3), t
+  real(real64) :: theta_00, theta, dxl(2), x_0(2), tmp(3), t, R
   integer      :: i, j, n
 
 
@@ -627,13 +643,14 @@ module curve2D
 
 
   ! check if reference direction is given
-  if (present(d)) then
-     dr    = d
+  if (present(theta_0)) then
+     theta_00 = theta_0
   ! set default values otherwise
   else
-     dr(1) = 1.d0
-     dr(2) = 0.d0
+     theta_00 = 0.d0
   endif
+  dr(1) = cos(theta_00)
+  dr(2) = sin(theta_00)
 
 
   ! allocate memory for temporary array
@@ -641,11 +658,10 @@ module curve2D
   tmp_arr(:,1:2) = C%x
 
   ! calculate angles w.r.t. xr
-  theta_0  = datan2(dr(2), dr(1))
   do i=0,n
      dxl   = C%x(i,:) - xr
      theta = datan2(dxl(2), dxl(1))
-     if (theta .lt. theta_0) theta = theta + pi2
+     if (theta .lt. theta_00) theta = theta + pi2
      tmp_arr(i,3) = theta
   enddo
 
@@ -666,10 +682,27 @@ module curve2D
      ! loop already closed
      C%x(0:n,:) = tmp_arr(0:n,1:2)
   else
-     t    = (theta_0      - tmp_arr(n,3) + pi2) / t
+     t    = (theta_00     - tmp_arr(n,3) + pi2) / t
      x_0  = tmp_arr(n,1:2)
-     dxl  = tmp_arr(0,1:2) - x_0
-     x_0  = x_0 + t * dxl
+     ! linear interpolation between x_0 and x_n
+     !dxl  = tmp_arr(0,1:2) - x_0
+     !x_0  = x_0 + t * dxl
+     ! interpolate radius between x_0 and x_n
+     !dxl(1) = sqrt(sum((tmp_arr(n,1:2) - xr)**2))
+     !dxl(2) = sqrt(sum((tmp_arr(0,1:2) - xr)**2))
+     !R      = dxl(1) + t * (dxl(2) - dxl(1))
+     !x_0(1) = xr(1) + R * cos(theta_0)
+     !x_0(2) = xr(2) + R * sin(theta_0)
+     ! intersect x_0 -> x_n with ray from xr in theta_0 direction
+     if (intersect_lines (tmp_arr(0,1:2), tmp_arr(n,1:2), xr, xr+dr, tmp(1), tmp(2), x_0)) then
+     else
+        write (6, *) 'error in sort_by_angle: cannot find point for closure!'
+        write (6, *) 'x(first)  = ', tmp_arr(0,1:2)
+        write (6, *) 'x(last)   = ', tmp_arr(n,1:2)
+        write (6, *) 'x(center) = ', xr
+        write (6, *) 'theta     = ', theta
+        stop
+     endif
 
      ! copy data to output variable L
      if (x_0(1).eq.tmp_arr(0,1) .and. x_0(2).eq.tmp_arr(0,2)) then
@@ -734,6 +767,7 @@ module curve2D
 
   ! close loop
   t  = (xr(2) - x(0,2)) / (x(n,2) - x(0,2))
+  if (t < 0.d0  .or.  t > 1.d0) t = 0.5d0
   x0 = x(0,:) + t * (x(n,:) - x(0,:))
   x(0,:) = x0
   x(n,:) = x0
@@ -1806,6 +1840,33 @@ module curve2D
   this%x       = tmp
 
   end subroutine remove_node
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine resample(this, n, w)
+  class(t_curve)               :: this
+  integer,          intent(in) :: n
+  real(real64),     intent(in), optional :: w(0:n-1)
+
+  type(t_curve) :: C
+  real(real64)  :: x(2), t
+  integer       :: i
+
+
+  call C%copy(this)
+  call C%setup_length_sampling()
+  call this%new(n-1)
+  do i=0,n-1
+     t = 1.d0 * i / (n-1)
+     if (present(w)) t = w(i)
+
+     call C%sample_at(t, x)
+     this%x(i,:) = x
+  enddo
+
+  end subroutine resample
 !=======================================================================
 
 end module curve2D

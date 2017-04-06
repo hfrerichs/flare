@@ -295,8 +295,8 @@ module modtopo_ddn
 
 
      ! 2.c private flux region (PFR)
-     call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, nr(4), 1, rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
-     call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 1, nr(5), 2, rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
+     call make_flux_surfaces_PFR(M_PFR1, nr(4), npL(1), npR(1), 1, rpath(4), Zone(iz0+4)%Sr, Zone(iz0+4)%Sp)
+     call make_flux_surfaces_PFR(M_PFR2, nr(5), npR(2), npL(2), 2, rpath(5), Zone(iz0+5)%Sr, Zone(iz0+5)%Sp)
 
      ! 3. interpolated surfaces
      select case(discretization_method)

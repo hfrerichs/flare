@@ -10,11 +10,20 @@ module separatrix
   private
   type, public :: t_separatrix
   !type, extends(t_curve), public :: t_separatrix
-     type(t_flux_surface_2D) :: M1, M2, M3, M4
+     type(t_flux_surface_2D) :: M1, M2, M3, M4, B(4)
      real(real64) :: Px(2)
+
+     ! where do the branches connect to? > 0: X-point id
+     !                                   = 0: wall
+     !                                   < 0: leave equilibrium domain
+     integer      :: connectB(4)
+
      contains
      procedure :: generate
+     procedure :: generate_new
+     procedure :: generate_iX
      procedure :: plot
+     procedure :: broadcast
   end type t_separatrix
 
   public :: ePsi_sub, H_eigenvectors
@@ -149,11 +158,11 @@ module separatrix
   if (Debug) then
      open  (97, file='right.tmp', position='append')
      write (97, *) Px
-     write (97, *) Px + v1*orientation + v2
+     write (97, *) Px + v1*orientation + v2*orientation
      close (97)
      open  (96, file='left.tmp', position='append')
      write (96, *) Px
-     write (96, *) Px - v1*orientation + v2
+     write (96, *) Px - v1*orientation + v2*orientation
      close (96)
      open  (95, file='v1.tmp', position='append')
      write (95, *) Px
@@ -189,6 +198,132 @@ module separatrix
   this%M4%x(0,:) = Px
 
   end subroutine generate
+!=======================================================================
+
+
+
+!=======================================================================
+! Generate separatrix for X-point Xp
+!=======================================================================
+  subroutine generate_new (this, Xp, trace_step, offset, stop_at_boundary, debug)
+  use equilibrium, only: t_xpoint, get_PsiN, correct_PsiN
+  use ode_solver
+  class(t_separatrix)                  :: this
+  type(t_Xpoint), intent(in)           :: Xp
+  real(real64),   intent(in), optional :: trace_step, offset
+  logical,        intent(in), optional :: stop_at_boundary, debug
+
+  real(real64) :: lambda1, lambda2, v1(2), v2(2), Px(2), PsiN_X, xi(2), s1, scut
+  integer      :: ierr, Mierr(4)
+  logical      :: debug_output, screen_output
+
+
+  ! set up defaults for optional input
+  debug_output  = .false.
+  screen_output = .false.
+  if (present(debug)) debug_output  = debug
+  if (present(debug)) screen_output = debug
+
+  if (screen_output)  write (6, *) 't_separatrix%generate_new'
+
+
+  ! calculate eigenvalues and eigenvectors of Jacobian at X-point
+  call Xp%analysis(lambda1, lambda2, v1, v2, ierr)
+  if (ierr .ne. 0) then
+     write (6, *) 'error in t_separatrix%generate:'
+     write (6, *) 'X-point analysis returned ierr = ', ierr
+     stop
+  endif
+
+
+  ! set offset from X-point
+  s1 = 0.1d0
+  if (present(offset)) then
+     s1 = offset
+  endif
+  scut = 0.9d0 * s1 ! cut-off distance when approaching an X-point
+
+
+
+  Px     = Xp%X ! Coordinates of X-point (R[cm], Z[cm])
+  PsiN_X = get_PsiN(Px)
+
+  ! branch 1: in unstable direction, towards magnetic axis
+  xi = find_xinit(v1)
+  call this%M1%generate_branch(xi,  FORWARD, Mierr(1), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(1))
+
+  ! branch 2: in stable direction, towards magnetic axis
+  xi = find_xinit(v2)
+  call this%M2%generate_branch(xi, BACKWARD, Mierr(2), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(2))
+
+  ! branch 3: in unstable direction, away from magnetic axis
+  xi = find_xinit(-v1)
+  call this%M3%generate_branch(xi,  FORWARD, Mierr(3), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(3))
+
+  ! branch 4: in stable direction, away from magnetic axis
+  xi = find_xinit(-v2)
+  call this%M4%generate_branch(xi, BACKWARD, Mierr(4), x0=Px, &
+       stop_at_boundary=stop_at_boundary, cutoff_X=scut, &
+       trace_step=trace_step, connectX=this%connectB(4))
+
+  if (screen_output) then
+     write (6, *) 'Mierr = ', Mierr
+     write (6, *) 'connectB = ', this%connectB
+  endif
+  contains
+  !.....................................................................
+  function find_xinit(voff) result(xinit)
+  real(real64), intent(in) :: voff(2)
+  real(real64)             :: xinit(2)
+
+  integer :: ierr
+
+
+  xinit = correct_PsiN(Px+s1*voff, PsiN_X, ierr)
+  if (ierr > 0) then
+     write (6, *) 'error in find_xinit: correct_PsiN returned ierr > 0!'
+     stop
+  endif
+
+  end function find_xinit
+  !.....................................................................
+  end subroutine generate_new
+!=======================================================================
+
+
+
+!=======================================================================
+! Generate separatrix for X-point Xp(ix) from module equilibrium
+!=======================================================================
+  subroutine generate_iX(this, ix, trace_step, offset, stop_at_boundary, debug)
+  use equilibrium, only: Xp
+  use ode_solver
+  class(t_separatrix)                 :: this
+  integer,       intent(in)           :: ix
+  real(real64),  intent(in), optional :: trace_step, offset
+  logical,       intent(in), optional :: stop_at_boundary, debug
+
+
+  ! check if ix refers to a valid X-point
+  if (ix < 1  .or.  ix > nx_max) then
+     write (6, *) 'error in t_separatrix%generate: invalid X-point id = ', ix
+     stop
+  endif
+  if (Xp(ix)%undefined) then
+     write (6, *) 'error in t_separatrix%generate: X-point ', ix, ', undefined!'
+     stop
+  endif
+
+
+  call this%generate_new(Xp(ix), trace_step, offset, stop_at_boundary, debug)
+
+  end subroutine generate_iX
 !=======================================================================
 
 
@@ -252,5 +387,25 @@ module separatrix
 
 
 
+!=======================================================================
+  subroutine broadcast(this)
+  use parallel
+  class(t_separatrix)          :: this
+
+  integer :: i
+
+
+  call this%M1%broadcast()
+  call this%M2%broadcast()
+  call this%M3%broadcast()
+  call this%M4%broadcast()
+  do i=1,4
+     call this%B(i)%broadcast()
+  enddo
+  call broadcast_real(this%Px, 2)
+  call broadcast_inte(this%connectB, 4)
+
+  end subroutine broadcast
+!=======================================================================
 
 end module separatrix

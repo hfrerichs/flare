@@ -16,30 +16,30 @@ module inner_boundary
 
 
   !=====================================================================
-  subroutine load_inner_boundaries (theta0)
+  subroutine load_inner_boundaries (theta0, sample_method)
   use magnetic_axis
   use equilibrium, only: get_PsiN
   use math
   use run_control, only: Debug
   real(real64), intent(in), optional :: theta0
+  integer,      intent(in), optional :: sample_method
 
   character(len=72) :: filename
-  real(real64)     :: d(2), phi, r3(3), Pmag(2), delta, PsiN_x
-  integer          :: i, iblock, n, sort_method
+  real(real64)     :: phi, r3(3), Pmag(2), delta, PsiN_x
+  integer          :: i, iblock, n, sort_method, apply_sample_method
 
 
   write (6, 1000)
   write (6, 1001)
 
   ! set reference direction
-  d(1) = 1.d0
-  d(2) = 0.d0
   sort_method = DISTANCE
   if (present(theta0)) then
-     d(1) = cos(theta0)
-     d(2) = sin(theta0)
      sort_method = ANGLE
   endif
+
+  apply_sample_method = sort_method
+  if (present(sample_method)) apply_sample_method = sample_method
 
 
   allocate (C_in(0:blocks-1,0:1))
@@ -62,7 +62,10 @@ module inner_boundary
            stop
         endif
 
-        call C_in(iblock,i)%sort_loop(Pmag, d, sort_method)
+        call C_in(iblock,i)%sort_loop(Pmag, theta0, sort_method)
+        if (apply_sample_method .ne. sort_method) then
+           call C_in(iblock,i)%setup_sampling_by_method(apply_sample_method, Pmag)
+        endif
         if (Debug) then
            write (filename, 2001) i, iblock
            call C_in(iblock,i)%plot(filename=filename)
@@ -164,6 +167,58 @@ module inner_boundary
   enddo
 
   end subroutine setup_inner_boundaries
+  !=====================================================================
+  subroutine setup_inner_boundary(iblock, ir, S, G)
+  use grid
+  use mesh_spacing
+  integer,         intent(in)    :: iblock, ir
+  type(t_grid),    intent(inout) :: G
+  type(t_spacing), intent(in)    :: S
+
+  real(real64) :: xi, x(2)
+  integer :: j, np
+
+
+  if (ir < 0  .or.  ir > nr_perturbed-1) then
+     write (6, *) 'error in setup_inner_boundary: ir out of range!'
+     write (6, *) '0 <= ir <= ', nr_perturbed-1, ' required!'
+     stop
+  endif
+
+
+  np = G%n2-1
+  do j=0,np
+     xi = S%node(j,np)
+     call C_in(iblock,ir)%sample_at(xi, x)
+     G%mesh(ir, j, :) = x
+  enddo
+
+  end subroutine setup_inner_boundary
+  !=====================================================================
+  subroutine setup_inner_boundary0(iblock, G)
+  use grid
+  use mesh_spacing
+  integer,         intent(in)    :: iblock
+  type(t_grid),    intent(inout) :: G
+
+  real(real64) :: x1(2), x2(2), x(2)
+  integer :: j, np
+
+
+  np = G%n2-1
+  do j=0,np
+     x1 = G%mesh(1, j, :)
+     x2 = G%mesh(2, j, :)
+     if (intersect_curve(x1, x2, C_in(iblock,0), x, intersect_mode=-1)) then
+        G%mesh(0, j, :) = x
+     else
+        write (6, *) 'error in setup_inner_boundary0 at grid node ', j
+        write (6, *) 'x = ', x1
+        stop
+     endif
+  enddo
+
+  end subroutine setup_inner_boundary0
   !=====================================================================
 
 end module inner_boundary

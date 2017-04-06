@@ -6,6 +6,7 @@ OBJECTS =  \
                sample_bfield.o\
                poincare_plot.o\
                connection_length.o\
+               initialize_equilibrium.o\
                get_equi_info_2D.o\
                generate_flux_surface_2D.o\
                generate_flux_surface_3D.o\
@@ -27,7 +28,8 @@ OBJECTS =  \
                critical_point_analysis.o\
                export_gfile.o\
                quasi_surfaces.o\
-               generate_rpath.o
+               generate_rpath.o\
+               perturbation_spectrum.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR) -I ../$(GRIDGEN_DIR)

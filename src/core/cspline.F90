@@ -26,6 +26,7 @@ module cspline
 
      contains
      procedure :: setup
+     procedure :: setup_explicit
      procedure :: destroy
      procedure :: eval
      procedure :: plot
@@ -112,6 +113,33 @@ module cspline
 
 
 !=======================================================================
+  subroutine setup_explicit(this, n, x, y)
+  class(t_cspline)         :: this
+  integer,      intent(in) :: n
+  real(real64), intent(in) :: x(n), y(n)
+
+  integer(fgsl_int)    :: stat
+
+
+  this%n    = n
+  this%ndim = 1
+  if (allocated(this%S))   deallocate(this%S)
+  if (allocated(this%acc)) deallocate(this%acc)
+  allocate (this%S(1), this%acc(1))
+  this%S(1) = fgsl_spline_alloc(fgsl_interp_cspline, this%n)
+
+  ! set lower and upper boundary
+  this%L1 = x(1)
+  this%L2 = x(n)
+
+  stat   = fgsl_spline_init(this%S(1), x, y, this%n)
+
+  end subroutine setup_explicit
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine destroy(this)
   class(t_cspline) :: this
 
@@ -145,7 +173,17 @@ module cspline
   ! evaluate location is absolute or normalized
   l = this%L1 + t *  (this%L2 - this%L1)
   if (present(base)) then
-     if (base == ABSOLUTE) l = t
+     if (base == ABSOLUTE) then
+        l = t
+        if (t < this%L1) then
+           write (6, *) 'error: t < L1', t, this%L1
+           stop
+        endif
+        if (t > this%L2) then
+           write (6, *) 'error: t > L2', t, this%L2
+           stop
+        endif
+     endif
   endif
 
 

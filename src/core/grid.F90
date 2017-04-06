@@ -234,6 +234,7 @@ module grid
   subroutine read_grid()
 
   character(len=120) :: str
+  real(real64), dimension(:), allocatable :: yi
   real(real64)       :: y3(3), r(3), y2(2), y1(1), x0, R0
   integer :: grid_id, coordinates, layout, fixed_coord, &
              i, j, k, ig, n, n1, n2, n3
@@ -338,6 +339,8 @@ module grid
      ! all coordinates are structured
      if (fixed_coord == 0) then
         call iscrape (iu, n3)
+        x0 = 0.d0
+
      ! one coordinate is fixed
      else
         n3 = 1
@@ -345,7 +348,7 @@ module grid
         this%fixed_coord_value = x0
      endif
 
-     call this%new(coordinates, layout, fixed_coord, n1, n2, n3)
+     call this%new(coordinates, layout, fixed_coord, n1, n2, n3, x0)
 
      ! read 1st coordinates
      do i=1,n1
@@ -368,35 +371,34 @@ module grid
      call this%setup_structured_grid()
 
   !.....................................................................
-  ! 3.4. unstructured mesh, n1*n2: total number of grid nodes
-  elseif (layout == MESH_2D  .and.  fixed_coord > 0) then
+  ! 3.4. mesh, n1*n2: total number of grid nodes
+  elseif (layout == MESH_2D) then
      call iscrape (iu, n1)
      call iscrape (iu, n2)
      !call this%new(coordinates, layout, fixed_coord, n1, n2, mesh=.true.)
      call this%new(coordinates, layout, fixed_coord, n1, n2)
 
-     ! read fixed coordinate
-     call rscrape (iu, x0)
-     this%fixed_coord_value = x0
+     if (fixed_coord > 0) then
+        ! read fixed coordinate
+        call rscrape (iu, x0)
+        this%fixed_coord_value = x0
+
+        allocate (yi(2))
+     else
+        allocate (yi(3))
+     endif
 
      ! read all grid nodes
      do j=0,n2-1
         do i=0,n1-1
-           read  (iu, *) y2
-           this%mesh(i,j,1) = y2(1)
-           this%mesh(i,j,2) = y2(2)
-           !this%mesh(i,j,this%coord1) = y2(1)
-           !this%mesh(i,j,this%coord2) = y2(2)
-           !this%mesh(i,j,fixed_coord) = x0
-           !this%x(i, this%coord1) = y2(1)
-           !this%x(i, this%coord2) = y2(2)
-           !this%x(i, fixed_coord) = x0
+           read  (iu, *) yi
+           this%mesh(i,j,:) = yi
         enddo
      enddo
      call this%setup_mesh()
 
   !.....................................................................
-  ! 3.5. unstructured 3D mesh, n1*n2*n3: total number of grid nodes
+  ! 3.5. 3D mesh, n1*n2*n3: total number of grid nodes
   elseif (layout == MESH_3D  .and.  fixed_coord == 3) then
      call iscrape (iu, n1)
      call iscrape (iu, n2)
@@ -765,7 +767,17 @@ module grid
         enddo
      endif
 
-  ! 4. unstructured meshs, one coordinate fixed
+  ! 4.a 2D mesh, no fixed coordinate
+  elseif (layout == MESH_2D  .and.  this%fixed_coord == 0) then
+     write (iu, 2003) this%n1
+     write (iu, 2004) this%n2
+     do j=0,this%n2-1
+     do i=0,this%n1-1
+        write (iu, 3003) this%mesh(i,j,:)
+     enddo
+     enddo
+
+  ! 4.b 2D mesh, one coordinate fixed
   elseif (layout == MESH_2D  .and.  this%fixed_coord > 0) then
      write (iu, 2003) this%n1
      write (iu, 2004) this%n2
@@ -776,7 +788,7 @@ module grid
      enddo
      enddo
 
-  ! 5. unstructured 3D meshs (set of 2D slices)
+  ! 5. 3D meshs (set of 2D slices)
   elseif (layout == MESH_3D  .and.  this%fixed_coord == 3) then
      write (iu, 2003) this%n1
      write (iu, 2004) this%n2
@@ -833,15 +845,23 @@ module grid
 
 !=======================================================================
   subroutine plot_mesh(this, filename)
+  use math
   class(t_grid)                :: this
   character(len=*), intent(in) :: filename
 
   integer, parameter :: iu = 42
 
-  integer :: i, j
+  real(real64) :: f
+  integer      :: i, j
 
 
   open  (iu, file=filename)
+  if (this%fixed_coord > 0) then
+     f = this%fixed_coord_value
+     if (this%coordinates == CYLINDRICAL  .and.  this%fixed_coord == 3) f = f / pi * 180.d0
+     write (iu, 1000) f
+  endif
+
   ! write rows
   do i=0,this%n1-1
      do j=0,this%n2-1
@@ -859,6 +879,7 @@ module grid
   enddo
   close (iu)
 
+ 1000 format('# ', f0.5)
   end subroutine plot_mesh
 !=======================================================================
 

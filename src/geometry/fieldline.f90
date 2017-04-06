@@ -19,7 +19,7 @@ module fieldline
      ! integrated toroidal and poloidal angle
      real*8 :: phi0, phi_int, theta0, theta_int, Dphi
      ! last (l) and current (c) state in cylindrical coordinates
-     real*8 :: rl(3), rc(3), thetal, thetac
+     real*8 :: rl(3), rc(3), thetal, thetac, Dtheta
      real(real64) :: PsiNl, PsiNc
 
      ! toroidal distance to last intersection with symmetry plane
@@ -132,6 +132,7 @@ module fieldline
   this%thetac    = get_poloidal_angle(this%rc)
   Dtheta         = this%thetac - this%thetal
   if (abs(Dtheta) > pi) Dtheta = Dtheta - sign(pi2,Dtheta)
+  this%Dtheta    = Dtheta
   this%theta_int = this%theta_int + Dtheta
 
 
@@ -205,8 +206,10 @@ module fieldline
 ! phi_int will be reset after a call to this subroutine
 !
 ! ierr = 1 if stop_at_boundary == .true. and field line intersects boundary
+!        2 if OUT_OF_BOUNDS
 !=======================================================================
   subroutine trace_Dphi(this, Dphi, stop_at_boundary, yout, ierr)
+  use numerics
   class (t_fieldline)       :: this
   real(real64), intent(in)  :: Dphi
   logical,      intent(in)  :: stop_at_boundary
@@ -226,6 +229,11 @@ module fieldline
      ! check intersection with boundary
      if (stop_at_boundary  .and.  this%intersect_boundary(yout)) then
         ierr = 1
+        return
+     endif
+
+     if (OUT_OF_BOUNDS) then
+        ierr = 2
         return
      endif
 
@@ -298,10 +306,10 @@ module fieldline
 
 
 !=======================================================================
-  function intersect_sym_plane(this, icut, rcut) result(l)
+  function intersect_sym_plane(this, icut, rcut, thcut) result(l)
   class(t_fieldline), intent(inout) :: this
   integer, intent(inout) :: icut
-  real*8, intent(out)    :: rcut(3)
+  real*8, intent(out)    :: rcut(3), thcut
   logical :: l
 
   real*8 :: dphi, fff
@@ -317,6 +325,7 @@ module fieldline
      l         = .true.
      icut      = icut + this%sgn
      rcut      = this%rl + fff * (this%rc-this%rl)
+     thcut     = this%theta0 + this%theta_int-this%Dtheta + fff * this%Dtheta
   else
      this%phit = this%phit + dphi
      l         = .false.
@@ -343,7 +352,7 @@ module fieldline
   ! for Poincare plots
   this%iplane = 0
   this%phi_sym = pi2 / nsym
-  if (icoord == 2) then
+  if (icoord == FL_ANGLE) then
      this%sgn  = Bt_sign
   else
      this%sgn  = nint(sign(1.d0, ds)) * Bt_sign

@@ -25,6 +25,15 @@ module boundary
                         BNDRY_QUAD_ELE   = 4, &
                         BNDRY_QUAD_ELE_STELLARATOR_SYM   = 40
 
+!  type t_boundary
+!     ! ... data pointer ...
+!
+!     ! boundary type (AXISYM_ELE, BLOCK_ELE, TRI_ELE, QUAD_ELE)
+!     integer :: itype
+!     character(len=80) :: label
+!  end type t_boundary
+
+
   character*120 :: boundary_file(N_BNDRY_MAX) = ''
   integer       :: boundary_type(N_BNDRY_MAX) = 0
 
@@ -38,6 +47,7 @@ module boundary
 
   type(t_curve), dimension(:), allocatable :: S_axi
   type(t_quad_ele), dimension(:), allocatable :: S_quad
+  character(len=80), dimension(:), allocatable :: L_axi, L_block, L_tri, L_quad
 
   integer, dimension(:), allocatable :: elem_os
 
@@ -104,11 +114,12 @@ module boundary
      endif
 
 
-     ! i = 1. check boundarye directory for input
+     ! i = 1. check user defined boundary directory for input
      !     2. check base directory (magnetic configuration) for input
      !     3. check Boundary_sub_dir for input
      !     4. check local directory for input (if not equivalent to base directory)
      do i=1,4
+        if (boundary_dir(i) == '') cycle
         if (i == 4  .and.  boundary_dir(2) == './') exit
 
         ! read namelist input
@@ -136,8 +147,10 @@ module boundary
                  call S_axi(n_axi)%load(boundary_file(j), output=SILENT, header=header)
                  if (header .ne. '') then
                     write (6, 3000) trim(header)
+                    L_axi(n_axi) = trim(header)
                  else
                     write (6, 3000) trim(boundary_file(j))
+                    L_axi(n_axi) = trim(boundary_file(j))
                  endif
                  write (6, 3001) S_axi(n_axi)%n_seg
               endif
@@ -149,6 +162,7 @@ module boundary
                  bl_filename = boundary_file(j)
                  call setup_block_limiter (bl_filename, n_block)
                     !write (6, 3000) trim(boundary_file(j))
+                 L_block(n_block) = trim(boundary_file(j))
               endif
 
            ! mesh of triangular elements
@@ -169,8 +183,10 @@ module boundary
                  call S_quad(n_quad)%load(boundary_file(j), title=header)
                  if (header .ne. '') then
                     write (6, 3000) trim(header)
+                    L_quad(n_quad) = trim(header)
                  else
                     write (6, 3000) trim(boundary_file(j))
+                    L_quad(n_quad) = trim(boundary_file(j))
                  endif
               endif
 
@@ -192,9 +208,12 @@ module boundary
 
      ! allocate memory after 1st run
      if (irun == 1) then
-        if (n_axi > 0)   allocate (S_axi(n_axi))
-        if (n_quad > 0)  allocate (S_quad(n_quad))
-        if (n_block > 0) call allocate_bl_arrays (n_block)
+        if (n_axi > 0)   allocate (S_axi(n_axi), L_axi(n_axi))
+        if (n_quad > 0)  allocate (S_quad(n_quad), L_quad(n_quad))
+        if (n_block > 0) then
+           call allocate_bl_arrays (n_block)
+           allocate (L_block(n_block));  L_block = ''
+        endif
      endif
   enddo
 
@@ -217,10 +236,6 @@ module boundary
   enddo
   n_elem = elem_os(n_boundary1)
 
-!  write (6, *) 'elem_os = '
-!  do i=0,n_boundary1
-!     write (6, *) elem_os(i)
-!  enddo
 
   return
  1000 format (/ '========================================================================')
@@ -336,6 +351,50 @@ module boundary
 
 
 !=======================================================================
+! check intersection (X) of trajectory r1->r2 with axisymmetric boundaries
+!=======================================================================
+! optional output:
+!    X:      coordinates of intersection with boundary
+!    id:     boundary number
+!    ielem:  element number on boundary
+!    tau:    relative coordinate along trajectory r1->r2
+!=======================================================================
+  function intersect_axisymmetric_boundary(r1, r2, X, id, ielem, tau) result(l)
+  use math
+  real*8, intent(in)   :: r1(2), r2(2)
+  real*8, intent(out)  :: X(2)
+  integer, intent(out) :: id
+  integer, intent(out), optional :: ielem
+  real(real64), intent(out), optional :: tau
+  logical :: l
+
+  real*8  :: phih, rz(2), t, x1(3), x2(3), lambda_min
+  integer :: i, ish
+
+
+  l  = .false.
+  id = 0
+  if (present(ielem)) ielem = -1
+
+  ! check intersection with axisymmetric surfaces
+  do i=1,n_axi
+     if (intersect_curve (r1, r2, S_axi(i), rz, t, ish=ish)) then
+     !if (intersect_axisym_surf (r1, r2, S_axi(i), X)) then
+        l      = .true.
+        X(1:2) = rz
+        id     = i
+        if (present(ielem)) ielem  = ish
+        if (present(tau))   tau    = t
+        return
+     endif
+  enddo
+
+  end function intersect_axisymmetric_boundary
+!=======================================================================
+
+
+
+!=======================================================================
 ! check intersection (X) of trajectory r1->r2 with boundaries
 !=======================================================================
 ! optional output:
@@ -396,6 +455,14 @@ module boundary
      if (S_quad(i)%intersect(r1, r2, X, ish, tau)) then
         l  = .true.
         id = n_axi + n_block + i
+        if (ish < 0) then
+           write (6, *) i, id
+           write (6, *) r1
+           write (6, *) r2
+           write (6, *) X
+           write (6, *) ish
+           stop
+        endif
         if (present(ielem)) ielem  = ish
         return
      endif
@@ -451,33 +518,147 @@ module boundary
 
 
 !=======================================================================
-! !!! this is not used and may be deleted !!!
+! check if point r is outside of configuration boundary
 !=======================================================================
-!  function outside_boundary(x)
-!  use iso_fortran_env
-!  real(real64), dimension(3), intent(in) :: x
-!  logical                                :: outside_boundary
-!
-!  real(real64) :: phi
-!  type(t_curve) :: C
-!  integer :: ib
-!
-!
-!  outside_boundary = .false.
-!  stop
-!  phi = x(3)
+  function outside_boundary(r)
+  use iso_fortran_env
+  real(real64), intent(in) :: r(3)
+  logical                  :: outside_boundary
 
-  ! check Q4-type boundaries
-!  do ib=1,n_quad
-!     C = S_quad(ib)%slice(phi)
-!     if (C%inside(x(1:2))) then
-!        outside_boundary = .true.
-!        return
-!     endif
-!  enddo
+  type(t_curve) :: C
+  logical       :: side
+  real(real64)  :: phi
+  integer       :: l
 
-!  end function outside_boundary
+
+  ! 0. initialize
+  outside_boundary = .false.
+
+
+  ! 1. check axisymmetric (L2-type) surfaces
+  do l=1,n_axi
+     side = boundary_side(l) == 1
+     if (S_axi(l)%outside(r(1:2)) .eqv. side) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+
+  ! 2. check block limiters (CSG-type)
+  do l=1,n_block
+     if (bl_outside(l, r)) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+
+  ! 3.c heck Q4-type boundaries
+  phi = r(3)
+  do l=1,n_quad
+     side = boundary_side(n_axi + n_block + l) == 1
+     C    = S_quad(l)%slice(phi)
+     if (C%outside(r(1:2)) .eqv. side) then
+        outside_boundary = .true.
+        return
+     endif
+  enddo
+
+  end function outside_boundary
 !=======================================================================
 
+
+
+!=======================================================================
+! BOUNDARY_SLICE: return outline of boundary iboundary in phi-plane
+!=======================================================================
+  function boundary_slice(iboundary, phi) result(S)
+  integer,      intent(in) :: iboundary
+  real(real64), intent(in) :: phi
+  type(t_curve)            :: S
+
+  integer :: i
+
+
+  if (iboundary <= n_axi) then
+     S = S_axi(iboundary)
+
+  elseif (iboundary <= n_axi + n_block) then
+     write (6, *) 'error: slicing of block-limiter not yet implemented!'
+
+  elseif (iboundary <= n_axi + n_block + n_quad) then
+     i = iboundary - n_axi - n_block
+     S = S_quad(i)%slice(phi)
+
+  else
+     write (6, *) 'error: boundary id ', iboundary, ' out of range!'
+     stop
+  endif
+
+  end function boundary_slice
+!=======================================================================
+
+
+
+!=======================================================================
+  function boundary_in_zone(iboundary, phi1, phi2)
+  integer,      intent(in) :: iboundary
+  real(real64), intent(in) :: phi1, phi2
+  logical                  :: boundary_in_zone
+
+  integer :: i
+
+
+  if (iboundary <= n_axi) then
+     boundary_in_zone = .true.
+
+  elseif (iboundary <= n_axi + n_block) then
+     ! TODO: check location of block limiter
+     boundary_in_zone = .true.
+
+  elseif (iboundary <= n_axi + n_block + n_quad) then
+     i = iboundary - n_axi - n_block
+     if (S_quad(i)%phi(0) >= phi1 .and. S_quad(i)%phi(S_quad(i)%n_phi) <= phi2) then
+        boundary_in_zone = .true.
+     else
+        boundary_in_zone = .false.
+     endif
+
+  else
+     write (6, *) 'error: boundary id ', iboundary, ' out of range!'
+     stop
+  endif
+  end function boundary_in_zone
+!=======================================================================
+
+
+
+!=======================================================================
+  function boundary_label(iboundary) result(L)
+  integer, intent(in) :: iboundary
+  character(len=80)   :: L
+
+  integer :: i
+
+
+  if (iboundary <= n_axi) then
+     L = L_axi(iboundary)
+
+  elseif (iboundary <= n_axi + n_block) then
+     i = iboundary - n_axi
+     L = L_block(i)
+
+  elseif (iboundary <= n_axi + n_block + n_quad) then
+     i = iboundary - n_axi - n_block
+     L = L_quad(i)
+
+  else
+     write (6, *) 'error: boundary id ', iboundary, ' out of range!'
+     stop
+  endif
+
+  end function boundary_label
+!=======================================================================
 
 end module boundary

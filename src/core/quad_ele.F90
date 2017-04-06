@@ -10,6 +10,8 @@ module quad_ele
      real*8, dimension(:), allocatable   :: phi    ! dimension(0:n_phi)
      real*8, dimension(:,:), allocatable :: R, Z   ! dimension(0:n_phi, 0:n_RZ)
 
+     character(len=256) :: label
+
      ! working array
      real*8, dimension(:,:,:), allocatable :: cA, cB, cC, cD    ! dimension(nphi,nRZ,2)
 
@@ -26,6 +28,7 @@ module quad_ele
      procedure :: destroy
      procedure :: get_stellarator_symmetric_element
      procedure :: setup_coefficients
+     procedure :: element
   end type t_quad_ele
 
   contains
@@ -45,6 +48,7 @@ module quad_ele
   this%n_sym = n_sym
   allocate (this%phi(0:n_phi))
   allocate (this%R(0:n_phi, 0:n_RZ), this%Z(0:n_phi, 0:n_RZ))
+  this%label = ''
 
   end subroutine new
 !=======================================================================
@@ -55,7 +59,7 @@ module quad_ele
   subroutine quad_ele_load(this, filename, title)
   use math
   class(t_quad_ele)         :: this
-  character*120, intent(in) :: filename
+  character(len=*), intent(in) :: filename
   character*80, intent(out), optional :: title
 
   integer, parameter :: iu = 32
@@ -69,7 +73,7 @@ module quad_ele
 
   ! read data from file
   open  (iu, file=filename)
-  read  (iu, '(a)') s
+  read  (iu, '(a)') s;  this%label = s
   if (present(title)) title = s
 
   read  (iu, *) n, m, this%n_sym, this%dR, this%dZ
@@ -198,20 +202,35 @@ module quad_ele
 
 
 !=======================================================================
-  function slice(this, phi) result(C)
+  function slice(this, phi0) result(C)
   use math
   use search
   use curve2D
   class(t_quad_ele)         :: this
-  real(real64), intent(in)  :: phi
+  real(real64), intent(in)  :: phi0
   type(t_curve)             :: C
 
-  real(real64) :: t, R, Z, dl
+  real(real64) :: t, R, Z, dl, phi
   integer      :: i, ind, ierr
 
 
   ! check boundaries
-  if (phi.lt.this%phi(0) .or. phi.gt.this%phi(this%n_phi)) return
+  phi = phi0
+  do
+     if (phi >= this%phi(0)) exit
+
+     phi = phi + pi2 / this%n_sym
+  enddo
+
+  do
+     if (phi <= this%phi(this%n_phi)) exit
+
+     phi = phi - pi2 / this%n_sym
+  enddo
+
+  if (phi.lt.this%phi(0) .or. phi.gt.this%phi(this%n_phi)) then
+     return
+  endif
 
 
   ! find index "ind" with phi(ind) <= phi0 <= phi(ind+1)
@@ -245,7 +264,7 @@ module quad_ele
 
 
 !=======================================================================
-! Plot profile at toroidal location phi [deg]
+! Plot profile at toroidal location phi [rad]
 !=======================================================================
   subroutine quad_ele_plot_at(this, phi, filename)
   use math
@@ -258,18 +277,15 @@ module quad_ele
   integer, parameter :: iu = 99
 
   type(t_curve) :: C
-  real(real64)  :: phi0
 
-
-  ! deg -> rad
-  phi0 = phi / 180.d0 * pi
 
   ! get slice at phi0
-  C = this%slice(phi0)
+  C = this%slice(phi)
+  if (C%n_seg < 0) return
 
   ! write profile at phi0 (ind, t)
   open  (iu, file=filename)
-  write (iu, 1000) phi0 / pi * 180.d0
+  write (iu, 1000) phi / pi * 180.d0
   call C%plot(iu=iu)
   close (iu)
 
@@ -342,6 +358,11 @@ module quad_ele
      l = .true.
      X = r1 + (r2-r1) * xi
      if (present(tau)) tau = xi
+     if (nelem < 0) then
+        write (6, *) 'nelem = ', nelem
+        write (6, *) 'ljump = ', ljump
+        stop
+     endif
   endif
 
   contains
@@ -467,9 +488,22 @@ module quad_ele
      if (t < 2.d0) then
         istat = 1
         if (present(nelem)) nelem = (js-1) + (is-1)*this%n_RZ
+        if (nelem < 0) then
+           write (6, *) 'nelem1 = ', nelem, js, is, this%n_RZ
+        endif
         return
      endif
   enddo
+
+
+  ! no intersections found
+  istat = 0
+  if (istat > 0) then
+     write (6, *) 'istat = ', istat
+     write (6, *) 'nelem = ', nelem
+     write (6, *) 't     = ', t
+  endif
+
 
   end subroutine check_intersection
   !---------------------------------------------------------------------
@@ -598,6 +632,21 @@ module quad_ele
   if (allocated(this%phi)) deallocate (this%phi, this%R, this%Z)
 
   end subroutine destroy
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine element(this, ielem, i, j)
+  class(t_quad_ele)    :: this
+  integer, intent(in)  :: ielem
+  integer, intent(out) :: i, j
+
+
+  j = mod(ielem, this%n_RZ) + 1
+  i = ielem / this%n_RZ + 1
+
+  end subroutine element
 !=======================================================================
 
 end module quad_ele

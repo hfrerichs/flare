@@ -117,7 +117,7 @@ module divertor
   allocate(S(nx))
   do ix=1,nx
      ! find cut-off poloidal angle for guiding separatrix
-     if (connectX(ix) < 0  .and.  abs(connectX(ix)).ne.ix) then
+     if (connectX(ix) < 0  .and.  abs(connectX(ix)).ne.ix  .and.  ix==1) then
         select case(discretization_method)
         case (POLOIDAL_ANGLE)
            theta_cut = Xp(abs(connectX(ix)))%theta
@@ -310,7 +310,7 @@ module divertor
 
   ierr = 0
   if (.not.C_leg%intersect_curve(C_cut, x, eta)) then
-     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     write (6, *) 'error1: could not find intersection between divertor leg and guiding surface!'
      write (6, *) 'check divertor_leg.plt vs C_cutL.plt/C_cutR.plt!'
      call C_leg%plot(filename='divertor_leg.plt')
      ierr = 1
@@ -335,7 +335,7 @@ module divertor
 
   if (present(ierr_out)) ierr_out = 0
   if (.not.C%intersect_curve(C_guide, x, xi0)) then
-     write (6, *) 'error: could not find intersection between divertor leg and guiding surface!'
+     write (6, *) 'error2: could not find intersection between divertor leg and guiding surface!'
      write (6, *) 'check divertor_leg.plt vs C_cutL.plt/C_cutR.plt!'
      call C%plot(filename='divertor_leg.plt')
      if (present(ierr_out)) then
@@ -779,7 +779,7 @@ module divertor
   !=============================================================================
   ! private flux region
   !=============================================================================
-  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ir1, ir2, ix, rpath, Sr, Sp)
+  subroutine make_flux_surfaces_PFR(M, nr, npL, npR, ix, rpath, Sr, Sp, ir1, ir2)
   use run_control, only: Debug
   use xpaths
   use mesh_spacing
@@ -787,18 +787,25 @@ module divertor
   use fieldline_grid, only: etaR, etaL
 
   real(real64), dimension(:,:,:), pointer, intent(inout) :: M
-  integer, intent(in) :: nr, npL, npR, ir1, ir2, ix
+  integer, intent(in) :: nr, npL, npR, ix
   type(t_xpath),   intent(in) :: rpath
   type(t_spacing), intent(in) :: Sr, Sp
+  integer,         intent(in), optional :: ir1, ir2
 
   type(t_flux_surface_2D) :: F
   type(t_spacing) :: Sdr, Sdl
   real(real64) :: eta, xi, xiL, xiR, x0(2), x(2), DL(0:npL, 2), DR(0:npR, 2)
-  integer      :: i, j
+  integer      :: i, j, i1, i2, ierr
+
+
+  i1 = 0
+  i2 = nr-1
+  if (present(ir1)) i1 = ir1
+  if (present(ir2)) i2 = ir2
 
   write (6, 1030) nr-1
   write (6, 1031) rpath%length()
-  do i=0,nr-1
+  do i=i1,i2
      write (6, *) i
      eta = Sr%node(i,nr)
      call rpath%sample_at(1.d0 - eta, x0)
@@ -806,18 +813,27 @@ module divertor
 
      ! right divertor leg
      call F%generate(x0, -1, AltSurf=C_cutR, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(abs(ix)), npR, DR)
+     call divertor_leg_discretization(F%t_curve, 1.d0-etaR(abs(ix)), npR, DR, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
      M(i,0:npR,:) = DR
 
 
      ! left divertor leg
      call F%generate(x0,  1, AltSurf=C_cutL, sampling=DISTANCE)
-     call divertor_leg_discretization(F%t_curve, etaL(abs(ix)), npL, DL)
+     call divertor_leg_discretization(F%t_curve, etaL(abs(ix)), npL, DL, ierr)
+     if (ierr > 0) call divertor_leg_discretization_error()
      M(i,npR:npR+npL,:) = DL
   enddo
 
  1030 format (8x,'generating private flux region: 0 -> ', i0)
  1031 format (8x,'d_PFR = ',f8.3)
+  contains
+  subroutine divertor_leg_discretization_error()
+     write (6, *) 'error occured in subroutine divertor_leg_discretization'
+     write (6, *) 'for flux surface "flux_surface.err"'
+     call F%plot(filename='flux_surface.err')
+     stop
+  end subroutine divertor_leg_discretization_error
   end subroutine make_flux_surfaces_PFR
   !=============================================================================
 
@@ -840,11 +856,20 @@ module divertor
 
 
   real(real64) :: d
-  integer      :: i, iside, j, j0(-1:1), k, k0(-1:1)
+  integer      :: i, ir1, ir2, iside, j, j0(-1:1), k, k0(-1:1)
 
 
+  ir1 = 0
+  ir2 = SRF_RADI(iz)-1
   P_SURF_PL_TRANS_RANGE(1,iz) = 1
   P_SURF_PL_TRANS_RANGE(2,iz) = ZON_POLO(iz)-1
+!  if (P_SURF_PL_TRANS_RANGE(1,iz) .ne. 1  .or.  &
+!      P_SURF_PL_TRANS_RANGE(2,iz) .ne. ZON_POLO(iz)-1) then
+!     write (6, *) 'error in subroutine close_grid_domain:'
+!     write (6, *) 'P_SURF_PL_TRANS_RANGE is ', P_SURF_PL_TRANS_RANGE(:,iz)
+!     write (6, *) 'but it should be ', 1, ZON_POLO(iz)-1
+!     stop
+!  endif
 
 
   j0( 1) = 0
@@ -909,11 +934,9 @@ module divertor
 
   real(real64), dimension(:), allocatable :: w
   real(real64) :: R1, Z1, R2, Z2
-  integer :: i, ir1, ir2, ig, ig0
+  integer :: i, ig, ig0
 
 
-  ir1 = 0
-  ir2 = SRF_RADI(iz)-1
   !ir1 = R_SURF_PL_TRANS_RANGE(1,iz)
   !ir2 = R_SURF_PL_TRANS_RANGE(2,iz)
 
@@ -972,12 +995,10 @@ module divertor
 
   real(real64), dimension(:), allocatable :: w
   real(real64) :: vt(2), d, dmax
-  integer      :: i, i2, ir1, ir2, ig, ig2, i2max
+  integer      :: i, i2, ig, ig2, i2max
 
 
   ! 0. initialize
-  ir1 = 0
-  ir2 = SRF_RADI(iz)-1
   allocate (w(ir1:ir2))
   w = 0.d0
 

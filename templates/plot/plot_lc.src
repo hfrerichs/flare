@@ -23,7 +23,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Radial distance to LCFS',$
 			   'Delta Final PsiN',$
 			   'Final PsiN (backward)',$
-			   'Final PsiN (forward)']
+			   'Final PsiN (forward)',$
+			   'Toroidal connection length [turns] (backward)', $
+			   'Toroidal connection length [turns] (forward)', $
+			   'Toroidal connection length [turns]']
 	u_title_strs	= ['Connection Length [m]',$
 			   'Shortest Length [m]',$
 			   'Length [m]',$
@@ -43,7 +46,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Radial distance to LCFS',$
 			   'Delta Final PsiN',$
 			   'Final PsiN (backward)',$
-			   'Final PsiN (forward)']
+			   'Final PsiN (forward)', $
+			   'Toroidal connection length [turns] (backward)', $
+			   'Toroidal connection length [turns] (forward)', $
+			   'Toroidal connection length [turns]']
 
 
 	; check data file for the correct # of lines ..................................
@@ -74,7 +80,7 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 	endif
 	;columns	= 6
 	columns	= 5 + nout
-	n_vars	= 10 + 4 + 2 + 1 + 3
+	n_vars	= 10 + 4 + 2 + 1 + 3 + 3
 	;..............................................................................
 	
 
@@ -169,6 +175,12 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 		9: begin
 			data(i,19)= tmp(5+j)			; Final PsiN (forward)
 		end
+		10: begin
+			data(i,20)= abs(tmp(5+j))			; Toroidal connection length [turns], backward
+		end
+		11: begin
+			data(i,21)= abs(tmp(5+j))			; Toroidal connection length [turns], forward
+		end
 		endcase
 		endfor
 
@@ -180,6 +192,9 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 		; Delta Final PsiN
 		;data(i,17) = data(i,19) - data(i,18)
 		data(i,17) = data(i,18) - data(i,19)		; reverse for comparison between BT < 0 configurations with EMC3 (where forward is in +phi direction)
+
+		; connection length [toroidal turns]
+		data(i,22) = data(i,20) + data(i,21)
 	endfor
 	free_lun, lun
 	;..............................................................................
@@ -693,6 +708,9 @@ pro plot_lc, grid_file, data_file, idata, $
 		'DeltaFinalPsiN': idata=17
 		'FinalPsiN-': idata=18
 		'FinalPsiN+': idata=19
+		'Ltt-': idata=20
+		'Ltt+': idata=21
+		'Ltt': idata=22
 		else: begin
 			print, 'error: invalid expression for "Zdata"'
 			return
@@ -735,6 +753,9 @@ pro plot_lc, grid_file, data_file, idata, $
 	colors	= make_array(n_clevels, /fl)
 	colors(0:n_clevels-2)	= 1.0*findgen(n_clevels-1)/(n_clevels-2) * (n_colors-1) + color_min
 	colors(n_clevels-1)	= 255
+	if (keyword_set(cb_cutoff)) then begin
+		colors(n_clevels-1)	= 64
+	endif
 
 	;z_title	= 'Magnetic topology (Textor shot 102168)'
 	;z_title	= 'Magnetic topology (DIII-D shot 125992)'

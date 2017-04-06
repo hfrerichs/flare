@@ -14,9 +14,11 @@ module bfield
      BF_COILS        = 2, &
      BF_M3DC1        = 3, &
      BF_INTERPOLATEB = 4, &
-     BF_SPLINEB      = 5
+     BF_SPLINEB      = 5, &
+     BF_HINT         = 6, &
+     BF_TOR_HARMONICS= 7
 
-  integer, parameter :: BF_MAX_CONFIG = 5
+  integer, parameter :: BF_MAX_CONFIG = 7
 
 
   integer :: iconfig(0:BF_MAX_CONFIG), icall(2)
@@ -37,6 +39,8 @@ module bfield
   use m3dc1
   use interpolateB
   use splineB
+  use HINT
+  use toroidal_harmonics
 
   integer, parameter :: iu = 24
 
@@ -52,10 +56,18 @@ module bfield
      call load_reconstruct_config (iu, iconfig(BF_RECONSTRUCT ))
      call        m3dc1_load       (iu, iconfig(BF_M3DC1       ))
      call load_equilibrium_config (iu, iconfig(BF_EQ2D        ))
+     call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
+     call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
+     call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
+     call         HINT_load       (iu, iconfig(BF_HINT        ))
+     call tor_harmonics_load      (iu, iconfig(BF_TOR_HARMONICS))
+     close (iu)
+
+
      ! supplemental equilibrium information
      ! direction of toroidal magnetic field and plasma current
      ! if Bt_sign (and Ip_sign) is not set by equilibrium
-     if (Bt_sign == 0) then
+     if (Bt_sign == 0  .and.  associated(get_magnetic_axis)) then
         r(3) = 0.d0
         r    = get_magnetic_axis(r(3))
         Bf   = get_Bf_cyl(r)
@@ -74,12 +86,6 @@ module bfield
         if (Bf(2) < 0.d0) Ip_sign = -1
         write (6, 1002) Ip_sign
      endif
-
-
-     call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
-     call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
-     call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
-     close (iu)
   endif
 
 
@@ -92,6 +98,8 @@ module bfield
   if (iconfig(BF_M3DC1       ) == 1) call        m3dc1_broadcast()
   if (iconfig(BF_INTERPOLATEB) == 1) call interpolateB_broadcast()
   if (iconfig(BF_SPLINEB     ) == 1) call      splineB_broadcast()
+  if (iconfig(BF_HINT        ) == 1) call         HINT_broadcast()
+  if (iconfig(BF_TOR_HARMONICS) == 1) call tor_harmonics_broadcast()
 
 
 
@@ -112,6 +120,8 @@ module bfield
   use m3dc1
   use interpolateB
   use splineB
+  use HINT
+  use toroidal_harmonics
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -123,10 +133,37 @@ module bfield
   if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
+  if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
+  if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
   icall(1) = icall(1) + 1
 
 
   end function get_Bf_Cyl
+!=======================================================================
+  function get_Bf_Cyl_non2D(r) result(Bf)
+  use equilibrium
+  use polygones
+  use m3dc1
+  use interpolateB
+  use splineB
+  use HINT
+  use toroidal_harmonics
+  real*8, intent(in) :: r(3)
+  real*8             :: Bf(3)
+
+
+  Bf = 0.d0
+
+  if (iconfig(BF_COILS)         == 1) Bf = Bf + get_Bcyl_polygones(r)
+  if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
+  if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
+  if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
+  if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
+  if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
+  icall(1) = icall(1) + 1
+
+
+  end function get_Bf_Cyl_non2D
 !=======================================================================
 
 
@@ -138,14 +175,18 @@ module bfield
   function get_JBf_Cyl(r) result(J)
   use equilibrium
   use splineB
+  use interpolateB
+  use toroidal_harmonics
   real(real64), intent(in) :: r(3)
   real(real64)             :: J(3,3)
 
 
   J = 0.d0
 
-  if (iconfig(BF_EQ2D   )  == 1) J = J + get_JBf_eq2D(r)
-  if (iconfig(BF_SPLINEB)  == 1) J = J + splineB_get_JBf(r)
+  if (iconfig(BF_EQ2D   )       == 1) J = J + get_JBf_eq2D(r)
+  if (iconfig(BF_SPLINEB)       == 1) J = J + splineB_get_JBf(r)
+  if (iconfig(BF_INTERPOLATEB)  == 1) J = J + interpolateB_get_JBf(r) / 100.d0
+  if (iconfig(BF_TOR_HARMONICS) == 1) J = J + tor_harmonics_get_JBf(r)
 
   end function get_JBf_Cyl
 !========================================================================
@@ -164,8 +205,8 @@ module bfield
 
 
   divB = 0.d0
-  Bf   = get_Bf_Cyl(r)
-  J    = get_JBf_Cyl(r)
+  Bf   = get_Bf_Cyl(r)         ! in Gauss
+  J    = get_JBf_Cyl(r) * 1.d2 ! in Gauss/cm
   divB = J(1,1) + Bf(1) / r(1) + J(3,3) / r(1) + J(2,2)
 
   end function get_divB
@@ -182,6 +223,8 @@ module bfield
   use m3dc1
   use interpolateB
   use splineB
+  use HINT
+  use toroidal_harmonics
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 
@@ -204,6 +247,8 @@ module bfield
   if (iconfig(BF_M3DC1)         == 1) Bcyl = Bcyl +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bcyl = Bcyl + interpolateB_get_Bf(r)
   if (iconfig(BF_SPLINEB)       == 1) Bcyl = Bcyl +      splineB_get_Bf(r)
+  if (iconfig(BF_HINT)          == 1) Bcyl = Bcyl +         HINT_get_Bf(r)
+  if (iconfig(BF_TOR_HARMONICS) == 1) Bcyl = Bcyl + tor_harmonics_get_Bf(r)
 
 
   ! combine Cartesian and cylindrical components

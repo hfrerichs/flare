@@ -43,13 +43,14 @@ module poincare_set
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, stop_at_boundary)
   use fieldline
+  use equilibrium, only: get_poloidal_angle
   class(t_poincare_set)    :: this
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
   logical,      intent(in) :: stop_at_boundary
 
   type (t_fieldline) :: F
-  real(real64)       :: ds, dl, L, theta
+  real(real64)       :: ds, dl, L, theta, theta0
   integer            :: islice, islice0, ipoint, istep
 
 
@@ -70,6 +71,7 @@ module poincare_set
   L  = 0.d0
   call F%init(y0, ds, solver, FL_ANGLE)
 
+  theta0 = get_poloidal_angle(y0) / pi * 180.d0
   main_loop: do ipoint=1,npoints
      slice_loop: do islice=1,nslice
         steps: do istep=1,nsteps
@@ -82,11 +84,17 @@ module poincare_set
         this%slice(islice0)%x(ipoint,1) = F%rc(1)
         this%slice(islice0)%x(ipoint,2) = F%rc(2)
         theta = F%thetac / pi * 180.d0
-        if (theta < 0.d0) theta = theta + 360.d0
+        if (theta < theta0) theta = theta + 360.d0
         this%slice(islice0)%x(ipoint,3) = theta
         this%slice(islice0)%x(ipoint,4) = F%PsiNc
      enddo slice_loop
   enddo main_loop
+
+
+  ! re-arrange points (sort points using poloidal angle)
+  do islice=0,nslice-1
+     call this%slice(islice)%sort_rows(3)
+  enddo
 
   end subroutine generate
 !=======================================================================

@@ -9,9 +9,13 @@ OBJECTS =  \
                divamhd.o\
                amhd.o\
                equilibrium.o\
+               mfc_polygon.o\
                polygones.o\
                splineB.o\
                interpolateB.o\
+               libHINT.o\
+               HINT.o\
+               toroidal_harmonics.o\
                bfield.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR)
