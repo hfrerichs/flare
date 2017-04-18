@@ -132,7 +132,13 @@ module cspline
   this%L1 = x(1)
   this%L2 = x(n)
 
-  stat   = fgsl_spline_init(this%S(1), x, y, this%n)
+#if GSL_VERSION_MAJOR_FORTRAN > 1
+     stat   = fgsl_spline_init(this%S(1), x, y)  
+#else
+     stat   = fgsl_spline_init(this%S(1), x, y, this%n)
+#endif
+  
+
 
   end subroutine setup_explicit
 !=======================================================================
