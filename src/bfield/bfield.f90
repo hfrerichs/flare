@@ -67,24 +67,30 @@ module bfield
      ! supplemental equilibrium information
      ! direction of toroidal magnetic field and plasma current
      ! if Bt_sign (and Ip_sign) is not set by equilibrium
-     if (Bt_sign == 0  .and.  associated(get_magnetic_axis)) then
+     if (Bt_sign == 0) then
         r(3) = 0.d0
         r    = get_magnetic_axis(r(3))
-        Bf   = get_Bf_cyl(r)
+        if (r(1) > 0.d0) then
+           Bf   = get_Bf_cyl(r)
 
-        Bt_sign = 1
-        if (Bf(3) < 0.d0) Bt_sign = -1
-        write (6, 1001) Bt_sign
+           Bt_sign = 1
+           if (Bf(3) < 0.d0) Bt_sign = -1
+           write (6, 1001) Bt_sign
 
-        ! guess poloidal field direction:
-        ! get BZ left of magnetic axis
-        r(1) = 0.9d0 * r(1)
-        Bf   = get_Bf_cyl(r)
+           ! guess poloidal field direction:
+           ! get BZ left of magnetic axis
+           r(1) = 0.9d0 * r(1)
+           Bf   = get_Bf_cyl(r)
 
-        Ip_sign = 1
-        ! switch sign if BZ is negative
-        if (Bf(2) < 0.d0) Ip_sign = -1
-        write (6, 1002) Ip_sign
+           Ip_sign = 1
+           ! switch sign if BZ is negative
+           if (Bf(2) < 0.d0) Ip_sign = -1
+           write (6, 1002) Ip_sign
+
+        ! magnetic axis undefined, toroidal and poloidal field directions remain undefined!
+        else
+           write (6, 1009)
+        endif
      endif
   endif
 
@@ -106,6 +112,7 @@ module bfield
  1000 format (/ '========================================================================')
  1001 format (8x,'Automatic setup of toroidal field direction: ',i2)
  1002 format (8x,'Automatic setup of poloidal field direction: ',i2)
+ 1009 format (8x,'WARNING: toroidal and poloidal field direction undefined!')
   end subroutine setup_bfield_configuration
 !=======================================================================
 
