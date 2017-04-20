@@ -207,7 +207,9 @@ module run_control
   case ('generate_mag_file')
      call generate_mag_file
   case ('generate_magnetic_axis')
-     call generate_magnetic_axis
+    call generate_magnetic_axis
+  case ('find_magnetic_axis_RZ')
+     call find_magnetic_axis_RZ
   case ('flux_surface_grid')
      call flux_surface_grid
   case ('field_line_loss')
