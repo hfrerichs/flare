@@ -339,15 +339,28 @@ module fieldline
 !=======================================================================
   subroutine init_toroidal_tracing(this, y0, ds, isolver, icoord, nsym, phi_out)
   use magnetic_axis
+  use bfield
+  use parallel
   !use equilibrium
 
   class (t_fieldline) :: this
   real*8, intent(in)  :: y0(3), ds, phi_out
   integer, intent(in) :: isolver, icoord, nsym
 
+  real*8 :: Bf0(3)
+
 
   call this%init(y0, ds, isolver, icoord)
 
+
+  ! Bt_sign is undefined (because no magnetic axis has been defined)
+  if (Bt_sign == 0) then
+     Bt_sign = 1
+     Bf0     = get_Bf_Cyl(this%rc)
+     if (Bf0(3) < 0.d0) Bt_sign = -1
+
+     if (firstP) write (6, *) 'WARNING: magnetic axis is still undefined, poloidal angles will not be correct!'
+  endif
 
   ! for Poincare plots
   this%iplane = 0
