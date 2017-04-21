@@ -50,10 +50,12 @@ subroutine generate_magnetic_axis
      return
   endif
 
-  if (n_phi .le. 1) Then
-    write (6,*) 'N_phi must be >= 2'
-    write (6,*) 'N_phi =',N_phi
-    stop
+
+  ! This is because poincare_plot appends slice index _i in output file for N_mult > 1 only!
+  if (N_phi .le. 1) Then
+     write (6,*) 'error: N_phi must be >= 2'
+     write (6,*) 'N_phi =', N_phi
+     stop
   endif
 
   ! select reference point for magnetic axis generation
