@@ -50,6 +50,11 @@ subroutine generate_magnetic_axis
      return
   endif
 
+  if (n_phi .le. 1) Then
+    write (6,*) 'N_phi must be >= 2'
+    write (6,*) 'N_phi =',N_phi
+    stop
+  endif
 
   ! select reference point for magnetic axis generation
   select case(Run_Mode)
@@ -114,8 +119,6 @@ subroutine find_magnetic_axis_RZ_at_phi0(x0)
   implicit none
 
   real(real64), intent(inout) :: x0(3)
-
-  integer, parameter :: iu = 54
 
   type(t_fieldline)  :: F
   real(real64)       :: dR, dZ, yout(3), Dphi, dl, RZ0(3), xtol, xtol_want, ts
