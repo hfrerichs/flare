@@ -83,7 +83,7 @@ module run_control
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Run_Level, &
      Surface_Id, Surface_Type, &
-     Debug, use_boundary_from_equilibrium, stop_at_boundary
+     Debug, use_boundary_from_equilibrium, stop_at_boundary, Run_Mode
 
 
   private :: Boundary, RunControl
