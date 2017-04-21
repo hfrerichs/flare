@@ -7,6 +7,11 @@ module run_control
 
   character(len=*), parameter :: base_dir = DATABASE_DIR
 
+  character(len=*), parameter :: &
+     AUTOMATIC = 'automatic', &
+     MANUAL    = 'manual'
+
+
   integer, parameter :: &
      ZERO_TOLERANCE = 0, &
      INERVOUS   =  1, &
@@ -19,6 +24,7 @@ module run_control
      Configuration  = ' ', &        ! select input directory (2nd part)
      Boundary       = '', &
      Run_Type       = ' ', &        ! select sub-program to execute
+     Run_Mode       = 'automatic', &
      Label          = '', &
      Output_File    = 'output.txt', &
      Grid_File      = 'grid.dat'
@@ -77,7 +83,7 @@ module run_control
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Run_Level, &
      Surface_Id, Surface_Type, &
-     Debug, use_boundary_from_equilibrium, stop_at_boundary
+     Debug, use_boundary_from_equilibrium, stop_at_boundary, Run_Mode
 
 
   private :: Boundary, RunControl
@@ -127,6 +133,7 @@ module run_control
   ! broadcast data to other processors
   call wait_pe()
   call broadcast_char   (Run_Type   , 120)
+  call broadcast_char   (Run_Mode   , 120)
   call broadcast_char   (Grid_File  , 120)
   call broadcast_char   (Output_File, 120)
   call broadcast_real   (x_start    ,   3)
@@ -207,7 +214,7 @@ module run_control
   case ('generate_mag_file')
      call generate_mag_file
   case ('generate_magnetic_axis')
-     call generate_magnetic_axis
+     call generate_magnetic_axis()
   case ('flux_surface_grid')
      call flux_surface_grid
   case ('field_line_loss')
