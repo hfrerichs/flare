@@ -118,6 +118,7 @@ module cspline
   integer,      intent(in) :: n
   real(real64), intent(in) :: x(n), y(n)
 
+#if defined(FGSL)
   integer(fgsl_int)    :: stat
 
 
@@ -139,6 +140,10 @@ module cspline
 #endif
   
 
+#else
+  write (6, *) 'error in subroutine t_cspline%setup: FLARE has been compiled without FGSL support!'
+  stop
+#endif
 
   end subroutine setup_explicit
 !=======================================================================
