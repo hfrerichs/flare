@@ -5,7 +5,7 @@ module run_control
   implicit none
 
 
-  character(len=*), parameter :: base_dir = DATABASE_DIR
+  character(len=*), parameter :: data_dir = DATABASE_DIR
 
   character(len=*), parameter :: &
      AUTOMATIC = 'automatic', &
@@ -96,7 +96,6 @@ module run_control
   use math
 
   integer, parameter :: iu = 23
-  character*255      :: homedir
 
 
   ! load run control on first processor
@@ -111,11 +110,10 @@ module run_control
         write (6, 1000)
         write (6, 1001) trim(Machine)
         write (6, 1002) trim(Configuration)
-        call getenv("HOME", homedir)
-        Prefix = trim(homedir)//'/'//base_dir//'/'//trim(Machine)//'/'// &
+        Prefix = data_dir//'/'//trim(Machine)//'/'// &
                  trim(Configuration)//'/'
         if (Boundary .ne. '') then
-           Boundary_Prefix = trim(homedir)//'/'//base_dir//'/'// &
+           Boundary_Prefix = data_dir//'/'// &
                              trim(Machine)//'/'//trim(Boundary)//'/'
         endif
      else
