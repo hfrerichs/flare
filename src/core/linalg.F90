@@ -51,7 +51,7 @@ module linalg
   !---------------------------------------------------------------------
   ! Solve system of linear equations by Gaussian elimination
   !---------------------------------------------------------------------
-  subroutine gauss_elim_solver(n, a0, b0, c0)
+  subroutine gauss_elim_solver(n, b0, c0, a0)
   integer,intent (in)          :: n
   real(real64) ,dimension(n,n) :: b0
   real(real64) ,dimension(  n) :: a0,c0
