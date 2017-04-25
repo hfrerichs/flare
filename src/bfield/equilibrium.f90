@@ -365,6 +365,7 @@ module equilibrium
   case (EQ_AMHD)
      call amhd_load (iu, iconfig, Ip, Bt, R0)
      if (M%R_estimate <= 0.d0) M%R_estimate = R0
+     if (Xp(1)%R_estimate <= 0.d0) call amhd_get_Xp1(Xp(1)%R_estimate, Xp(1)%Z_estimate)
 
   case default
      write (6, *) 'error: cannot determine equilibrium type!'

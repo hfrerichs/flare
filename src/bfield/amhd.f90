@@ -52,6 +52,7 @@ module amhd
      amhd_get_DPsi, &
      amhd_get_pressure, &
      amhd_get_domain, &
+     amhd_get_Xp1, &
      amhd_broadcast
 
   contains
@@ -239,6 +240,11 @@ module amhd
   Bf   = amhd_get_Bf(r) ! Gauss
   Bpol = Ip * 2.d5 / R0 / eps
   PSI0_scale = Bpol / Bf(2) * scale_manual
+
+
+  ! update real space cooridnates of X-point (for default position, or given normalized coords.)
+  Rx(1) = xsep * R0
+  Zx(1) = ysep * R0
 
   end subroutine setup_amhd
 !===============================================================================
@@ -527,6 +533,19 @@ module amhd
   Zbox(2) =  R0 * 2.d0*kap*eps
 
   end subroutine amhd_get_domain
+!===============================================================================
+
+
+
+!===============================================================================
+! Return real space coordinates of primary X-point [cm]
+!===============================================================================
+  subroutine amhd_get_Xp1(Rx1, Zx1)
+  real(real64), intent(out) :: Rx1, Zx1
+
+  Rx1 = Rx(1);  Zx1 = Zx(1)
+
+  end subroutine amhd_get_Xp1
 !===============================================================================
 
 
