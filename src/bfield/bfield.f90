@@ -44,12 +44,20 @@ module bfield
 
   integer, parameter :: iu = 24
 
+  logical      :: ex
   real(real64) :: r(3), Bf(3)
 
 
   icall = 0
   ! load configuration on first processor
   if (firstP) then
+     inquire (file=Bfield_input_file, exist=ex)
+     if (.not.ex) then
+        write (6, *) 'configuration file: ', trim(Bfield_input_file)
+        write (6, *) 'error: magnetic configuration does not exist!'
+        stop
+     endif
+
      open  (iu, file=Bfield_input_file)
      write (6,1000)
      write (6, *) 'Magnetic field input: '
