@@ -844,15 +844,30 @@ module grid
 
 
 !=======================================================================
-  subroutine plot_mesh(this, filename)
+  subroutine plot_mesh(this, filename, range1, range2)
   use math
   class(t_grid)                :: this
   character(len=*), intent(in) :: filename
+  integer,          intent(in), optional :: range1(2), range2(2)
 
   integer, parameter :: iu = 42
 
   real(real64) :: f
-  integer      :: i, j
+  integer      :: i, irange(2), j, jrange(2)
+
+
+  irange(1) = 0
+  irange(2) = this%n1-1
+  jrange(1) = 0
+  jrange(2) = this%n2-1
+  if (present(range1)) then
+     irange(1) = max(range1(1), irange(1))
+     irange(2) = min(range1(2), irange(2))
+  endif
+  if (present(range2)) then
+     jrange(1) = max(range2(1), jrange(1))
+     jrange(2) = min(range2(2), jrange(2))
+  endif
 
 
   open  (iu, file=filename)
@@ -863,16 +878,16 @@ module grid
   endif
 
   ! write rows
-  do i=0,this%n1-1
-     do j=0,this%n2-1
+  do i=irange(1),irange(2)
+     do j=jrange(1),jrange(2)
         write (iu, *) this%mesh(i,j,:)
      enddo
      write (iu, *)
   enddo
 
   ! write columns
-  do j=0,this%n2-1
-     do i=0,this%n1-1
+  do j=jrange(1),jrange(2)
+     do i=irange(1),irange(2)
         write (iu, *) this%mesh(i,j,:)
      enddo
      write (iu, *)
