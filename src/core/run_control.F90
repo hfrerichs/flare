@@ -159,6 +159,7 @@ module run_control
   call broadcast_inte_s (Output_Format   )
   call broadcast_inte_s (Panic_Level     )
   call broadcast_logi   (Debug           )
+  call broadcast_logi   (stop_at_boundary)
 
   return
  1000 format(3x,'- Magnetic setup:')
