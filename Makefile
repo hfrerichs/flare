@@ -12,9 +12,10 @@ debug:
 .PHONY: install
 install:
 	test -d $(BIN_DIR) || mkdir $(BIN_DIR)
-	ln -s $(PWD)/bin/run_flare.sh $(BIN_DIR)
-	ln -s $(PWD)/bin/$(PROGRAM) $(BIN_DIR)
-	ln -s $(PWD)/bin/$(PROGRAM_DEBUG) $(BIN_DIR)
+
+	ln -sf $(PWD)/bin/run_flare.sh $(BIN_DIR)
+	ln -sf $(PWD)/bin/$(PROGRAM) $(BIN_DIR)
+	ln -sf $(PWD)/bin/$(PROGRAM_DEBUG) $(BIN_DIR)
 	mkdir -p $(DATA_DIR)/DIII-D
 	mkdir -p $(DATA_DIR)/ITER
 	mkdir -p $(DATA_DIR)/NSTX
