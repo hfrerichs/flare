@@ -28,7 +28,7 @@ module fieldline
      integer :: iplane, sgn
 
      real(real64) :: Trace_Step
-     integer :: Trace_Coords
+     integer :: Trace_Coords, ierr
 
      type(t_fluxtube_coords) :: F
 
@@ -119,6 +119,7 @@ module fieldline
   this%theta0    = this%thetac
   this%PsiNc     = get_PsiN(this%rc)
   this%Dphi      = 0.d0
+  this%ierr      = 0
 
   end subroutine init
 !=======================================================================
@@ -130,12 +131,14 @@ module fieldline
 !=======================================================================
   function trace_1step_ODE(this) result(dl)
   use equilibrium
+  use numerics, only: OUT_OF_BOUNDS
   class(t_fieldline), intent(inout) :: this
   real(real64) :: dl
 
   real(real64) :: yc(3), Dtheta
 
   ! save last step
+  OUT_OF_BOUNDS  = .false.
   this%rl        = this%rc
   this%thetal    = this%thetac
   this%PsiNl     = this%PsiNc
@@ -168,6 +171,8 @@ module fieldline
   dl = this%Trace_Step
   if (this%Trace_Coords == FL_ANGLE) dl = dl * 0.5d0 * (this%rl(1)+this%rc(1))
 
+
+  if (OUT_OF_BOUNDS) this%ierr = 2
 
   end function trace_1step_ODE
 !=======================================================================
