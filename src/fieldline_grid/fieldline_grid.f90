@@ -524,9 +524,9 @@ module fieldline_grid
 
 
   ! 3. set lower boundary of simulation domain
-  ! DEFAULT: neg. half of first block
+  ! DEFAULT: neg. half of simulation domain
   if (phi0 == -360.d0) then
-     phi0 = -Block(0)%width / 2.d0
+     phi0 = -Delta_phi_sim / 2.d0
 
      ! default lower boundary is 0.0 deg for stellarator symmetric configurations
      if (stellarator_symmetry) phi0 = 0.d0
