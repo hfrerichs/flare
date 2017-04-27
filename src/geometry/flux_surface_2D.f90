@@ -63,6 +63,7 @@ module flux_surface_2D
   use ode_solver
   use boundary
   use math
+  use numerics, only: OUT_OF_BOUNDS
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: r(2)
   
@@ -152,6 +153,10 @@ module flux_surface_2D
      do i=1,nmax
         ! progress one step
         yc(1:2)       = F%next_step()
+        if (OUT_OF_BOUNDS) then
+           n(idir)    = i-1
+           exit
+        endif
         thetac        = get_poloidal_angle(yc)
 
         ! save current position
@@ -264,6 +269,7 @@ module flux_surface_2D
   use boundary
   use math
   use curve2D
+  use numerics, only: OUT_OF_BOUNDS
   class(t_flux_surface_2D)   :: this
   real(real64),  intent(in)  :: xinit(2)
   integer,       intent(in)  :: direction
@@ -334,6 +340,7 @@ module flux_surface_2D
 
   ! 2. generate flux surface branch
   ierr = 0
+  OUT_OF_BOUNDS = .false.
   call F%init_ODE(2, xinit, 0.d0, epol_sub, NM_RUNGEKUTTA4)
   trace_loop: do
      i = i + 1
@@ -383,6 +390,10 @@ module flux_surface_2D
 
      ! C. trace one step
      X           = F%step_ds(ds)
+     if (OUT_OF_BOUNDS) then
+        i = i-1
+        exit
+     endif
      xtmp(i,1:2) = correct_PsiN(X, this%PsiN, ierrPsiN) ! perform correction step
      if (ierrPsiN > 0) xtmp(i,1:2) = X
      F%yc(1:2)   = xtmp(i,1:2) ! update ODE solver
