@@ -254,7 +254,7 @@ module plates
   allocate (rtouch(0:ZON_POLO(iz)-1, 0:ZON_TORO(iz)-1))
   rtouch = SRF_RADI(iz)-1
 
-  do ib=2,n_boundary1
+  do ib=1,n_boundary1
      if (boundary_in_zone(ib, PHI_PLANE(PHI_PL_OS(iz)), PHI_PLANE(PHI_PL_OS(iz+1)-1))) then
         write (6, *) boundary_label(ib)
      else
