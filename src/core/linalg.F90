@@ -1,3 +1,4 @@
+#include "../../config.h"
 !===============================================================================
 ! Linear algebra module
 !===============================================================================
@@ -51,7 +52,7 @@ module linalg
   !---------------------------------------------------------------------
   ! Solve system of linear equations by Gaussian elimination
   !---------------------------------------------------------------------
-  subroutine gauss_elim_solver(n, a0, b0, c0)
+  subroutine gauss_elim_solver(n, b0, c0, a0)
   integer,intent (in)          :: n
   real(real64) ,dimension(n,n) :: b0
   real(real64) ,dimension(  n) :: a0,c0
@@ -150,6 +151,7 @@ module linalg
   type(fgsl_vector) :: b, x
   real(fgsl_double), target :: af(n4, n4), bf(n4), xf(n4)
   type(fgsl_permutation) :: p
+  integer :: i, j
 
 
   n = n4
@@ -158,7 +160,12 @@ module linalg
   x = fgsl_vector_init(type=1.0_fgsl_double)
   p = fgsl_permutation_alloc(n)
 
-  af = afi
+  ! transpose matrix
+  do i=1,n
+  do j=1,n
+     af(i,j) = afi(j,i)
+  enddo
+  enddo
   bf = bfi
   status = fgsl_matrix_align(af, n, n, n, a)
   status = fgsl_vector_align(bf, n, b, n, 0_fgsl_size_t, &

@@ -73,7 +73,8 @@ module HINT
   !=====================================================================
   function HINT_get_Bf(r) result(Bf)
   use kind_spec
-  use cylindrical_coord_mod, only: mgval1
+  use cylindrical_coord_mod, only: mgval1, rminb, rmaxb, zminb, zmaxb
+  use numerics,              only: OUT_OF_BOUNDS
   real(real64), intent(in) :: r(3)
   real(real64)             :: Bf(3)
 
@@ -83,6 +84,14 @@ module HINT
   r1    = r(1) / 100.d0
   z     = r(2) / 100.d0
   phi   = r(3)
+  Bf    = 0.d0
+  if (r1 < rminb  .or.  r1 > rmaxb  .or. &
+      z  < zminb  .or.  z  > zmaxb) then
+     OUT_OF_BOUNDS = .true.
+     return
+  endif
+
+
   call mgval1(r1, phi, z, br, bphi, bz, bb)
   Bf(1) = br
   Bf(2) = bz
@@ -99,8 +108,9 @@ module HINT
   !=====================================================================
   function HINT_get_JBf(r) result(JBf)
   use kind_spec
-  use spline_mod, only: l3d
-  use cylindrical_coord_mod, only: mgval2
+  use spline_mod,            only: l3d
+  use cylindrical_coord_mod, only: mgval2, rminb, rmaxb, zminb, zmaxb
+  use numerics,              only: OUT_OF_BOUNDS
   real(real64), intent(in) :: r(3)
   real(real64)             :: JBf(3,3)
 
@@ -110,6 +120,13 @@ module HINT
   r1    = r(1) / 100.d0
   z     = r(2) / 100.d0
   phi   = r(3)
+  JBf   = 0.d0
+  if (r1 < rminb  .or.  r1 > rmaxb  .or. &
+      z  < zminb  .or.  z  > zmaxb) then
+     OUT_OF_BOUNDS = .true.
+     return
+  endif
+
   call mgval2(r1, phi, z, b, dbdr, dbdp, dbdz)
   JBf(1:3,1) = dbdr(1:3)
   JBf(1:3,2) = dbdz(1:3)

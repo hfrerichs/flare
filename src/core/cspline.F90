@@ -118,6 +118,7 @@ module cspline
   integer,      intent(in) :: n
   real(real64), intent(in) :: x(n), y(n)
 
+#if defined(FGSL)
   integer(fgsl_int)    :: stat
 
 
@@ -132,7 +133,17 @@ module cspline
   this%L1 = x(1)
   this%L2 = x(n)
 
-  stat   = fgsl_spline_init(this%S(1), x, y, this%n)
+#if GSL_VERSION_MAJOR_FORTRAN > 1
+     stat   = fgsl_spline_init(this%S(1), x, y)  
+#else
+     stat   = fgsl_spline_init(this%S(1), x, y, this%n)
+#endif
+  
+
+#else
+  write (6, *) 'error in subroutine t_cspline%setup: FLARE has been compiled without FGSL support!'
+  stop
+#endif
 
   end subroutine setup_explicit
 !=======================================================================

@@ -52,6 +52,7 @@ module amhd
      amhd_get_DPsi, &
      amhd_get_pressure, &
      amhd_get_domain, &
+     amhd_get_Xp1, &
      amhd_broadcast
 
   contains
@@ -155,73 +156,73 @@ module amhd
   ! setup linear system
   ! 1. outer equatorial point
   vpsi   = Psi_osfa(1.d0 + eps, 0.d0)
-  M(:,1) = vpsi(1:n);  b(1)   = -vpsi(0)
+  M(1,:) = vpsi(1:n);  b(1)   = -vpsi(0)
   ! 2. inner equatorial point
   vpsi   = Psi_osfa(1.d0 - eps, 0.d0)
-  M(:,2) = vpsi(1:n);  b(2)   = -vpsi(0)
+  M(2,:) = vpsi(1:n);  b(2)   = -vpsi(0)
   ! 3. high point
   vpsi = Psi_osfa(1.d0 - del*eps, kap*eps)
-  M(:,3) = vpsi(1:n);  b(3)   = -vpsi(0)
+  M(3,:) = vpsi(1:n);  b(3)   = -vpsi(0)
   ! 4. high point maximum
   vpsi = Psix_osfa(1.d0 - del*eps, kap*eps)
-  M(:,4) = vpsi(1:n);  b(4)   = -vpsi(0)
+  M(4,:) = vpsi(1:n);  b(4)   = -vpsi(0)
   ! 5. outer equatorial point curvature
   vpsi   = Psiyy_osfa(1.d0 + eps, 0.d0)
-  M(:,5) = vpsi(1:n);  b(5)   = -vpsi(0)
+  M(5,:) = vpsi(1:n);  b(5)   = -vpsi(0)
   vpsi   = Psix_osfa(1.d0 + eps, 0.d0)
-  M(:,5) = M(:,5) + N1*vpsi(1:n)
+  M(5,:) = M(5,:) + N1*vpsi(1:n)
   b(5)   = b(5)   - N1*vpsi(0)
   ! 6. inner equatorial point curvature
   vpsi   = Psiyy_osfa(1.d0 - eps, 0.d0)
-  M(:,6) = vpsi(1:n);  b(6)   = -vpsi(0)
+  M(6,:) = vpsi(1:n);  b(6)   = -vpsi(0)
   vpsi   = Psix_osfa(1.d0 - eps, 0.d0)
-  M(:,6) = M(:,6) + N2*vpsi(1:n)
+  M(6,:) = M(6,:) + N2*vpsi(1:n)
   b(6)   = b(6)   - N2*vpsi(0)
   ! 7. high point curvature
   vpsi = Psixx_osfa(1.d0 - del*eps, kap*eps)
-  M(:,7) = vpsi(1:n);  b(7)   = -vpsi(0)
+  M(7,:) = vpsi(1:n);  b(7)   = -vpsi(0)
   vpsi = Psiy_osfa(1.d0 - del*eps, kap*eps)
-  M(:,7) = M(:,7) + N3*vpsi(1:n)
+  M(7,:) = M(7,:) + N3*vpsi(1:n)
   b(7)   = b(7)   - N3*vpsi(0)
   if (xpoint) then
      ! 3. X-point
      vpsi   = Psi_osfa(xsep, ysep)
-     M(:,3) = vpsi(1:n);  b(3)   = -vpsi(0)
+     M(3,:) = vpsi(1:n);  b(3)   = -vpsi(0)
      ! 4. BZ=0 at X-point
      vpsi   = Psix_osfa(xsep, ysep)
-     M(:,4) = vpsi(1:n);  b(4)   = -vpsi(0)
+     M(4,:) = vpsi(1:n);  b(4)   = -vpsi(0)
      ! 7. BR=0 at X-point
      vpsi   = Psiy_osfa(xsep, ysep)
-     M(:,7) = vpsi(1:n);  b(7)   = -vpsi(0)
+     M(7,:) = vpsi(1:n);  b(7)   = -vpsi(0)
   endif
   if (.not.up_down_symmetry) then
      ! 8. high point
      vpsi = Psi_osfa(1.d0 - del*eps, kap*eps)
-     M(:,8) = vpsi(1:n);  b(8)   = -vpsi(0)
+     M(8,:) = vpsi(1:n);  b(8)   = -vpsi(0)
      ! 9. high point maximum
      vpsi = Psix_osfa(1.d0 - del*eps, kap*eps)
-     M(:,9) = vpsi(1:n);  b(9)   = -vpsi(0)
+     M(9,:) = vpsi(1:n);  b(9)   = -vpsi(0)
      ! 10. high point curvature
      vpsi = Psixx_osfa(1.d0 - del*eps, kap*eps)
-     M(:,10) = vpsi(1:n);  b(10)   = -vpsi(0)
+     M(10,:) = vpsi(1:n);  b(10)   = -vpsi(0)
      vpsi = Psiy_osfa(1.d0 - del*eps, kap*eps)
-     M(:,10) = M(:,10) + N3*vpsi(1:n)
+     M(10,:) = M(10,:) + N3*vpsi(1:n)
      b(10)   = b(10)   - N3*vpsi(0)
      ! 11. outer equatorial point: up-down symmetry
      vpsi = Psiy_osfa(1.d0 + eps, 0.d0)
-     M(:,11) = vpsi(1:n);  b(11)   = -vpsi(0)
+     M(11,:) = vpsi(1:n);  b(11)   = -vpsi(0)
      ! 12. inner equatorial point: up-down symmetry
      vpsi = Psiy_osfa(1.d0 - eps, 0.d0)
-     M(:,12) = vpsi(1:n);  b(12)   = -vpsi(0)
+     M(12,:) = vpsi(1:n);  b(12)   = -vpsi(0)
   endif
   if (snowflake) then
      ! 2nd X-point
      ! 13. BZ=0 at X-point
      vpsi   = Psix_osfa(xsep2, ysep2)
-     M(:,13) = vpsi(1:n);  b(13)   = -vpsi(0)
+     M(13,:) = vpsi(1:n);  b(13)   = -vpsi(0)
      ! 14. BR=0 at X-point
      vpsi   = Psiy_osfa(xsep2, ysep2)
-     M(:,14) = vpsi(1:n);  b(14)   = -vpsi(0)
+     M(14,:) = vpsi(1:n);  b(14)   = -vpsi(0)
   endif
 
 
@@ -239,6 +240,11 @@ module amhd
   Bf   = amhd_get_Bf(r) ! Gauss
   Bpol = Ip * 2.d5 / R0 / eps
   PSI0_scale = Bpol / Bf(2) * scale_manual
+
+
+  ! update real space cooridnates of X-point (for default position, or given normalized coords.)
+  Rx(1) = xsep * R0
+  Zx(1) = ysep * R0
 
   end subroutine setup_amhd
 !===============================================================================
@@ -527,6 +533,19 @@ module amhd
   Zbox(2) =  R0 * 2.d0*kap*eps
 
   end subroutine amhd_get_domain
+!===============================================================================
+
+
+
+!===============================================================================
+! Return real space coordinates of primary X-point [cm]
+!===============================================================================
+  subroutine amhd_get_Xp1(Rx1, Zx1)
+  real(real64), intent(out) :: Rx1, Zx1
+
+  Rx1 = Rx(1);  Zx1 = Zx(1)
+
+  end subroutine amhd_get_Xp1
 !===============================================================================
 
 

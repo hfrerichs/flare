@@ -42,7 +42,7 @@ subroutine poincare_plot
   use run_control, only: R_start, R_end, N_steps, Grid_File, Output_File, Output_Format, &
                          Z_start, Z_end, &
                          Trace_Step, Trace_Method, Trace_Coords, &
-                         N_points, N_sym, N_mult, Phi_output, x_start
+                         N_points, N_sym, N_mult, Phi_output, x_start, stop_at_boundary
   use parallel
   use equilibrium
   use boundary
@@ -175,6 +175,10 @@ subroutine poincare_plot
      ! start field line tracing
      trace_loop: do
         lc = lc + F%trace_1step()
+        if (F%ierr > 0) then
+           write (6, 4002) ig
+           exit trace_loop
+        endif
 
 
         ! check intersection with Poincare plane
@@ -204,7 +208,7 @@ subroutine poincare_plot
 
 
         ! check intersection with boundaries
-        if (F%intersect_boundary(X)) then
+        if (stop_at_boundary  .and.  F%intersect_boundary(X)) then
            write (6,4000) ig, abs(lc/1.d2), abs(icut)/N_mult
            exit trace_loop
         endif
@@ -256,4 +260,5 @@ subroutine poincare_plot
 
  4000 format (5x,i5,',',8x,'L_c = ',f9.2,' m,',8x,'n_points = ',i5)
  4001 format (5x,i5,',',8x,'L_c > ',f9.2,' m,',8x,'n_points = ',i5)
+ 4002 format (5x,i5,',',8x,'Field line leaves magnetic field domain')
 end subroutine poincare_plot

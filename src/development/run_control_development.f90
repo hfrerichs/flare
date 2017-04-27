@@ -159,64 +159,64 @@ end subroutine TEST_setup_domain
   use iso_fortran_env
   use equilibrium, only: get_PsiN, correct_PsiN
   use grid
-  use fgsl
+!  use fgsl
   implicit none
 
-  type(fgsl_rng)      :: r
-  type(fgsl_rng_type) :: t
-  real(fgsl_double)   :: dx, dy
-
-  type(t_grid) :: G
-  real(real64) :: x(3), xp(2), xc(2), PsiN, PsiNc, dPsiN, ds, ds_min, ds_max
-  integer      :: i, ierr, iterations
-
-
-  call G%load('grid.dat')
-
-
-  ! set up rng
-  t = fgsl_rng_env_setup()
-  t = fgsl_rng_default
-  r = fgsl_rng_alloc (t)
-
-
-  dPsiN = 0.001d0
-  ds_min = HUGE(1.d0)
-  ds_max = 0.d0
-  ds     = 0.1d0
-  do i=1,G%nodes()
-     write (6, *) i
-     x    = G%node(i)
-     PsiN = get_PsiN(x)
-
-     ! perturb node
-     call fgsl_ran_dir_2D(r, dx, dy)
-
-     xp(1) = x(1) + ds*dx;     xp(2) = x(2) + ds*dy
-     write (98, *) xp(1:2)
-
-     xc    = correct_PsiN(xp(1:2), PsiN, ierr, iterations=iterations)
-     if (ierr > 0) then
-        xc    = correct_PsiN(xp(1:2), PsiN, ierr, iterations=iterations, debug=80)
-        stop
-     endif
-     PsiNc = get_PsiN(xc)
-     write (99, *) x(1:2), xc, abs(PsiN-PsiNc), PsiNc, iterations, ierr
+!  type(fgsl_rng)      :: r
+!  type(fgsl_rng_type) :: t
+!  real(fgsl_double)   :: dx, dy
 !
-!     if (ierr == 0) then
-!        ds = sqrt(sum((x(1:2)-xc)**2))
-!        if (ds > ds_max) ds_max = ds
-!        if (ds < ds_min) ds_min = ds
-!        write (99, *) xc(1:2), PsiN+dPsiN, iterations
-!     else
-!        write (98, *) x(1:2), ierr
+!  type(t_grid) :: G
+!  real(real64) :: x(3), xp(2), xc(2), PsiN, PsiNc, dPsiN, ds, ds_min, ds_max
+!  integer      :: i, ierr, iterations
+!
+!
+!  call G%load('grid.dat')
+!
+!
+!  ! set up rng
+!  t = fgsl_rng_env_setup()
+!  t = fgsl_rng_default
+!  r = fgsl_rng_alloc (t)
+!
+!
+!  dPsiN = 0.001d0
+!  ds_min = HUGE(1.d0)
+!  ds_max = 0.d0
+!  ds     = 0.1d0
+!  do i=1,G%nodes()
+!     write (6, *) i
+!     x    = G%node(i)
+!     PsiN = get_PsiN(x)
+!
+!     ! perturb node
+!     call fgsl_ran_dir_2D(r, dx, dy)
+!
+!     xp(1) = x(1) + ds*dx;     xp(2) = x(2) + ds*dy
+!     write (98, *) xp(1:2)
+!
+!     xc    = correct_PsiN(xp(1:2), PsiN, ierr, iterations=iterations)
+!     if (ierr > 0) then
+!        xc    = correct_PsiN(xp(1:2), PsiN, ierr, iterations=iterations, debug=80)
+!        stop
 !     endif
-  enddo
-
-!  write (6, *) 'min. correction step: ', ds_min
-!  write (6, *) 'max. correction step: ', ds_max
-
-  call fgsl_rng_free(r)
+!     PsiNc = get_PsiN(xc)
+!     write (99, *) x(1:2), xc, abs(PsiN-PsiNc), PsiNc, iterations, ierr
+!!
+!!     if (ierr == 0) then
+!!        ds = sqrt(sum((x(1:2)-xc)**2))
+!!        if (ds > ds_max) ds_max = ds
+!!        if (ds < ds_min) ds_min = ds
+!!        write (99, *) xc(1:2), PsiN+dPsiN, iterations
+!!     else
+!!        write (98, *) x(1:2), ierr
+!!     endif
+!  enddo
+!
+!!  write (6, *) 'min. correction step: ', ds_min
+!!  write (6, *) 'max. correction step: ', ds_max
+!
+!  call fgsl_rng_free(r)
   end subroutine TEST_correct_PsiN
 !===============================================================================
 

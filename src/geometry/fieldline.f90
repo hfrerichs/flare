@@ -28,7 +28,7 @@ module fieldline
      integer :: iplane, sgn
 
      real(real64) :: Trace_Step
-     integer :: Trace_Coords
+     integer :: Trace_Coords, ierr
 
      type(t_fluxtube_coords) :: F
 
@@ -52,42 +52,66 @@ module fieldline
 
 
 !=======================================================================
-  subroutine init (this, y0, ds, isolver, icoord)
+! trace parameter (Trace_Coords), D = Trace_Step
+
+! 1:     D = sqrt(DX**2 + DY**2 + DZ**2)
+! 2:     D = sqrt(DR**2 + DZ**2 + (R*DPHI)**2)
+! 3:     D = DPHI
+!=======================================================================
+  subroutine init (this, y0, Trace_Step, Trace_Method, Trace_Coords)
+  use numerics, only: Trace_Step_default   => Trace_Step, &
+                      Trace_Method_default => Trace_Method, &
+                      Trace_Coords_default => Trace_Coords
   use equilibrium
   class (t_fieldline) :: this
-  real*8, intent(in)  :: y0(3), ds
-  integer, intent(in) :: isolver, icoord
+  real*8, intent(in)  :: y0(3)
+  real*8, intent(in), optional  :: Trace_Step
+  integer, intent(in), optional :: Trace_Method, Trace_Coords
 
-  real*8 :: y1(3)
+  real*8  :: y1(3), ds
+  integer :: tm
+
+
+  ! set step size
+  ds = Trace_Step_default
+  if (present(Trace_Step)) ds = Trace_Step
+
+  ! set numerical method for field line tracing
+  tm = Trace_Method_default
+  if (present(Trace_Method)) tm = Trace_Method
+
+  ! set discretization coordinates
+  this%Trace_Coords = Trace_Coords_default
+  if (present(Trace_Coords)) this%Trace_Coords = Trace_Coords
 
 
   y1 = y0
   ! use field line reconstruction method
-  if (isolver == FL_Reconstruction) then
+  if (tm == FL_Reconstruction) then
      this%trace_1step  => trace_1step_reconstruct
 
   ! use numerical integration method isolver > 0
-  elseif (isolver > 0) then
-     this%Trace_Step   = ds
-     this%Trace_Coords = icoord
+  elseif (tm > 0) then
+     this%Trace_Step   =  ds
+
      this%trace_1step  => trace_1step_ODE
 
-     select case (icoord)
+     select case (this%Trace_Coords)
      case (FL_LINE)
-        call this%init_ODE (3, y1, ds, Bf_sub_cart, isolver)
+        call this%init_ODE (3, y1, ds, Bf_sub_cart,     tm)
      case (FL_ARC)
-        call this%init_ODE (3, y1, ds, Bf_sub_cyl, isolver)
+        call this%init_ODE (3, y1, ds, Bf_sub_cyl,      tm)
      case (FL_ANGLE)
-        call this%init_ODE (3, y1, ds, Bf_sub_cyl_norm, isolver)
+        call this%init_ODE (3, y1, ds, Bf_sub_cyl_norm, tm)
      case default
-        write (6, *) 'invalid parameter icoord = ', icoord
+        write (6, *) 'invalid parameter Trace_Coords = ', this%Trace_Coords
         stop
      end select
   endif
 
 
   ! initialize internal variables
-  call coord_trans (y0, icoord, this%rc, CYLINDRICAL)
+  call coord_trans (y0, this%Trace_Coords, this%rc, CYLINDRICAL)
   this%phi_int   = 0.d0
   this%phi0      = this%rc(3)
   this%theta_int = 0.d0
@@ -95,6 +119,7 @@ module fieldline
   this%theta0    = this%thetac
   this%PsiNc     = get_PsiN(this%rc)
   this%Dphi      = 0.d0
+  this%ierr      = 0
 
   end subroutine init
 !=======================================================================
@@ -106,12 +131,14 @@ module fieldline
 !=======================================================================
   function trace_1step_ODE(this) result(dl)
   use equilibrium
+  use numerics, only: OUT_OF_BOUNDS
   class(t_fieldline), intent(inout) :: this
   real(real64) :: dl
 
   real(real64) :: yc(3), Dtheta
 
   ! save last step
+  OUT_OF_BOUNDS  = .false.
   this%rl        = this%rc
   this%thetal    = this%thetac
   this%PsiNl     = this%PsiNc
@@ -144,6 +171,8 @@ module fieldline
   dl = this%Trace_Step
   if (this%Trace_Coords == FL_ANGLE) dl = dl * 0.5d0 * (this%rl(1)+this%rc(1))
 
+
+  if (OUT_OF_BOUNDS) this%ierr = 2
 
   end function trace_1step_ODE
 !=======================================================================
@@ -339,15 +368,28 @@ module fieldline
 !=======================================================================
   subroutine init_toroidal_tracing(this, y0, ds, isolver, icoord, nsym, phi_out)
   use magnetic_axis
+  use bfield
+  use parallel
   !use equilibrium
 
   class (t_fieldline) :: this
   real*8, intent(in)  :: y0(3), ds, phi_out
   integer, intent(in) :: isolver, icoord, nsym
 
+  real*8 :: Bf0(3)
+
 
   call this%init(y0, ds, isolver, icoord)
 
+
+  ! Bt_sign is undefined (because no magnetic axis has been defined)
+  if (Bt_sign == 0) then
+     Bt_sign = 1
+     Bf0     = get_Bf_Cyl(this%rc)
+     if (Bf0(3) < 0.d0) Bt_sign = -1
+
+     if (firstP) write (6, *) 'WARNING: magnetic axis is still undefined, poloidal angles will not be correct!'
+  endif
 
   ! for Poincare plots
   this%iplane = 0

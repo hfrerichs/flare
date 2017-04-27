@@ -3,7 +3,10 @@
 
 ################################################################################
 # predefine parameter
-base_dir="Database/Magnetic_Configuration"
+
+BIN_DIR=$HOME/bin
+
+DATA_DIR=$HOME/Database/Magnetic_Configuration
 
 EMC3_dir=""
 
@@ -14,8 +17,6 @@ else
     fusion_io_arch=$M3DC1_ARCH
 fi
 
-
-BIN_DIR=$HOME/bin
 
 EXTERNAL_DIR=external
 ################################################################################
@@ -30,8 +31,7 @@ for opt in "$@"; do
         echo "Configuration script for FLARE"
         echo ""
         echo "Optional arguments are:"
-        echo "  --base_dir=DIR          database directory for magnetic configuration"
-	echo "	                        database (relative to home directory)"
+        echo "  --data_dir=DIR          data directory for magnetic configurations"
 	echo ""
 	echo "  --bin_dir=DIR           directory with links to executables"
 	echo ""
@@ -42,8 +42,8 @@ for opt in "$@"; do
 	echo ""
 
 	exit
-    elif [ "$par" == "--base_dir" ]; then
-        base_dir=$val
+    elif [ "$par" == "--data_dir" ]; then
+        DATA_DIR=$val
     elif [ "$par" == "--bin_dir" ]; then
         BIN_DIR=$val
     elif [ "$par" == "--emc3_dir" ]; then
@@ -79,10 +79,16 @@ echo "" >> include.mk
 
 
 # directory for links to executables
-echo "# setting directory for links to executables" >> include.mk
+echo "# set up directories for executables and data" >> include.mk
 echo "BIN_DIR        = $BIN_DIR" >> include.mk
-echo "" >> include.mk
 echo "Binary directory is $BIN_DIR" | tee -a $LOG_FILE
+
+
+# data directory
+echo "#define DATABASE_DIR '$DATA_DIR'" >> config.h
+echo "DATA_DIR       = $DATA_DIR" >> include.mk
+echo "Data directory is $DATA_DIR" | tee -a $LOG_FILE
+echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
 
@@ -126,8 +132,8 @@ echo ""							>> include.mk
 # ------------------------------------------------------------------------------
 
 
-# setting local source directories ---------------------------------------------
-echo "# setting local source directories" >> include.mk
+# set up local source directories ----------------------------------------------
+echo "# set up local source directories" >> include.mk
 echo "EXTERNAL_DIR   = $EXTERNAL_DIR" >> include.mk
 echo "EMC3_LINK_DIR  = \$(EXTERNAL_DIR)/EMC3" >> include.mk
 echo "CORE_DIR       = core" >> include.mk
@@ -227,10 +233,5 @@ echo ""							>> include.mk
 echo 'FC             = $(COMPILER) $(FLAGS) -DFLARE $(OPT)' >> include.mk
 echo 'FC_ADDONS      = $(COMPILER) $(FLAGS)         $(OPT)' >> include.mk
 echo 'FC_DEBUG       = $(COMPILER) $(FLAGS) -DFLARE $(OPT_DEBUG)' >> include.mk
-
-
-# generating header file config.h
-echo "Database directory is" $HOME/$base_dir
-echo "#define DATABASE_DIR '$base_dir'" >> config.h
 ################################################################################
 echo

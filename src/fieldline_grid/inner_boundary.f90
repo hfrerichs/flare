@@ -201,6 +201,8 @@ module inner_boundary
   integer,         intent(in)    :: iblock
   type(t_grid),    intent(inout) :: G
 
+  integer, parameter :: iu = 99
+
   real(real64) :: x1(2), x2(2), x(2)
   integer :: j, np
 
@@ -214,6 +216,15 @@ module inner_boundary
      else
         write (6, *) 'error in setup_inner_boundary0 at grid node ', j
         write (6, *) 'x = ', x1
+
+        write (6, *) 'failed to find intersection with innermost boundary'
+        write (6, *) 'check output in base_grid.err and cell.err'
+        call G%plot_mesh('base_grid.err', range1=(/1, G%n1-1/))
+        open  (iu, file='cell.err')
+        write (iu, *) x2
+        write (iu, *) x1
+        write (iu, *) x1 + 10.d0*(x1-x2)
+        close (iu)
         stop
      endif
   enddo
