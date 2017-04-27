@@ -27,12 +27,15 @@ module bspline2D
 
      contains
      procedure :: new
+     procedure :: init
      !procedure :: default_geometry
      !procedure :: load
      !procedure :: store
      procedure :: broadcast
      procedure :: setup
      procedure :: eval
+     procedure :: derivative
+     procedure :: cleanup
   end type t_bspline2D
 
   contains
@@ -83,6 +86,46 @@ module bspline2D
 
   end subroutine new
 !=======================================================================
+
+
+
+!=======================================================================
+! initialize 2D spline from given data (original data is not stored here)
+!
+! nx, ny               resolution in x and y direction
+! nord                 spline interpolation order
+!=======================================================================
+  subroutine init(this, nx, ny, x, y, D, nord)
+  class(t_bspline2D)       :: this
+  integer,      intent(in) :: nx, ny
+  real(real64), intent(in) :: x(nx), y(ny), D(nx,ny)
+  integer,      intent(in), optional :: nord
+
+
+  this%nx   = nx
+  this%ny   = ny
+  if (present(nord)) then
+     this%nord = nord
+  else
+     this%nord = 5
+  endif
+
+
+  if (allocated(this%xnot))   deallocate(this%xnot)
+  if (allocated(this%ynot))   deallocate(this%ynot)
+  if (allocated(this%dcoeff)) deallocate(this%dcoeff)
+
+
+  allocate (this%xnot(nx+this%nord), this%ynot(ny+this%nord))
+  allocate (this%dcoeff(nx, ny))
+  call dbsnak(nx, x, this%nord, this%xnot)
+  call dbsnak(ny, y, this%nord, this%ynot)
+  call dbs2in(nx, x, ny, y, D, &
+              nx, this%nord, this%nord, this%xnot, this%ynot, this%dcoeff)
+
+  end subroutine init
+!=======================================================================
+
 
 
 !=======================================================================
@@ -181,9 +224,9 @@ module bspline2D
   call broadcast_inte_s(this%nord)
 
   ! broadcast raw data
-  call broadcast_real  (this%x, this%nx)
-  call broadcast_real  (this%y, this%ny)
-  call broadcast_real  (this%d, this%nx*this%ny)
+!  call broadcast_real  (this%x, this%nx)
+!  call broadcast_real  (this%y, this%ny)
+!  call broadcast_real  (this%d, this%nx*this%ny)
 
   ! broadcast spline coefficients
   call broadcast_real  (this%xnot, this%nx + this%nord)
@@ -206,6 +249,40 @@ module bspline2D
                 this%xnot,this%ynot,this%nx,this%ny,this%dcoeff)
 
   end function eval
+!=======================================================================
+
+
+
+!=======================================================================
+  function derivative(this, x, mx, my) result(d)
+  class(t_bspline2D)       :: this
+  real(real64), intent(in) :: x(2)
+  integer,      intent(in) :: mx, my
+  real(real64)             :: d
+
+
+  d    = dbs2dr(mx,my,x(1),x(2),this%nord,this%nord, &
+                this%xnot,this%ynot,this%nx,this%ny,this%dcoeff)
+
+  end function derivative
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine cleanup(this)
+  class(t_bspline2D) :: this
+
+
+  if (allocated(this%x)) deallocate(this%x)
+  if (allocated(this%y)) deallocate(this%y)
+  if (allocated(this%d)) deallocate(this%d)
+
+  if (allocated(this%xnot)) deallocate(this%xnot)
+  if (allocated(this%ynot)) deallocate(this%ynot)
+  if (allocated(this%dcoeff)) deallocate(this%dcoeff)
+
+  end subroutine cleanup
 !=======================================================================
 
 end module bspline2D
