@@ -4,6 +4,10 @@ module numerics
   implicit none
 
 
+  real(real64), parameter :: &
+     m_to_cm = 1.d2,   cm_to_m = 1.d0 / m_to_cm
+
+
   integer, parameter :: &
       EULER                   = 1, &
       RUNGE_KUTTA_4           = 2, &

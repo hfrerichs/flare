@@ -5,6 +5,8 @@ module equilibrium
   use iso_fortran_env
   use magnetic_axis
   use curve2D
+  use bfield_component
+  use sonnet
   implicit none
 
 
@@ -12,7 +14,7 @@ module equilibrium
      S_GEQDSK       = 'geqdsk', &
      S_GEQDSK_FREE  = 'geqdsk*', &
      S_DIVAMHD      = 'divamhd', &
-     S_JETEQ        = 'jeteq', &
+     S_SONNET       = 'sonnet', &
      S_M3DC1        = 'm3dc1', &
      S_AMHD         = 'amhd'
 
@@ -21,7 +23,7 @@ module equilibrium
      EQ_UNDEFINED   = 0, &
      EQ_GEQDSK      = 1, &
      EQ_DIVAMHD     = 2, &
-     EQ_JET         = 3, &
+     EQ_SONNET      = 3, &
      EQ_M3DC1       = 4, &
      EQ_AMHD        = 5
 
@@ -63,6 +65,7 @@ module equilibrium
 
   type(t_Xpoint) :: Xp(nX_max), M
 
+  class(t_bfield), pointer :: Bequi => null()
 
   logical :: &
      use_boundary     = .true., &
@@ -215,6 +218,8 @@ module equilibrium
      i_format = FREE
   case (S_DIVAMHD)
      i_equi   = EQ_DIVAMHD
+  case (S_SONNET)
+     i_equi   = EQ_SONNET
   case (S_M3DC1)
      i_equi   = EQ_M3DC1
   case (S_AMHD)
@@ -318,6 +323,7 @@ module equilibrium
 
   character(len=120) :: filename
   character*80 :: s, stype
+  integer :: ierr
 
 
   filename = trim(Prefix)//Data_File
@@ -334,7 +340,7 @@ module equilibrium
      if (s(3:5) == 'TEQ'  .or.  stype(1:4) == 'EFIT') then
         i_equi = EQ_GEQDSK
      elseif (s(5:11) == 'jm   :=') then
-        i_equi = EQ_JET
+        i_equi = EQ_SONNET
      else
         read  (iu_scan, '(a80)') s
         if (s(4:9) == 'File: ') then
@@ -355,6 +361,16 @@ module equilibrium
      call geqdsk_load (filename, Ip, Bt, Current_Fix, Psi_axis, Psi_sepx, Header_Format=i_format)
   case (EQ_DIVAMHD)
      call divamhd_load (filename, Ip, Bt, R0)
+
+  case (EQ_SONNET)
+     allocate (t_sonnet :: Bequi)
+     call Bequi%load(filename, ierr)
+     if (ierr > 0) stop
+     select type(Bequi)
+     class is (t_sonnet)
+        call Bequi%info(R0)
+     end select
+     if (M%R_estimate <= 0.d0) M%R_estimate = R0
 
   case (EQ_M3DC1)
      if (.not.m3dc1_loaded()) then
@@ -407,6 +423,13 @@ module equilibrium
      get_domain                    => divamhd_get_domain
      use_boundary                  = .false.
      broadcast_equilibrium         => divamhd_broadcast
+  case (EQ_SONNET)
+     get_Bf_eq2D                   => get_Bf_WRAPPER
+     get_JBf_eq2D                  => get_JBf_WRAPPER
+     get_Psi                       => get_Psi_WRAPPER
+     get_DPsi                      => get_DPsi_WRAPPER
+     get_domain                    => get_domain_WRAPPER
+     use_boundary                  = .false.
   case (EQ_M3DC1)
      get_Bf_eq2D                   => m3dc1_get_Bf_eq2D
      get_Psi                       => m3dc1_get_Psi
@@ -461,7 +484,11 @@ module equilibrium
 
 
   if (mype > 0) call setup_equilibrium()
-  call broadcast_equilibrium()
+  if (i_equi == EQ_SONNET) then
+     call Bequi%broadcast()
+  else
+     call broadcast_equilibrium()
+  endif
 
   end subroutine broadcast_mod_equilibrium
 !=======================================================================
@@ -537,6 +564,55 @@ module equilibrium
  9001 format('error in subroutine setup_xpoints: cannot set up prefined X-point ',i0,'!')
  9002 format('error in subroutine setup_xpoints: cannot set up user defined X-point ',i0,'!')
   end subroutine setup_xpoints
+!=======================================================================
+
+
+
+!=======================================================================
+! WRAPPER functions for Bequi (this is a temporary solution until all
+! equilibrium configurations are implemented as derived type extended
+! from t_bfield)
+!=======================================================================
+  function get_Bf_WRAPPER(r) result(Bf)
+  real(real64), intent(in)  :: r(3)
+  real(real64)              :: Bf(3)
+
+  Bf = Bequi%get_Bf(r) * 1.d4 ! T -> Gauss
+
+  end function get_Bf_WRAPPER
+!=======================================================================
+  function get_JBf_WRAPPER(r) result(JBf)
+  real(real64), intent(in)  :: r(3)
+  real(real64)              :: JBf(3,3)
+
+  JBf = Bequi%get_JBf(r)
+
+  end function get_JBf_WRAPPER
+!=======================================================================
+  function get_Psi_WRAPPER(r) result(Psi)
+  real(real64), intent(in)  :: r(3)
+  real(real64)              :: Psi
+
+  Psi = Bequi%get_Psi(r)
+
+  end function get_Psi_WRAPPER
+!=======================================================================
+  function get_DPsi_WRAPPER(r, mR, mZ) result(DPsi)
+  real(real64), intent(in)  :: r(2)
+  integer,      intent(in)  :: mR, mZ
+  real(real64)              :: DPsi
+
+  DPsi = Bequi%get_DPsi(get_r3(r), mR, mZ)
+
+  end function get_DPsi_WRAPPER
+!=======================================================================
+  subroutine get_domain_WRAPPER (Rbox, Zbox)
+  real(real64), intent(out) :: Rbox(2), Zbox(2)
+
+  Rbox(1) = Bequi%Rmin;  Rbox(2) = Bequi%Rmax
+  Zbox(1) = Bequi%Zmin;  Zbox(2) = Bequi%Zmax
+
+  end subroutine get_domain_WRAPPER
 !=======================================================================
 
 
@@ -976,9 +1052,11 @@ module equilibrium
 !               -1:   at least one iteration with 1st order approximation
 !                1:   required accuracy exceeded aver max. number of iterations
 !                2:   required accuracy (ds) exceeded although iterations may be successful
+!                3:   out of bounds
 !=======================================================================
   function correct_PsiN(r0, PsiN_target, ierr, ds, delta_PsiN, iterations, debug) result(rc)
   use math
+  use numerics, only: OUT_OF_BOUNDS
   real(real64), intent(in)  :: r0(2)
   real(real64), intent(in)  :: PsiN_target
   integer,      intent(out) :: ierr
@@ -1013,9 +1091,13 @@ module equilibrium
 
 
   ! 1. initialize
+  OUT_OF_BOUNDS = .false.
   rc    = r0
   PsiN  = get_PsiN(rc)
   ierr  = 0
+  if (debug_output) then
+    write (debug, *) rc
+  endif
 
 
   ! 2. iterative search for PsiN_target
@@ -1035,6 +1117,10 @@ module equilibrium
      H        = get_HN(rc)
      dPsi_dl  = dPsi_dR*ePsi(1) + dPsi_dZ*ePsi(2)
      dPsi_dl2 = H(1,1)*ePsi(1)**2  +  2.d0*H(1,2)*ePsi(1)*ePsi(2)  +  H(2,2)*ePsi(2)**2
+     if (OUT_OF_BOUNDS) then
+        ierr = 3
+        return
+     endif
 
      ! 1st order approximation
      delta    = dPsiN / dPsi_dl * damping
@@ -1104,6 +1190,10 @@ module equilibrium
   real(real64), intent(in) :: x(2)
   logical                  :: outside_domain
 
+
+  if (i_equi == EQ_SONNET) then
+     outside_domain = Bequi%out_of_bounds(get_r3(x))
+  endif
 
   outside_domain = .false.
   if (x(1) < EQBox(1,1)  .or.  x(1) > EQBox(1,2)  .or. &
