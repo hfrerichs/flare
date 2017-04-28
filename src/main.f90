@@ -8,7 +8,9 @@ program main
   use boundary
   implicit none
 
+  character(len=128) :: input_file
   real(real64) :: t1, t2, t3
+
 
   ! Initialize parallel execution (using MPI)
   call initial_parallel()
@@ -22,9 +24,10 @@ program main
   endif
 
 
+  call get_command_argument(1, input_file)
   call cpu_time(t1)
-  call load_numerics()
-  call load_run_control()
+  call load_numerics(input_file)
+  call load_run_control(input_file)
 
   call setup_bfield_configuration()
 

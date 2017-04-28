@@ -93,15 +93,16 @@ module run_control
 
 
 !=======================================================================
-  subroutine load_run_control()
+  subroutine load_run_control(input_file)
   use math
+  character(len=*), intent(in) :: input_file
 
   integer, parameter :: iu = 23
 
 
   ! load run control on first processor
   if (firstP) then
-     open  (iu, file='run_input', err=5000)
+     open  (iu, file=input_file, err=5000)
      read  (iu, RunControl, end=5000)
      close (iu)
 

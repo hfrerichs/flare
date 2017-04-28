@@ -45,8 +45,9 @@ module numerics
 
 
   !---------------------------------------------------------------------
-  subroutine load_numerics()
+  subroutine load_numerics(input_file)
   use parallel
+  character(len=*), intent(in) :: input_file
 
   integer, parameter :: iu = 23
 
@@ -58,7 +59,7 @@ module numerics
   ! load numerical parameters on first processor
   if (firstP) then
      write (6, 1000)
-     open  (iu, file='run_input')
+     open  (iu, file=input_file)
      read  (iu, NumericsControl, end=1001)
  1001 continue
      close (iu)

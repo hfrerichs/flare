@@ -2,37 +2,62 @@
 
 ###############################################################################
 # predefine parameter
-run="run.conf"
-NCPU=1
+procs=1
+run_default="run.conf"
 ###############################################################################
 
 
 ###############################################################################
-# search argument list
-for arg in "$@"; do
-    par=${arg%%=*}
-    val=${arg##*=}
-    if [ "$par" == "run" ]; then
-        run=$val
-    elif [ "$par" == "ncpu" ]; then
-        NCPU=$val
-    elif [ "$arg" == "-debug" ]; then
-        FLAG_DEBUG=1
-    else
-        echo "error: unkown parameter " $arg
+# run control
+run_conf="$2"
+if [ "$1" == "run" ]; then
+    shift
+    if [ $# -eq 0 ]; then
+        echo "error: missing argument for run control file!"
         exit -1
     fi
-done
-###############################################################################
+    shift
 
+elif [ "$1" == "import" ]; then
+    shift
+    if [ $# -eq 0 ]; then
+        echo "error: filename missing for import equilibrium!"
+        exit -1
+    fi
+    shift
 
-###############################################################################
-# check for run configuration
-if [ ! -f "$run" ]; then
-	echo error: missing file "$run"; echo
-	exit -1
+else
+    run_conf=$run_default
 fi
-cp $run run_input
+
+
+# browse through remaining argument list
+while test $# -gt 0
+do
+    # parallel execution
+    if [ "$1" == "parallel" ]; then
+        shift
+        if [ ! -z "${1##*[!0-9]*}" ]; then
+            procs=$1
+        else
+            echo "error: number of processes missing for argument 'parallel'!"
+            exit -1
+        fi
+
+
+    # debug mode
+    elif [ "$1" == "debug" ]; then
+        FLAG_DEBUG=1
+
+
+    # undefined argument
+    else
+        echo "error: undefined argument $1"
+        exit -1
+    fi
+
+    shift
+done
 ###############################################################################
 
 
@@ -47,23 +72,16 @@ FLARE_PATH=$(dirname "$SCRIPT")
 
 
 if [ "$FLAG_DEBUG" == "" ]; then
-	if [ "$NCPU" == 1 ]; then
-		$FLARE_PATH/flare_bin
+	if [ "$procs" == 1 ]; then
+		$FLARE_PATH/flare_bin $run_conf
 	else
-		mpiexec -n $NCPU $FLARE_PATH/flare_bin
+		mpiexec -n $procs $FLARE_PATH/flare_bin $run_conf
 	fi
 else # for debugging only
-	if [ "$NCPU" == 1 ]; then
-		gdb $FLARE_PATH/flare_bin_debug
+	if [ "$procs" == 1 ]; then
+		gdb $FLARE_PATH/flare_bin_debug $run_conf
 	else
-		mpiexec -n $NCPU xterm -e gdb $FLARE_PATH/flare_bin_debug
+		mpiexec -n $procs xterm -e gdb $FLARE_PATH/flare_bin_debug $run_conf
 	fi
 fi
-###############################################################################
-
-
-###############################################################################
-# cleanup
-rm -rf input
-rm -rf run_input
 ###############################################################################
