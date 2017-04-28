@@ -162,13 +162,16 @@ module equilibrium
 ! Load equilibrium configuration
 !=======================================================================
   subroutine load_equilibrium_config (iu, iconfig)
-  use run_control, only: Prefix, Debug, use_boundary_from_equilibrium
+  use run_control, only: Prefix, use_boundary_from_equilibrium
   use system
+  use m3dc1
+  use amhd
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
+  character(len=256)   :: filename
   integer              :: ix
-  real(real64)         :: r(3), x0(2)
+  real(real64)         :: r(3)
 
 
 ! 0. initialize
@@ -220,45 +223,27 @@ module equilibrium
 
 
 ! 2. load equilibrium data (if provided) ...............................
-  call load_equilibrium_data(iu, iconfig)
+  select case(i_equi)
+  case (EQ_M3DC1)
+     if (.not.m3dc1_loaded()) then
+        write (6, *) 'error: M3D-C1 data not loaded, cannot set up equilbrium!'
+        stop
+     endif
+
+  case (EQ_AMHD)
+     call amhd_load (iu, iconfig, Ip, Bt, R0)
+     if (M%R_estimate <= 0.d0) M%R_estimate = R0
+     if (Xp(1)%R_estimate <= 0.d0) call amhd_get_Xp1(Xp(1)%R_estimate, Xp(1)%Z_estimate)
+
+  case default
+     filename = trim(Prefix)//Data_File
+     call load_equilibrium_data(filename)
+  end select
   call setup_equilibrium()
 
 
 ! 3. setup magnetic axis ...............................................
-  ! 3.1 find magnetic axis from estimated position
-  if (M%R_estimate > 0.d0) then
-     x0(1)    = M%R_estimate
-     x0(2)    = M%Z_estimate
-     M%X      = find_x(x0)
-
-     r(1:2)   = M%X; r(3) = 0.d0
-     M%Psi    = get_Psi(r)
-     Psi_Axis = M%Psi
-     call setup_magnetic_axis_2D (r(1), r(2))
-  endif
-
-  ! setup user defined magnetic axis (if provided) .....................
-  ! 3.2. axisymmetric configuration
-  if (R_axis > 0.d0) then
-     call setup_magnetic_axis_2D (R_axis, Z_axis)
-
-     ! set pol. magn. flux on axis
-     r(1) = R_axis
-     r(2) = Z_axis
-     r(3) = 0.d0
-     Psi_axis = get_Psi(r)
-  endif
-
-  ! 3.3. non-axisymmetric configuration
-  if (Magnetic_Axis_File .ne. '') then
-     Data_File = trim(Prefix)//Magnetic_Axis_File
-     call load_magnetic_axis_3D (Data_File)
-
-     ! pol. magn. flux not supported for non-axisymmetric configurations
-     Psi_axis = 0.d0
-  endif
-  write (6, 3000) Psi_axis
-  write (6, *)
+  call setup_magnetic_axis()
 
 
 ! 4. set up X-points ...................................................
@@ -284,7 +269,6 @@ module equilibrium
  1000 iconfig  = 0
   use_boundary = .false.
  1001 format (3x,'- Equilibrium configuration:')
- 3000 format (8x,'Psi_axis = ', e12.4)
  5000 format (8x,'Psi_sepx = ', e12.4)
   end subroutine load_equilibrium_config
 !=======================================================================
@@ -292,30 +276,24 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine load_equilibrium_data(iu, iconfig)
+  subroutine load_equilibrium_data(filename)
   use run_control, only: Prefix
   use geqdsk
   use divamhd
-  use m3dc1
-  use amhd
 
-  integer, intent(in)  :: iu
-  integer, intent(out) :: iconfig
+  character(len=*), intent(in) :: filename
 
-  character(len=120) :: filename
   integer :: ierr
 
 
-  filename = trim(Prefix)//Data_File
-
 ! determine equilibrium type (if not provided) .........................
   if (i_equi == EQ_GUESS) then
-     if (Data_File == '') then
+     if (filename == '') then
         use_boundary = .false.
         return
      endif
 
-     i_equi = get_equilibrium_format(Data_File)
+     i_equi = get_equilibrium_format(filename)
   endif
 ! ... determine equilibrium type (done) ................................
 
@@ -338,19 +316,9 @@ module equilibrium
      end select
      if (M%R_estimate <= 0.d0) M%R_estimate = R0
 
-  case (EQ_M3DC1)
-     if (.not.m3dc1_loaded()) then
-        write (6, *) 'error: M3D-C1 data not loaded, cannot set up equilbrium!'
-        stop
-     endif
-
-  case (EQ_AMHD)
-     call amhd_load (iu, iconfig, Ip, Bt, R0)
-     if (M%R_estimate <= 0.d0) M%R_estimate = R0
-     if (Xp(1)%R_estimate <= 0.d0) call amhd_get_Xp1(Xp(1)%R_estimate, Xp(1)%Z_estimate)
 
   case default
-     write (6, *) 'error: cannot determine equilibrium type!'
+     write (6, *) 'error: cannot determine equilibrium format!'
      stop
   end select
 
@@ -420,6 +388,54 @@ module equilibrium
   EQBox(2,:) = Zbox
 
   end subroutine setup_equilibrium
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine setup_magnetic_axis()
+  use run_control, only: Prefix
+
+  real(real64)         :: r(3), x0(2)
+
+
+  ! 3.1 find magnetic axis from estimated position
+  if (M%R_estimate > 0.d0) then
+     x0(1)    = M%R_estimate
+     x0(2)    = M%Z_estimate
+     M%X      = find_x(x0)
+
+     r(1:2)   = M%X; r(3) = 0.d0
+     M%Psi    = get_Psi(r)
+     Psi_Axis = M%Psi
+     call setup_magnetic_axis_2D (r(1), r(2))
+  endif
+
+  ! setup user defined magnetic axis (if provided) .....................
+  ! 3.2. axisymmetric configuration
+  if (R_axis > 0.d0) then
+     call setup_magnetic_axis_2D (R_axis, Z_axis)
+
+     ! set pol. magn. flux on axis
+     r(1) = R_axis
+     r(2) = Z_axis
+     r(3) = 0.d0
+     Psi_axis = get_Psi(r)
+  endif
+
+  ! 3.3. non-axisymmetric configuration
+  if (Magnetic_Axis_File .ne. '') then
+     Data_File = trim(Prefix)//Magnetic_Axis_File
+     call load_magnetic_axis_3D (Data_File)
+
+     ! pol. magn. flux not supported for non-axisymmetric configurations
+     Psi_axis = 0.d0
+  endif
+  write (6, 3000) Psi_axis
+  write (6, *)
+
+ 3000 format (8x,'Psi_axis = ', e12.4)
+  end subroutine setup_magnetic_axis
 !=======================================================================
 
 
@@ -1590,7 +1606,7 @@ module equilibrium
 
 
   ! store minima/maxima
-  open  (iu, file='minima_and_maximat.dat')
+  open  (iu, file='minima_and_maxima.dat')
   do k=1,indm
      x = xm(k,:)
      write (iu, *) x, get_PsiN(x)

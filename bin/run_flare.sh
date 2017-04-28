@@ -9,25 +9,39 @@ run_default="run.conf"
 
 ###############################################################################
 # run control
-run_conf="$2"
+arg_list="$1"
+
+# provide user defined run control file
 if [ "$1" == "run" ]; then
     shift
     if [ $# -eq 0 ]; then
         echo "error: missing argument for run control file!"
         exit -1
     fi
+
+    run_conf="$1"
+    if [ ! -f "$run_conf" ]; then
+        echo "error: run control file $run_conf does not exist!"
+        exit -1
+    fi
+    arg_list="$arg_list $run_conf"
     shift
 
+
+# import equilibrium into database
 elif [ "$1" == "import" ]; then
     shift
     if [ $# -eq 0 ]; then
         echo "error: filename missing for import equilibrium!"
         exit -1
     fi
+    arg_list="$arg_list $1"
     shift
 
+
+# use default run control file
 else
-    run_conf=$run_default
+    arg_list="run $run_default"
 fi
 
 
@@ -73,15 +87,15 @@ FLARE_PATH=$(dirname "$SCRIPT")
 
 if [ "$FLAG_DEBUG" == "" ]; then
 	if [ "$procs" == 1 ]; then
-		$FLARE_PATH/flare_bin $run_conf
+		$FLARE_PATH/flare_bin $arg_list
 	else
-		mpiexec -n $procs $FLARE_PATH/flare_bin $run_conf
+		mpiexec -n $procs $FLARE_PATH/flare_bin $arg_list
 	fi
 else # for debugging only
 	if [ "$procs" == 1 ]; then
-		gdb $FLARE_PATH/flare_bin_debug $run_conf
+		gdb --args $FLARE_PATH/flare_bin_debug $arg_list
 	else
-		mpiexec -n $procs xterm -e gdb $FLARE_PATH/flare_bin_debug $run_conf
+		mpiexec -n $procs xterm -e gdb $FLARE_PATH/flare_bin_debug $arg_list
 	fi
 fi
 ###############################################################################

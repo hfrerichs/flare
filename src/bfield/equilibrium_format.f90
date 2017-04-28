@@ -2,6 +2,15 @@ module equilibrium_format
   use iso_fortran_env
   implicit none
 
+  character(len=*), parameter :: EQ_FORMAT(-1:5) = &
+     (/'guess    ', &
+       'undefined', &
+       'geqdsk   ', &
+       'divamhd  ', &
+       'sonnet   ', &
+       'm3dc1    ', &
+       'amhd     '/)
+
   character(len=*), parameter :: &
      S_GEQDSK       = 'geqdsk', &
      S_GEQDSK_FREE  = 'geqdsk*', &

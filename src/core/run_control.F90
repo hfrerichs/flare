@@ -71,7 +71,7 @@ module run_control
 
 
   ! internal variables
-  character*120 :: Prefix, &
+  character*120 :: Prefix = '', &
                    Boundary_Prefix, &
                    Bfield_input_file
 

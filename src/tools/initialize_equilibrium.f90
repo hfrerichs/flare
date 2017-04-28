@@ -89,8 +89,54 @@ subroutine initialize_equilibrium()
 
 
   ! 6. set up X-points
-  call setup_xpoints()
+  !call setup_xpoints()
 
  1020 format(3x,'- Generate separatrix for X-point')
  1021 format(8x,i0)
 end subroutine initialize_equilibrium
+
+
+
+
+
+subroutine import_equilibrium()
+  use equilibrium_format
+  use equilibrium
+
+  integer, parameter :: iu = 99
+  character(len=128) :: filename
+  character(len=32)  :: s, fileformat
+
+
+  call get_command_argument(2, filename)
+  write (6, *) "Importing equilibrium from file ", trim(filename)
+
+
+  call get_command_argument(3, s)
+  select case(s)
+  case('')
+     i_equi = EQ_GUESS
+
+!  case('format')
+!     call get_command_argument(4, fileformat)
+
+  case default
+     write (6, *) 'error: invalid argument ', trim(s), '!'
+     stop
+  end select
+  call load_equilibrium_data(filename)
+  call setup_equilibrium()
+  call setup_magnetic_axis()
+
+
+  call initialize_equilibrium()
+  open  (iu, file='bfield.conf')
+  write (iu, 1000)
+  write (iu, 1001) trim(filename)
+  write (iu, 1002)
+  close (iu)
+
+ 1000 format("&Equilibrium_Input")
+ 1001 format(2x,"Data_file    = '",a,"'")
+ 1002 format("/")
+end subroutine import_equilibrium
