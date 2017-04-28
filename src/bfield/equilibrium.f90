@@ -3,29 +3,12 @@
 !===============================================================================
 module equilibrium
   use iso_fortran_env
+  use equilibrium_format
   use magnetic_axis
   use curve2D
   use bfield_component
   use sonnet
   implicit none
-
-
-  character(len=*), parameter :: &
-     S_GEQDSK       = 'geqdsk', &
-     S_GEQDSK_FREE  = 'geqdsk*', &
-     S_DIVAMHD      = 'divamhd', &
-     S_SONNET       = 'sonnet', &
-     S_M3DC1        = 'm3dc1', &
-     S_AMHD         = 'amhd'
-
-  integer, parameter :: &
-     EQ_GUESS       = -1, &
-     EQ_UNDEFINED   = 0, &
-     EQ_GEQDSK      = 1, &
-     EQ_DIVAMHD     = 2, &
-     EQ_SONNET      = 3, &
-     EQ_M3DC1       = 4, &
-     EQ_AMHD        = 5
 
 
   integer, parameter :: nX_max = 20
@@ -319,10 +302,7 @@ module equilibrium
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
-  integer, parameter :: iu_scan = 17
-
   character(len=120) :: filename
-  character*80 :: s, stype
   integer :: ierr
 
 
@@ -334,22 +314,8 @@ module equilibrium
         use_boundary = .false.
         return
      endif
-     open  (iu_scan, file=filename)
-     read  (iu_scan, '(a80)') s
-     read  (s, *) stype
-     if (s(3:5) == 'TEQ'  .or.  stype(1:4) == 'EFIT') then
-        i_equi = EQ_GEQDSK
-     elseif (s(5:11) == 'jm   :=') then
-        i_equi = EQ_SONNET
-     else
-        read  (iu_scan, '(a80)') s
-        if (s(4:9) == 'File: ') then
-           i_equi = EQ_DIVAMHD
-        else
-           i_equi = EQ_UNDEFINED
-        endif
-     endif
-     close (iu_scan)
+
+     i_equi = get_equilibrium_format(Data_File)
   endif
 ! ... determine equilibrium type (done) ................................
 
