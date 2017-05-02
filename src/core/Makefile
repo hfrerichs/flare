@@ -12,7 +12,9 @@ OBJECTS =  \
                run_control.o\
                dataset.o\
                grid.o\
+               bspline1D.o\
                bspline2D.o\
+               bspline3D.o\
                cspline.o\
                Q4.o\
                search.o\
