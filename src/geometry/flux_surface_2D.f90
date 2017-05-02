@@ -63,7 +63,7 @@ module flux_surface_2D
   use ode_solver
   use boundary
   use math
-  use numerics, only: OUT_OF_BOUNDS
+  use exceptions, only: OUT_OF_BOUNDS
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: r(2)
   
@@ -269,7 +269,7 @@ module flux_surface_2D
   use boundary
   use math
   use curve2D
-  use numerics, only: OUT_OF_BOUNDS
+  use exceptions, only: OUT_OF_BOUNDS
   class(t_flux_surface_2D)   :: this
   real(real64),  intent(in)  :: xinit(2)
   integer,       intent(in)  :: direction

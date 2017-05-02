@@ -3,6 +3,7 @@ include ../../include.mk
 
 OBJECTS =  \
                system.o\
+               exceptions.o\
                string.o\
                quicksort.o\
                math.o\

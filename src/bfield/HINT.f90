@@ -74,7 +74,7 @@ module HINT
   function HINT_get_Bf(r) result(Bf)
   use kind_spec
   use cylindrical_coord_mod, only: mgval1, rminb, rmaxb, zminb, zmaxb
-  use numerics,              only: OUT_OF_BOUNDS
+  use exceptions,            only: OUT_OF_BOUNDS
   real(real64), intent(in) :: r(3)
   real(real64)             :: Bf(3)
 
@@ -110,7 +110,7 @@ module HINT
   use kind_spec
   use spline_mod,            only: l3d
   use cylindrical_coord_mod, only: mgval2, rminb, rmaxb, zminb, zmaxb
-  use numerics,              only: OUT_OF_BOUNDS
+  use exceptions,            only: OUT_OF_BOUNDS
   real(real64), intent(in) :: r(3)
   real(real64)             :: JBf(3,3)
 

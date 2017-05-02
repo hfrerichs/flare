@@ -1039,7 +1039,7 @@ module equilibrium
 !=======================================================================
   function correct_PsiN(r0, PsiN_target, ierr, ds, delta_PsiN, iterations, debug) result(rc)
   use math
-  use numerics, only: OUT_OF_BOUNDS
+  use exceptions, only: OUT_OF_BOUNDS
   real(real64), intent(in)  :: r0(2)
   real(real64), intent(in)  :: PsiN_target
   integer,      intent(out) :: ierr

@@ -52,7 +52,7 @@ module bfield_component
 
   !=====================================================================
   function out_of_bounds(this, r)
-  use numerics, only: OUT_OF_BOUNDS_FLAG => OUT_OF_BOUNDS
+  use exceptions, only: OUT_OF_BOUNDS_FLAG => OUT_OF_BOUNDS
   class(t_bfield)                        :: this
   real(real64), dimension(:), intent(in) :: r
   logical                                :: out_of_bounds

@@ -131,7 +131,7 @@ module fieldline
 !=======================================================================
   function trace_1step_ODE(this) result(dl)
   use equilibrium
-  use numerics, only: OUT_OF_BOUNDS
+  use exceptions, only: OUT_OF_BOUNDS
   class(t_fieldline), intent(inout) :: this
   real(real64) :: dl
 
@@ -238,7 +238,7 @@ module fieldline
 !        2 if OUT_OF_BOUNDS
 !=======================================================================
   subroutine trace_Dphi(this, Dphi, stop_at_boundary, yout, ierr)
-  use numerics
+  use exceptions, only: OUT_OF_BOUNDS
   class (t_fieldline)       :: this
   real(real64), intent(in)  :: Dphi
   logical,      intent(in)  :: stop_at_boundary
