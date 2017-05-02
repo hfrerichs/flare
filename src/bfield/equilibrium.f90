@@ -237,7 +237,11 @@ module equilibrium
 
   case default
      filename = trim(Prefix)//Data_File
-     call load_equilibrium_data(filename)
+     if (Data_File == '') then
+        use_boundary = .false.
+     else
+        call load_equilibrium_data(filename)
+     endif
   end select
   call setup_equilibrium()
 
@@ -287,14 +291,7 @@ module equilibrium
 
 
 ! determine equilibrium type (if not provided) .........................
-  if (i_equi == EQ_GUESS) then
-     if (filename == '') then
-        use_boundary = .false.
-        return
-     endif
-
-     i_equi = get_equilibrium_format(filename)
-  endif
+  if (i_equi == EQ_GUESS) i_equi = get_equilibrium_format(filename)
 ! ... determine equilibrium type (done) ................................
 
 
