@@ -126,17 +126,12 @@ module toroidal_harmonics
      Z1D(j) = Z(1,j)
   enddo
 
-  call this%Bn(1,1)%new(nr, nz, 4, R1D, Z1D, B_Rc)
-  call this%Bn(1,2)%new(nr, nz, 4, R1D, Z1D, B_Rs)
-  call this%Bn(2,1)%new(nr, nz, 4, R1D, Z1D, B_Zc)
-  call this%Bn(2,2)%new(nr, nz, 4, R1D, Z1D, B_Zs)
-  call this%Bn(3,1)%new(nr, nz, 4, R1D, Z1D, B_Pc)
-  call this%Bn(3,2)%new(nr, nz, 4, R1D, Z1D, B_Ps)
-  do i=1,3
-  do j=1,2
-     call this%Bn(i,j)%setup()
-  enddo
-  enddo
+  call this%Bn(1,1)%init(nr, nz, R1D, Z1D, B_Rc, 4)
+  call this%Bn(1,2)%init(nr, nz, R1D, Z1D, B_Rs, 4)
+  call this%Bn(2,1)%init(nr, nz, R1D, Z1D, B_Zc, 4)
+  call this%Bn(2,2)%init(nr, nz, R1D, Z1D, B_Zs, 4)
+  call this%Bn(3,1)%init(nr, nz, R1D, Z1D, B_Pc, 4)
+  call this%Bn(3,2)%init(nr, nz, R1D, Z1D, B_Ps, 4)
 
   this%R_range(0) = R( 1, 1)
   this%R_range(1) = R(nr, 1)

@@ -9,17 +9,10 @@ module bspline2D
 
 
   type, public :: t_bspline2D
-     ! raw data on nodes
-     real(real64), dimension(:,:), allocatable :: d
-     ! node coordinates
-     real(real64), dimension(:),   allocatable :: x, y
-
      ! coefficients for spline interpolation
      real(real64), dimension(:,:), allocatable :: dcoeff
      real(real64), dimension(:),   allocatable :: xnot, ynot
 
-     ! Rc: center major radius, w: width, h: height
-     !real(real64) :: Rc, Zc, w, h
      integer      :: nx, ny
 
      ! spline interpolation order
@@ -28,11 +21,7 @@ module bspline2D
      contains
      procedure :: new
      procedure :: init
-     !procedure :: default_geometry
-     !procedure :: load
-     !procedure :: store
      procedure :: broadcast
-     procedure :: setup
      procedure :: eval
      procedure :: derivative
      procedure :: cleanup
@@ -44,18 +33,15 @@ module bspline2D
 
 
 !=======================================================================
-! initialize new dataset for interpolation
+! allocate memory for spline coefficients and knots
 !
 ! nx, ny               resolution in x and y direction
 ! nord                 spline interpolation order
 !=======================================================================
-  subroutine new(this, nx, ny, nord, x, y, D)
+  subroutine new(this, nx, ny, nord)
   class(t_bspline2D)  :: this
   integer, intent(in) :: nx, ny
   integer, intent(in), optional :: nord
-  real(real64), intent(in), optional :: x(nx), y(ny), D(nx,ny)
-
-  integer :: i, j, k
 
 
   this%nx   = nx
@@ -65,24 +51,11 @@ module bspline2D
   else
      this%nord = 5
   endif
+  call this%cleanup()
 
 
-  if (allocated(this%d)) deallocate(this%d)
-  allocate (this%d(nx, ny))
-
-  if (allocated(this%x)) deallocate(this%x, this%y)
-  allocate (this%x(nx), this%y(ny))
-
-  if (allocated(this%xnot)) deallocate(this%xnot, this%ynot)
-  allocate (this%xnot  (this%nx  +this%nord), &
-            this%ynot  (this%ny  +this%nord))
-
-  if (allocated(this%dcoeff)) deallocate(this%dcoeff)
-  allocate (this%dcoeff(this%nx, this%ny))
-
-  if (present(x)) this%x = x
-  if (present(y)) this%y = y
-  if (present(D)) this%d = D
+  allocate (this%xnot(nx+this%nord), this%ynot(ny+this%nord))
+  allocate (this%dcoeff(nx, ny))
 
   end subroutine new
 !=======================================================================
@@ -102,113 +75,14 @@ module bspline2D
   integer,      intent(in), optional :: nord
 
 
-  this%nx   = nx
-  this%ny   = ny
-  if (present(nord)) then
-     this%nord = nord
-  else
-     this%nord = 5
-  endif
+  call this%new(nx, ny, nord)
 
-
-  if (allocated(this%xnot))   deallocate(this%xnot)
-  if (allocated(this%ynot))   deallocate(this%ynot)
-  if (allocated(this%dcoeff)) deallocate(this%dcoeff)
-
-
-  allocate (this%xnot(nx+this%nord), this%ynot(ny+this%nord))
-  allocate (this%dcoeff(nx, ny))
   call dbsnak(nx, x, this%nord, this%xnot)
   call dbsnak(ny, y, this%nord, this%ynot)
   call dbs2in(nx, x, ny, y, D, &
               nx, this%nord, this%nord, this%xnot, this%ynot, this%dcoeff)
 
   end subroutine init
-!=======================================================================
-
-
-
-!=======================================================================
-!  subroutine default_geometry
-
-!  do i=1,this%nr
-!     this%R(i)   = this%Rc + this%w * (-0.5d0 + 1.d0 * (i-1) / (this%nr-1))
-!  enddo
-
-!  do j=1,this%nz
-!     this%Z(j)   = this%Zc + this%h * (-0.5d0 + 1.d0 * (j-1) / (this%nz-1))
-!  enddo
-
-!  do k=1,this%nphi
-!     this%Phi(k) = 2.d0*pi / this%nsym * (k-1) / (this%nphi-1)
-!  enddo
-
-!  end subroutine default_geometry
-!=======================================================================
-
-
-
-!=======================================================================
-!  subroutine load(this, filename)
-!  class(t_interpolate3D)       :: this
-!  character(len=*), intent(in) :: filename
-!
-!  integer, parameter :: iu = 32
-!
-!  integer      :: i, nr, nz, nphi, nsym
-!  real(real64) :: Rc, Zc, w, h
-!
-!
-!  open  (iu, file=filename)
-!  read  (iu, *) nr, nz, nphi, nsym
-!  read  (iu, *) Rc, Zc, w,    h
-!  call this%new(nr, nz, Rc, Zc, w, h, nphi, nsym)
-!  do i=1,this%nphi
-!     read  (iu, *) this%d(:,:,i)
-!  enddo
-!  call this%setup()
-!  close (iu)
-!
-!  end subroutine load
-!=======================================================================
-
-
-
-!=======================================================================
-!  subroutine store(this, filename)
-!  class(t_interpolate3D)       :: this
-!  character(len=*), intent(in) :: filename
-!
-!  integer, parameter :: iu = 32
-!  integer :: i
-!
-!
-!  open  (iu, file=filename)
-!  write (iu, *) this%nr, this%nz, this%nphi, this%nsym
-!  write (iu, *) this%Rc, this%Zc, this%w,    this%h
-!  do i=1,this%nphi
-!     write (iu, *) this%d(:,:,i)
-!  enddo
-!  close (iu)
-!
-!  end subroutine store
-!=======================================================================
-
-
-
-!=======================================================================
-  subroutine setup(this)
-  class(t_bspline2D)   :: this
-
-
-  call dbsnak (this%nx, this%x, this%nord, this%xnot)
-  call dbsnak (this%ny, this%y, this%nord, this%ynot)
-
-  call dbs2in (this%nx, this%x, this%ny, this%y, this%d, &
-               this%nx, this%nord, this%nord, &
-               this%xnot, this%ynot, this%dcoeff)
-
-  end subroutine setup
 !=======================================================================
 
 
@@ -222,11 +96,9 @@ module bspline2D
   call broadcast_inte_s(this%nx)
   call broadcast_inte_s(this%ny)
   call broadcast_inte_s(this%nord)
-
-  ! broadcast raw data
-!  call broadcast_real  (this%x, this%nx)
-!  call broadcast_real  (this%y, this%ny)
-!  call broadcast_real  (this%d, this%nx*this%ny)
+  if (mype > 0) then
+     call this%new(this%nx, this%ny, this%nord)
+  endif
 
   ! broadcast spline coefficients
   call broadcast_real  (this%xnot, this%nx + this%nord)
@@ -274,12 +146,8 @@ module bspline2D
   class(t_bspline2D) :: this
 
 
-  if (allocated(this%x)) deallocate(this%x)
-  if (allocated(this%y)) deallocate(this%y)
-  if (allocated(this%d)) deallocate(this%d)
-
-  if (allocated(this%xnot)) deallocate(this%xnot)
-  if (allocated(this%ynot)) deallocate(this%ynot)
+  if (allocated(this%xnot))   deallocate(this%xnot)
+  if (allocated(this%ynot))   deallocate(this%ynot)
   if (allocated(this%dcoeff)) deallocate(this%dcoeff)
 
   end subroutine cleanup
