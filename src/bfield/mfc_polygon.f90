@@ -356,6 +356,7 @@ module mfc_polygon
   n = this%n_seg
   if (mype > 0) then
      allocate (this%X(0:n), this%Y(0:n), this%Z(0:n))
+     allocate (this%dx(0:n), this%dy(0:n), this%dz(0:n), this%rp(0:n), this%rp1(0:n))
   endif
   call broadcast_real  (this%X, n+1)
   call broadcast_real  (this%Y, n+1)
