@@ -45,11 +45,17 @@ module mfc_polygon
   integer, intent(in)      :: iu
   real(real64), intent(in) :: I_scale
 
+  character(len=80) :: str
   real(real64) :: I0
   integer      :: i, n
 
 
-  read  (iu, *) n, I0
+  read  (iu, '(a80)') str
+  if (str(1:1) == '#') then
+     read  (str(2:len(str)), *) n, I0
+  else
+     read  (str, *) n, I0
+  endif
   this%n_seg = n
   this%I0    = I0 * I_scale
   allocate (this%X(0:n), this%Y(0:n), this%Z(0:n))

@@ -69,7 +69,7 @@ module polygones
   integer, parameter :: iu = 44
 
   character(len=256) :: input_file
-  character(len=80)  :: vv80
+  character(len=80)  :: str
   integer :: i, io, j, j0, n
 
 
@@ -83,8 +83,17 @@ module polygones
         stop
      endif
 
-     read  (iu, 1001) vv80
-     read  (iu, *) n
+     read  (iu, 1001) str
+     if (str(1:1) == '#') then
+        read  (iu, 1001) str
+        if (str(1:1) == '#') then
+           read (str(2:len(str)), *) n
+        else
+           read (str, *) n
+        endif
+     else
+        read (str, *) n
+     endif
      n_coils = n_coils + n
      close (iu)
   enddo
@@ -96,9 +105,18 @@ module polygones
   do i=1,n_sets
      input_file = trim(Prefix)//Poly_file(i)
      open  (iu, file=input_file, iostat=io)
-     read  (iu, 1001) vv80
-     read  (iu, *) n
-     write (6,  1002) vv80
+     read  (iu, 1001) str
+     if (str(1:1) == '#') then
+        write (6,  1002) trim(str(2:len(str)))
+        read  (iu, 1001) str
+        if (str(1:1) == '#') then
+           read (str(2:len(str)), *) n
+        else
+           read (str, *) n
+        endif
+     else
+        read (str, *) n
+     endif
 
      do j=1,n
         call C(j0+j)%load(iu, I_scale(i))
@@ -110,7 +128,7 @@ module polygones
 
  2000 format ('error reading polygon file: ',a)
  1001 format (a80)
- 1002 format (3x,'- ',a80)
+ 1002 format (3x,'- ',a)
   end subroutine setup_polygones
 !=======================================================================
 
