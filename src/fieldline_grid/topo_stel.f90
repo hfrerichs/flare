@@ -176,7 +176,7 @@ module modtopo_stel
  1001 format(8x,'loading from file "',a,'"')
  1002 format(8x,'expanding surface by dl=',f0.3)
  1003 format(8x,'sorting points with respect to geometric poloidal angle')
- 1004 format(8x,'generating flux surace from reference point at (',f0.3,', ',f0.3,', ',f0.3,')')
+ 1004 format(8x,'generating flux surface from reference point at (',f0.3,', ',f0.3,', ',f0.3,')')
  1005 format(8x,'writing boundary surface to file "',a,'"')
  1006 format(8x,'resampling surface with ',i0,' points')
  1007 format(8x,'loading shape from boundary ',i0)

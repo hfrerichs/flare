@@ -98,7 +98,7 @@ if type mpif90 >/dev/null 2>/dev/null; then
 	echo "Compiling with MPI support" | tee -a $LOG_FILE
 	echo "COMPILER       = mpif90 -DMPI" >> include.mk
 elif type ifort >/dev/null 2>/dev/null; then
-	echo "Using Inter Fortran compiler" | tee -a $LOG_FILE
+	echo "Using Intel Fortran compiler" | tee -a $LOG_FILE
 	echo "COMPILER       = ifort" >> include.mk
 elif type gfortran >/dev/null 2>/dev/null; then
 	echo "Using GNU Fortran compiler" | tee -a $LOG_FILE
