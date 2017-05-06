@@ -30,7 +30,8 @@ module polygones
      read_polygones_config, &
      broadcast_mod_polygones, &
      get_Bcart_polygones, &
-     get_Bcyl_polygones
+     get_Bcyl_polygones, &
+     get_JBf_cyl_polygones
 
   contains
 !=======================================================================
@@ -172,6 +173,26 @@ module polygones
   Bf(3)   = -Bcart(1) * sin_phi  +  Bcart(2) * cos_phi
 
   end function get_Bcyl_polygones
+!=======================================================================
+
+
+
+!=======================================================================
+  function get_JBf_cyl_polygones(r) result(JBf)
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: JBf(3,3)
+
+  integer :: i
+
+
+  JBf = 0.d0
+  do i=1,n_coils
+     JBf = JBf + C(i)%get_JBf_cyl(r)
+  enddo
+
+  JBf = JBf * 1.d2 ! T/m -> Gauss/cm
+
+  end function get_JBf_cyl_polygones
 !=======================================================================
 
 end module polygones
