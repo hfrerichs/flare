@@ -485,7 +485,10 @@ module fieldline_grid
         Block(ib)%it_base = Block(ib)%nt / 2
 
         ! default base plane in 1st block in stellarator symmetric configurations is 0
-        if (stellarator_symmetry  .and.  ib==0) Block(ib)%it_base = 0
+        if (stellarator_symmetry  .and.  ib==0) then
+           Block(ib)%it_base = 0
+           default_decomposition = .false.
+        endif
      else
         default_decomposition = .false.
      endif
