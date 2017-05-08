@@ -89,7 +89,7 @@ module fieldline_grid
      poloidal_spacing_L(0:max_layers-1) = '', &
      poloidal_spacing_R(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
-     guiding_surface                  = '', &
+     guiding_surface(0:max_blocks-1)  = '', &
      N0_file(0:max_layers-1)          = '', &
      vacuum_domain(0:max_layers-1)    = '', &
      core_domain                      = CORE_EXTRAPOLATE, &

@@ -61,7 +61,7 @@ module modtopo_stel
 
 
   !=====================================================================
-  subroutine setup_domain()
+  subroutine setup_domain(iblock)
   use run_control, only: Debug, N_points, Trace_Method
   use equilibrium
   use boundary
@@ -69,15 +69,16 @@ module modtopo_stel
   use divertor, only: Pmag
   use string
 
-  character(len=len(guiding_surface)) :: command, argument
-  character(len=256)                  :: filename
+  integer, intent(in)  :: iblock
+
+  character(len=256)   :: filename, command, argument
   type(t_poincare_set) :: P
   real(real64)         :: phi0, x1(2), tmp(3), theta0, dl
   integer              :: i, iboundary, n, nsample
 
 
   ! 0. initialize magnetic axis
-  phi0   = Block(0)%phi_base / 180.d0 * pi
+  phi0   = Block(iblock)%phi_base / 180.d0 * pi
   tmp    = get_magnetic_axis(phi0); Pmag = tmp(1:2)
   x1     = x_in2(1:2)
   theta0 = get_poloidal_angle(x_in2)
@@ -85,9 +86,9 @@ module modtopo_stel
 
   ! 1. set up outer simulation boundary
   write (6, 1000)
-  n = get_commands(guiding_surface)
+  n = get_commands(guiding_surface(iblock))
   do i=1,n
-     call read_command(guiding_surface, i, command, argument)
+     call read_command(guiding_surface(iblock), i, command, argument)
      select case(command)
      case('LOAD')
         write (6, 1001) trim(argument)
@@ -152,6 +153,7 @@ module modtopo_stel
 
 
   ! 2. set up inner simulation boundary and sampling
+  if (iblock > 0) return
   select case(poloidal_discretization)
   case(POLOIDAL_ANGLE)
      ! use geometric poloidal angle as reference coordinate
@@ -201,10 +203,10 @@ module modtopo_stel
   integer      :: iblock, iz
 
 
-  call setup_domain()
-
   do iblock=0,blocks-1
      write (6, *) iblock
+     call setup_domain(iblock)
+
 
      ! set zone indix
      iz  = iblock
@@ -229,7 +231,7 @@ module modtopo_stel
      call sample_flux_surface(M, B, nr(0), np(0), Zone(iz)%Sp)
      call interpolate_flux_surfaces(M, nr(0), np(0), 1, nr(0), Zone(iz)%Sr)
      call setup_inner_boundary0(iblock, G(iblock))
-     call force_up_down_symmetry(M, nr(0), np(0))
+     if (iblock == 0) call force_up_down_symmetry(M, nr(0), np(0))
 
 
      ! output
