@@ -40,18 +40,20 @@ module poincare_set
 ! nslice      number of slices within 0..360/nsym deg
 ! nsteps      number of trace steps between slices
 ! solver      id of ODE solver
+! offset      toroidal offset between reference point and first location for Poincare set
 !=======================================================================
-  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, stop_at_boundary)
+  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, stop_at_boundary, offset)
   use fieldline
   use equilibrium, only: get_poloidal_angle
   class(t_poincare_set)    :: this
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
   logical,      intent(in) :: stop_at_boundary
+  real(real64), intent(in), optional :: offset
 
   type (t_fieldline) :: F
-  real(real64)       :: ds, dl, L, theta, theta0
-  integer            :: islice, islice0, ipoint, istep
+  real(real64)       :: y1(3), ds, ds1, dl, theta, theta0
+  integer            :: islice, islice0, ipoint, istep, n
 
 
   ! prepare memory
@@ -67,11 +69,37 @@ module poincare_set
   this%nsym        = nsym
 
 
-  ds = pi2 / nsym / nslice / nsteps
-  L  = 0.d0
-  call F%init(y0, ds, solver, FL_ANGLE)
+  ! optional offset between reference point and location of first Poincare set
+  if (present(offset)) then
+     dl = offset
+     do
+        if (dl >= 0.d0) exit
+        dl = dl + pi2 / nsym
+     enddo
+  else
+     dl = 0.d0
+  endif
 
-  theta0 = get_poloidal_angle(y0) / pi * 180.d0
+
+  ds = pi2 / nsym / nslice / nsteps
+  ! trace initial/reference point to location of first Poincare set
+  if (dl > 0.d0) then
+     n   = ceiling(dl / ds)
+     ds1 = dl / n
+     call F%init(y0, ds, solver, FL_ANGLE)
+     do istep=1,n
+        dl = F%trace_1step()
+        if (stop_at_boundary  .and.  F%intersect_boundary()) return
+     enddo
+     y1  = F%rc
+  else
+     y1  = y0
+  endif
+
+
+  call F%init(y1, ds, solver, FL_ANGLE)
+
+  theta0 = get_poloidal_angle(y1) / pi * 180.d0
   main_loop: do ipoint=1,npoints
      slice_loop: do islice=1,nslice
         steps: do istep=1,nsteps

@@ -73,7 +73,7 @@ module modtopo_stel
 
   character(len=256)   :: filename, command, argument
   type(t_poincare_set) :: P
-  real(real64)         :: phi0, x1(2), tmp(3), theta0, dl
+  real(real64)         :: phi0, x1(2), tmp(3), theta0, dl, dphi
   integer              :: i, iboundary, n, nsample
 
 
@@ -110,9 +110,13 @@ module modtopo_stel
      case('FLUX_SURFACE')
         tmp = read_vector(argument, 3)
         write (6, 1004) tmp
-        ! set default number of points
-        if (N_points == 0) N_points = 1000
-        call P%generate(tmp, N_points, symmetry, 1, 3600/symmetry, Trace_Method, .false.)
+        tmp(3) = tmp(3) / 180.d0 * pi
+
+        if (N_points == 0) N_points = 1000 ! set default number of points
+
+        dphi = phi0 - tmp(3)               ! offset between reference position and base grid
+        call P%generate(tmp, N_points, symmetry, 1, 3600/symmetry, Trace_Method, .false., &
+                        offset=dphi)
         call B%new(P%slice(0)%nrow-1)
         B%x = P%slice(0)%x(:,1:2)
 
