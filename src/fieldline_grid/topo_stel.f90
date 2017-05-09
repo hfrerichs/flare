@@ -151,8 +151,19 @@ module modtopo_stel
      stop
   endif
 
+  ! prepare outer boundary for sampling
+  select case(poloidal_discretization)
+  case(POLOIDAL_ANGLE)
+     call B%setup_angular_sampling(Pmag)
+
+  case(ARC_LENGTH)
+     call B%setup_length_sampling()
+
+  end select
+
 
   ! 2. set up inner simulation boundary and sampling
+  ! all boundaries are loaded at once, no need to reload for iblock > 0
   if (iblock > 0) return
   select case(poloidal_discretization)
   case(POLOIDAL_ANGLE)
@@ -160,15 +171,9 @@ module modtopo_stel
      theta0 = 0.d0
      call load_inner_boundaries(theta0)
 
-     ! setup outer boundary
-     call B%setup_angular_sampling(Pmag)
-
   case(ARC_LENGTH)
      theta0 = 0.d0
      call load_inner_boundaries(theta0, DISTANCE)
-
-     ! setup outer boundary
-     call B%setup_length_sampling()
 
   end select
 
