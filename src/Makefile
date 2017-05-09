@@ -65,7 +65,7 @@ $(VERSION_F90):
 
 .PHONY: debug
 debug:
-	$(MAKE) FC="$(FC_DEBUG)" PROGRAM="$(PROGRAM_DEBUG)"
+	$(MAKE) FC="$(FC_DEBUG)"
 
 
 .PHONY: clean

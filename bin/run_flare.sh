@@ -26,8 +26,6 @@ for arg in "$@"; do
         NCPU=$val
     elif [ "$arg" == "-debug" ]; then
         FLAG_DEBUG=1
-    elif [ "$arg" == "-no_debugger" ]; then
-        FLAG_NO_DEBUGGER=1
     else
         echo "error: unkown parameter " $arg
         exit -1
@@ -63,15 +61,10 @@ if [ "$FLAG_DEBUG" == "" ]; then
 		mpiexec -n $NCPU $FLARE_PATH/flare_bin
 	fi
 else # for debugging only
-        if [ "$FLAG_NO_DEBUGGER" == 1 ]; then
-	    DEBUG_COMMAND_SERIAL=""
-	    DEBUG_COMMAND_PARALLEL_PRE=""
-	    DEBUG_COMMAND_POST_MPIEXEC=""
-	fi
 	if [ "$NCPU" == 1 ]; then
-	    $DEBUG_COMMAND_SERIAL $FLARE_PATH/flare_bin_debug
+	    $DEBUG_COMMAND_SERIAL $FLARE_PATH/flare_bin
 	else
-	    $DEBUG_COMMAND_PARALLEL_PRE mpiexec -n $NCPU $DEBUG_COMMAND_POST_MPIEXEC $FLARE_PATH/flare_bin_debug
+	    $DEBUG_COMMAND_PARALLEL_PRE mpiexec -n $NCPU $DEBUG_COMMAND_POST_MPIEXEC $FLARE_PATH/flare_bin
 	fi
 fi
 ###############################################################################

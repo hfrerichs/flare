@@ -15,7 +15,6 @@ install:
 
 	ln -sf $(PWD)/bin/run_flare.sh $(BIN_DIR)
 	ln -sf $(PWD)/bin/$(PROGRAM) $(BIN_DIR)
-	ln -sf $(PWD)/bin/$(PROGRAM_DEBUG) $(BIN_DIR)
 	mkdir -p $(DATA_DIR)/DIII-D
 	mkdir -p $(DATA_DIR)/ITER
 	mkdir -p $(DATA_DIR)/NSTX
@@ -37,7 +36,6 @@ clean:
 uninstall:
 	-rm -f $(BIN_DIR)/run_flare.sh
 	-rm -f $(BIN_DIR)/$(PROGRAM)
-	-rm -f $(BIN_DIR)/$(PROGRAM_DEBUG)
 	-rm -d $(BIN_DIR)
 	-rm -rf $(DATA_DIR)/DIII-D/mockup_1
 	-rm -rf $(DATA_DIR)/DIII-D/mockup_2
