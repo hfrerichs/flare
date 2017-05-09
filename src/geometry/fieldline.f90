@@ -62,6 +62,7 @@ module fieldline
   use numerics, only: Trace_Step_default   => Trace_Step, &
                       Trace_Method_default => Trace_Method, &
                       Trace_Coords_default => Trace_Coords
+  use exceptions, only: OUT_OF_BOUNDS
   use equilibrium
   class (t_fieldline) :: this
   real*8, intent(in)  :: y0(3)
@@ -70,6 +71,10 @@ module fieldline
 
   real*8  :: y1(3), ds
   integer :: tm
+
+
+  this%ierr     = 0
+  OUT_OF_BOUNDS = .false.
 
 
   ! set step size
@@ -119,7 +124,8 @@ module fieldline
   this%theta0    = this%thetac
   this%PsiNc     = get_PsiN(this%rc)
   this%Dphi      = 0.d0
-  this%ierr      = 0
+
+  if (OUT_OF_BOUNDS) this%ierr = 2
 
   end subroutine init
 !=======================================================================
