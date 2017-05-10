@@ -952,7 +952,7 @@ module fieldline_grid
   write (iu, 9999)
   write (iu, 3000)
   write (iu, 9999)
-  write (iu, *) -1
+  write (iu, *) -1, (1, iz=1,NZONET)
   write (iu, 3001)
   write (iu, 3002) .true.
  3000 format ('*** 3. physical cell definition')
@@ -965,6 +965,7 @@ module fieldline_grid
   !---------------------------------------------------------------------
   subroutine write_input_n0g
 
+  integer :: N0_DENS(4), DIA_SFS
   integer :: ir, iz, irun, n
 
 
@@ -1086,9 +1087,23 @@ module fieldline_grid
   write (iu, 9999)
   write (iu, 4001)
   close (iu)
- 4000 format ('*** 4 Additional surfaces')
+ 4000 format ('*** 4. Additional surfaces')
  4001 format ('./../../geometry/ADD_SF_N0')
+
+
+  ! 5. Diagnostics
+  write (iu, 9999)
+  write (iu, 5000)
+  write (iu, 5010)
+  N0_DENS = 0
+  write (iu, *) N0_DENS
+  write (iu, 5020)
+  DIA_SFS = 0
+  write (iu, *) DIA_SFS
   close (iu)
+ 5000 format ('*** 5. Neutral gas diagnostics')
+ 5010 format ('*** 5.1. Particle and energy densities for atoms and molecules')
+ 5020 format ('*** 5.2. Flux and spectrum on a given surface')
  9999 format ('*',32('-'))
 
   end subroutine write_input_n0g
