@@ -4,6 +4,14 @@
 # predefine parameter
 run="run.conf"
 NCPU=1
+DEBUG_COMMAND_SERIAL="gdb"
+DEBUG_COMMAND_PARALLEL_PRE=""
+DEBUG_COMMAND_POST_MPIEXEC="xterm -e gdb"
+
+#DEBUG_COMMAND_SERIAL="ddt --connect"
+#DEBUG_COMMAND_PARALLEL_PRE=$DEBUG_COMMAND_SERIAL
+#DEBUG_COMMAND_POST_MPIEXEC=""
+
 ###############################################################################
 
 
@@ -54,9 +62,9 @@ if [ "$FLAG_DEBUG" == "" ]; then
 	fi
 else # for debugging only
 	if [ "$NCPU" == 1 ]; then
-		gdb $FLARE_PATH/flare_bin_debug
+	    $DEBUG_COMMAND_SERIAL $FLARE_PATH/flare_bin
 	else
-		mpiexec -n $NCPU xterm -e gdb $FLARE_PATH/flare_bin_debug
+	    $DEBUG_COMMAND_PARALLEL_PRE mpiexec -n $NCPU $DEBUG_COMMAND_POST_MPIEXEC $FLARE_PATH/flare_bin
 	fi
 fi
 ###############################################################################
