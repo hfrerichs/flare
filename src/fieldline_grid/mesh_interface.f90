@@ -23,7 +23,7 @@ module mesh_interface
      ! adjacent zones:
      ! Z(-1) = zone on lower side of interface, i.e. interface is upper zone boundary
      ! Z( 1) = zone on upper side of interface, i.e. interface is lower zone boundary
-     integer :: Z(-1,1) = -1
+     integer :: Z(-1:1) = -1
 
 
      ! discretization of interface
