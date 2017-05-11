@@ -268,6 +268,7 @@ module fieldline
      endif
 
      if (OUT_OF_BOUNDS) then
+        yout = this%rl
         ierr = 2
         return
      endif
