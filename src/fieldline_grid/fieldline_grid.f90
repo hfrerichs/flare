@@ -381,6 +381,7 @@ module fieldline_grid
 
 !=======================================================================
   subroutine setup_grid_configuration
+  use run_control, only: run_control_file
   use equilibrium, only: get_cylindrical_coordinates
 
   integer, parameter :: iu = 12
@@ -402,7 +403,7 @@ module fieldline_grid
 
 
   ! 1. read user configuration from input file
-  open  (iu, file='run_input', err=9000)
+  open  (iu, file=run_control_file, err=9000)
   read  (iu, FieldlineGrid_Input, err=9000, end=9100)
   close (iu)
   if (blocks > max_blocks) then

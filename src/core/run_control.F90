@@ -73,7 +73,8 @@ module run_control
   ! internal variables
   character*120 :: Prefix = '', &
                    Boundary_Prefix, &
-                   Bfield_input_file
+                   Bfield_input_file, &
+                   run_control_file
 
 
   namelist /RunControl/ &
@@ -100,6 +101,7 @@ module run_control
   integer, parameter :: iu = 23
 
 
+  run_control_file = input_file
   ! load run control on first processor
   if (firstP) then
      open  (iu, file=input_file, err=5000)
