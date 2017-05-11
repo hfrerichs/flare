@@ -258,9 +258,6 @@ end subroutine TEST_setup_domain
   subroutine TEST_base_mesh
   use fieldline_grid
   use base_mesh
-  use modtopo_lsn
-  use modtopo_ddn
-  use modtopo_cdn
 
   integer, dimension(:), allocatable :: connectX
   integer            :: nX
@@ -268,6 +265,16 @@ end subroutine TEST_setup_domain
 
   ! load and initialize grid configuration
   call setup_grid_configuration()
+
+
+  select case(poloidal_discretization)
+  case(ORTHOGONAL)
+  case(ORTHOGONAL_STRICT)
+  case default
+     write (6, 9000) trim(poloidal_discretization)
+     stop
+  end select
+ 9000 format('error: invalid poloidal discretization method "',a,'"!')
 
 
   ! setup geometry of computational domain

@@ -461,7 +461,7 @@ module base_mesh
 ! SHOULD THIS BE MOVED TO MODULE fieldline_grid?
 !=======================================================================
   subroutine setup_geometry()
-  use fieldline_grid, only: guiding_surface, d_SOL, d_PFR
+  use fieldline_grid, only: guiding_surface, d_SOL, d_PFR, poloidal_discretization, ORTHOGONAL_STRICT
   use boundary,       only: S_axi, n_axi
   use equilibrium,    only: get_magnetic_axis, get_poloidal_angle, get_PsiN, Xp
   use math
@@ -723,6 +723,7 @@ module base_mesh
      call poloidal_interface(ipi)%C%plot(filename='R'//trim(str(ipi))//'.plt')
 
      ! check intersection with guiding surface
+     if (poloidal_discretization == ORTHOGONAL_STRICT) then
      if (poloidal_interface(ipi)%C%intersect_curve(C_guide, x, tau)) then
         write (6, 9420) ipi
 
@@ -733,6 +734,7 @@ module base_mesh
            write (6, 9421) dx * (1.d0 - tau)
         endif
         stop
+     endif
      endif
   enddo
 
@@ -1063,6 +1065,7 @@ module base_mesh
 
 
   write (6, 1000) il, iz0
+  if (Debug) write (6, 1001) Mtmp(iz0)%fixed_coord_value
   write (6, *) 'reference discretization at:'
 
 
@@ -1160,6 +1163,7 @@ module base_mesh
   enddo
 
  1000 format('Generate layer ', i0, ' from base element ', i0)
+ 1001 format(3x,'- reference discretization at: ',f0.3,' deg')
  9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
  9001 format('undefined reference nodes on radial boundary!')
  9002 format('undefined radial interface!')

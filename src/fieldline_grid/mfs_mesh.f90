@@ -344,7 +344,6 @@ module mfs_mesh
   ! set up nodes in poloidal range ip1->ip2 and radial range ir1->ir2
   write (6, 1000) ir0, ir1, ir2, ip0, ip1, ip2
   do ip=ip1,ip2
-     call progress(ip-ip1, ip2-ip1, 0.1d0)
      if (ip == ipx) then
         if (screen_output) write (6, *) ip, ix
         call R%generateX(ix,         direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
@@ -419,7 +418,6 @@ module mfs_mesh
   endif
 
   do j=ip1,ip2
-     call progress(j-ip1, ip2-ip1, 0.1d0)
      x = M(ir2,j,:)
      call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1_max, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
 
@@ -560,6 +558,7 @@ module mfs_mesh
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
   subroutine make_divertor_grid(this, Rside, ip0, Z, ierr)
+  use run_control,    only: Debug
   use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
   use curve2D
@@ -673,7 +672,7 @@ module mfs_mesh
 
      ! generate flux surface from "upstream" location x to target
      call F%generate(x, dir, Trace_Step=0.1d0, AltSurf=C_guide)
-     !call F%plot(filename='F.plt', append=.true.)
+     if (Debug) call F%plot(filename='F.plt', append=.true.)
 
      ! generate nodes from which field lines connect to strike point x
      select case(dir)
