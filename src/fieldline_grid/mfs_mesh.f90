@@ -536,6 +536,12 @@ module mfs_mesh
         call F%trace_Dphi(Dphi, .false., y1, ierr)
         if (ierr .ne. 0) then
            write (6, 9000) ierr
+           write (6, *) 'reference point: ', y0
+           write (6, *) 'it, idir = ', it, idir
+           write (6, *) 'it_end   = ', it_end
+           write (6, *) 'it_base  = ', Z%it_base
+           write (6, *) 'Dphi[deg]= ', Dphi / pi * 180.d0
+           write (6, *) 'present location: ', y1
            stop
         endif
 
