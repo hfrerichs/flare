@@ -470,7 +470,7 @@ module base_mesh
   use string
 
   character(len=2) :: Sstr
-  real(real64)     :: dx, tmp(3), theta_cut, PsiN
+  real(real64)     :: dx, tmp(3), theta_cut, PsiN, x(2), tau
   integer          :: ix, ierr, iSOL, iPFR, ipi, jx, k, orientation, o(4)
 
 
@@ -664,6 +664,8 @@ module base_mesh
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
         call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
      endif
+     poloidal_interface(ipi+2)%inode(-1) = ix
+     poloidal_interface(ipi+3)%inode(-1) = ix
 
 
      ! additional PFRs from X-point in PFR of the primary X-point
@@ -679,6 +681,9 @@ module base_mesh
         call R(ix, ASCENT_RIGHT)%generateX(ix, o(ASCENT_RIGHT), LIMIT_LENGTH, d_PFR(iPFR))
         call R(ix, ASCENT_RIGHT)%flip()
         call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
+
+        poloidal_interface(ipi+2)%inode(-1) = UNDEFINED
+        poloidal_interface(ipi+3)%inode(-1) = UNDEFINED
      endif
      ! private flux region
      iPFR = iPFR + 1
@@ -702,6 +707,7 @@ module base_mesh
         call R(ix, DESCENT_PFR)%setup_linear(Xp(jx)%X, Xp(ix)%X-Xp(jx)%X)
         call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
      endif
+     poloidal_interface(ipi+4)%inode(1) = ix
 
 
      ! plot paths
@@ -715,6 +721,19 @@ module base_mesh
 
   do ipi=1,poloidal_interfaces
      call poloidal_interface(ipi)%C%plot(filename='R'//trim(str(ipi))//'.plt')
+
+     ! check intersection with guiding surface
+     if (poloidal_interface(ipi)%C%intersect_curve(C_guide, x, tau)) then
+        write (6, 9420) ipi
+
+        dx = poloidal_interface(ipi)%C%length()
+        if (poloidal_interface(ipi)%inode(-1) > 0) then
+           write (6, 9421) dx * tau
+        elseif (poloidal_interface(ipi)%inode( 1) > 0) then
+           write (6, 9421) dx * (1.d0 - tau)
+        endif
+        stop
+     endif
   enddo
 
 
@@ -734,6 +753,8 @@ module base_mesh
  3032 format(8x,'generating PFR segment from X-point ', i0, ' to X-point ', i0)
  3033 format(8x,'generating left PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
  3034 format(8x,'generating right PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 9420 format('ERROR: reference path for radial discretization (R',i0,'.plt) crosses guiding surface!')
+ 9421 format('d < ', f0.3, ' is required!')
   end subroutine setup_geometry
 !=======================================================================
 
