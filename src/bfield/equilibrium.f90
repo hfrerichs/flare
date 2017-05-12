@@ -223,6 +223,10 @@ module equilibrium
 
 
 ! 2. load equilibrium data (if provided) ...............................
+! determine equilibrium type (if not provided) .........................
+  if (i_equi == EQ_GUESS) i_equi = get_equilibrium_format(filename)
+! ... determine equilibrium type (done) ................................
+
   select case(i_equi)
   case (EQ_M3DC1)
      if (.not.m3dc1_loaded()) then
@@ -290,11 +294,6 @@ module equilibrium
   integer :: ierr
 
 
-! determine equilibrium type (if not provided) .........................
-  if (i_equi == EQ_GUESS) i_equi = get_equilibrium_format(filename)
-! ... determine equilibrium type (done) ................................
-
-
 
 ! load equilibrium data
   select case (i_equi)
@@ -313,9 +312,8 @@ module equilibrium
      end select
      if (M%R_estimate <= 0.d0) M%R_estimate = R0
 
-
   case default
-     write (6, *) 'error: cannot determine equilibrium format!'
+     write (6, *) 'error: equilibrium format undefined!'
      stop
   end select
 

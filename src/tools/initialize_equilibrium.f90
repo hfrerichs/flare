@@ -104,26 +104,38 @@ subroutine import_equilibrium()
   use equilibrium
 
   integer, parameter :: iu = 99
-  character(len=128) :: filename
-  character(len=32)  :: s, fileformat
+  character(len=128) :: filename, fileformat
+  logical            :: writeformat
 
 
   call get_command_argument(2, filename)
   write (6, *) "Importing equilibrium from file ", trim(filename)
 
 
-  call get_command_argument(3, s)
-  select case(s)
-  case('')
-     i_equi = EQ_GUESS
+  call get_command_argument(3, fileformat)
+  writeformat = .false.
+  write (6, *) 'equilibrium format will be determined automatically'
+  i_equi = get_equilibrium_format(filename)
+  if (i_equi == EQ_UNDEFINED) then
+     write (6, *) 'error: cannot determine equilibrium format!'
+     write (6, *)
+     write (6, *) 'Do you want to set the format explicitly?'
+     write (6, *)
+     write (6, *) '   1)  geqdsk'
+     write (6, *) '   2)  diva'
+     write (6, *) '   3)  sonnet'
+     write (6, *) '   q)  No, get me out of here!'
+     read  (5, *) fileformat
+     if (fileformat == 'q') return
 
-!  case('format')
-!     call get_command_argument(4, fileformat)
+     read  (fileformat, *) i_equi
+     if (i_equi <= 0  .or.  i_equi >= 3) then
+        write (6, *) 'error: invalid choice!'
+        stop
+     endif
+     writeformat = .true.
+  endif
 
-  case default
-     write (6, *) 'error: invalid argument ', trim(s), '!'
-     stop
-  end select
   call load_equilibrium_data(filename)
   call setup_equilibrium()
   call setup_magnetic_axis()
@@ -133,10 +145,13 @@ subroutine import_equilibrium()
   open  (iu, file='bfield.conf')
   write (iu, 1000)
   write (iu, 1001) trim(filename)
-  write (iu, 1002)
+  if (writeformat) write (iu, 1002) trim(fileformat)
+  write (iu, 1003)
   close (iu)
 
  1000 format("&Equilibrium_Input")
  1001 format(2x,"Data_file    = '",a,"'")
- 1002 format("/")
+ 1002 format(2x,"Data_format  = '",a,"'")
+ 1003 format("/")
+  contains
 end subroutine import_equilibrium
