@@ -55,7 +55,8 @@ module base_mesh
   ! guiding surface
   type(t_curve) :: C_guide
 
-  type(t_mfs_mesh), dimension(:), allocatable :: M, Mtmp
+  type(t_mfs_mesh), dimension(:), allocatable :: M
+  type(t_mfs_mesh), dimension(:), allocatable, target :: Mtmp
 
 
   public :: setup_topology

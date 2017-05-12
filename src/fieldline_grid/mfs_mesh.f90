@@ -18,6 +18,8 @@ module mfs_mesh
      POLOIDAL       = 2, &
      AUTOMATIC      = -1024
 
+  real(real64), parameter :: &
+     COMPRESSION_FACTOR = 0.2d0
 
 
   ! orthogonal, flux surface aligned mesh with strike point adjustment
@@ -26,6 +28,10 @@ module mfs_mesh
      integer :: &
         ir0 = -1, & ! reference radial surface for mesh generation
         ip0 = -1    ! reference poloidal surface for mesh generation
+
+     ! "upstream" poloidal neighbor
+     class(t_mfs_mesh), pointer  :: upn => null()
+     integer                     :: upn_side
 
      contains
      procedure :: initialize
@@ -36,6 +42,9 @@ module mfs_mesh
      procedure :: make_interpolated_submesh
      procedure :: make_divertor_grid
      procedure :: copy
+     procedure :: arclength ! calculate arclength on flux surface ir between nodes ip1 and ip2
+     procedure :: get_segment
+     procedure :: compress  ! compress part of flux surface
   end type t_mfs_mesh
 
 
@@ -70,7 +79,8 @@ module mfs_mesh
 ! side:		lower-to-upper or upper-to-lower boundary
 !=======================================================================
   subroutine connect_to(this, M, direction, side)
-  class(t_mfs_mesh)   :: this, M
+  class(t_mfs_mesh), target   :: this
+  class(t_mfs_mesh)   :: M
   integer, intent(in) :: direction, side
 
   real(real64), dimension(:,:,:), pointer :: M1, M2
@@ -140,6 +150,8 @@ module mfs_mesh
         M2(ir, ip2, :) = M1(ir, ip1, :)
      enddo
      M%ip0 = ip2
+     M%upn => this
+     M%upn_side = side
 
   case default
      write (6, 9000)
@@ -555,11 +567,15 @@ module mfs_mesh
 
 !=======================================================================
 ! Generate grid in divertor legs
+!
+! TODO: upstream = 0, downstream = np and flip orientation at the end?
+!
+! Rside: location of seed mesh
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
   subroutine make_divertor_grid(this, Rside, ip0, Z, ierr)
   use run_control,    only: Debug
-  use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor
+  use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor, poloidal_discretization, ORTHOGONAL_STRICT
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
   use curve2D
   use mesh_spacing
@@ -580,8 +596,10 @@ module mfs_mesh
   real(real64), dimension(:,:,:), pointer :: M
   real(real64), dimension(:,:), allocatable :: MSP
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L, dphi
-  integer       :: ir, ir0, ir1, ir2, ip, ips, ip1, ip2, dir, iextend, np_SP
+  real(real64)  :: Ladjust, Lu1, Lu2, Lcompress
+  integer       :: ir, ir0, ir1, ir2, ip, ips, dir, iextend, np_SP
   integer       :: it, its, it_start, it_end, dirT, downstream, nsub, np_skip
+  integer       :: ipu
 
 
   ! check intersection of R with guiding surface
@@ -613,10 +631,12 @@ module mfs_mesh
      dir        = RIGHT_HANDED
      downstream = 1
      ips        = this%np - np_SP
+     ipu        = 0
   case(UPPER)
      dir        = LEFT_HANDED
      downstream = -1
      ips        = np_SP
+     ipu        = this%np
      ! ip_ds    = 0
   end select
 
@@ -671,17 +691,41 @@ module mfs_mesh
      x = M(ir,ip0,:)
 
      ! generate flux surface from "upstream" location x to target
-     call F%generate(x, dir, Trace_Step=0.1d0, AltSurf=C_guide)
+     !call F%generate(x, dir, Trace_Step=0.1d0, AltSurf=C_guide)
+     call F%generate_branch(x, dir, ierr, reference_direction=CCW_DIRECTION, &
+             Trace_Step=0.1d0, cutoff_boundary=C_guide, stop_at_boundary=.false.)
+     ! A. successfull trace of flux surface to target
+     if (ierr == 0) then
+!        select case(dir)
+!        case(RIGHT_HANDED)
+           x = F%x(F%n_seg, :)
+!        case(LEFT_HANDED)
+!           x = F%x(0,:)
+!        end select
+        !write (99, *) x
+        L0 = F%length()
+
+     ! B. flux surface out of bounds, trace backwards to target and adjust upstream mesh
+     elseif (ierr == -1) then
+        write (6, *) 'x0 = ', x
+        ! adjust "upstream" location
+        ! 1. trace back to boundary
+        call F%generate_branch(x, -dir, ierr, reference_direction=CCW_DIRECTION, &
+                Trace_Step=0.1d0, cutoff_boundary=C_guide, stop_at_boundary=.false.)
+
+        ! point on boundary
+        x  = F%x(F%n_seg, :)
+        L0 = -F%length()
+
+     ! C. UNKOWN situation
+     else
+        write (6, *) 'error: t_flux_surface2D%generate_branch returned ierr = ', ierr
+        stop
+     endif
      if (Debug) call F%plot(filename='F.plt', append=.true.)
 
+
      ! generate nodes from which field lines connect to strike point x
-     select case(dir)
-     case(RIGHT_HANDED)
-        x = F%x(F%n_seg, :)
-     case(LEFT_HANDED)
-        x = F%x(0,:)
-     end select
-     !write (99, *) x
      call align_strike_points(x, TSP, MSP)
 
 
@@ -693,7 +737,6 @@ module mfs_mesh
 
 
      ! length on flux surface for strike point mesh
-     L0 = F%length()
      L  = 0.d0
      do it=TSP%it_base+dirT,it_end,dirT
         L = L + sqrt(sum(  (MSP(it-dirT,:)-MSP(it,:))**2))
@@ -701,7 +744,9 @@ module mfs_mesh
      enddo
 
      ! aligned strike point mesh extends beyond upstream reference location?
-     if (L > L0) then
+     ! -> adjust upstream location by L-L0
+     Ladjust = L - L0
+     if ((Ladjust > 0.d0)  .and.  poloidal_discretization == ORTHOGONAL_STRICT) then
         write (6, 9020) ir
         open  (iu_err, file='error_strike_point_mesh1.plt')
         write (iu_err, *) M(ir,ip0,:)
@@ -718,23 +763,57 @@ module mfs_mesh
         close (iu_err)
         stop
      endif
+     if (Ladjust > 0.d0) then
+        ! 0. how strong should we compress the mesh upstream?
+        Lcompress = COMPRESSION_FACTOR * Ladjust
+        if (Debug) write (6, 9021) ir, Ladjust, Lcompress
+ 9021 format('compressing upstream end of flux surface ',i0,' from ',f0.3,' into ',f0.3,' cm further upstream')
+
+        ! 1. inside this mesh
+        ! distance from upstream reference to upstream end
+        Lu1 = this%arclength(ir,ip0,ipu)
+        ! adjustment fits into this mesh
+        Lu2 = Ladjust + Lcompress - Lu1
+        if (Lu2 < 0.d0) then
+           write (6, 9022)
+        else
+           write (6, 9023) Lu2
+
+           if (Lu2 > Lcompress) then
+              write (6, 9024)
+              if (.not.associated(this%upn)) then
+                 write (6, *) 'error: pointer to upstream mesh not associated!'
+                 stop
+              endif
+              !call this%upn%compress(ir, ip0, ipu, Ladjust - Lu1, Lcompress)
+              call adjust_upstream()
+           else
+              write (6, 9025)
+           endif
+        endif
+ 9022 format('adjustment can be done in divertor grid')
+ 9023 format('adjustment exceeds divertor grid by ',f0.3, ' cm')
+ 9024 format('complete adjustment located in upstream grid')
+ 9025 format('partial adjustment located in upstream grid')
+     else
      ! interpolate nodes on flux surface between upstream orthogonal grid nodes
      ! and downstream strike point nodes
      call F%setup_length_sampling()
-     select case(dir)
-     case(RIGHT_HANDED)
+!     select case(dir)
+!     case(RIGHT_HANDED)
         F%w = F%w / (1.d0 - L/L0)
-     case(LEFT_HANDED)
-        F%w = (F%w - L/L0) / (1.d0 - L/L0)
-     end select
+!     case(LEFT_HANDED)
+!        F%w = (F%w - L/L0) / (1.d0 - L/L0)
+!     end select
 
      do ip=ip0+dir,ips-dir,dir
         tau = 1.d0 * (ip - ip0) / (ips - ip0)
-        if (dir == LEFT_HANDED) tau = 1.d0 - tau
+!        if (dir == LEFT_HANDED) tau = 1.d0 - tau
         call F%sample_at(tau, x)
         M(ir,ip,:) = x
         !write (93, *) x, tau
      enddo
+     endif
   enddo
 
   ierr = 0
@@ -746,6 +825,51 @@ module mfs_mesh
  9020 format('ERROR: aligned strike point mesh extends beyond upstream reference point ', &
              'at radial index ', i0//,&
              'see error_strike_point_mesh.plt')
+  contains
+  !---------------------------------------------------------------------
+  subroutine adjust_upstream()
+  real(real64), dimension(:), allocatable :: w1, w2
+  type(t_curve) :: C
+  real(real64) :: dl, x(2), s
+  integer :: n1, n2, itmp
+
+
+  call this%upn%get_segment(ir, dir, Ladjust-Lu1, Lcompress, C, n2, w2)
+  call C%plot(filename="segment.plt")
+  write (6, *) 'n2  = ', n2
+  write (6, *) 'Lu1 = ', Lu1
+
+  write (6, *) 'ips = ', ips ! 41
+  write (6, *) 'ipu = ', ipu ! 0
+  write (6, *) 'dir = ', dir ! 1
+  allocate (w1(abs(ipu-ips+dir)))
+
+  itmp = 1
+  write (6, *) 'ip0 = ', ip0
+  n1 = abs(ipu-ips+dir)
+  write (6, *) 'n1  = ', n1
+
+  ! adjust upstream grid
+
+  ! adjust divertor grid
+  call C%setup_length_sampling()
+  do ip=ips-dir,ipu,-dir
+!     dl = sqrt(sum( (M(ir,ip,:)-M(ir,ip+dir,:))**2 ))
+!     write (6, *) itmp, dl
+!     w1(itmp) = dl;  itmp = itmp + 1
+
+  !   do ip=ip0+dir,ips-dir,dir
+  !      tau = 1.d0 * (ip - ip0) / (ips - ip0)
+  !      if (dir == LEFT_HANDED) tau = 1.d0 - tau
+     s = 1.d0 * (ip-ips) / (ipu-ips) * n1 / (n1+n2)
+     call C%sample_at(s, x)
+     M(ir,ip,:) = x
+  enddo
+!  write (6, *) 'sum(w1) = ', sum(w1)
+!  write (6, *) 'sum(w2) = ', sum(w2)
+
+  end subroutine adjust_upstream
+  !---------------------------------------------------------------------
   end subroutine make_divertor_grid
 !=======================================================================
 
@@ -785,6 +909,161 @@ module mfs_mesh
  9002 format('upper node is outside of mesh!'//'ir,  ip  = ',i0,', ',i0// &
              'nr,  np  = ',i0,', ',i0)
   end subroutine copy
+!=======================================================================
+
+
+
+!=======================================================================
+! calculate arclength on grid/flux surface ir between nodes ip1 and ip2
+!=======================================================================
+  function arclength(this, ir, ip1, ip2) result(l)
+  class(t_mfs_mesh)   :: this
+  integer, intent(in) :: ir, ip1, ip2
+  real(real64)        :: l
+
+  real(real64), dimension(:,:,:), pointer :: M
+  integer :: ip
+
+
+  M => this%mesh
+
+  ! check inputs
+  call irange_check(ir,  0, this%nr, 'ir', 't_mfs_mesh%arclength')
+  call irange_check(ip1, 0, this%np, 'ip', 't_mfs_mesh%arclength')
+  call irange_check(ip2, 0, this%np, 'ip', 't_mfs_mesh%arclength')
+
+
+  l = 0.d0
+  do ip=min(ip1,ip2)+1,max(ip1,ip2)
+     l = l + sqrt(sum( (M(ir,ip,:)-M(ir,ip-1,:))**2 ))
+  enddo
+
+  end function arclength
+!=======================================================================
+
+
+
+!=======================================================================
+! return segment of flux surface ir
+! length    arclength of segment to be returned
+! offset    offset from end of flux surface where segment begins
+! side      select from which end of flux surface to start
+!=======================================================================
+  subroutine get_segment(this, ir, side, offset, length, C, nseg, wseg)
+  class(t_mfs_mesh)        :: this
+  integer, intent(in)      :: ir, side
+  real(real64), intent(in) :: offset, length
+  type(t_curve), intent(out) :: C
+  integer,       intent(out) :: nseg
+  real(real64), dimension(:), allocatable :: wseg
+
+
+  real(real64), dimension(:,:,:), pointer :: M
+  real(real64), dimension(:,:), allocatable :: xtmp
+  real(real64), dimension(:), allocatable :: wtmp
+  real(real64) :: L, dl, w
+  integer :: ip, ip1, ip2, ipdir, itmp, ip_next
+
+  ! check inputs
+  call irange_check(ir, 0, this%nr, 'ir', 't_mfs_mesh%get_segment')
+
+  select case(side)
+  case(1)
+     ip1 = this%np
+     ip2 = 0
+  case(-1)
+     ip1 = 0
+     ip2 = this%np
+  case default
+     write (6, *) 'error: invalid argument side = ', side, '!'
+     stop
+  end select
+  ipdir = -side
+
+
+  write (6, *) 'offset = ', offset
+  write (6, *) 'length = ', length
+  write (6, *) 'ipdir  = ', ipdir
+
+  allocate (xtmp(0:this%np,2), wtmp(0:this%np))
+  L    = 0.d0
+  itmp = 0
+  M    => this%mesh
+  do ip=ip1+ipdir,ip2,ipdir
+     dl = sqrt(sum( (M(ir,ip,:)-M(ir,ip-ipdir,:))**2 ))
+     wtmp(ip) = dl
+     L  = L + dl
+
+     write (6, *) ip, L
+     if (L < offset) cycle
+
+     ! first point
+     if (itmp == 0) then
+        w = (L - offset) / dl
+        xtmp(itmp,:) = w * M(ir,ip-ipdir,:) + (1.d0-w) * M(ir,ip,:)
+        write (6, *) 'first point ', ip, xtmp(itmp,:)
+        itmp = itmp + 1
+     endif
+
+     ! last point
+     if (L > offset + length) then
+        w = (L - offset - length) / dl
+        xtmp(itmp,:) = w * M(ir,ip-ipdir,:) + (1.d0-w) * M(ir,ip,:)
+        wtmp(ip)   = wtmp(ip) * (1.d0-w)
+        ip_next = ip
+        write (6, *) 'last  point ', ip, xtmp(itmp,:)
+        exit
+     endif
+
+     ! this node
+     xtmp(itmp,:) = M(ir,ip,:)
+     write (6, *) 'point ', ip, xtmp(itmp,:)
+     itmp         = itmp + 1
+  enddo
+  call make_2D_curve(itmp+1, xtmp(0:itmp,1), xtmp(0:itmp,2), C)
+
+
+  select case(side)
+  case(1)
+     nseg = this%np - ip_next
+  case(-1)
+     nseg = ip_next
+  end select
+
+  allocate (wseg(nseg))
+  itmp = 1
+  do ip=ip1+ipdir,ip_next,ipdir
+     wseg(itmp) = wtmp(ip)
+     itmp = itmp + 1
+  enddo
+
+  ! cleanup
+  deallocate (xtmp, wtmp)
+
+  end subroutine get_segment
+!=======================================================================
+
+
+
+!=======================================================================
+! compress flux surface ir between ip1 and ip2
+!=======================================================================
+  subroutine compress(this, ir, ip1, ip2, offset, length)
+  class(t_mfs_mesh)   :: this
+  integer, intent(in) :: ir, ip1, ip2
+  real(real64)        :: offset, length
+
+  type(t_curve) :: C
+
+  ! check inputs
+  call irange_check(ir,  0, this%nr, 'ir', 't_mfs_mesh%compress')
+  call irange_check(ip1, 0, this%np, 'ip', 't_mfs_mesh%compress')
+  call irange_check(ip2, 0, this%np, 'ip', 't_mfs_mesh%compress')
+
+
+  !call C = this%get_segment(ir, 1, offset, length)
+
+  end subroutine compress
 !=======================================================================
 
 
