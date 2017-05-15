@@ -10,9 +10,9 @@ subroutine vacuum_domain_for_EIRENE()
   integer :: iz, irP, irV
 
 
-  write (6, 1000)
- 1000 format(3x,' - Setting up vacuum domain for EIRENE')
   do iz=0,NZONET-1
+     write (6, 1000)
+ 1000 format(3x,' - Setting up vacuum domain for EIRENE')
      ! set up vacuum domain in far SOL
      if (Zone(iz)%isfr(1) == SF_VACUUM) then
         if (Zone(iz)%vacuum_domain(1:2) == 'v1') then
@@ -241,6 +241,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
      enddo
   enddo
   !.....................................................................
+  write (6, *)
 
 
   ! 99. cleanup .......................................................
