@@ -224,6 +224,7 @@ module equilibrium
 
 ! 2. load equilibrium data (if provided) ...............................
 ! determine equilibrium type (if not provided) .........................
+  filename = trim(Prefix)//Data_File
   if (i_equi == EQ_GUESS) i_equi = get_equilibrium_format(filename)
 ! ... determine equilibrium type (done) ................................
 
@@ -240,7 +241,6 @@ module equilibrium
      if (Xp(1)%R_estimate <= 0.d0) call amhd_get_Xp1(Xp(1)%R_estimate, Xp(1)%Z_estimate)
 
   case default
-     filename = trim(Prefix)//Data_File
      if (Data_File == '') then
         use_boundary = .false.
      else
