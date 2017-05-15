@@ -892,7 +892,7 @@ module divertor
      ! extend poloidal surface
      d = Zone(iz)%d_extend(i)
      if (d > 0.d0) call extend_poloidal_surface(d, k)
-     if (d < 0.d0) call adjust_poloidal_surface_automatic(j, k, i)
+     if (d < 0.d0) call adjust_poloidal_surface_automatic(j, k, -iside)
 
      ! distribute nodes in toroidal direction
      call distribute_nodes(k)
