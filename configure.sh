@@ -40,6 +40,8 @@ for opt in "$@"; do
 	echo "  --fusion_io_dir=DIR     set directory of M3D-C1 / fusion_io installation"
 	echo "  --fusion_io_arch=ARCH   set architecture string used for M3D-C1 (if not equal to `uname`)"
 	echo ""
+	echo "  --with-fgsl             compile with FGSL support"
+	echo ""
 
 	exit
     elif [ "$par" == "--data_dir" ]; then
@@ -52,6 +54,8 @@ for opt in "$@"; do
         fusion_io_dir=$val
     elif [ "$par" == "--fusion_io_arch" ]; then
         fusion_io_arch=$val
+    elif [ "$par" == "--with_fgsl" ]; then
+        FGSL_SUPPORT=1
     else
         echo "error: unkown parameter " $par
     fi
@@ -110,24 +114,39 @@ echo "" >> include.mk
 
 
 # GNU Scientific Library -------------------------------------------------------
-FGSL_CFLAGS=`pkg-config --cflags fgsl`
-FGSL_LIBS=`pkg-config --libs fgsl`
-local_gsl_version=`pkg-config --modversion gsl`
-gsl_version_major_fortran=`echo $local_gsl_version | sed -e 's/\([[:digit:]]\{1,\}\)\.\([[:digit:]]\{1,\}\)/\1/'`
-gsl_version_minor_fortran=`echo $local_gsl_version | sed -e 's/\([[:digit:]]\{1,\}\)\.\([[:digit:]]\{1,\}\)/\2/'`
-
-if [ "$FGSL_LIBS" == "" ]; then
-	echo "Compiling without FGSL support"
+if [ "$FGSL_SUPPORT" == "" ]; then
+	NOTE="Compiling without FGSL support"
+	echo $NOTE | tee -a $LOG_FILE
 else
-	echo "Compiling with FGSL support"
+	NOTE="Compiling with FGSL support"
+	echo $NOTE | tee -a $LOG_FILE
+
+	FGSL_CFLAGS=`pkg-config --cflags fgsl`
+	FGSL_LIBS=`pkg-config --libs fgsl`
+	if [ "$FGSL_LIBS" == "" ]; then
+		echo "error: cannot find FGSL libraries"
+		exit
+	fi
+
+	gsl_version=`pkg-config --modversion gsl`
+	gsl_version_major=$(echo $gsl_version | cut -d. -f1)
+	gsl_version_minor=$(echo $gsl_version | cut -d. -f2)
+	gsl_version_micro=$(echo $gsl_version | cut -d. -f3)
+
+	fgsl_version=`pkg-config --modversion fgsl`
+	fgsl_version_major=$(echo $fgsl_version | cut -d. -f1)
+	fgsl_version_minor=$(echo $fgsl_version | cut -d. -f2)
+	fgsl_version_micro=$(echo $fgsl_version | cut -d. -f3)
+
 	echo "#define FGSL" >> config.h
-	echo "#define GSL_VERSION_MAJOR_FORTRAN $gsl_version_major_fortran" >> config.h
-	echo "#define GSL_VERSION_MINOR_FORTRAN $gsl_version_minor_fortran" >> config.h
+	echo "#define GSL_VERSION_MAJOR_FORTRAN $gsl_version_major" >> config.h
+	echo "#define GSL_VERSION_MINOR_FORTRAN $gsl_version_minor" >> config.h
+
+	echo "# GNU Scientific Library"				>> include.mk
+	echo "FGSL_FLAGS     = $FGSL_CFLAGS"		        >> include.mk
+	echo "FGSL_LIBS      = $FGSL_LIBS"			>> include.mk
+	echo ""							>> include.mk
 fi
-echo "# GNU Scientific Library"				>> include.mk
-echo "FGSL_FLAGS     = $FGSL_CFLAGS"		        >> include.mk
-echo "FGSL_LIBS      = $FGSL_LIBS"			>> include.mk
-echo ""							>> include.mk
 # ------------------------------------------------------------------------------
 
 
