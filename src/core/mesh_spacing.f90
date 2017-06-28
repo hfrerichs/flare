@@ -40,6 +40,7 @@ module mesh_spacing
      procedure init_X1
      procedure init_recursive
      procedure init_Dcurve
+     procedure init_manual
   end type t_spacing
   
   type(t_spacing), public, parameter :: Equidistant = t_spacing(LINEAR,0,null(),Empty_curve,null())
@@ -307,6 +308,23 @@ module mesh_spacing
   call this%D%setup_coordinate_sampling(1)
 
   end subroutine init_Dcurve
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine init_manual(this, C)
+  class(t_spacing)            :: this
+  type(t_curve), intent(in)   :: C
+
+
+  this%dist = USER_DEF
+
+  this%D = C
+  call check_manual_stretching_function(this%D)
+  call this%D%setup_coordinate_sampling(1)
+
+  end subroutine init_manual
 !=======================================================================
 
 

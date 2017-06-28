@@ -150,9 +150,10 @@
 
   type(t_flux_surface_3D) :: F
   type(t_spacing)         :: Sr, Sp
+  type(t_curve)           :: C
   type(t_grid)            :: B, G
   character(len=80)       :: filename
-  real(real64) :: x0(3), xmag(3), x(3), r
+  real(real64) :: x0(3), xmag(3), x(3), r, w
   integer      :: ig, ir, ip, ipc, it, updown_symmetry
 
 
@@ -175,7 +176,17 @@
   x0(3) = Zone(iz)%phi(Zone(iz)%it_base) / 180.d0 * pi
   xmag  = get_magnetic_axis(x0(3))
   call Sr%init(radial_spacing(-1))
-  call Sp%init(poloidal_spacing(0))
+  ! set up poloidal spacing
+  call C%new(ZON_POLO(iz))
+  C%x(0,:) = 0.d0
+  do ip=1,SRF_POLO(iz)-1
+     ig = ig + SRF_RADI(iz)
+     w  = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz)))**2)
+     C%x(ip,1) = 1.d0 * ip / (SRF_POLO(iz)-1)
+     C%x(ip,2) = C%x(ip-1,2) + w
+  enddo
+  C%x(:,2) = C%x(:,2) / C%x(SRF_POLO(iz)-1,2)
+  call Sp%init_manual(C)
 
 
   ! initialize base grid for core region
