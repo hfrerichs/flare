@@ -39,7 +39,7 @@ module modtopo_stel
   do ib=0,blocks-1
      ! 1. set up derived parameters
      iz = ib
-     Zone(iz)%nr = Block(ib)%nr(0) + nr_EIRENE_core + nr_EIRENE_vac
+     Zone(iz)%nr = Block(ib)%nr(0) + nr_EIRENE_core + nr_EIRENE_vac(0)
      Zone(iz)%np = Block(ib)%np(0)
 
 

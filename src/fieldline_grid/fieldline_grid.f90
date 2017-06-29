@@ -109,7 +109,7 @@ module fieldline_grid
      np_ortho_divertor   =  10, &          ! number of orthogonal surfaces in divertor legs
      np_sub_divertor     =   2, &          ! sub-resolution in target aligned domain
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
-     nr_EIRENE_vac       =   1, &          ! radial resolution in vacuum (EIRENE only)
+     nr_EIRENE_vac(0:max_layers-1)       =   1, &          ! radial resolution in vacuum (EIRENE only)
      nr_perturbed        =   2, &          ! number of perturbed flux surfaces at the inner boundary
      plate_format        =   1             ! format for plate definition file
 
@@ -187,7 +187,7 @@ module fieldline_grid
   ! zone data
   type :: t_zone
      ! resolution in radial, poloidal and toroidal direction
-     integer :: nr, np, nt
+     integer :: nr, np, nt, nr_vac
 
      ! connectivity between zones (surface types = periodic, mapping, ...)
      integer :: isfr(2), isfp(2), isft(2)
@@ -292,6 +292,7 @@ module fieldline_grid
   this%d_extend  = d_extend(ilayer,-1:1)
   this%N0_file   = N0_file(ilayer)
   this%vacuum_domain = vacuum_domain(ilayer)
+  this%nr_vac    = nr_EIRENE_vac(ilayer)
 
 
   ! 4. boundaries and zone type
@@ -314,7 +315,7 @@ module fieldline_grid
   ! single layer: add core domain on lower and vaccum domain on upper radial boundary
   case(TYPE_SINGLE_LAYER)
      nr_add1 = nr_EIRENE_core
-     nr_add2 = nr_EIRENE_vac
+     nr_add2 = nr_EIRENE_vac(ilayer)
 
   ! high pressure region (HPR): add core domain on lower radial boundary
   case(TYPE_HPR)
@@ -322,11 +323,11 @@ module fieldline_grid
 
   ! scrape-off layer (SOL): add vacuum domain on upper radial boundary
   case(TYPE_SOL)
-     nr_add2 = nr_EIRENE_vac
+     nr_add2 = nr_EIRENE_vac(ilayer)
 
   ! private flux region (PFR): add vacuum domain on lower radial boundary
   case(TYPE_PFR)
-     nr_add1 = nr_EIRENE_vac
+     nr_add1 = nr_EIRENE_vac(ilayer)
   end select
   this%nr = Block(iblock)%nr(ilayer) + nr_add1 + nr_add2
 
