@@ -353,7 +353,7 @@ module divertor
      call C%plot(filename=DEBUG_DIVERTOR_LEG, append=.true.)
   endif
 
-  call Sguide%init_spline_X1(eta, xi0, ierr)
+  call Sguide%init_spline_X1(eta, xi0, 2.d0, ierr)
   if (ierr .ne. 0) then
      write (6, *) 'using piecewise linear spacing function instead'
      call Sguide%init_X1(eta, xi0)
