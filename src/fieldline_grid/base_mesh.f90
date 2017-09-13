@@ -1107,7 +1107,15 @@ module base_mesh
 
 
   ! generate mesh in base element
-  ! no Sp needed in base element
+  ! no Sp needed in base element -> only for divertor legs
+  select case(Z(iz0)%ipl_side)
+  case(LEFT)
+     call Sp%init(poloidal_spacing_L(Z(iz0)%ipl))
+  case(CENTER)
+     call Sp%init(poloidal_spacing(Z(iz0)%ipl))
+  case(RIGHT)
+     call Sp%init(poloidal_spacing_R(Z(iz0)%ipl))
+  end select
   call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp)
   if (Debug) call Mtmp(iz0)%plot_mesh('Mtmp'//trim(str(iz0))//'.plt')
 

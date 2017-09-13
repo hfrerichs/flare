@@ -573,7 +573,7 @@ module mfs_mesh
 ! Rside: location of seed mesh
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
-  subroutine make_divertor_grid(this, Rside, ip0, Z, ierr)
+  subroutine make_divertor_grid(this, Rside, ip0, Sp, Z, ierr)
   use run_control,    only: Debug
   use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor, poloidal_discretization, ORTHOGONAL_STRICT
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
@@ -585,6 +585,7 @@ module mfs_mesh
 !  integer,         intent(in)  :: Rside, Pside
 !  type(t_spacing), intent(in)  :: Sr, Sp
   integer,         intent(in)  :: Rside, ip0
+  type(t_spacing), intent(in)  :: Sp
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
@@ -595,7 +596,7 @@ module mfs_mesh
 
   real(real64), dimension(:,:,:), pointer :: M
   real(real64), dimension(:,:), allocatable :: MSP
-  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, L0, L, dphi
+  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, xi, L0, L, dphi
   real(real64)  :: Ladjust, Lu1, Lu2, Lcompress
   integer       :: ir, ir0, ir1, ir2, ip, ips, dir, iextend, np_SP
   integer       :: it, its, it_start, it_end, dirT, downstream, nsub, np_skip
@@ -808,8 +809,9 @@ module mfs_mesh
 
      do ip=ip0+dir,ips-dir,dir
         tau = 1.d0 * (ip - ip0) / (ips - ip0)
+        xi  = Sp%sample(tau)
 !        if (dir == LEFT_HANDED) tau = 1.d0 - tau
-        call F%sample_at(tau, x)
+        call F%sample_at(xi, x)
         M(ir,ip,:) = x
         !write (93, *) x, tau
      enddo
