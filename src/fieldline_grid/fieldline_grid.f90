@@ -65,7 +65,9 @@ module fieldline_grid
   ! Plate definition methods
   character(len=*), parameter :: &
      PLATES_DEFAULT          = 'CELL_CENTER_OUTSIDE', &
-     PLATES_RADIAL_INTERSECT = 'RADIAL_INTERSECTION'
+     PLATES_RADIAL_INTERSECT = 'RADIAL_INTERSECTION', &
+     PLATES_COMPLETE_CELLS_ONLY   = 'COMPLETE_CELLS_ONLY', &
+     PLATES_INCLUDE_PARTIAL_CELLS = 'INCLUDE_PARTIAL_CELLS'
 
 
   integer, parameter :: &
