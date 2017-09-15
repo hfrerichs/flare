@@ -237,7 +237,7 @@ end subroutine TEST_setup_domain
 
   select case(poloidal_discretization)
   case(ORTHOGONAL)
-  case(ORTHOGONAL_STRICT)
+  case(ORTHOGONAL_AUTO_ADJUST)
   case default
      write (6, 9000) trim(poloidal_discretization)
      stop

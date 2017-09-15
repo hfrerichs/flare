@@ -462,7 +462,7 @@ module base_mesh
 ! SHOULD THIS BE MOVED TO MODULE fieldline_grid?
 !=======================================================================
   subroutine setup_geometry()
-  use fieldline_grid, only: guiding_surface, d_SOL, d_PFR, poloidal_discretization, ORTHOGONAL_STRICT
+  use fieldline_grid, only: guiding_surface, d_SOL, d_PFR, poloidal_discretization, ORTHOGONAL_AUTO_ADJUST
   use boundary,       only: S_axi, n_axi
   use equilibrium,    only: get_magnetic_axis, get_poloidal_angle, get_PsiN, Xp
   use math
@@ -724,7 +724,7 @@ module base_mesh
      call poloidal_interface(ipi)%C%plot(filename='R'//trim(str(ipi))//'.plt')
 
      ! check intersection with guiding surface
-     if (poloidal_discretization == ORTHOGONAL_STRICT) then
+     if (poloidal_discretization /= ORTHOGONAL_AUTO_ADJUST) then
      if (poloidal_interface(ipi)%C%intersect_curve(C_guide, x, tau)) then
         write (6, 9420) ipi
 

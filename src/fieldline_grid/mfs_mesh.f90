@@ -575,7 +575,7 @@ module mfs_mesh
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
   subroutine make_divertor_grid(this, Rside, ip0, Sp, Z, ierr)
   use run_control,    only: Debug
-  use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor, poloidal_discretization, ORTHOGONAL_STRICT
+  use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor, poloidal_discretization, ORTHOGONAL_AUTO_ADJUST
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
   use curve2D
   use mesh_spacing
@@ -747,7 +747,7 @@ module mfs_mesh
      ! aligned strike point mesh extends beyond upstream reference location?
      ! -> adjust upstream location by L-L0
      Ladjust = L - L0
-     if ((Ladjust > 0.d0)  .and.  poloidal_discretization == ORTHOGONAL_STRICT) then
+     if ((Ladjust > 0.d0)  .and.  poloidal_discretization /= ORTHOGONAL_AUTO_ADJUST) then
         write (6, 9020) ir
         open  (iu_err, file='error_strike_point_mesh1.plt')
         write (iu_err, *) M(ir,ip0,:)

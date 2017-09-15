@@ -27,7 +27,7 @@ module fieldline_grid
   character(len=*), parameter :: &
      POLOIDAL_ANGLE_FIXED = 'poloidal_angle_fixed', &
      ORTHOGONAL           = 'quasi_orthogonal', &
-     ORTHOGONAL_STRICT    = 'quasi_orthogonal_strict', &
+     ORTHOGONAL_AUTO_ADJUST  = 'quasi_orthogonal_auto_adjust', &
      POLOIDAL_ANGLE       = 'poloidal_angle', &
      ARC_LENGTH           = 'arc_length'
 
