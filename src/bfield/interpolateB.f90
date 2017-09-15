@@ -534,7 +534,7 @@ module interpolateB
   integer, intent(in) :: N_sym, N_R, N_Z, N_phi
   real*8, intent(in)  :: R_center, width, height
 
-  real*8  :: Bf(3), r(3), CosPhi, SinPhi
+  real*8  :: Bf(3), r(3), CosPhi, SinPhi, JBf(3,3)
   integer :: i, j, k, m, iba
 
 
@@ -569,11 +569,17 @@ module interpolateB
         do i=1,N_R
            r(1) = RBOX(1) + (i-1) * DELTA_R
            Bf   = get_Bcyl_polygones(r)
+           JBf  = get_JBf_cyl_polygones(r)
 
            iba       = (k-1)  +  ((i-1) + (j-1)*N_R)*N_phi
            BA(1,iba) = Bf(3)
            BA(2,iba) = Bf(1)
            BA(3,iba) = Bf(2)
+           BA(4,iba) = JBf(3,1)
+           BA(5,iba) = JBf(3,2)
+           BA(6,iba) = JBf(1,1)
+           BA(7,iba) = JBf(1,2)
+           BA(8,iba) = JBf(2,2)
         enddo
      enddo
   enddo

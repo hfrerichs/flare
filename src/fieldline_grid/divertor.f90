@@ -69,9 +69,9 @@ module divertor
 
 
   ! 1.a set up guiding surface for divertor legs (C_guide) ---------------------
-  if (guiding_surface .ne. '') then
+  if (guiding_surface(0) .ne. '') then
      write (6, 1000)
-     call C_guide%load(guiding_surface)
+     call C_guide%load(guiding_surface(0))
   else if (n_axi > 0) then
      write (6, 1001)
      call C_guide%copy(S_axi(1))

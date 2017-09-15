@@ -619,10 +619,10 @@ module boundary
 
   elseif (iboundary <= n_axi + n_block + n_quad) then
      i = iboundary - n_axi - n_block
-     if (S_quad(i)%phi(0) >= phi1 .and. S_quad(i)%phi(S_quad(i)%n_phi) <= phi2) then
-        boundary_in_zone = .true.
-     else
+     if (S_quad(i)%phi(0) > phi2  .or.  S_quad(i)%phi(S_quad(i)%n_phi) < phi1) then
         boundary_in_zone = .false.
+     else
+        boundary_in_zone = .true.
      endif
 
   else

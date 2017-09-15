@@ -4,6 +4,14 @@
 # predefine parameter
 procs=1
 run_default="run.conf"
+
+DEBUG_COMMAND_SERIAL="gdb --args"
+DEBUG_COMMAND_PARALLEL_PRE=""
+DEBUG_COMMAND_POST_MPIEXEC="xterm -e gdb --args"
+
+#DEBUG_COMMAND_SERIAL="ddt --connect"
+#DEBUG_COMMAND_PARALLEL_PRE=$DEBUG_COMMAND_SERIAL
+#DEBUG_COMMAND_POST_MPIEXEC=""
 ###############################################################################
 
 
@@ -93,9 +101,9 @@ if [ "$FLAG_DEBUG" == "" ]; then
 	fi
 else # for debugging only
 	if [ "$procs" == 1 ]; then
-		gdb --args $FLARE_PATH/flare_bin_debug $arg_list
+	    $DEBUG_COMMAND_SERIAL $FLARE_PATH/flare_bin $arg_list
 	else
-		mpiexec -n $procs xterm -e gdb $FLARE_PATH/flare_bin_debug $arg_list
+	    $DEBUG_COMMAND_PARALLEL_PRE mpiexec -n $procs $DEBUG_COMMAND_POST_MPIEXEC $FLARE_PATH/flare_bin $arg_list
 	fi
 fi
 ###############################################################################

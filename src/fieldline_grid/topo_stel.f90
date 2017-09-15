@@ -61,7 +61,7 @@ module modtopo_stel
 
 
   !=====================================================================
-  subroutine setup_domain()
+  subroutine setup_domain(iblock)
   use run_control, only: Debug, N_points, Trace_Method
   use equilibrium
   use boundary
@@ -69,15 +69,16 @@ module modtopo_stel
   use divertor, only: Pmag
   use string
 
-  character(len=len(guiding_surface)) :: command, argument
-  character(len=256)                  :: filename
+  integer, intent(in)  :: iblock
+
+  character(len=256)   :: filename, command, argument
   type(t_poincare_set) :: P
-  real(real64)         :: phi0, x1(2), tmp(3), theta0, dl
+  real(real64)         :: phi0, x1(2), tmp(3), theta0, dl, dphi
   integer              :: i, iboundary, n, nsample
 
 
   ! 0. initialize magnetic axis
-  phi0   = Block(0)%phi_base / 180.d0 * pi
+  phi0   = Block(iblock)%phi_base / 180.d0 * pi
   tmp    = get_magnetic_axis(phi0); Pmag = tmp(1:2)
   x1     = x_in2(1:2)
   theta0 = get_poloidal_angle(x_in2)
@@ -85,9 +86,9 @@ module modtopo_stel
 
   ! 1. set up outer simulation boundary
   write (6, 1000)
-  n = get_commands(guiding_surface)
+  n = get_commands(guiding_surface(iblock))
   do i=1,n
-     call read_command(guiding_surface, i, command, argument)
+     call read_command(guiding_surface(iblock), i, command, argument)
      select case(command)
      case('LOAD')
         write (6, 1001) trim(argument)
@@ -109,9 +110,13 @@ module modtopo_stel
      case('FLUX_SURFACE')
         tmp = read_vector(argument, 3)
         write (6, 1004) tmp
-        ! set default number of points
-        if (N_points == 0) N_points = 1000
-        call P%generate(tmp, N_points, symmetry, 1, 3600/symmetry, Trace_Method, .false.)
+        tmp(3) = tmp(3) / 180.d0 * pi
+
+        if (N_points == 0) N_points = 1000 ! set default number of points
+
+        dphi = phi0 - tmp(3)               ! offset between reference position and base grid
+        call P%generate(tmp, N_points, symmetry, 1, 3600/symmetry, Trace_Method, .false., &
+                        offset=dphi)
         call B%new(P%slice(0)%nrow-1)
         B%x = P%slice(0)%x(:,1:2)
 
@@ -150,23 +155,29 @@ module modtopo_stel
      stop
   endif
 
+  ! prepare outer boundary for sampling
+  select case(poloidal_discretization)
+  case(POLOIDAL_ANGLE)
+     call B%setup_angular_sampling(Pmag)
+
+  case(ARC_LENGTH)
+     call B%setup_length_sampling()
+
+  end select
+
 
   ! 2. set up inner simulation boundary and sampling
+  ! all boundaries are loaded at once, no need to reload for iblock > 0
+  if (iblock > 0) return
   select case(poloidal_discretization)
   case(POLOIDAL_ANGLE)
      ! use geometric poloidal angle as reference coordinate
      theta0 = 0.d0
      call load_inner_boundaries(theta0)
 
-     ! setup outer boundary
-     call B%setup_angular_sampling(Pmag)
-
   case(ARC_LENGTH)
      theta0 = 0.d0
      call load_inner_boundaries(theta0, DISTANCE)
-
-     ! setup outer boundary
-     call B%setup_length_sampling()
 
   end select
 
@@ -176,7 +187,7 @@ module modtopo_stel
  1001 format(8x,'loading from file "',a,'"')
  1002 format(8x,'expanding surface by dl=',f0.3)
  1003 format(8x,'sorting points with respect to geometric poloidal angle')
- 1004 format(8x,'generating flux surace from reference point at (',f0.3,', ',f0.3,', ',f0.3,')')
+ 1004 format(8x,'generating flux surface from reference point at (',f0.3,', ',f0.3,', ',f0.3,')')
  1005 format(8x,'writing boundary surface to file "',a,'"')
  1006 format(8x,'resampling surface with ',i0,' points')
  1007 format(8x,'loading shape from boundary ',i0)
@@ -201,10 +212,10 @@ module modtopo_stel
   integer      :: iblock, iz
 
 
-  call setup_domain()
-
   do iblock=0,blocks-1
      write (6, *) iblock
+     call setup_domain(iblock)
+
 
      ! set zone indix
      iz  = iblock
@@ -229,7 +240,7 @@ module modtopo_stel
      call sample_flux_surface(M, B, nr(0), np(0), Zone(iz)%Sp)
      call interpolate_flux_surfaces(M, nr(0), np(0), 1, nr(0), Zone(iz)%Sr)
      call setup_inner_boundary0(iblock, G(iblock))
-     call force_up_down_symmetry(M, nr(0), np(0))
+     if (iblock == 0) call force_up_down_symmetry(M, nr(0), np(0))
 
 
      ! output
