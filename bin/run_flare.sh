@@ -95,15 +95,15 @@ FLARE_PATH=$(dirname "$SCRIPT")
 
 if [ "$FLAG_DEBUG" == "" ]; then
 	if [ "$procs" == 1 ]; then
-		$FLARE_PATH/flare_bin $arg_list
+		$FLARE_PATH/flare $arg_list
 	else
-		mpiexec -n $procs $FLARE_PATH/flare_bin $arg_list
+		mpiexec -n $procs $FLARE_PATH/flare $arg_list
 	fi
 else # for debugging only
 	if [ "$procs" == 1 ]; then
-	    $DEBUG_COMMAND_SERIAL $FLARE_PATH/flare_bin $arg_list
+	    $DEBUG_COMMAND_SERIAL $FLARE_PATH/flare $arg_list
 	else
-	    $DEBUG_COMMAND_PARALLEL_PRE mpiexec -n $procs $DEBUG_COMMAND_POST_MPIEXEC $FLARE_PATH/flare_bin $arg_list
+	    $DEBUG_COMMAND_PARALLEL_PRE mpiexec -n $procs $DEBUG_COMMAND_POST_MPIEXEC $FLARE_PATH/flare $arg_list
 	fi
 fi
 ###############################################################################

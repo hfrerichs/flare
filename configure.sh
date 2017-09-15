@@ -73,7 +73,7 @@ echo "timestamp: $(date)" >> $LOG_FILE
 
 # Main program
 echo "# Main program"             >> include.mk
-echo "PROGRAM        = flare_bin" >> include.mk
+echo "PROGRAM        = flare"     >> include.mk
 echo "" >> include.mk
 
 
