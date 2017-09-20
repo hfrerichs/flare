@@ -53,6 +53,14 @@ program main
   case('import')
      call import_equilibrium()
 
+  case('')
+     write (6, *) 'error: argument list too short!'
+     write (6, *) 'Usage: flare <command> [<args>]'
+     write (6, *)
+     write (6, *) 'Available commands are:'
+     write (6, *) '   run       Run FLARE as configured in input file'
+     write (6, *) '   import    Create new magnetic configuration for equilibrium file'
+     stop
   case default
      write (6, *) 'error: invalid keyword ', trim(keyword), '!'
      stop
