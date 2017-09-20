@@ -1093,7 +1093,6 @@ module fieldline_grid
   write (iu, 4000)
   write (iu, 9999)
   write (iu, 4001)
-  close (iu)
  4000 format ('*** 4. Additional surfaces')
  4001 format ('./../../geometry/ADD_SF_N0')
 
