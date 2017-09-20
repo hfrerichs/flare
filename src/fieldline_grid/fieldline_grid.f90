@@ -25,11 +25,12 @@ module fieldline_grid
 
   ! Discretization type definitions
   character(len=*), parameter :: &
-     POLOIDAL_ANGLE_FIXED = 'poloidal_angle_fixed', &
-     ORTHOGONAL           = 'quasi_orthogonal', &
+     POLOIDAL_ANGLE_FIXED    = 'poloidal_angle_fixed', &
+     ORTHOGONAL              = 'quasi_orthogonal', &
      ORTHOGONAL_AUTO_ADJUST  = 'quasi_orthogonal_auto_adjust', &
-     POLOIDAL_ANGLE       = 'poloidal_angle', &
-     ARC_LENGTH           = 'arc_length'
+     POLOIDAL_ANGLE          = 'poloidal_angle', &
+     ARC_LENGTH              = 'arc_length', &
+     MANUAL                  = 'manual'
 
 
   ! zone type definitions
@@ -96,6 +97,7 @@ module fieldline_grid
      N0_file(0:max_layers-1)          = '', &
      vacuum_domain(0:max_layers-1)    = '', &
      core_domain                      = CORE_EXTRAPOLATE, &
+     mesh_generator                   = MANUAL, &
      plate_generator                  = PLATES_DEFAULT
 
 
@@ -398,7 +400,7 @@ module fieldline_grid
      topology, symmetry, stellarator_symmetry, blocks, Block, &
      phi0, x_in1, x_in2, x_in_coordinates, d_SOL, d_PFR, d_N0, N0_file, vacuum_domain, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
-     n_interpolate, nr_perturbed, plate_generator, plate_format, &
+     n_interpolate, nr_perturbed, mesh_generator, plate_generator, plate_format, &
      np_ortho_divertor, np_sub_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &

@@ -20,8 +20,6 @@ subroutine run_control_development (Run_Type)
      call TEST_correct_PsiN()
   case ('TEST_adaptive_step_size')
      call TEST_adaptive_step_size()
-  case ('TEST_base_mesh')
-     call TEST_base_mesh()
   case ('BENCHMARK_theta_map')
      call BENCHMARK_theta_map()
   case default
@@ -218,42 +216,6 @@ end subroutine TEST_setup_domain
   call D%store(filename=Output_File)
 
   end subroutine TEST_adaptive_step_size
-!===============================================================================
-
-
-
-!===============================================================================
-  subroutine TEST_base_mesh
-  use fieldline_grid
-  use base_mesh
-
-  integer, dimension(:), allocatable :: connectX
-  integer            :: nX
-
-
-  ! load and initialize grid configuration
-  call setup_grid_configuration()
-
-
-  select case(poloidal_discretization)
-  case(ORTHOGONAL)
-  case(ORTHOGONAL_AUTO_ADJUST)
-  case default
-     write (6, 9000) trim(poloidal_discretization)
-     stop
-  end select
- 9000 format('error: invalid poloidal discretization method "',a,'"!')
-
-
-  ! setup geometry of computational domain
-  call setup_topology()
-  call setup_geometry()
-  call setup_interfaces()
-
-
-  ! generate base meshs
-  call generate_base_mesh(0)
-  end subroutine TEST_base_mesh
 !===============================================================================
 
 

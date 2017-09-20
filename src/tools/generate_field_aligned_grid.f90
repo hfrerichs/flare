@@ -8,6 +8,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   use modtopo_cdn
   use modtopo_dsfp
   use modtopo_stel
+  use base_mesh, only: make_base_mesh_generic
   implicit none
 
   integer, intent(inout) :: run_level, run_level_end
@@ -79,7 +80,11 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
 
   ! Level 2: generate base grids
   if (level(2)) then
-     call make_base_grids()
+     if (mesh_generator == MANUAL) then
+        call make_base_grids()
+     else
+        call make_base_mesh_generic()
+     endif
   endif
 
 

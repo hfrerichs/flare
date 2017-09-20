@@ -63,6 +63,7 @@ module base_mesh
   public :: setup_geometry
   public :: setup_interfaces
   public :: generate_base_mesh
+  public :: make_base_mesh_generic
 
   contains
 !=======================================================================
@@ -1178,6 +1179,39 @@ module base_mesh
  9002 format('undefined radial interface!')
  9003 format('undefined poloidal interface!')
   end subroutine generate_layer
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine make_base_mesh_generic()
+  use fieldline_grid
+
+  integer :: iblock
+
+
+  select case(poloidal_discretization)
+  case(ORTHOGONAL)
+  case(ORTHOGONAL_AUTO_ADJUST)
+  case default
+     write (6, 9000) trim(poloidal_discretization)
+     stop
+  end select
+ 9000 format('error: invalid poloidal discretization method "',a,'"!')
+
+
+  ! setup geometry of computational domain
+  call setup_topology()
+  call setup_geometry()
+  call setup_interfaces()
+
+
+  ! generate base meshs
+  do iblock=0,blocks-1
+     call generate_base_mesh(0)
+  enddo
+
+  end subroutine make_base_mesh_generic
 !=======================================================================
 
 end module base_mesh
