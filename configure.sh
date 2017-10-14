@@ -10,14 +10,6 @@ DATA_DIR=$HOME/Database/Magnetic_Configuration
 
 EMC3_dir=""
 
-fusion_io_dir=$M3DC1_INSTALL_DIR
-if [ "$M3DC1_ARCH" == "" ]; then
-    fusion_io_arch=`uname`
-else
-    fusion_io_arch=$M3DC1_ARCH
-fi
-
-
 EXTERNAL_DIR=external
 ################################################################################
 
@@ -37,8 +29,7 @@ for opt in "$@"; do
 	echo ""
 	echo "  --emc3_dir=DIR          set EMC3 source directory"
 	echo ""
-	echo "  --fusion_io_dir=DIR     set directory of M3D-C1 / fusion_io installation"
-	echo "  --fusion_io_arch=ARCH   set architecture string used for M3D-C1 (if not equal to `uname`)"
+	echo "  --fusion_io_dir=DIR     set directory of Fusion-IO installation"
 	echo ""
 	echo "  --with-fgsl             compile with FGSL support"
 	echo ""
@@ -52,8 +43,6 @@ for opt in "$@"; do
         emc3_dir=$val
     elif [ "$par" == "--fusion_io_dir" ]; then
         fusion_io_dir=$val
-    elif [ "$par" == "--fusion_io_arch" ]; then
-        fusion_io_arch=$val
     elif [ "$par" == "--with_fgsl" ]; then
         FGSL_SUPPORT=1
     else
@@ -199,17 +188,24 @@ echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
 
-# checking for M3D-C1/fusion_io installation -----------------------------------
+# checking for Fusion-IO installation ------------------------------------------
 if [ "$fusion_io_dir" == "" ]; then
-	NOTE='Compiling without M3D-C1 support'
+	NOTE='Compiling without Fusion-IO support'
 	echo $NOTE | tee -a $LOG_FILE
 else
-	NOTE='Compiling with M3D-C1 support'
+	NOTE='Compiling with Fusion-IO support'
+
+	# check HDF5 installation
+	HDF5="hdf5-openmpi"
+	HDF5_CFLAGS=`pkg-config --cflags $HDF5`
+	HDF5_LIBS=`pkg-config --libs $HDF5`
+	echo "HDF5_FLAGS     = $HDF5_CFLAGS"		        >> include.mk
+	echo "HDF5_LIBS      = $HDF5_LIBS"			>> include.mk
+
 	echo $NOTE | tee -a $LOG_FILE
 	echo "# $NOTE" >> include.mk
-	echo "M3DC1_FLAG     = -DM3DC1" >> include.mk
-	echo "M3DC1_INC      = -I $fusion_io_dir/include/_$fusion_io_arch" >> include.mk
-        echo "M3DC1_LIBS     = -L $fusion_io_dir/lib/_$fusion_io_arch -lfusionio -lm3dc1 -lhdf5 -lstdc++" >> include.mk
+	echo "FIO_FLAGS      = -DFIO -I $fusion_io_dir/include" >> include.mk
+	echo "FIO_LIBS       = -L $fusion_io_dir/lib -lfusionio -lm3dc1 -lstdc++" >> include.mk
 	echo "" >> include.mk
 fi
 # ------------------------------------------------------------------------------
@@ -241,9 +237,11 @@ echo "" >> include.mk
 
 
 # Flags and libraries
+FLAGS='$(FGSL_FLAGS) $(HDF5_FLAGS) $(FIO_FLAGS) $(ODE_FLAGS)'
+LIBS='$(FGSL_LIBS)  $(HDF5_LIBS)  $(FIO_LIBS)'
 echo "# Flags and libraries"				>> include.mk
-echo 'FLAGS          = $(FGSL_FLAGS) $(ODE_FLAGS)'	>> include.mk
-echo 'LIBS           = $(FGSL_LIBS) $(M3DC1_LIBS)'	>> include.mk
+echo "FLAGS          = $FLAGS"				>> include.mk
+echo "LIBS           = $LIBS"				>> include.mk
 echo ""							>> include.mk
 
 

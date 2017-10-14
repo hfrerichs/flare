@@ -5,7 +5,7 @@
 !===============================================================================
 module m3dc1
   use iso_fortran_env
-#ifdef M3DC1
+#ifdef FIO
   use fusion_io
 #endif
   implicit none
@@ -71,7 +71,7 @@ module m3dc1
   write (6, 1003) factor
   write (6, 1004) n_sets
 
-#ifdef M3DC1
+#ifdef FIO
   do i=1,n_sets
      ! Open M3D-C1 source
      Input_File = Prefix(1:len_trim(Prefix))//filename(i)
@@ -172,7 +172,7 @@ end subroutine m3dc1_load
 
 
   Bf      = 0.d0
-#ifdef M3DC1
+#ifdef FIO
   ! convert cm -> m
   R3(1)   = r(1) /1.d2
   R3(3)   = r(2) /1.d2
@@ -206,7 +206,7 @@ end subroutine m3dc1_load
 
 
   Bf      = 0.d0
-#ifdef M3DC1
+#ifdef FIO
   ! convert cm -> m
   R3(1)   = r(1) /1.d2
   R3(3)   = r(2) /1.d2
@@ -231,7 +231,7 @@ end subroutine m3dc1_load
 
 
   Psi     = 0.d0
-#ifdef M3DC1
+#ifdef FIO
   ! convert cm -> m
   R3(1)   = r(1) /1.d2
   R3(3)   = r(2) /1.d2
@@ -273,7 +273,7 @@ end subroutine m3dc1_load
 
   integer :: ierr, i
 
-#ifdef M3DC1
+#ifdef FIO
   call fio_close_field_f(iEQ, ierr)
   do i=1,n_sets
      call fio_close_field_f(imagA(i), ierr)
