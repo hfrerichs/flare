@@ -45,3 +45,21 @@ subroutine progress(i, n, delta)
  2000 format(8x,f0.2,' %')
 end subroutine progress
 !=======================================================================
+
+
+
+!=======================================================================
+subroutine irange_check(i, i1, i2, label, procedure_name)
+  integer, intent(in) :: i, i1, i2
+  character(len=*), intent(in) :: label, procedure_name
+
+
+  if (i < i1  .or.  i > i2) then
+     write (6, 9000) trim(label), i, i1, trim(label), i2, procedure_name
+     stop
+  endif
+
+ 9000 format('error: ',a,' = ',i0,' when ',i0,' <= ',a,' <= ',i0,' required in ',a,'!')
+
+end subroutine irange_check
+!=======================================================================

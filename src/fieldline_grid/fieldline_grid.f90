@@ -25,10 +25,12 @@ module fieldline_grid
 
   ! Discretization type definitions
   character(len=*), parameter :: &
-     POLOIDAL_ANGLE_FIXED = 'poloidal_angle_fixed', &
-     ORTHOGONAL           = 'quasi_orthogonal', &
-     POLOIDAL_ANGLE       = 'poloidal_angle', &
-     ARC_LENGTH           = 'arc_length'
+     POLOIDAL_ANGLE_FIXED    = 'poloidal_angle_fixed', &
+     ORTHOGONAL              = 'quasi_orthogonal', &
+     ORTHOGONAL_AUTO_ADJUST  = 'quasi_orthogonal_auto_adjust', &
+     POLOIDAL_ANGLE          = 'poloidal_angle', &
+     ARC_LENGTH              = 'arc_length', &
+     MANUAL                  = 'manual'
 
 
   ! zone type definitions
@@ -64,7 +66,9 @@ module fieldline_grid
   ! Plate definition methods
   character(len=*), parameter :: &
      PLATES_DEFAULT          = 'CELL_CENTER_OUTSIDE', &
-     PLATES_RADIAL_INTERSECT = 'RADIAL_INTERSECTION'
+     PLATES_RADIAL_INTERSECT = 'RADIAL_INTERSECTION', &
+     PLATES_COMPLETE_CELLS_ONLY   = 'COMPLETE_CELLS_ONLY', &
+     PLATES_INCLUDE_PARTIAL_CELLS = 'INCLUDE_PARTIAL_CELLS'
 
 
   integer, parameter :: &
@@ -93,6 +97,7 @@ module fieldline_grid
      N0_file(0:max_layers-1)          = '', &
      vacuum_domain(0:max_layers-1)    = '', &
      core_domain                      = CORE_EXTRAPOLATE, &
+     mesh_generator                   = MANUAL, &
      plate_generator                  = PLATES_DEFAULT
 
 
@@ -108,7 +113,7 @@ module fieldline_grid
      np_ortho_divertor   =  10, &          ! number of orthogonal surfaces in divertor legs
      np_sub_divertor     =   2, &          ! sub-resolution in target aligned domain
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
-     nr_EIRENE_vac       =   1, &          ! radial resolution in vacuum (EIRENE only)
+     nr_EIRENE_vac(0:max_layers-1)       =   1, &          ! radial resolution in vacuum (EIRENE only)
      nr_perturbed        =   2, &          ! number of perturbed flux surfaces at the inner boundary
      plate_format        =   1             ! format for plate definition file
 
@@ -186,7 +191,7 @@ module fieldline_grid
   ! zone data
   type :: t_zone
      ! resolution in radial, poloidal and toroidal direction
-     integer :: nr, np, nt
+     integer :: nr, np, nt, nr_vac
 
      ! connectivity between zones (surface types = periodic, mapping, ...)
      integer :: isfr(2), isfp(2), isft(2)
@@ -291,6 +296,7 @@ module fieldline_grid
   this%d_extend  = d_extend(ilayer,-1:1)
   this%N0_file   = N0_file(ilayer)
   this%vacuum_domain = vacuum_domain(ilayer)
+  this%nr_vac    = nr_EIRENE_vac(ilayer)
 
 
   ! 4. boundaries and zone type
@@ -313,7 +319,7 @@ module fieldline_grid
   ! single layer: add core domain on lower and vaccum domain on upper radial boundary
   case(TYPE_SINGLE_LAYER)
      nr_add1 = nr_EIRENE_core
-     nr_add2 = nr_EIRENE_vac
+     nr_add2 = nr_EIRENE_vac(ilayer)
 
   ! high pressure region (HPR): add core domain on lower radial boundary
   case(TYPE_HPR)
@@ -321,11 +327,11 @@ module fieldline_grid
 
   ! scrape-off layer (SOL): add vacuum domain on upper radial boundary
   case(TYPE_SOL)
-     nr_add2 = nr_EIRENE_vac
+     nr_add2 = nr_EIRENE_vac(ilayer)
 
   ! private flux region (PFR): add vacuum domain on lower radial boundary
   case(TYPE_PFR)
-     nr_add1 = nr_EIRENE_vac
+     nr_add1 = nr_EIRENE_vac(ilayer)
   end select
   this%nr = Block(iblock)%nr(ilayer) + nr_add1 + nr_add2
 
@@ -381,6 +387,7 @@ module fieldline_grid
 
 !=======================================================================
   subroutine setup_grid_configuration
+  use run_control, only: run_control_file
   use equilibrium, only: get_cylindrical_coordinates
 
   integer, parameter :: iu = 12
@@ -393,7 +400,7 @@ module fieldline_grid
      topology, symmetry, stellarator_symmetry, blocks, Block, &
      phi0, x_in1, x_in2, x_in_coordinates, d_SOL, d_PFR, d_N0, N0_file, vacuum_domain, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
-     n_interpolate, nr_perturbed, plate_generator, plate_format, &
+     n_interpolate, nr_perturbed, mesh_generator, plate_generator, plate_format, &
      np_ortho_divertor, np_sub_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
@@ -402,7 +409,7 @@ module fieldline_grid
 
 
   ! 1. read user configuration from input file
-  open  (iu, file='run_input', err=9000)
+  open  (iu, file=run_control_file, err=9000)
   read  (iu, FieldlineGrid_Input, err=9000, end=9100)
   close (iu)
   if (blocks > max_blocks) then
@@ -1086,7 +1093,6 @@ module fieldline_grid
   write (iu, 4000)
   write (iu, 9999)
   write (iu, 4001)
-  close (iu)
  4000 format ('*** 4. Additional surfaces')
  4001 format ('./../../geometry/ADD_SF_N0')
 

@@ -54,7 +54,7 @@ subroutine generate_separatrix
      if (Limit >=0.d0  .and.  Limit <= pi2) then
         call S%generate(i, theta_cut=Limit , offset=offset, trace_step=ts)
      else
-        call S%generate(i, offset=offset, trace_step=ts)
+        call S%generate_iX(i)
      endif
      select case(Output_Format)
      ! plot all branches in separate files

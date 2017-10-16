@@ -1,0 +1,18 @@
+#!/bin/bash
+
+FILES='
+bfield.dat
+grid3D.dat
+input.N0G
+input.PAR.6
+input.geo
+plates.dat
+run.conf
+'
+#ADD_SF_N0
+#boundary
+#physical_cell.data
+
+GEOMETRY=geometry.tgz
+
+tar -cvzf $GEOMETRY $FILES

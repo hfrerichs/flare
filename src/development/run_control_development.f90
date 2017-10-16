@@ -14,16 +14,12 @@ subroutine run_control_development (Run_Type)
 !     call hyperbolic_fixed_point
   case ('TEST_setup_domain')
      call TEST_setup_domain()
-  case ('TEST_base_grid')
-     call TEST_base_grid()
   case ('TEST_flux_surface_2D')
      call TEST_flux_surface_2D()
   case ('TEST_correct_PsiN')
      call TEST_correct_PsiN()
   case ('TEST_adaptive_step_size')
      call TEST_adaptive_step_size()
-  case ('TEST_base_mesh')
-     call TEST_base_mesh()
   case ('BENCHMARK_theta_map')
      call BENCHMARK_theta_map()
   case default
@@ -75,36 +71,6 @@ subroutine TEST_setup_domain()
      write (99, *) x, PsiN, get_PsiN(x)
   enddo
 end subroutine TEST_setup_domain
-
-
-
-
-!===============================================================================
-  subroutine TEST_base_grid
-  use iso_fortran_env
-  use base_grid
-  implicit none
-
-
-  nX = 2
-  allocate (connectX(nX))
-  ! lsn
-  nX = 1
-  connectX(1) = 1
-
-  ! ddn
-  !connectX(1) = -2
-  !connectX(2) = -2
-
-  ! ddn
-  !connectX(1) = 2
-  !connectX(2) = 1
-
-  call setup_grid_configuration()
-  call make_base_grids_auto()
-
-  end subroutine TEST_base_grid
-!===============================================================================
 
 
 
@@ -250,35 +216,6 @@ end subroutine TEST_setup_domain
   call D%store(filename=Output_File)
 
   end subroutine TEST_adaptive_step_size
-!===============================================================================
-
-
-
-!===============================================================================
-  subroutine TEST_base_mesh
-  use fieldline_grid
-  use base_mesh
-  use modtopo_lsn
-  use modtopo_ddn
-  use modtopo_cdn
-
-  integer, dimension(:), allocatable :: connectX
-  integer            :: nX
-
-
-  ! load and initialize grid configuration
-  call setup_grid_configuration()
-
-
-  ! setup geometry of computational domain
-  call setup_topology()
-  call setup_geometry()
-  call setup_interfaces()
-
-
-  ! generate base meshs
-  call generate_base_mesh(0)
-  end subroutine TEST_base_mesh
 !===============================================================================
 
 

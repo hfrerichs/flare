@@ -4,6 +4,10 @@ module numerics
   implicit none
 
 
+  real(real64), parameter :: &
+     m_to_cm = 1.d2,   cm_to_m = 1.d0 / m_to_cm
+
+
   integer, parameter :: &
       EULER                   = 1, &
       RUNGE_KUTTA_4           = 2, &
@@ -32,17 +36,15 @@ module numerics
      Spline_Order   = 5
 
 
-  logical :: &
-     OUT_OF_BOUNDS  = .false.
-
 
   contains
   !---------------------------------------------------------------------
 
 
   !---------------------------------------------------------------------
-  subroutine load_numerics()
+  subroutine load_numerics(input_file)
   use parallel
+  character(len=*), intent(in) :: input_file
 
   integer, parameter :: iu = 23
 
@@ -54,7 +56,7 @@ module numerics
   ! load numerical parameters on first processor
   if (firstP) then
      write (6, 1000)
-     open  (iu, file='run_input')
+     open  (iu, file=input_file)
      read  (iu, NumericsControl, end=1001)
  1001 continue
      close (iu)

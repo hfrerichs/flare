@@ -390,7 +390,11 @@ subroutine footprint_grid
         case(ANGLE)
            G_plot%x(ig,2) = theta
         case(DISTANCE)
-           G_plot%x(ig,2) = xi
+           if (j == 0) then
+              G_plot%x(ig,2) = 0.d0
+           else
+              G_plot%x(ig,2) = G_plot%x(ig-1,2) + sqrt(sum((G_sample%x(ig,:) - G_sample%x(ig-1,:))**2))
+           endif
         end select
      enddo
 

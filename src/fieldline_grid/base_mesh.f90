@@ -55,13 +55,15 @@ module base_mesh
   ! guiding surface
   type(t_curve) :: C_guide
 
-  type(t_mfs_mesh), dimension(:), allocatable :: M, Mtmp
+  type(t_mfs_mesh), dimension(:), allocatable :: M
+  type(t_mfs_mesh), dimension(:), allocatable, target :: Mtmp
 
 
   public :: setup_topology
   public :: setup_geometry
   public :: setup_interfaces
   public :: generate_base_mesh
+  public :: make_base_mesh_generic
 
   contains
 !=======================================================================
@@ -461,7 +463,7 @@ module base_mesh
 ! SHOULD THIS BE MOVED TO MODULE fieldline_grid?
 !=======================================================================
   subroutine setup_geometry()
-  use fieldline_grid, only: guiding_surface, d_SOL, d_PFR
+  use fieldline_grid, only: guiding_surface, d_SOL, d_PFR, poloidal_discretization, ORTHOGONAL_AUTO_ADJUST
   use boundary,       only: S_axi, n_axi
   use equilibrium,    only: get_magnetic_axis, get_poloidal_angle, get_PsiN, Xp
   use math
@@ -470,7 +472,7 @@ module base_mesh
   use string
 
   character(len=2) :: Sstr
-  real(real64)     :: dx, tmp(3), theta_cut, PsiN
+  real(real64)     :: dx, tmp(3), theta_cut, PsiN, x(2), tau
   integer          :: ix, ierr, iSOL, iPFR, ipi, jx, k, orientation, o(4)
 
 
@@ -664,6 +666,8 @@ module base_mesh
         call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_PSIN, PsiN)
         call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
      endif
+     poloidal_interface(ipi+2)%inode(-1) = ix
+     poloidal_interface(ipi+3)%inode(-1) = ix
 
 
      ! additional PFRs from X-point in PFR of the primary X-point
@@ -679,6 +683,9 @@ module base_mesh
         call R(ix, ASCENT_RIGHT)%generateX(ix, o(ASCENT_RIGHT), LIMIT_LENGTH, d_PFR(iPFR))
         call R(ix, ASCENT_RIGHT)%flip()
         call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
+
+        poloidal_interface(ipi+2)%inode(-1) = UNDEFINED
+        poloidal_interface(ipi+3)%inode(-1) = UNDEFINED
      endif
      ! private flux region
      iPFR = iPFR + 1
@@ -702,6 +709,7 @@ module base_mesh
         call R(ix, DESCENT_PFR)%setup_linear(Xp(jx)%X, Xp(ix)%X-Xp(jx)%X)
         call poloidal_interface(ipi+4)%set_curve(R(ix, DESCENT_PFR)%t_curve)
      endif
+     poloidal_interface(ipi+4)%inode(1) = ix
 
 
      ! plot paths
@@ -715,6 +723,21 @@ module base_mesh
 
   do ipi=1,poloidal_interfaces
      call poloidal_interface(ipi)%C%plot(filename='R'//trim(str(ipi))//'.plt')
+
+     ! check intersection with guiding surface
+     if (poloidal_discretization /= ORTHOGONAL_AUTO_ADJUST) then
+     if (poloidal_interface(ipi)%C%intersect_curve(C_guide, x, tau)) then
+        write (6, 9420) ipi
+
+        dx = poloidal_interface(ipi)%C%length()
+        if (poloidal_interface(ipi)%inode(-1) > 0) then
+           write (6, 9421) dx * tau
+        elseif (poloidal_interface(ipi)%inode( 1) > 0) then
+           write (6, 9421) dx * (1.d0 - tau)
+        endif
+        stop
+     endif
+     endif
   enddo
 
 
@@ -734,6 +757,8 @@ module base_mesh
  3032 format(8x,'generating PFR segment from X-point ', i0, ' to X-point ', i0)
  3033 format(8x,'generating left PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
  3034 format(8x,'generating right PFR segment for X-point ', i0, ' (length = ', f0.3, ' cm)')
+ 9420 format('ERROR: reference path for radial discretization (R',i0,'.plt) crosses guiding surface!')
+ 9421 format('d < ', f0.3, ' is required!')
   end subroutine setup_geometry
 !=======================================================================
 
@@ -1042,6 +1067,7 @@ module base_mesh
 
 
   write (6, 1000) il, iz0
+  if (Debug) write (6, 1001) Mtmp(iz0)%fixed_coord_value
   write (6, *) 'reference discretization at:'
 
 
@@ -1082,7 +1108,15 @@ module base_mesh
 
 
   ! generate mesh in base element
-  ! no Sp needed in base element
+  ! no Sp needed in base element -> only for divertor legs
+  select case(Z(iz0)%ipl_side)
+  case(LEFT)
+     call Sp%init(poloidal_spacing_L(Z(iz0)%ipl))
+  case(CENTER)
+     call Sp%init(poloidal_spacing(Z(iz0)%ipl))
+  case(RIGHT)
+     call Sp%init(poloidal_spacing_R(Z(iz0)%ipl))
+  end select
   call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp)
   if (Debug) call Mtmp(iz0)%plot_mesh('Mtmp'//trim(str(iz0))//'.plt')
 
@@ -1139,11 +1173,45 @@ module base_mesh
   enddo
 
  1000 format('Generate layer ', i0, ' from base element ', i0)
+ 1001 format(3x,'- reference discretization at: ',f0.3,' deg')
  9000 format('error in generate_layer for il, iz0 = ', i0, ', ', i0)
  9001 format('undefined reference nodes on radial boundary!')
  9002 format('undefined radial interface!')
  9003 format('undefined poloidal interface!')
   end subroutine generate_layer
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine make_base_mesh_generic()
+  use fieldline_grid
+
+  integer :: iblock
+
+
+  select case(poloidal_discretization)
+  case(ORTHOGONAL)
+  case(ORTHOGONAL_AUTO_ADJUST)
+  case default
+     write (6, 9000) trim(poloidal_discretization)
+     stop
+  end select
+ 9000 format('error: invalid poloidal discretization method "',a,'"!')
+
+
+  ! setup geometry of computational domain
+  call setup_topology()
+  call setup_geometry()
+  call setup_interfaces()
+
+
+  ! generate base meshs
+  do iblock=0,blocks-1
+     call generate_base_mesh(0)
+  enddo
+
+  end subroutine make_base_mesh_generic
 !=======================================================================
 
 end module base_mesh

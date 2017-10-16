@@ -214,7 +214,7 @@ module elements
      if (radial_interface(iri)%geometry_undefined()) then
         write (6, 9000);  write (6, 9002) ierr;  stop
      endif
-     call M%setup_boundary_nodes(irside, RADIAL, radial_interface(iri)%C, Sp, debug=debug)
+     call M%setup_boundary_nodes(irside, RADIAL, radial_interface(iri)%C, Equidistant, debug=debug)
   endif
   ! quasi-orhogonal mesh in upstream divertor legs
   np0  = np_ortho_divertor
@@ -245,7 +245,7 @@ module elements
      if (np1 > 0) then
         call M%make_interpolated_submesh((/0,this%nr-1/), (/this%np-1-np1, this%np/))
      endif
-     call M%make_divertor_grid(UPPER, this%np-np0, this%T, ierr)
+     call M%make_divertor_grid(UPPER, this%np-np0, Sp, this%T, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif
@@ -258,7 +258,7 @@ module elements
      if (np1 > 0) then
         call M%make_interpolated_submesh((/0,this%nr-1/), (/0, 1+np1/))
      endif
-     call M%make_divertor_grid(LOWER, np0, this%T, ierr)
+     call M%make_divertor_grid(LOWER, np0, Sp, this%T, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif

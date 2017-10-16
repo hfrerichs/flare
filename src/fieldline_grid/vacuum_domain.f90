@@ -10,29 +10,29 @@ subroutine vacuum_domain_for_EIRENE()
   integer :: iz, irP, irV
 
 
-  write (6, 1000)
- 1000 format(3x,' - Setting up vacuum domain for EIRENE')
   do iz=0,NZONET-1
+     write (6, 1000)
+ 1000 format(3x,' - Setting up vacuum domain for EIRENE')
      ! set up vacuum domain in far SOL
      if (Zone(iz)%isfr(1) == SF_VACUUM) then
         if (Zone(iz)%vacuum_domain(1:2) == 'v1') then
            Zone(iz)%vacuum_domain = Zone(iz)%vacuum_domain(4:80)
-           call setup_vacuum_domain(iz, nr_EIRENE_vac, 1)
+           call setup_vacuum_domain(iz, Zone(iz)%nr_vac, 1)
         else
-           irP = nr_EIRENE_vac
+           irP = Zone(iz)%nr_vac
            irV = 0
-           write (6, 1001) iz, nr_EIRENE_vac
+           write (6, 1001) iz, Zone(iz)%nr_vac
            call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%vacuum_domain)
         endif
      endif
      if (Zone(iz)%isfr(2) == SF_VACUUM) then
         if (Zone(iz)%vacuum_domain(1:2) == 'v1') then
            Zone(iz)%vacuum_domain = Zone(iz)%vacuum_domain(4:80)
-           call setup_vacuum_domain(iz, nr_EIRENE_vac, 2)
+           call setup_vacuum_domain(iz, Zone(iz)%nr_vac, 2)
         else
-           irP = Zone(iz)%nr - nr_EIRENE_vac
+           irP = Zone(iz)%nr - Zone(iz)%nr_vac
            irV = Zone(iz)%nr
-           write (6, 1002) iz, nr_EIRENE_vac
+           write (6, 1002) iz, Zone(iz)%nr_vac
            call setup_vacuum_domain_v2(iz, irP, irV, Zone(iz)%vacuum_domain)
         endif
      endif
@@ -241,6 +241,7 @@ subroutine setup_vacuum_domain_v2(iz, irP, irV, filter)
      enddo
   enddo
   !.....................................................................
+  write (6, *)
 
 
   ! 99. cleanup .......................................................

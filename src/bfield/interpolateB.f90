@@ -206,7 +206,7 @@ module interpolateB
 !=======================================================================
   function interpolateB_get_Bf(r3) result(Bf)
   use math
-  use numerics
+  use exceptions, only: OUT_OF_BOUNDS
   real(real64), intent(in)  :: r3(3)
   real(real64)              :: Bf(3)
 

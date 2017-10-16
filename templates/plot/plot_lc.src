@@ -26,7 +26,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Final PsiN (forward)',$
 			   'Toroidal connection length [turns] (backward)', $
 			   'Toroidal connection length [turns] (forward)', $
-			   'Toroidal connection length [turns]']
+			   'Toroidal connection length [turns]'], $
+			   'q (backard)', $
+			   'q (forward)', $
+			   'q']
 	u_title_strs	= ['Connection Length [m]',$
 			   'Shortest Length [m]',$
 			   'Length [m]',$
@@ -49,7 +52,10 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 			   'Final PsiN (forward)', $
 			   'Toroidal connection length [turns] (backward)', $
 			   'Toroidal connection length [turns] (forward)', $
-			   'Toroidal connection length [turns]']
+			   'Toroidal connection length [turns]'], $
+			   'q (backard)', $
+			   'q (forward)', $
+			   'q']
 
 
 	; check data file for the correct # of lines ..................................
@@ -80,7 +86,7 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 	endif
 	;columns	= 6
 	columns	= 5 + nout
-	n_vars	= 10 + 4 + 2 + 1 + 3 + 3
+	n_vars	= 10 + 4 + 2 + 1 + 3 + 6
 	;..............................................................................
 	
 
@@ -195,6 +201,11 @@ pro read_data, data_file, idata, log10=log10, zrange=zrange
 
 		; connection length [toroidal turns]
 		data(i,22) = data(i,20) + data(i,21)
+
+		; estimate q
+		data(i,23)	= data(i,20) / np1
+		data(i,24)	= data(i,21) / np2
+		data(i,25)	= (abs(data(i,20)) + abs(data(i,21))) / (np1 + np2)
 	endfor
 	free_lun, lun
 	;..............................................................................
@@ -711,6 +722,9 @@ pro plot_lc, grid_file, data_file, idata, $
 		'Ltt-': idata=20
 		'Ltt+': idata=21
 		'Ltt': idata=22
+		'q-': idata=23
+		'q+': idata=24
+		'q': idata=25
 		else: begin
 			print, 'error: invalid expression for "Zdata"'
 			return

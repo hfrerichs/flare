@@ -17,6 +17,7 @@ module plates
 
   public :: initialize_plates
   public :: cell_center_outside
+  public :: sample_cell
   public :: minimum_radial_coordinate
   public :: set_minimum_cells_in_flux_tube
   public :: write_plates
@@ -111,6 +112,85 @@ module plates
  1000 format(8x,'Zone ',i0,': checking if cell center is outside of boundary')
  8000 format('DEBUG_PLATES_Z',i0,'_T',i0,'_B',i0,'.PLT')
   end subroutine cell_center_outside
+!=======================================================================
+
+
+
+!=======================================================================
+! sample nsample**3 points in each cell:
+! imode = 1:	count only complete cells (all points must be inside)
+!       = 2:    partial cells are counted (at least one point must be inside)
+!=======================================================================
+  subroutine sample_cell(iz, imode, nsample)
+  use run_control, only: Debug
+  use math
+  use fieldline_grid, only: symmetry
+  use emc3_grid
+  integer, intent(in) :: iz, imode, nsample
+
+  integer, parameter  :: &
+     INCLUDE_COMPLETE_CELLS_ONLY = 1, &
+     INCLUDE_PARTIAL_CELLS       = 2
+
+  character(len=256)  :: filename
+  real(real64) :: phi, x(3), rj, pj, tj
+  integer      :: i, j, k, l, ig(8), ic, n, i1, j1, k1
+
+
+  if (n_quad > 0) stop
+  write (6, 1000) iz
+
+  n = nsample
+
+  ! 2. check if cell is outside boundary, and if so, mark this cell
+  do i=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)-1
+  do j=P_SURF_PL_TRANS_RANGE(1,iz),P_SURF_PL_TRANS_RANGE(2,iz)-1
+  kloop: do k=0,ZON_TORO(iz)-1
+     ! id of this cell
+     ic      = i + (j + k*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
+
+
+     ! sample nsample**3 points in cell
+     if (imode == INCLUDE_PARTIAL_CELLS) ID_TEM(ic) = 1
+     do i1=1,n
+     do j1=1,n
+     do k1=1,n
+        rj = 2.d0*(i1-0.5d0) / n - 1.d0
+        pj = 2.d0*(j1-0.5d0) / n - 1.d0
+        tj = k + 1.d0*(k1-0.5d0) / n
+
+        call RZ_REAL_COORDINATES(iz,i,j,rj,pj,tj, x(1),x(2))
+
+        x(3) = PHI_PLANE(k+PHI_PL_OS(iz))
+        x(3) = x(3) + (tj-k) * (PHI_PLANE(k+1+PHI_PL_OS(iz)) + PHI_PLANE(k+PHI_PL_OS(iz)))
+        x(3) = phi_sym(x(3), symmetry)
+
+        select case(imode)
+        ! cell must be completely inside boundary, i.e. cell is excluded if at least one
+        ! sample point is outside
+        case(INCLUDE_COMPLETE_CELLS_ONLY)
+           if (outside_boundary(x, k)) then
+              ID_TEM(ic) = 1
+              cycle kloop
+           endif
+
+        ! cell can be partially outside boundary, but at least one sample point must be inside
+        case(INCLUDE_PARTIAL_CELLS)
+           if (.not.outside_boundary(x, k)) then
+              ID_TEM(ic) = 0
+              cycle kloop
+           endif
+
+        end select
+     enddo
+     enddo
+     enddo
+  enddo kloop
+  enddo
+  enddo
+
+ 1000 format(8x,'Zone ',i0,': cell must be completely inside of boundary')
+  end subroutine sample_cell
 !=======================================================================
 
 
@@ -706,6 +786,8 @@ end module plates
 
   call initialize_plates()
   select case(plate_generator)
+  ! exclude cell if cell center is outside of boundary
+  ! TODO: generalize sample_cell for non-axisymmetric boundaries (as replacement for cell_center_outside)
   case(PLATES_DEFAULT)
      do iz=0,NZONET-1
         call cell_center_outside(iz)
@@ -717,6 +799,21 @@ end module plates
      enddo
      kmin = 2
      call set_minimum_cells_in_flux_tube(kmin)
+
+  ! check if cell is completely inside by sampling 4**3 points
+  ! only implemented for axisymmetric surfaces
+  case(PLATES_COMPLETE_CELLS_ONLY)
+     do iz=0,NZONET-1
+        call sample_cell(iz, 1, 4)
+     enddo
+
+  ! check if cell is at least partially inside by sampling 4**3 points
+  ! only implemented for axisymmetric surfaces
+  case(PLATES_INCLUDE_PARTIAL_CELLS)
+     do iz=0,NZONET-1
+        call sample_cell(iz, 2, 4)
+     enddo
+
 
   case default
      write (6, *) 'error: invalid plate generator ', trim(plate_generator)

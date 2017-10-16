@@ -353,7 +353,7 @@ module divertor
      call C%plot(filename=DEBUG_DIVERTOR_LEG, append=.true.)
   endif
 
-  call Sguide%init_spline_X1(eta, xi0, ierr)
+  call Sguide%init_spline_X1(eta, xi0, 2.d0, ierr)
   if (ierr .ne. 0) then
      write (6, *) 'using piecewise linear spacing function instead'
      call Sguide%init_X1(eta, xi0)
@@ -876,6 +876,10 @@ module divertor
   j0(-1) = SRF_POLO(iz)-1
   k0( 1) = SRF_TORO(iz)-1
   k0(-1) = 0
+
+  write (6, 1000)
+ 1000 format(3x,' - Closing poloidal ends for mapping in EMC3')
+
   do i=-1,1,2
      iside = int(i * Ip_sign * Bt_sign)
      ! poloidal index of reference surface
@@ -884,14 +888,17 @@ module divertor
      ! toroidal index of reference surface
      k = k0(i)
 
+     write (6, 1001) iz, k, j
      ! extend poloidal surface
      d = Zone(iz)%d_extend(i)
      if (d > 0.d0) call extend_poloidal_surface(d, k)
-     if (d < 0.d0) call adjust_poloidal_surface_automatic(j, k, i)
+     if (d < 0.d0) call adjust_poloidal_surface_automatic(j, k, -iside)
 
      ! distribute nodes in toroidal direction
      call distribute_nodes(k)
   enddo
+  write (6, *)
+ 1001 format(8x,'adjusting nodes to surface (iz = ',i0,', it = ',i0,', ip = ',i0,')')
 
 
   contains
@@ -904,7 +911,6 @@ module divertor
   real(real64) :: R1, Z1
   integer      :: i, ig, ig0, k
 
-  write (6, *) 'adjusting nodes to surface (iz, it, ip) = ', iz, k0, j
   do i=0,SRF_RADI(iz)-1
      ig0 = i + (j + k0*SRF_POLO(iz))*SRF_RADI(iz) +GRID_P_OS(iz)
      R1 = RG(ig0)
@@ -1037,13 +1043,14 @@ module divertor
      ! adjustment necessary?
      if (dmax > 0.d0) then
         call interpolate_nodes(i,i2max,j,k)
-        write (6, *) 'interpolate nodes: ', i, i2max, j, k
+        write (6, 2001) i, i2max
         i = i2max
         cycle
      endif
 
      i = i+1
   enddo
+ 2001 format(8x,'interpolating nodes in concave domain ir = ',i0,' -> ',i0)
 
 
   ! 99. cleanup

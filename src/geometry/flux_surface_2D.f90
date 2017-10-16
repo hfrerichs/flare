@@ -12,9 +12,17 @@ module flux_surface_2D
      RIGHT_HANDED =  1, &
      LEFT_HANDED  = -1, &
      FORWARD      =  1, &
-     BACKWARD     = -1, &
-     CCW          =  1001, &
-     CW           = -1001
+     BACKWARD     = -1
+
+
+  integer, parameter, public :: &
+     BPOL_DIRECTION = 1, &  ! poloidal field direction
+     CCW_DIRECTION  = 2     ! counter clockwise direction
+
+
+  integer, parameter :: &
+     DEFAULT_REFERENCE_DIRECTION = BPOL_DIRECTION
+
 
   type, extends(t_curve) :: t_flux_surface_2D
      real(real64) :: PsiN, q
@@ -63,6 +71,7 @@ module flux_surface_2D
   use ode_solver
   use boundary
   use math
+  use exceptions, only: OUT_OF_BOUNDS
   class(t_flux_surface_2D) :: this
   real(real64), intent(in) :: r(2)
   
@@ -152,6 +161,10 @@ module flux_surface_2D
      do i=1,nmax
         ! progress one step
         yc(1:2)       = F%next_step()
+        if (OUT_OF_BOUNDS) then
+           n(idir)    = i-1
+           exit
+        endif
         thetac        = get_poloidal_angle(yc)
 
         ! save current position
@@ -238,10 +251,12 @@ module flux_surface_2D
 ! Generate flux surface branch from reference point xinit = (R,Z [cm])
 !
 ! direction =
-!    FORWARD         in forward Bpol direction
-!    BACKWARD        in backward Bpol direction
-!    CCW             in counter-clockwise direction
-!    CW              in clockwise direction
+!    FORWARD         in forward direction with respect to reference direction
+!    BACKWARD        in backward direction with respect to reference direction
+!
+! reference_direction (optional) =
+!    BPOL_DIRECTION  direction of poloidal field
+!    CCW_DIRECTION   counter-clockwise direction
 !
 ! x0                 add 0th point (e.g. X-point)
 ! stop_at_boundary   stop tracing at configuration boundary (defined in
@@ -256,7 +271,7 @@ module flux_surface_2D
 !    -2              flux surface branch connects to X-point
 !=======================================================================
   subroutine generate_branch(this, xinit, direction, ierr, &
-                             x0, trace_step, &
+                             reference_direction, x0, trace_step, &
                              stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X, connectX)
   use ode_solver
   use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, &
@@ -264,10 +279,12 @@ module flux_surface_2D
   use boundary
   use math
   use curve2D
+  use exceptions, only: OUT_OF_BOUNDS
   class(t_flux_surface_2D)   :: this
   real(real64),  intent(in)  :: xinit(2)
   integer,       intent(in)  :: direction
   integer,       intent(out) :: ierr
+  integer,       intent(in),  optional :: reference_direction
   real(real64),  intent(in),  optional :: x0(2), trace_step, theta_cutoff, cutoff_X
   logical,       intent(in),  optional :: stop_at_boundary
   type(t_curve), intent(in),  optional :: cutoff_boundary
@@ -278,7 +295,7 @@ module flux_surface_2D
   real(real64), dimension(:,:), allocatable :: xtmp, xtmp_tmp
   type(t_ODE)  :: F
   real(real64) :: L, ds, X(2), dX, t, thetal, thetac, dtheta
-  integer      :: i, idir, ix, ierrPsiN, nchunks, ntmp, boundary_id
+  integer      :: i, idir, idir_ref, ix, ierrPsiN, nchunks, ntmp, boundary_id
   logical      :: check_boundary
 
 
@@ -296,18 +313,21 @@ module flux_surface_2D
 
   ! 1. initialize ------------------------------------------------------
   ! 1.1 trace direction
-  select case(direction)
-  case(FORWARD)
-     idir = 1
-  case(BACKWARD)
-     idir = -1
-  case(CCW)
-     idir = -Ip_sign
-  case(CW)
-     idir = Ip_sign
-  case default
+  if (direction /= FORWARD  .and.  direction /= BACKWARD) then
      write (6, 9000)
      write (6, 9001) direction
+     stop
+  endif
+  idir_ref = DEFAULT_REFERENCE_DIRECTION
+  if (present(reference_direction)) idir_ref = reference_direction
+  select case(idir_ref)
+  case(BPOL_DIRECTION)
+     idir     = direction
+  case(CCW_DIRECTION)
+     idir     = -Ip_sign * direction
+  case default
+     write (6, 9000)
+     write (6, 9002) idir_ref
      stop
   end select
 
@@ -334,6 +354,7 @@ module flux_surface_2D
 
   ! 2. generate flux surface branch
   ierr = 0
+  OUT_OF_BOUNDS = .false.
   call F%init_ODE(2, xinit, 0.d0, epol_sub, NM_RUNGEKUTTA4)
   trace_loop: do
      i = i + 1
@@ -383,6 +404,12 @@ module flux_surface_2D
 
      ! C. trace one step
      X           = F%step_ds(ds)
+     if (OUT_OF_BOUNDS) then
+        i = i-1
+        if (present(connectX)) connectX = -1
+        ierr        = -1
+        exit
+     endif
      xtmp(i,1:2) = correct_PsiN(X, this%PsiN, ierrPsiN) ! perform correction step
      if (ierrPsiN > 0) xtmp(i,1:2) = X
      F%yc(1:2)   = xtmp(i,1:2) ! update ODE solver
@@ -398,7 +425,7 @@ module flux_surface_2D
         exit
      endif
      endif
-     ! D.2 check equilibrium boundary
+     ! D.2 check equilibrium boundary ------ this becomes OBSOLETE once OUT_OF_BOUNDS is implemented for every field component
      if (leave_equilibrium_domain(xtmp(i-1,1:2), xtmp(i,1:2), X)) then
         xtmp(i,1:2) = X
         if (present(connectX)) connectX = -1
@@ -436,6 +463,7 @@ module flux_surface_2D
 
  9000 format('error in t_flux_surface_2D%generate_branch:')
  9001 format('invalid direction ', i0, '!')
+ 9002 format('invalid reference direction ', i0, '!')
   end subroutine generate_branch
 !=======================================================================
 

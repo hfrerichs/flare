@@ -1,19 +1,19 @@
 !===============================================================================
-! B-spline interpolation in 2D (on structured grid)
+! B-spline interpolation in 1D (on structured grid)
 !===============================================================================
-module bspline2D
+module bspline1D
   use iso_fortran_env
   use bspline
   implicit none
   private
 
 
-  type, public :: t_bspline2D
+  type, public :: t_bspline1D
      ! coefficients for spline interpolation
-     real(real64), dimension(:,:), allocatable :: dcoeff
-     real(real64), dimension(:),   allocatable :: xnot, ynot
+     real(real64), dimension(:), allocatable :: dcoeff
+     real(real64), dimension(:), allocatable :: x1not
 
-     integer      :: nx, ny
+     integer      :: n1
 
      ! spline interpolation order
      integer      :: nord
@@ -25,7 +25,7 @@ module bspline2D
      procedure :: eval
      procedure :: derivative
      procedure :: cleanup
-  end type t_bspline2D
+  end type t_bspline1D
 
   contains
 !=======================================================================
@@ -35,17 +35,16 @@ module bspline2D
 !=======================================================================
 ! allocate memory for spline coefficients and knots
 !
-! nx, ny               resolution in x and y direction
+! n1                   resolution in x1 direction
 ! nord                 spline interpolation order
 !=======================================================================
-  subroutine new(this, nx, ny, nord)
-  class(t_bspline2D)  :: this
-  integer, intent(in) :: nx, ny
+  subroutine new(this, n1, nord)
+  class(t_bspline1D)  :: this
+  integer, intent(in) :: n1
   integer, intent(in), optional :: nord
 
 
-  this%nx   = nx
-  this%ny   = ny
+  this%n1   = n1
   if (present(nord)) then
      this%nord = nord
   else
@@ -54,8 +53,8 @@ module bspline2D
   call this%cleanup()
 
 
-  allocate (this%xnot(nx+this%nord), this%ynot(ny+this%nord))
-  allocate (this%dcoeff(nx, ny))
+  allocate (this%x1not(n1+this%nord))
+  allocate (this%dcoeff(n1))
 
   end subroutine new
 !=======================================================================
@@ -63,24 +62,22 @@ module bspline2D
 
 
 !=======================================================================
-! initialize 2D spline from given data (original data is not stored here)
+! initialize 3D spline from given data (original data is not stored here)
 !
-! nx, ny               resolution in x and y direction
+! n1                   resolution in x1 direction
 ! nord                 spline interpolation order
 !=======================================================================
-  subroutine init(this, nx, ny, x, y, D, nord)
-  class(t_bspline2D)       :: this
-  integer,      intent(in) :: nx, ny
-  real(real64), intent(in) :: x(nx), y(ny), D(nx,ny)
+  subroutine init(this, n1, x1, D, nord)
+  class(t_bspline1D)       :: this
+  integer,      intent(in) :: n1
+  real(real64), intent(in) :: x1(n1), D(n1)
   integer,      intent(in), optional :: nord
 
 
-  call this%new(nx, ny, nord)
+  call this%new(n1, nord)
 
-  call dbsnak(nx, x, this%nord, this%xnot)
-  call dbsnak(ny, y, this%nord, this%ynot)
-  call dbs2in(nx, x, ny, y, D, &
-              nx, this%nord, this%nord, this%xnot, this%ynot, this%dcoeff)
+  call dbsnak(n1, x1, this%nord, this%x1not)
+  call dbsint(n1, x1, D, this%nord, this%x1not, this%dcoeff)
 
   end subroutine init
 !=======================================================================
@@ -90,20 +87,18 @@ module bspline2D
 !=======================================================================
   subroutine broadcast(this)
   use parallel
-  class(t_bspline2D)   :: this
+  class(t_bspline1D)   :: this
 
 
-  call broadcast_inte_s(this%nx)
-  call broadcast_inte_s(this%ny)
+  call broadcast_inte_s(this%n1)
   call broadcast_inte_s(this%nord)
   if (mype > 0) then
-     call this%new(this%nx, this%ny, this%nord)
+     call this%new(this%n1, this%nord)
   endif
 
   ! broadcast spline coefficients
-  call broadcast_real  (this%xnot, this%nx + this%nord)
-  call broadcast_real  (this%ynot, this%ny + this%nord)
-  call broadcast_real  (this%dcoeff, this%nx*this%ny)
+  call broadcast_real  (this%x1not,  this%n1 + this%nord)
+  call broadcast_real  (this%dcoeff, this%n1)
 
   end subroutine broadcast
 !=======================================================================
@@ -112,13 +107,12 @@ module bspline2D
 
 !=======================================================================
   function eval(this, x) result(d)
-  class(t_bspline2D)       :: this
-  real(real64), intent(in) :: x(2)
+  class(t_bspline1D)       :: this
+  real(real64), intent(in) :: x
   real(real64)             :: d
 
 
-  d    = dbs2dr(0,0,x(1),x(2),this%nord,this%nord, &
-                this%xnot,this%ynot,this%nx,this%ny,this%dcoeff)
+  d    = dbsval(x, this%nord, this%x1not, this%n1, this%dcoeff)
 
   end function eval
 !=======================================================================
@@ -126,15 +120,14 @@ module bspline2D
 
 
 !=======================================================================
-  function derivative(this, x, mx, my) result(d)
-  class(t_bspline2D)       :: this
-  real(real64), intent(in) :: x(2)
-  integer,      intent(in) :: mx, my
+  function derivative(this, x, m1) result(d)
+  class(t_bspline1D)       :: this
+  real(real64), intent(in) :: x
+  integer,      intent(in) :: m1
   real(real64)             :: d
 
 
-  d    = dbs2dr(mx,my,x(1),x(2),this%nord,this%nord, &
-                this%xnot,this%ynot,this%nx,this%ny,this%dcoeff)
+  d    = dbsder(m1, x, this%nord, this%x1not, this%n1, this%dcoeff)
 
   end function derivative
 !=======================================================================
@@ -143,14 +136,13 @@ module bspline2D
 
 !=======================================================================
   subroutine cleanup(this)
-  class(t_bspline2D) :: this
+  class(t_bspline1D) :: this
 
 
-  if (allocated(this%xnot))   deallocate(this%xnot)
-  if (allocated(this%ynot))   deallocate(this%ynot)
+  if (allocated(this%x1not))  deallocate(this%x1not)
   if (allocated(this%dcoeff)) deallocate(this%dcoeff)
 
   end subroutine cleanup
 !=======================================================================
 
-end module bspline2D
+end module bspline1D

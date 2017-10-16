@@ -71,6 +71,7 @@ module grid
      procedure :: new
      procedure :: load
      procedure :: load_usr
+     procedure :: broadcast
      procedure, private :: setup_mesh
      procedure, private :: setup_mesh3D
      procedure :: setup_structured_grid
@@ -87,12 +88,11 @@ module grid
 
 
 !=======================================================================
-  subroutine new(this, coordinates, layout, fixed_coord, n1, n2, n3, fixed_coord_value, mesh)
+  subroutine new(this, coordinates, layout, fixed_coord, n1, n2, n3, fixed_coord_value)
   class(t_grid)                 :: this
   integer, intent(in)           :: coordinates, layout, fixed_coord, n1
   integer, intent(in), optional :: n2, n3
   real(real64), intent(in), optional :: fixed_coord_value
-  logical, intent(in), optional :: mesh
 
 
   this%coordinates = coordinates
@@ -227,7 +227,10 @@ module grid
   if (firstP) then
      call read_grid()
   endif
-  if (nprs > 1) call broadcast_grid()
+  if (nprs > 1) then
+     call broadcast_layout()
+     call this%broadcast()
+  endif
 
   contains
 !-----------------------------------------------------------------------
@@ -464,21 +467,25 @@ module grid
       stop
   end subroutine read_grid
 !-----------------------------------------------------------------------
-  subroutine broadcast_grid
+  subroutine broadcast_layout
 
 #ifdef MPI
   call wait_pe()
-  call broadcast_inte_s(this%n)
   call broadcast_inte_s(this%coordinates)
   call broadcast_inte_s(this%layout)
   call broadcast_inte_s(this%fixed_coord)
+  call broadcast_inte_s(this%n1)
+  call broadcast_inte_s(this%n2)
+  call broadcast_inte_s(this%n3)
+  call broadcast_real_s(this%fixed_coord_value)
+
   if (mype > 0) then
-     allocate (this%x(this%n, 3))
+     call this%new(this%coordinates, this%layout, this%fixed_coord, &
+                   this%n1, this%n2, this%n3, this%fixed_coord_value)
   endif
-  call broadcast_real  (this%x, this%n*3)
 #endif
 
-  end subroutine broadcast_grid
+  end subroutine broadcast_layout
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
 ! internal routine to read integer values from header
@@ -566,6 +573,51 @@ module grid
 
 #endif
   end subroutine load_usr
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine broadcast(this)
+  class(t_grid)                 :: this
+
+  integer :: m
+
+
+#ifdef MPI
+  call wait_pe()
+  call broadcast_real  (this%x, this%n*3)
+
+  select case(this%layout)
+  case(STRUCTURED)
+     call broadcast_real  (this%x1, this%n1)
+     call broadcast_real  (this%x2, this%n2)
+     call broadcast_real  (this%x3, this%n3)
+
+
+  case(MESH_2D)
+     if (this%fixed_coord > 0) then
+        m = 2
+     else
+        m = 3
+     endif
+     call broadcast_real  (this%mesh, this%n1*this%n2 * m)
+
+
+  case(MESH_3D)
+     if (this%fixed_coord > 0) then
+        m = 2
+        call broadcast_real  (this%x3, this%n3)
+     else
+        m = 3
+     endif
+     call broadcast_real  (this%mesh3D, this%n1*this%n2 * this%n3 * m)
+
+  case default
+  end select
+#endif
+
+  end subroutine broadcast
 !=======================================================================
 
 

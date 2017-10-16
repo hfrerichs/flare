@@ -40,6 +40,7 @@ module mesh_spacing
      procedure init_X1
      procedure init_recursive
      procedure init_Dcurve
+     procedure init_manual
   end type t_spacing
   
   type(t_spacing), public, parameter :: Equidistant = t_spacing(LINEAR,0,null(),Empty_curve,null())
@@ -58,7 +59,7 @@ module mesh_spacing
   character(len=max(len(distribution), len(LINEAR))) :: distribution_type
   character(len=len(distribution))                   :: arguments
 
-  real(real64) :: eps, kap, del, phi0, dphi, Delta, R, eta1, xi1
+  real(real64) :: eps, kap, del, phi0, dphi, Delta, R, eta1, xi1, beta
 
 
   if (allocated(this%c)) deallocate(this%c)
@@ -90,8 +91,8 @@ module mesh_spacing
 
   ! spline with reference node
   case(SPLINE_X1)
-     read (arguments, *, err=5000, end=5000) eta1, xi1
-     call this%init_spline_X1(eta1, xi1)
+     read (arguments, *, err=5000, end=5000) eta1, xi1, beta
+     call this%init_spline_X1(eta1, xi1, beta)
 
 
   ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
@@ -166,23 +167,23 @@ module mesh_spacing
 
 
 !=======================================================================
-  subroutine init_spline_x1(this, eta1, xi1, ierr)
+  subroutine init_spline_x1(this, eta1, xi1, beta, ierr)
   class(t_spacing)         :: this
-  real(real64), intent(in) :: eta1, xi1
+  real(real64), intent(in) :: eta1, xi1, beta
   integer,      intent(out), optional :: ierr
 
-  real(real64), parameter  :: beta = 2.d0
   real(real64) :: a1, b1, a2, b2, c2
 
 
   if (present(ierr)) ierr = 0
 
   this%dist = SPLINE_X1
-  this%nc   = 2
+  this%nc   = 3
   if (allocated(this%c)) deallocate(this%c)
   allocate(this%c(this%nc))
   this%c(1) = eta1
   this%c(2) = xi1
+  this%c(3) = beta
 
   a2 = (1.d0 - xi1) / (1.d0 - eta1)**2 - 1.d0 / beta / (1.d0 - eta1)
   b2 = 1.d0 / beta - 2.d0 * eta1 * a2
@@ -312,6 +313,23 @@ module mesh_spacing
 
 
 !=======================================================================
+  subroutine init_manual(this, C)
+  class(t_spacing)            :: this
+  type(t_curve), intent(in)   :: C
+
+
+  this%dist = USER_DEF
+
+  this%D = C
+  call check_manual_stretching_function(this%D)
+  call this%D%setup_coordinate_sampling(1)
+
+  end subroutine init_manual
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine check_manual_stretching_function (D)
   type(t_curve), intent(in) :: D
 
@@ -412,7 +430,7 @@ module mesh_spacing
 
   ! spline with reference node
   case(SPLINE_X1)
-     xi = sample_spline_X1(t, this%c(1), this%c(2))
+     xi = sample_spline_X1(t, this%c(1), this%c(2), this%c(3))
 
   ! Delta-R type spacing function (increase resolution in Delta domain by factor R)
   case(DELTA_R_SYM)
@@ -457,11 +475,9 @@ module mesh_spacing
 
 
 !=======================================================================
-  function sample_spline_X1(eta, eta1, xi1) result(xi)
-  real(real64), intent(in) :: eta, eta1, xi1
+  function sample_spline_X1(eta, eta1, xi1, beta) result(xi)
+  real(real64), intent(in) :: eta, eta1, xi1, beta
   real(real64)             :: xi
-
-  real(real64), parameter  :: beta = 2.d0 ! dxi/deta (eta1) = 0.5
 
   real(real64) :: a1, a2, b1, b2, c2
 
