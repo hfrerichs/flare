@@ -111,7 +111,7 @@ module fieldline_grid
      nr(0:max_layers-1)  =  32, &          ! default radial resolution
      n_interpolate       =   4, &          ! number of interpolated flux surfaces (for the transition between the pair of perturbed flux surfaces at the inner simulation boundary and unperturbed flux surfaces further outside)
      np_ortho_divertor   =  10, &          ! number of orthogonal surfaces in divertor legs
-     np_sub_divertor     =   2, &          ! sub-resolution in target aligned domain
+     np_sub_divertor     =   1, &          ! sub-resolution in target aligned domain
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
      nr_EIRENE_vac(0:max_layers-1)       =   1, &          ! radial resolution in vacuum (EIRENE only)
      nr_perturbed        =   2, &          ! number of perturbed flux surfaces at the inner boundary
