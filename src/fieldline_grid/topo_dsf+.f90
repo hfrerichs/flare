@@ -8,7 +8,7 @@ module modtopo_dsfp
   use grid
   use separatrix
   use curve2D
-  use equilibrium
+  use equilibrium, only: Xp
   use fieldline_grid, unused => TOPO_DDN, unused2 => TOPO_LSN
   use inner_boundary
   use modtopo_lsn

@@ -63,7 +63,8 @@ module modtopo_stel
   !=====================================================================
   subroutine setup_domain(iblock)
   use run_control, only: Debug, N_points, Trace_Method
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: get_poloidal_angle
   use boundary
   use poincare_set
   use divertor, only: Pmag

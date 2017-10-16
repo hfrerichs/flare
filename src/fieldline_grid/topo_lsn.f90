@@ -5,7 +5,6 @@
 module modtopo_lsn
   use iso_fortran_env
   use grid
-  use equilibrium
   use separatrix
   use curve2D
   use fieldline_grid, unused => TOPO_LSN

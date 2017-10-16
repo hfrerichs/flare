@@ -8,7 +8,7 @@ module modtopo_cdn
   use grid
   use separatrix
   use curve2D
-  use equilibrium
+  use equilibrium, only: Xp, get_PsiN
   use fieldline_grid, unused => TOPO_CDN, unused2 => TOPO_LSN
   use inner_boundary
   use modtopo_lsn

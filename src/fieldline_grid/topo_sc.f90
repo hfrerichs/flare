@@ -60,7 +60,8 @@ module modtopo_sc
 
   !=====================================================================
   subroutine setup_domain()
-  use equilibrium
+  use magnetic_axis
+  use equilibrium, only: get_poloidal_angle
   use divertor, only: Pmag
 
   real(real64) :: x1(2), x2(2), d(2), tmp(3), theta0
