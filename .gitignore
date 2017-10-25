@@ -3,6 +3,7 @@ configure.log
 config.h
 include*
 src/version.f90
+src/libFLARE.so
 *.o
 *.mod
 *.swp

@@ -11,20 +11,22 @@ debug:
 
 .PHONY: install
 install:
-	test -d $(BIN_DIR) || mkdir $(BIN_DIR)
+	test -d $(BINDIR) || install -d $(BINDIR)
+	test -d $(LIBDIR) || install -d $(LIBDIR)
 
-	ln -sf $(PWD)/bin/run_flare.sh $(BIN_DIR)
-	ln -sf $(PWD)/bin/$(PROGRAM) $(BIN_DIR)
-	mkdir -p $(DATA_DIR)/DIII-D
-	mkdir -p $(DATA_DIR)/ITER
-	mkdir -p $(DATA_DIR)/NSTX
-	cp templates/Database/DIII-D/vessel_mockup.txt $(DATA_DIR)/DIII-D
-	cp -r templates/Database/DIII-D/mockup_1 $(DATA_DIR)/DIII-D
-	cp -r templates/Database/DIII-D/mockup_2 $(DATA_DIR)/DIII-D
-	cp templates/Database/ITER/vessel_mockup.txt $(DATA_DIR)/ITER
-	cp -r templates/Database/ITER/mockup_1 $(DATA_DIR)/ITER
-	cp templates/Database/NSTX/vessel_mockup.txt $(DATA_DIR)/NSTX
-	cp -r templates/Database/NSTX/mockup_1 $(DATA_DIR)/NSTX
+	install bin/run_flare.sh $(BINDIR)
+	install bin/$(PROGRAM) $(BINDIR)
+	install src/$(FLARELIB) $(LIBDIR)
+	mkdir -p $(DATADIR)/DIII-D
+	mkdir -p $(DATADIR)/ITER
+	mkdir -p $(DATADIR)/NSTX
+	cp templates/Database/DIII-D/vessel_mockup.txt $(DATADIR)/DIII-D
+	cp -r templates/Database/DIII-D/mockup_1 $(DATADIR)/DIII-D
+	cp -r templates/Database/DIII-D/mockup_2 $(DATADIR)/DIII-D
+	cp templates/Database/ITER/vessel_mockup.txt $(DATADIR)/ITER
+	cp -r templates/Database/ITER/mockup_1 $(DATADIR)/ITER
+	cp templates/Database/NSTX/vessel_mockup.txt $(DATADIR)/NSTX
+	cp -r templates/Database/NSTX/mockup_1 $(DATADIR)/NSTX
 
 
 .PHONY: clean
@@ -34,17 +36,19 @@ clean:
 
 .PHONY: uninstall
 uninstall:
-	-rm -f $(BIN_DIR)/run_flare.sh
-	-rm -f $(BIN_DIR)/$(PROGRAM)
-	-rm -d $(BIN_DIR)
-	-rm -rf $(DATA_DIR)/DIII-D/mockup_1
-	-rm -rf $(DATA_DIR)/DIII-D/mockup_2
-	-rm -rf $(DATA_DIR)/ITER/mockup_1
-	-rm -rf $(DATA_DIR)/NSTX/mockup_1
-	-rm $(DATA_DIR)/DIII-D/vessel_mockup.txt
-	-rm $(DATA_DIR)/ITER/vessel_mockup.txt
-	-rm $(DATA_DIR)/NSTX/vessel_mockup.txt
-	-rm -d $(DATA_DIR)
+	-rm -f $(BINDIR)/run_flare.sh
+	-rm -f $(BINDIR)/$(PROGRAM)
+	-rm -d $(BINDIR)
+	-rm -f $(LIBDIR)/$(FLARELIB)
+	-rm -d $(LIBDIR)
+	-rm -rf $(DATADIR)/DIII-D/mockup_1
+	-rm -rf $(DATADIR)/DIII-D/mockup_2
+	-rm -rf $(DATADIR)/ITER/mockup_1
+	-rm -rf $(DATADIR)/NSTX/mockup_1
+	-rm $(DATADIR)/DIII-D/vessel_mockup.txt
+	-rm $(DATADIR)/ITER/vessel_mockup.txt
+	-rm $(DATADIR)/NSTX/vessel_mockup.txt
+	-rm -d $(DATADIR)
 
 
 addon_targets = addons addons_install addons_clean

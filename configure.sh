@@ -4,9 +4,9 @@
 ################################################################################
 # predefine parameter
 
-BIN_DIR=$HOME/bin
-
-DATA_DIR=$HOME/Database/Magnetic_Configuration
+bindir=$HOME/local/bin
+libdir=$HOME/local/lib
+datadir=$HOME/Database/Magnetic_Configuration
 
 EMC3_dir=""
 
@@ -23,9 +23,11 @@ for opt in "$@"; do
         echo "Configuration script for FLARE"
         echo ""
         echo "Optional arguments are:"
-        echo "  --data_dir=DIR          data directory for magnetic configurations"
+        echo "  --datadir=DIR           data directory for magnetic configurations"
 	echo ""
-	echo "  --bin_dir=DIR           directory with links to executables"
+	echo "  --bindir=DIR            directory for installing FLARE executables"
+	echo ""
+	echo "  --libdir=DIR            directory for the FLARE library"
 	echo ""
 	echo "  --emc3_dir=DIR          set EMC3 source directory"
 	echo ""
@@ -35,10 +37,12 @@ for opt in "$@"; do
 	echo ""
 
 	exit
-    elif [ "$par" == "--data_dir" ]; then
-        DATA_DIR=$val
-    elif [ "$par" == "--bin_dir" ]; then
-        BIN_DIR=$val
+    elif [ "$par" == "--datadir" ]; then
+        datadir=$val
+    elif [ "$par" == "--bindir" ]; then
+        bindir=$val
+    elif [ "$par" == "--libdir" ]; then
+        libdir=$val
     elif [ "$par" == "--emc3_dir" ]; then
         emc3_dir=$val
     elif [ "$par" == "--fusion_io_dir" ]; then
@@ -67,20 +71,24 @@ echo "timestamp: $(date)" >> $LOG_FILE
 # Main program
 echo "# Main program"             >> include.mk
 echo "PROGRAM        = flare"     >> include.mk
+echo "FLARELIB       = libFLARE.so" >> include.mk
 echo "" >> include.mk
 
 
 # directory for links to executables
 echo "# set up directories for executables and data" >> include.mk
-echo "BIN_DIR        = $BIN_DIR" >> include.mk
-echo "Binary directory is $BIN_DIR" | tee -a $LOG_FILE
+echo "BINDIR         = $bindir" >> include.mk
+echo "LIBDIR         = $libdir" >> include.mk
+echo "Binary directory is $bindir" | tee -a $LOG_FILE
+echo "Library directory is $libdir" | tee -a $LOG_FILE
 
 
 # data directory
 echo "#define DATABASE_DIR '$DATA_DIR'" >> config.h
-echo "DATA_DIR       = $DATA_DIR" >> include.mk
-echo "Data directory is $DATA_DIR" | tee -a $LOG_FILE
+echo "DATADIR        = $datadir" >> include.mk
+echo "Data directory is $datadir" | tee -a $LOG_FILE
 echo "" >> include.mk
+echo
 # ------------------------------------------------------------------------------
 
 
@@ -240,7 +248,7 @@ echo "" >> include.mk
 FLAGS='$(FGSL_FLAGS) $(HDF5_FLAGS) $(FIO_FLAGS) $(ODE_FLAGS)'
 LIBS='$(FGSL_LIBS)  $(HDF5_LIBS)  $(FIO_LIBS)'
 echo "# Flags and libraries"				>> include.mk
-echo "FLAGS          = $FLAGS"				>> include.mk
+echo "FLAGS          = -fPIC $FLAGS"			>> include.mk
 echo "LIBS           = $LIBS"				>> include.mk
 echo ""							>> include.mk
 
