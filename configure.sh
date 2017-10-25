@@ -6,6 +6,7 @@
 
 bindir=$HOME/local/bin
 libdir=$HOME/local/lib
+pythondir=$libdir/python
 datadir=$HOME/Database/Magnetic_Configuration
 
 EMC3_dir=""
@@ -29,6 +30,8 @@ for opt in "$@"; do
 	echo ""
 	echo "  --libdir=DIR            directory for the FLARE library"
 	echo ""
+	echo "  --pythondir=DIR         directory for python modules"
+	echo ""
 	echo "  --emc3_dir=DIR          set EMC3 source directory"
 	echo ""
 	echo "  --fusion_io_dir=DIR     set directory of Fusion-IO installation"
@@ -43,6 +46,8 @@ for opt in "$@"; do
         bindir=$val
     elif [ "$par" == "--libdir" ]; then
         libdir=$val
+    elif [ "$par" == "--pythondir" ]; then
+        pythondir=$val
     elif [ "$par" == "--emc3_dir" ]; then
         emc3_dir=$val
     elif [ "$par" == "--fusion_io_dir" ]; then
@@ -72,6 +77,7 @@ echo "timestamp: $(date)" >> $LOG_FILE
 echo "# Main program"             >> include.mk
 echo "PROGRAM        = flare"     >> include.mk
 echo "FLARELIB       = libFLARE.so" >> include.mk
+echo "FLAREUI        = flare_ui"  >> include.mk
 echo "" >> include.mk
 
 
@@ -79,8 +85,10 @@ echo "" >> include.mk
 echo "# set up directories for executables and data" >> include.mk
 echo "BINDIR         = $bindir" >> include.mk
 echo "LIBDIR         = $libdir" >> include.mk
+echo "PYTHONDIR      = $pythondir" >> include.mk
 echo "Binary directory is $bindir" | tee -a $LOG_FILE
 echo "Library directory is $libdir" | tee -a $LOG_FILE
+echo "Python module directory is $pythondir" | tee -a $LOG_FILE
 
 
 # data directory

@@ -1,9 +1,10 @@
-flare
+bin/flare
 configure.log
 config.h
 include*
 src/version.f90
-src/libFLARE.so
+*so
+*_ui.py
 *.o
 *.mod
 *.swp
