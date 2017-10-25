@@ -103,6 +103,7 @@ module bfield
   endif
 
 
+  if (nprs == 1) return
   call wait_pe()
   call broadcast_inte (iconfig, BF_MAX_CONFIG)
 
