@@ -7,7 +7,7 @@ MODULES = __init__.py
 
 .PHONY: all clean install uninstall $(alldirs)
 all: $(alldirs)
-	f2py -I../../src -I../../src/$(BFIELD_DIR) -I../../src/$(CORE_DIR) -c python_interface.f90 -m backend -L../../src -lFLARE
+	f2py -I../../src -I../../src/$(BFIELD_DIR) -I../../src/$(CORE_DIR) -I../../src/$(GEOMETRY_DIR) -c python_interface.f90 -m backend -L../../src -lFLARE
 
 
 clean: $(alldirs)

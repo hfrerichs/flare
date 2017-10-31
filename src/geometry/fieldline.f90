@@ -17,7 +17,7 @@ module fieldline
 
   type, extends(t_ODE) :: t_fieldline
      ! integrated toroidal and poloidal angle
-     real*8 :: phi0, phi_int, theta0, theta_int, Dphi
+     real*8 :: phi0, phi_int, theta0, theta_int, Dphi, lc
      ! last (l) and current (c) state in cylindrical coordinates
      real*8 :: rl(3), rc(3), thetal, thetac, Dtheta
      real(real64) :: PsiNl, PsiNc
@@ -124,6 +124,7 @@ module fieldline
   this%theta0    = this%thetac
   this%PsiNc     = get_PsiN(this%rc)
   this%Dphi      = 0.d0
+  this%lc        = 0.d0
 
   if (OUT_OF_BOUNDS) this%ierr = 2
 
@@ -296,15 +297,15 @@ module fieldline
   real*8, intent(in)  :: Limit
   logical, intent(in) :: stop_at_boundary
 
-  real*8 :: yc(3), lc, dl
+  real*8 :: yc(3), dl
 
 
-  lc = 0.d0
+  this%lc = 0.d0
   trace_loop: do
      dl = this%trace_1step()
-     lc = lc + dl
+     this%lc = this%lc + dl
 
-     if (abs(lc) > Limit) exit trace_loop
+     if (abs(this%lc) > Limit) exit trace_loop
 
      if (stop_at_boundary) then
         if (this%intersect_boundary()) then
