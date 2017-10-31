@@ -12,9 +12,6 @@ debug:
 
 .PHONY: install
 install: $(alldirs)
-	test -d $(LIBDIR) || install -d $(LIBDIR)
-
-	install src/$(FLARELIB) $(LIBDIR)
 	mkdir -p $(DATADIR)/DIII-D
 	mkdir -p $(DATADIR)/ITER
 	mkdir -p $(DATADIR)/NSTX
@@ -34,8 +31,6 @@ clean:
 
 .PHONY: uninstall
 uninstall: $(alldirs)
-	-rm -f $(LIBDIR)/$(FLARELIB)
-	-rm -d $(LIBDIR)
 	-rm -rf $(DATADIR)/DIII-D/mockup_1
 	-rm -rf $(DATADIR)/DIII-D/mockup_2
 	-rm -rf $(DATADIR)/ITER/mockup_1

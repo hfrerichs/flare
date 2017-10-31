@@ -1,6 +1,6 @@
 include ../include.mk
 
-alldirs = $(EXTERNAL_DIR) $(CORE_DIR) $(BFIELD_DIR) $(GEOMETRY_DIR) $(GRIDGEN_DIR) $(TOOLS_DIR) $(DEVEL_DIR) interface
+alldirs = $(EXTERNAL_DIR) $(CORE_DIR) $(BFIELD_DIR) $(GEOMETRY_DIR) $(GRIDGEN_DIR) $(TOOLS_DIR) $(DEVEL_DIR)
 
 EXTERNAL_INC   = -I $(EXTERNAL_DIR)
 EXTERNAL_OBJ   = $(EXTERNAL_DIR)/*.o $(EMC3_OBJ_LONG)
@@ -31,9 +31,7 @@ OBJECTS = \
 
 
 .PHONY: all
-all: $(OBJECTS) $(alldirs)
-	$(FC) -shared -o $(FLARELIB) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS)
-
+all: $(OBJECTS) $(alldirs) $(FLARELIB) interface
 	$(FC) -c $(EXTERNAL_INC) $(CORE_INC) $(GEOMETRY_INC) $(BFIELD_INC) main.f90
 	$(FC) -o ../bin/$(PROGRAM) main.o $(FLARELIB)
 
@@ -52,6 +50,11 @@ $(VERSION_F90):
 	echo "end subroutine print_version" >> $(VERSION_F90)
 
 
+.PHONY: $(FLARELIB)
+$(FLARELIB):
+	$(FC) -shared -o $(FLARELIB) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS)
+
+
 %.o: %.f90
 	$(FC) $(CORE_INC) -c $<
 
@@ -66,16 +69,25 @@ debug:
 
 .PHONY: install
 install: interface
+	install -d $(LIBDIR)
+	install $(FLARELIB) $(LIBDIR)
 
 
 .PHONY: uninstall
 uninstall: interface
+	-rm -f $(LIBDIR)/$(FLARELIB)
+	-rm -d $(LIBDIR)
 
 
 .PHONY: clean
-clean: $(alldirs)
+clean: $(alldirs) interface
 	rm -rf *.o
 	rm -rf *.mod
+
+
+.PHONY: interface
+interface:
+	cd $@; $(MAKE) $(MAKECMDGOALS)
 
 
 .PHONY: $(alldirs)
