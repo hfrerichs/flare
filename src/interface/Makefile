@@ -2,13 +2,18 @@ include ../../include.mk
 
 alldirs = gui
 
+OBJECTS = grid.so\
+          python_interface.so
+
 MODULES = __init__.py
 
 
 .PHONY: all clean install uninstall $(alldirs)
-all: $(alldirs)
-	f2py -I.. -I../$(BFIELD_DIR) -I../$(CORE_DIR) -I../$(GEOMETRY_DIR) -c python_interface.f90 -m backend -L.. -lFLARE
+all: $(alldirs) $(OBJECTS)
 
+
+%.so: %.f90
+	f2py -I.. -I../$(BFIELD_DIR) -I../$(CORE_DIR) -I../$(GEOMETRY_DIR) -c $< -m $(basename $@) -L.. -lFLARE
 
 clean: $(alldirs)
 	-rm -f *.so
@@ -16,7 +21,7 @@ clean: $(alldirs)
 
 install: $(alldirs)
 	install -d $(PYTHONDIR)/flare
-	install backend.so $(PYTHONDIR)/flare
+	install $(OBJECTS) $(PYTHONDIR)/flare
 	install -m 644 $(MODULES) $(PYTHONDIR)/flare
 
 
