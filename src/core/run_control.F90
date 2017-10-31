@@ -133,6 +133,7 @@ module run_control
 
 
   ! broadcast data to other processors
+  if (nprs == 1) return
   call wait_pe()
   call broadcast_char   (Run_Type   , 120)
   call broadcast_char   (Run_Mode   , 120)
