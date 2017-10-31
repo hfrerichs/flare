@@ -17,15 +17,12 @@ end subroutine init
 
 
 subroutine init_bfield()
-  use run_control, only: Bfield_input_file, Prefix
+  use run_control, only: load_run_control
   use bfield
   use boundary
   implicit none
 
-  !Bfield_input_file = '/home/heinke/Database/Mag/DIII-D/mockup/bfield.conf'
-  !Bfield_input_file = '/home/heinke/Database/Mag/DIII-D/148712/axi/bfield.conf'
-  Prefix = '/home/heinke/Database/Mag/DIII-D/148712/axi/'
-  Bfield_input_file = trim(Prefix)//'bfield.conf'
+  call load_run_control('run.conf')
   call setup_bfield_configuration()
 
   call setup_boundary()
