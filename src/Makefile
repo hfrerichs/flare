@@ -1,5 +1,6 @@
 include ../include.mk
 
+alldirs = $(EXTERNAL_DIR) $(CORE_DIR) $(BFIELD_DIR) $(GEOMETRY_DIR) $(GRIDGEN_DIR) $(TOOLS_DIR) $(DEVEL_DIR) interface
 
 EXTERNAL_INC   = -I $(EXTERNAL_DIR)
 EXTERNAL_OBJ   = $(EXTERNAL_DIR)/*.o $(EMC3_OBJ_LONG)
@@ -30,14 +31,7 @@ OBJECTS = \
 
 
 .PHONY: all
-all: $(OBJECTS)
-	cd $(EXTERNAL_DIR); $(MAKE) FC='$(FC)'
-	cd $(CORE_DIR); $(MAKE) FC='$(FC)'
-	cd $(BFIELD_DIR); $(MAKE) FC='$(FC)'
-	cd $(GEOMETRY_DIR); $(MAKE) FC='$(FC)'
-	cd $(GRIDGEN_DIR); $(MAKE) FC='$(FC)'
-	cd $(TOOLS_DIR); $(MAKE) FC='$(FC)'
-	cd $(DEVEL_DIR); $(MAKE) FC='$(FC)'
+all: $(OBJECTS) $(alldirs)
 	$(FC) -shared -o $(FLARELIB) $(OBJECTS) $(DEVEL_OBJ) $(TOOLS_OBJ) $(GRIDGEN_OBJ) $(GEOMETRY_OBJ) $(BFIELD_OBJ) $(CORE_OBJ) $(EXTERNAL_OBJ) $(LIBS)
 
 	$(FC) -c $(EXTERNAL_INC) $(CORE_INC) $(GEOMETRY_INC) $(BFIELD_INC) main.f90
@@ -70,17 +64,23 @@ debug:
 	$(MAKE) FC="$(FC_DEBUG)"
 
 
+.PHONY: install
+install: interface
+
+
+.PHONY: uninstall
+uninstall: interface
+
+
 .PHONY: clean
-clean:
-	cd $(EXTERNAL_DIR); $(MAKE) clean
-	cd $(CORE_DIR); $(MAKE) clean
-	cd $(GEOMETRY_DIR); $(MAKE) clean
-	cd $(BFIELD_DIR); $(MAKE) clean
-	cd $(GRIDGEN_DIR); $(MAKE) clean
-	cd $(TOOLS_DIR); $(MAKE) clean
-	cd $(DEVEL_DIR); $(MAKE) clean
+clean: $(alldirs)
 	rm -rf *.o
 	rm -rf *.mod
+
+
+.PHONY: $(alldirs)
+$(alldirs):
+	cd $@; $(MAKE) $(MAKECMDGOALS)
 
 
 addon_targets = addons addons_install addons_clean

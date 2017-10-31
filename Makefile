@@ -1,5 +1,6 @@
 include include.mk
 
+alldirs = src bin
 
 .PHONY: all
 all:
@@ -10,7 +11,7 @@ debug:
 	cd src; $(MAKE) debug
 
 .PHONY: install
-install:
+install: $(alldirs)
 	test -d $(LIBDIR) || install -d $(LIBDIR)
 
 	install src/$(FLARELIB) $(LIBDIR)
@@ -32,7 +33,7 @@ clean:
 
 
 .PHONY: uninstall
-uninstall:
+uninstall: $(alldirs)
 	-rm -f $(LIBDIR)/$(FLARELIB)
 	-rm -d $(LIBDIR)
 	-rm -rf $(DATADIR)/DIII-D/mockup_1
@@ -43,6 +44,11 @@ uninstall:
 	-rm $(DATADIR)/ITER/vessel_mockup.txt
 	-rm $(DATADIR)/NSTX/vessel_mockup.txt
 	-rm -d $(DATADIR)
+
+
+.PHONY: $(alldirs)
+$(alldirs):
+	cd $@; $(MAKE) $(MAKECMDGOALS)
 
 
 addon_targets = addons addons_install addons_clean
