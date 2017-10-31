@@ -1,4 +1,4 @@
-include ../../include.mk
+include ../../../include.mk
 
 TARGETS = main_ui.py
 
