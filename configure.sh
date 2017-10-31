@@ -93,7 +93,7 @@ echo "Python module directory is $pythondir" | tee -a $LOG_FILE
 
 
 # data directory
-echo "#define DATABASE_DIR '$DATA_DIR'" >> config.h
+echo "#define DATABASE_DIR '$datadir'" >> config.h
 echo "DATADIR        = $datadir" >> include.mk
 echo "Data directory is $datadir" | tee -a $LOG_FILE
 echo "" >> include.mk
