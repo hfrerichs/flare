@@ -1,11 +1,15 @@
-include ../../../include.mk
+include ../../include.mk
 
 TARGETS = main_ui.py
 
 MODULES = __init__.py flareui.py
 
 .PHONY: all install clean uninstall
-all:
+all: $(TARGETS)
+
+
+%.py: %.ui
+	pyside-uic $< > $@
 
 
 install:
