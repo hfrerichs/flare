@@ -11,11 +11,8 @@ debug:
 
 .PHONY: install
 install:
-	test -d $(BINDIR) || install -d $(BINDIR)
 	test -d $(LIBDIR) || install -d $(LIBDIR)
 
-	install bin/run_flare.sh $(BINDIR)
-	install bin/$(PROGRAM) $(BINDIR)
 	install src/$(FLARELIB) $(LIBDIR)
 	mkdir -p $(DATADIR)/DIII-D
 	mkdir -p $(DATADIR)/ITER
@@ -36,9 +33,6 @@ clean:
 
 .PHONY: uninstall
 uninstall:
-	-rm -f $(BINDIR)/run_flare.sh
-	-rm -f $(BINDIR)/$(PROGRAM)
-	-rm -d $(BINDIR)
 	-rm -f $(LIBDIR)/$(FLARELIB)
 	-rm -d $(LIBDIR)
 	-rm -rf $(DATADIR)/DIII-D/mockup_1
