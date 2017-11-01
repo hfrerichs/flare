@@ -1,7 +1,8 @@
 import python_interface
 import backend
 
-from grid import grid_interface as grid
+from grid_interface     import *
+from grid               import *
 from boundary_interface import *
 from boundary           import *
 

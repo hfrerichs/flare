@@ -1,14 +1,20 @@
 module grid_interface
   implicit none
 
+  integer, parameter :: dp = selected_real_kind(15,307)
+
+
   integer :: layout
   integer :: n, n1, n2, n3
-  real*8, dimension(:,:), allocatable :: x
-  real*8, dimension(:),   allocatable :: x1, x2, x3
+  real(dp), dimension(:,:), allocatable :: x
+  real(dp), dimension(:),   allocatable :: x1, x2, x3
+
 
   contains
+  !---------------------------------------------------------------------
 
 
+  !---------------------------------------------------------------------
   subroutine load(filename)
   use grid
   character(len=*), intent(in)  :: filename
@@ -45,5 +51,6 @@ module grid_interface
   endif
 
   end subroutine load
+  !---------------------------------------------------------------------
 
 end module grid_interface
