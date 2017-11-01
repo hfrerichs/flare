@@ -39,9 +39,10 @@ def main(cmd, argv):
 
 
     # plot connection length data
-    elif cmd in ('plot_lc'):
+    elif cmd[0:5] == 'plot_':
         grid_file = 'grid.dat'
         data_file = 'output.txt'
+        q         = cmd[5:]
 
         usage     = 'usage: flare {} -g <grid_file> -d <data_file>'.format(cmd)
         try:
@@ -60,7 +61,7 @@ def main(cmd, argv):
             elif opt in ('-e', '--data'):
                 data_file = arg
 
-        fplt.plot_lc(grid_file, data_file)
+        fplt.plot_lc(grid_file, data_file, qplot=q)
 
 
 if __name__ == "__main__":

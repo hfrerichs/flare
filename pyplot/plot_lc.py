@@ -4,7 +4,7 @@ import numpy             as np
 import matplotlib.pyplot as plt
 
 
-def plot_lc(grid_file, data_file):
+def plot_lc(grid_file, data_file, qplot='lc'):
     # load grid file
     G = Grid(grid_file)
     if G.layout != STRUCTURED:
@@ -25,7 +25,16 @@ def plot_lc(grid_file, data_file):
     lc     = lc_bwd + lc_fwd
 
 
-    q    = lc
+    # select quantity for plotting
+    q = {
+        'lc':     lc,
+        'lcs':    np.minimum(lc_bwd, lc_fwd),
+        'lc_bwd': lc_bwd,
+        'lc_fwd': lc_fwd
+    }.get(qplot)
+    if q is None:
+        print "error: invalid quantity '{}'!".format(qplot)
+        return
     qmin = np.nanmin(q)
     qmax = np.nanmax(q)
 
