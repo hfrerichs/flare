@@ -1,6 +1,6 @@
 include include.mk
 
-alldirs = src bin
+alldirs = src pyplot bin
 
 .PHONY: all
 all:

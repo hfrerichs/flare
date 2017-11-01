@@ -7,3 +7,4 @@ from boundary_interface import *
 from boundary           import *
 
 import ui
+import pyplot
