@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+import os
+import sys
+from subprocess import call
+import flare.pyplot as fplt
+
+
+def exit_on_error(message):
+    print "error: ", message
+    sys.exit()
+
+
+
+narg = len(sys.argv)
+if narg == 1:
+    exit_on_error("no command given!")
+
+
+cmd  = sys.argv[1]
+THIS = os.path.dirname(__file__)
+if cmd == 'plot_lc':
+    if narg <= 3:
+    	exit_on_error("not enough aguments for plot_lc!")
+	
+    grid_file = sys.argv[2]
+    data_file = sys.argv[3]
+    fplt.plot_lc(grid_file, data_file)
+
+# run FLARE backend
+elif cmd == 'run':
+    if narg <= 2:
+        run_conf = 'run.conf'
+    else:
+        run_conf = sys.argv[2]
+    print "Running FLARE backend for configuration file ", run_conf
+    flare = os.path.join(THIS, "FLARE")
+    call([flare, cmd, run_conf])
+
+else:
+    exit_on_error("invalid command '{}'!".format(cmd))
