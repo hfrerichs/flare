@@ -75,7 +75,7 @@ echo "timestamp: $(date)" >> $LOG_FILE
 
 # Main program
 echo "# Main program"             >> include.mk
-echo "PROGRAM        = flare"     >> include.mk
+echo "PROGRAM        = FLARE"     >> include.mk
 echo "RUN_FLARE      = run_flare.sh" >> include.mk
 echo "FLARELIB       = libFLARE.so" >> include.mk
 echo "FLAREUI        = flare_ui"  >> include.mk
