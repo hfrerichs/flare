@@ -6,6 +6,7 @@ STRUCTURED      = 3
 MESH_2D         = 4
 MESH_3D         = 5
 
+CYL_LABEL = ['Major Radius [cm]', 'Vertical coordinate [cm]', 'Toroidal Angle [deg]']
 
 class Grid():
     def __init__(self, filename):
@@ -21,3 +22,6 @@ class Grid():
             self.x1 = grid_interface.x1
             self.x2 = grid_interface.x2
             self.x3 = grid_interface.x3
+
+        self.x1_label = CYL_LABEL[grid_interface.coord1-1]
+        self.x2_label = CYL_LABEL[grid_interface.coord2-1]

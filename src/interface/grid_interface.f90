@@ -5,7 +5,7 @@ module grid_interface
 
 
   integer :: layout
-  integer :: n, n1, n2, n3
+  integer :: n, n1, n2, n3, coord1, coord2
   real(dp), dimension(:,:), allocatable :: x
   real(dp), dimension(:),   allocatable :: x1, x2, x3
 
@@ -33,6 +33,8 @@ module grid_interface
   n = G%n
   allocate (x(n,3))
   x = G%x
+  coord1 = G%coord1
+  coord2 = G%coord2
 
 
   ! set up structured grid

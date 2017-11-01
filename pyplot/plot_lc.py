@@ -33,5 +33,8 @@ def plot_lc(grid_file, data_file):
     # plot options
     levels = np.linspace(qmin, qmax, 64)
     plt.contourf(G.x1, G.x2, q, vmin=qmin, vmax=qmax, levels=levels)
+    plt.xlabel(G.x1_label)
+    plt.ylabel(G.x2_label)
     cbar = plt.colorbar()
+    cbar.set_label('Connection Length [m]')
     plt.show()
