@@ -2,10 +2,12 @@ include ../../include.mk
 
 alldirs = gui
 
-OBJECTS = grid.so\
+OBJECTS = backend.so\
+          grid.so\
+          boundary_interface.so\
           python_interface.so
 
-MODULES = __init__.py
+MODULES = __init__.py boundary.py
 
 
 .PHONY: all clean install uninstall $(alldirs)
