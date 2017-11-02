@@ -2,7 +2,7 @@ module grid3dgen_interface
   use types
   implicit none
 
-  !integer, parameter :: dp = selected_real_kind(15,307) ! double precision
+  integer :: nx, nrpath, ni
 
   contains
   !---------------------------------------------------------------------
@@ -31,15 +31,12 @@ module grid3dgen_interface
 
 
 
-  !---------------------------------------------------------------------
+  ! return toroidal position of base mesh location ---------------------
   subroutine base_position(iblock, phi, ierr)
   use fieldline_grid, only: blocks, Block
   integer, intent(in)   :: iblock
   real(dp), intent(out) :: phi
   integer,  intent(out) :: ierr
-!f2py intent(in)  iblock
-!f2py intent(out) phi
-!f2py intent(out) ierr
 
 
   ierr = 0
@@ -48,7 +45,6 @@ module grid3dgen_interface
      return
   endif
   phi = Block(iblock)%phi_base
-  write (6, *) 'phi_base(',iblock,') = ', phi
 
   end subroutine base_position
   !---------------------------------------------------------------------
@@ -56,10 +52,13 @@ module grid3dgen_interface
 
 
   !---------------------------------------------------------------------
-  subroutine level(ilevel, ierr)
+  subroutine level(ilevel, isublevel, ierr)
+  use fieldline_grid, only: blocks
   use base_mesh
-  integer, intent(in)  :: ilevel
+  integer, intent(in)  :: ilevel, isublevel
   integer, intent(out) :: ierr
+
+  integer :: iblock
 
 
   ierr = 0
@@ -70,9 +69,22 @@ module grid3dgen_interface
 
   ! 2. generate base mesh
   case(2)
-     call setup_topology()
-     call setup_geometry()
-     call setup_interfaces()
+     select case(isublevel)
+     ! 2.1. set up geometry of computational domain (magnetic axis, separatrix, radial paths)
+     case(1)
+        call setup_topology(nx, nrpath)
+        call setup_geometry()
+     ! 2.2. set up interfaces between zones
+     case(2)
+        call setup_interfaces(ni)
+     ! 2.3. generate mesh now
+     case(3)
+        do iblock=0,blocks-1
+           call generate_base_mesh(iblock)
+        enddo
+     case default
+        ierr = 2
+     end select
 
   case default
      ierr = 1

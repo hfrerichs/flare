@@ -50,7 +50,7 @@ module base_mesh
   type(t_xpath),      dimension(:,:), allocatable :: R
   integer,            dimension(:),   allocatable :: connectX
   type(t_curve) :: S0, S0L, S0R
-  integer       :: nX
+  integer       :: nX, nrpath
 
   ! guiding surface
   type(t_curve) :: C_guide
@@ -228,23 +228,26 @@ module base_mesh
 
 
 !=======================================================================
-  subroutine setup_topology()
+  subroutine setup_topology(nx_out, nrpath_out)
   use fieldline_grid
+  integer, intent(out), optional :: nx_out, nrpath_out
 
   ! 1. initialize topology
   layers = -1
   select case(topology)
   ! lower single null (LSN)
   case(TOPO_LSN, TOPO_LSN1)
+     nrpath = 3
      call initialize_elements(6)
-     call initialize_interfaces(3) ! radial interfaces
+     call initialize_interfaces(nrpath) ! radial interfaces
      nX = 1;  allocate(connectX(nX))
      connectX(1) = 1
 
   ! disconnected double null (DDN)
   case(TOPO_DDN, TOPO_DDN1)
+     nrpath = 10
      call initialize_elements(16)
-     call initialize_interfaces(10) ! radial interfaces
+     call initialize_interfaces(nrpath) ! radial interfaces
      nX = 2;  allocate(connectX(nX))
      connectX(1) = -2
      connectX(2) = -2
@@ -259,8 +262,9 @@ module base_mesh
 
   ! snowflake + (in disconnected double null)
   case(TOPO_DSFP, TOPO_DSFP1)
+     nrpath = 14
      call initialize_elements(22)
-     call initialize_interfaces(14) ! radial interfaces
+     call initialize_interfaces(nrpath) ! radial interfaces
      nX = 3;  allocate(connectX(nX))
      connectX(1) = -3
      connectX(2) = -1
@@ -450,6 +454,10 @@ module base_mesh
 
   end select
   call undefined_element_boundary_check(.false.)
+
+
+  if (present(nx_out)) nx_out = nX
+  if (present(nrpath_out)) nrpath_out = nrpath
 
  9000 format('error: invalid topology ', a, '!')
   end subroutine setup_topology
@@ -765,9 +773,10 @@ module base_mesh
 
 
 !=======================================================================
-  subroutine setup_interfaces()
+  subroutine setup_interfaces(ni)
   use mesh_interface
   use string
+  integer, intent(out), optional :: ni
 
 
   integer :: ix, ix1, jx, iri, iconnect
@@ -856,6 +865,7 @@ module base_mesh
      !write (6, *) iri, radial_interface(iri)%inode(-1), radial_interface(iri)%inode(1)
      call radial_interface(iri)%C%plot(filename='I'//trim(str(iri))//'.plt')
   enddo
+  if (present(ni)) ni = radial_interfaces
 
  9000 format('error: seconday X-point ', i0, ' connects back to itself!')
  9001 format('error: seconday X-point ', i0, ' does not connect back to primary one!')
@@ -1208,7 +1218,7 @@ module base_mesh
 
   ! generate base meshs
   do iblock=0,blocks-1
-     call generate_base_mesh(0)
+     call generate_base_mesh(iblock)
   enddo
 
   end subroutine make_base_mesh_generic
