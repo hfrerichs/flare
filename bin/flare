@@ -1,71 +1,45 @@
 #!/usr/bin/env python
+import argparse
 import os
-import sys, getopt
 from subprocess import call
+import sys
+
 import flare.pyplot as fplt
 
 
-def exit_on_error(message):
-    print "error: ", message
-    sys.exit(2)
-
-
-
-
-def main(cmd, argv):
+# 1. run FLARE backend
+def run(args):
     THIS = os.path.dirname(__file__)
-
-    # run FLARE backend
-    if cmd == 'run':
-        run_conf = 'run.conf'
-
-        usage    = 'usage: flare run -c <config_file>'
-        try:
-            opts, args = getopt.getopt(argv,"hc:",["config="])
-        except getopt.GetoptError:
-            print 'error: invalid option or missing argument!'
-            print usage
-            sys.exit(2)
-
-        for opt, arg in opts:
-            if opt == '-h':
-                print usage
-                sys.exit()
-            elif opt in ('-c', '--config'):
-                run_conf = arg
-
-        flare = os.path.join(THIS, "FLARE")
-        call([flare, cmd, run_conf])
+    flare = os.path.join(THIS, "FLARE")
+    call([flare, args.cmd, args.control_file])
 
 
-    # plot connection length data
-    elif cmd[0:5] == 'plot_':
-        grid_file = 'grid.dat'
-        data_file = 'output.txt'
-        q         = cmd[5:]
+# 2. connection length and other data plots
+def plot(args):
+    fplt.plot_lc(args.geometry_file, args.data_file, qplot=args.qplot)
 
-        usage     = 'usage: flare {} -g <grid_file> -d <data_file>'.format(cmd)
-        try:
-            opts, args = getopt.getopt(argv,"hg:d:",["grid=", "data="])
-        except getopt.GetoptError:
-            print 'error: invalid option or missing argument!'
-            print usage
-            sys.exit(2)
 
-        for opt, arg in opts:
-            if opt == '-h':
-                print usage
-                sys.exit()
-            elif opt in ('-g', '--grid'):
-                grid_file = arg
-            elif opt in ('-e', '--data'):
-                data_file = arg
+def main():
+    # create main parser
+    parser      = argparse.ArgumentParser()
+    subparsers  = parser.add_subparsers(title='subcommands', dest='cmd')
 
-        fplt.plot_lc(grid_file, data_file, qplot=q)
+    # 1. create parser for FLARE backend
+    parser_run  = subparsers.add_parser("run", help="run FLARE backend")
+    parser_run.add_argument("-c", "--control_file", default="run.conf", help="set run control file (default: run.conf)")
+    parser_run.set_defaults(func=run)
+
+    # 2. create parser for connection length and other data plots
+    parser_plot = subparsers.add_parser("plot", help="plot connection length and other data")
+    parser_plot.add_argument("qplot", choices=['lc', 'lcs', 'lc_bwd', 'lc_fwd'], help="data quantity")
+    parser_plot.add_argument("-g", "--geometry_file", default="grid.dat")
+    parser_plot.add_argument("-d", "--data_file", default="output.txt")
+    parser_plot.set_defaults(func=plot)
+
+    # parse the args and call whatever subcommand was selected
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        exit_on_error("no command given!")
-
-    main(sys.argv[1], sys.argv[2:])
+    main()
