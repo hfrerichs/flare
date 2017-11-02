@@ -1,5 +1,5 @@
 import backend
-import ui
+import gui
 import pyplot
 
 from boundary import Boundary

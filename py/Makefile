@@ -1,5 +1,7 @@
 include ../include.mk
 
+alldirs = gui pyplot
+
 MODULES = __init__.py\
           boundary.py\
           grid.py
@@ -7,17 +9,21 @@ MODULES = __init__.py\
 INSTALLDIR = $(PYTHONDIR)/flare
 
 
-.PHONY: all install clean uninstall
-all:
+.PHONY: all install clean uninstall $(alldirs)
+all: $(alldirs)
 
 
-install:
+install: $(alldirs)
 	install -d $(INSTALLDIR)
 	install -m 644 $(MODULES) $(INSTALLDIR)
 
 
-clean:
+clean: $(alldirs)
 
 
-uninstall:
+uninstall: $(alldirs)
 	-rm -rf $(INSTALLDIR)
+
+
+$(alldirs):
+	cd $@; $(MAKE) $(MAKECMDGOALS)

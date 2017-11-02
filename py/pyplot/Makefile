@@ -1,4 +1,4 @@
-include ../include.mk
+include ../../include.mk
 
 MODULES = __init__.py plot_lc.py
 
@@ -16,4 +16,4 @@ clean:
 
 
 uninstall:
-	-rm -f $(PYTHONDIR)/flare/pyplot
+	-rm -rf $(PYTHONDIR)/flare/pyplot

@@ -1,8 +1,9 @@
-include ../../../include.mk
+include ../../include.mk
 
 TARGETS = main_ui.py
 
 MODULES = __init__.py flareui.py
+
 
 .PHONY: all install clean uninstall
 all: $(TARGETS)
@@ -13,8 +14,8 @@ all: $(TARGETS)
 
 
 install:
-	install -d $(PYTHONDIR)/flare/ui
-	install -m 644 $(TARGETS) $(MODULES) $(PYTHONDIR)/flare/ui
+	install -d $(PYTHONDIR)/flare/gui
+	install -m 644 $(TARGETS) $(MODULES) $(PYTHONDIR)/flare/gui
 
 
 clean:
