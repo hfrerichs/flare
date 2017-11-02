@@ -1,8 +1,10 @@
+import os
 import numpy             as np
 import matplotlib.pyplot as plt
 
 
 def plot_1d(data_file, *args, **kwargs):
+    if not os.path.isfile(data_file): return
     # load data file
     d = np.loadtxt(data_file, dtype='float')
     if d.ndim != 2:
