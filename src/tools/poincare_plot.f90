@@ -225,9 +225,11 @@ subroutine poincare_plot
 
 
 ! finalize .............................................................
-  call wait_pe()
-  call sum_inte_data (Pdata%n_points, n_grid*N_mult)
-  call sum_real_data (Pdata%X       , n_grid*N_mult*N_points*4)
+  if (nprs > 1) then
+     call wait_pe()
+     call sum_inte_data (Pdata%n_points, n_grid*N_mult)
+     call sum_real_data (Pdata%X       , n_grid*N_mult*N_points*4)
+  endif
 
   if (firstP) then
   ! write data
