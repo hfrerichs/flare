@@ -515,6 +515,10 @@ module curve2D
   integer      :: i, iu0
 
 
+  ! nothing to be done here
+  if (this%n_seg < 0) return
+
+
   ! set default unit number for output
   iu0 = 50
 
