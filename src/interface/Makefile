@@ -2,20 +2,19 @@ include ../../include.mk
 
 alldirs = gui
 
-OBJECTS = backend.so\
-          grid_interface.so\
-          boundary_interface.so\
-          python_interface.so
+SOURCES = types.f90\
+          backend.f90\
+          boundary_interface.f90\
+          grid3dgen_interface.f90
 
+BACKEND = backend
 MODULES = __init__.py grid.py boundary.py
 
 
 .PHONY: all clean install uninstall $(alldirs)
-all: $(alldirs) $(OBJECTS)
+all: $(alldirs)
+	f2py -I.. -I../$(BFIELD_DIR) -I../$(CORE_DIR) -I../$(GEOMETRY_DIR) -I../$(GRIDGEN_DIR) -c $(SOURCES) -m $(BACKEND) -L.. -lFLARE
 
-
-%.so: %.f90
-	f2py -I.. -I../$(BFIELD_DIR) -I../$(CORE_DIR) -I../$(GEOMETRY_DIR) -c $< -m $(basename $@) -L.. -lFLARE
 
 clean: $(alldirs)
 	-rm -f *.so
@@ -23,7 +22,7 @@ clean: $(alldirs)
 
 install: $(alldirs)
 	install -d $(PYTHONDIR)/flare
-	install $(OBJECTS) $(PYTHONDIR)/flare
+	install $(BACKEND).so $(PYTHONDIR)/flare
 	install -m 644 $(MODULES) $(PYTHONDIR)/flare
 
 

@@ -1,4 +1,4 @@
-from boundary_interface import *
+from backend import boundary_interface
 
 import matplotlib.pyplot as plt
 
