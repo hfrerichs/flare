@@ -75,6 +75,7 @@ module grid
      procedure, private :: setup_mesh
      procedure, private :: setup_mesh3D
      procedure :: setup_structured_grid
+     procedure :: create_rlinspace
      procedure :: store
      procedure :: destroy
      procedure :: plot_mesh
@@ -712,6 +713,51 @@ module grid
   enddo
 
   end subroutine setup_mesh3D
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine create_rlinspace(this, nr, rmin, rmax, nz, zmin, zmax, np, pmin, pmax)
+  class(t_grid)                      :: this
+  integer,      intent(in), optional :: nr, nz, np
+  real(real64), intent(in), optional :: rmin, rmax, zmin, zmax, pmin, pmax
+
+  real(real64) :: x1, x2, x3, x11, x22, x33
+  integer :: nr1, nz1, np1, i
+
+
+  ! layout
+  nr1 = 1;   if (present(nr)) nr1 = nr
+  nz1 = 1;   if (present(nz)) nz1 = nz
+  np1 = 1;   if (present(np)) np1 = np
+  call this%new(CYLINDRICAL, STRUCTURED, 0, nr1, nz1, np1)
+  call this%setup_structured_grid()
+
+
+  ! domain
+  x1  = 0.d0;   if (present(rmin)) x1  = rmin
+  x2  = 0.d0;   if (present(zmin)) x2  = zmin
+  x3  = 0.d0;   if (present(pmin)) x3  = pmin
+  x11 = 0.d0;   if (present(rmax)) x11 = rmax
+  x22 = 0.d0;   if (present(zmax)) x22 = zmax
+  x33 = 0.d0;   if (present(pmax)) x33 = pmax
+
+
+  ! nodes
+  this%x1(1) = x1;   this%x2(1) = x2;   this%x3(1) = x3
+  do i=2,nr1
+     this%x1(i) = x1  +  (x11-x1) * 1.d0 * (i-1) / (nr1-1)
+  enddo
+  do i=2,nz1
+     this%x2(i) = x2  +  (x22-x2) * 1.d0 * (i-1) / (nz1-1)
+  enddo
+  do i=2,np1
+     this%x3(i) = x3  +  (x33-x3) * 1.d0 * (i-1) / (np1-1)
+  enddo
+  call this%setup_structured_grid()
+
+  end subroutine create_rlinspace
 !=======================================================================
 
 
