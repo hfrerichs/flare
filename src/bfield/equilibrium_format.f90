@@ -52,8 +52,9 @@ module equilibrium_format
   endif
 
 
+  sformat = ''
   open  (iu, file=filename)
-  read  (iu, 1000) s;  read  (s, *) sformat
+  read  (iu, 1000) s;  if (s.ne.'') read  (s, *) sformat
   if (s(3:5) == 'TEQ'  .or.  sformat(1:4) == 'EFIT') then
      i_equi = EQ_GEQDSK
   elseif (s(5:11) == 'jm   :=') then
