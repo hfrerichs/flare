@@ -3,6 +3,7 @@ include ../../include.mk
 SOURCES = types.f90\
           backend.f90\
           boundary_interface.f90\
+          equi2d_interface.f90\
           grid3dgen_interface.f90
 
 BACKEND = backend

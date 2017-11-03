@@ -95,7 +95,7 @@ module equilibrium
      Psi_sepx = 1.d0, &
      Psi_axis = 0.d0
 
-  real(real64), private :: EQBox(2,2)
+  real(real64) :: EQBox(2,2)
 
 
 

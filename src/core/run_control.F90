@@ -181,8 +181,13 @@ module run_control
 
 !=======================================================================
   subroutine run_control_main()
+  use grid
+  use dataset
 
-  integer :: i
+  type(t_grid)    :: G
+  type(t_dataset) :: D
+
+  integer :: i, ind
 
 
   if (firstP) then
@@ -247,7 +252,9 @@ module run_control
   case ('generate_3D_fieldline_grid')
      call generate_field_aligend_grid(Run_Level(1), Run_Level(2))
   case ('critical_point_analysis')
-     call critical_point_analysis(Grid_File, Output_File)
+     call G%load(Grid_File)
+     call critical_point_analysis(G, D, ind)
+     call D%store(filename=Output_File)
   case ('export_gfile')
      call export_gfile()
   case ('quasi_surfaces')

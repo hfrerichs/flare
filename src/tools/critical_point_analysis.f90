@@ -1,26 +1,31 @@
 !=======================================================================
-  subroutine critical_point_analysis(Grid_File, Output_File)
+! Scan for critical points on grid G
+!=======================================================================
+  subroutine critical_point_analysis(G, D, ind)
   use equilibrium
   use grid
+  use dataset
+  implicit none
 
-  character(len=*), intent(in) :: Grid_File, Output_File
+  type(t_grid),    intent(in)  :: G
+  type(t_dataset), intent(out) :: D
+  integer,         intent(out) :: ind
 
+  ! minimum distance between critical points to be resolved
+  ! this should be on the order of the grid resolution
+  real(real64), parameter :: min_dist = 1.0d0
 
-  integer, parameter :: iu = 54
-
-  type(t_grid)   :: G
   type(t_Xpoint) :: C
   real(real64), dimension(:,:), allocatable :: xk
   real(real64)   :: x(2), H(2,2), r, lambda1, lambda2, v1(2), v2(2), r3(3)
-  integer        :: i, j, k, ind, ierr
+  integer        :: i, j, k, ig, ierr
 
 
   write (6, 1000)
-  call G%load(Grid_File)
-  allocate (xk(G%nodes(),2))
+  call D%new(G%nodes(), 4)
+  allocate (xk(G%nodes(), 2))
 
   ind = 0
-  open  (iu, file=Output_File)
   loop: do ig=1,G%nodes()
      r3 = G%node(ig)
      x  = r3(1:2)
@@ -28,16 +33,14 @@
      ! run Newton method to find critical point from x
      x = find_X(x, Hout=H)
 
-     if (x(1) < 0.d0) then
-        write (iu, *) 0
-        cycle ! not a valid critical point
-     endif
+     ! this is not a valid critical point
+     if (x(1) < 0.d0) cycle
 
      ! check if present critical point is identical to previous ones
      do k=1,ind
         r = sqrt(sum((xk(k,:)-x)**2))
-        if (r < 1.d-8) then
-           write (iu, *) k
+        if (r < min_dist) then
+           D%x(ig,1) = k
            cycle loop
         endif
      enddo
@@ -50,9 +53,10 @@
      ind = ind + 1
      xk(ind,:) = x
      write (6, 1002) ind, x, lambda1, lambda2
-     write (iu     , *) ind
+     D%x(ig,1)    = ind
+     D%x(ind,2:3) = x
+     D%x(ind,4  ) = ierr
   enddo loop
-  close (iu)
 
 
   ! cleanup
