@@ -37,6 +37,7 @@ module mfs_mesh
      procedure :: initialize
      procedure :: connect_to
      procedure :: setup_boundary_nodes
+     procedure :: plot_boundary
      procedure :: make_orthogonal_grid
      procedure :: make_interpolated_mesh
      procedure :: make_interpolated_submesh
@@ -249,6 +250,54 @@ module mfs_mesh
   end select
 
   end subroutine setup_boundary_nodes
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine plot_boundary(this, direction, side, prefix, iz)
+  class(t_mfs_mesh)            :: this
+  integer, intent(in)          :: direction, side, iz
+  character(len=*), intent(in) :: prefix
+
+  integer, parameter :: iu = 99
+
+  real(real64), dimension(:,:,:), pointer :: M
+  character(len=72) :: filename
+  integer :: ir, ip
+
+
+  M => this%mesh
+
+  write (filename, 1000) prefix, iz, side
+ 1000 format(a,'_Z',i0,'_side',i0)
+  open  (iu, file=filename)
+  select case(direction)
+  case(RADIAL)
+     select case(side)
+     case(LOWER)
+        ir = 0
+     case(UPPER)
+        ir = this%nr
+     end select
+     do ip=0,this%np
+        write (iu, *) M(ir, ip, :)
+     enddo
+
+  case(POLOIDAL)
+     select case(side)
+     case(LOWER)
+        ip = 0
+     case(UPPER)
+        ip = this%np
+     end select
+     do ir=0,this%nr
+        write (iu, *) M(ir, ip, :)
+     enddo
+  end select
+  close (iu)
+
+  end subroutine plot_boundary
 !=======================================================================
 
 

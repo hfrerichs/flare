@@ -214,6 +214,7 @@ module elements
      if (radial_interface(iri)%geometry_undefined()) then
         write (6, 9000);  write (6, 9002) ierr;  stop
      endif
+     write (6, *) 'setting boundary nodes from radial interface ', iri
      call M%setup_boundary_nodes(irside, RADIAL, radial_interface(iri)%C, Equidistant, debug=debug)
   endif
   ! quasi-orhogonal mesh in upstream divertor legs
@@ -239,6 +240,7 @@ module elements
 
   ! 1. strike point on lower poloidal side
   if (ix(LOWER) == STRIKE_POINT) then
+     write (6, *) 'strike point on lower poloidal side'
      if (np0 > 0) then
         call M%make_orthogonal_grid(prange=(/this%np-np0, this%np-1-np1/), debug=debug)
      endif
@@ -252,6 +254,7 @@ module elements
 
   ! 2. strike point on upper poloidal side
   elseif (ix(UPPER) == STRIKE_POINT) then
+     write (6, *) 'strike point on upper poloidal side'
      if (np0 > 0) then
         call M%make_orthogonal_grid(prange=(/1+np1,np0/), debug=debug)
      endif
@@ -271,6 +274,9 @@ module elements
      if (ix(-ipside) > 0) then
         addX(1) = ix(-ipside)
         addX(2) = AUTOMATIC
+        write (6, *) 'upstream segment connecting X-point ', ix(ipside), ' to ', ix(-ipside)
+     else
+        write (6, *) 'upstream segment connecting to X-point ', ix(ipside)
      endif
 
 
@@ -279,7 +285,7 @@ module elements
         call M%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
 
      else
-        call M%make_orthogonal_grid(addX=addX)
+        call M%make_orthogonal_grid(addX=addX, debug=debug)
      endif
   endif
 

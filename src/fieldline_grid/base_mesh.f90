@@ -773,6 +773,7 @@ module base_mesh
   integer :: ix, ix1, jx, iri, iconnect
 
 
+  write (6, 1000)
   iri = 0
   do ix=1,nX
      jx = connectX(ix)
@@ -787,6 +788,7 @@ module base_mesh
         iri = iri + 1
         call radial_interface(iri)%set_curve(S0)
         call radial_interface(iri)%setup(ix, ix)
+        write (6, 1001) iri, ix
 
      ! all branches connect to divertor targets
      elseif (jx == -ix  .or.  (jx < 0  .and.  connectX(abs(jx)) /= jx)) then
@@ -801,9 +803,11 @@ module base_mesh
         iri = iri + 1
         if (iconnect == STRIKE_POINT) call radial_interface(iri)%set_curve(S(ix)%M1%t_curve)
         call radial_interface(iri)%setup(ix, iconnect)
+        write (6, 1002) iri, ix
         iri = iri + 1
         if (iconnect == STRIKE_POINT) call radial_interface(iri)%set_curve(S(ix)%M2%t_curve)
         call radial_interface(iri)%setup(iconnect, ix)
+        write (6, 1002) iri, ix
 
      ! connect to other X-point OR
      ! main separatrix decomposition is guided by secondary X-point
@@ -821,11 +825,13 @@ module base_mesh
         iri = iri + 1
         call radial_interface(iri)%set_curve(S0R)
         call radial_interface(iri)%setup(ix, jx)
+        write (6, 1003) iri, ix, jx
 
         ! left core interface
         iri = iri + 1
         call radial_interface(iri)%set_curve(S0L)
         call radial_interface(iri)%setup(jx, ix)
+        write (6, 1003) iri, ix, jx
 
      ! nothing to be done here anymore
      else
@@ -836,15 +842,19 @@ module base_mesh
      iri = iri + 1
      call radial_interface(iri)%set_curve(S(ix)%M3%t_curve)
      call radial_interface(iri)%setup(STRIKE_POINT, ix)
+     write (6, 1004) iri, ix
      iri = iri + 1
      call radial_interface(iri)%set_curve(S(ix)%M4%t_curve)
      call radial_interface(iri)%setup(ix, STRIKE_POINT)
+     write (6, 1004) iri, ix
      ! add divertor branches for outer separatrix
      if (jx < -ix) then
         iri = iri + 1
         call radial_interface(iri)%setup(STRIKE_POINT, -ix)
+        write (6, 1004) iri, abs(jx)
         iri = iri + 1
         call radial_interface(iri)%setup(-ix, STRIKE_POINT)
+        write (6, 1004) iri, abs(jx)
      endif
 
 
@@ -857,6 +867,11 @@ module base_mesh
      call radial_interface(iri)%C%plot(filename='I'//trim(str(iri))//'.plt')
   enddo
 
+ 1000 format(3x,'- Setting up radial interfaces:')
+ 1001 format(8x,i0,': X-point ',i0,' is connected back to itself')
+ 1002 format(8x,i0,': main branch of separatrix ',i0,' is connected to divertor target')
+ 1003 format(8x,i0,': main branch of separatrix ',i0,' is connected to/guided by X-point ',i0)
+ 1004 format(8x,i0,': divertor branch for separatrix ',i0)
  9000 format('error: seconday X-point ', i0, ' connects back to itself!')
  9001 format('error: seconday X-point ', i0, ' does not connect back to primary one!')
  9002 format('error: seconday X-point ', i0, ' used as guiding point for separatrix ', i0, '!')
@@ -971,6 +986,7 @@ module base_mesh
 
 !=======================================================================
   subroutine generate_base_mesh(iblock)
+  use run_control, only: Debug
   use fieldline_grid
   use mesh_spacing
   use inner_boundary
@@ -1028,6 +1044,10 @@ module base_mesh
            ! map poloidal resolution
            if (markz(iz_map) == 0) then
               call Mtmp(iz)%connect_to(Mtmp(iz_map), RADIAL, iside)
+              if (Debug) then
+                 call Mtmp(iz)%plot_boundary(RADIAL, iside, 'MAP', iz)
+                 call Mtmp(iz_map)%plot_boundary(RADIAL, -iside, 'MAPPED', iz_map)
+              endif
 
               ! status of radial interface
               !write (6, *) 'radial interface in element ', iz, ' side ', iside, ' is ', Z(iz)%rad_bound(iside)
@@ -1104,7 +1124,7 @@ module base_mesh
 
 
   ! initialize radial discretization in layer
-  call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr)
+  call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr, debug=Debug)
 
 
   ! generate mesh in base element
@@ -1117,7 +1137,7 @@ module base_mesh
   case(RIGHT)
      call Sp%init(poloidal_spacing_R(Z(iz0)%ipl))
   end select
-  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp)
+  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp, debug=Debug)
   if (Debug) call Mtmp(iz0)%plot_mesh('Mtmp'//trim(str(iz0))//'.plt')
 
 
@@ -1208,7 +1228,7 @@ module base_mesh
 
   ! generate base meshs
   do iblock=0,blocks-1
-     call generate_base_mesh(0)
+     call generate_base_mesh(iblock)
   enddo
 
   end subroutine make_base_mesh_generic
