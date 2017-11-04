@@ -48,6 +48,23 @@ module equi2d_interface
 
 
   !---------------------------------------------------------------------
+  subroutine get_nx(nx)
+  use equilibrium, only: Xp, nX_max
+  integer, intent(out) :: nx
+
+  integer :: i
+
+
+  do i=1,nX_max
+     if (Xp(i)%undefined) return
+     nx = i
+  enddo
+
+  end subroutine get_nx
+  !---------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------
   subroutine cp_analysis(nr, nz, r, z, i)
   use equilibrium, only: EQBox
   use grid

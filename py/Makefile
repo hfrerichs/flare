@@ -4,6 +4,7 @@ alldirs = gui pyplot
 
 MODULES = __init__.py\
           boundary.py\
+          separatrix.py\
           grid.py
 
 INSTALLDIR = $(PYTHONDIR)/flare
