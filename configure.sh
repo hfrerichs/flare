@@ -4,8 +4,8 @@
 ################################################################################
 # predefine parameter
 
-bindir=$HOME/local/bin
-libdir=$HOME/local/lib
+bindir=$HOME/.local/bin
+libdir=$HOME/.local/lib
 pythondir=$libdir/python
 datadir=$HOME/Database/Magnetic_Configuration
 
