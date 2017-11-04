@@ -3,12 +3,12 @@ include include.mk
 alldirs = src py bin
 
 .PHONY: all
-all:
-	cd src; $(MAKE)
+all: $(alldirs)
+
 
 .PHONY: debug
-debug:
-	cd src; $(MAKE) debug
+debug: $(alldirs)
+
 
 .PHONY: install
 install: $(alldirs)
@@ -25,8 +25,7 @@ install: $(alldirs)
 
 
 .PHONY: clean
-clean:
-	cd src; $(MAKE) clean
+clean: $(alldirs)
 
 
 .PHONY: uninstall
