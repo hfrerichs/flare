@@ -1,4 +1,4 @@
-from grid_interface import *
+from backend import grid_interface
 
 UNSTRUCTURED    = 1
 SEMI_STRUCTURED = 2
