@@ -353,6 +353,7 @@ module geqdsk
 
   ! toroidal field
   if (psi.gt.1.d0) psi = 1.d0
+  if (psi.lt.0.d0) psi = 1.d0 ! quick bugfix for far PFR
   Bf(3)   =  dbsval(psi,nord,PsinEQD,nR,fpolcoeff) / rr
   Bf(3)   =  Bf(3) * 1.d4    ! T -> Gauss
 
