@@ -19,6 +19,7 @@ OBJECTS =  \
                libHINT.o\
                HINT.o\
                toroidal_harmonics.o\
+               marsf.o\
                bfield.o
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(CORE_DIR)
