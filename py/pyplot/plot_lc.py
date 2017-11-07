@@ -46,4 +46,3 @@ def plot_lc(grid_file, data_file, qplot='lc'):
     plt.ylabel(G.x2_label)
     cbar = plt.colorbar()
     cbar.set_label('Connection Length [m]')
-    plt.show()
