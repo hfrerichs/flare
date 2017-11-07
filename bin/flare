@@ -4,7 +4,8 @@ import os
 from subprocess import call
 import sys
 
-import flare.pyplot as fplt
+import matplotlib.pyplot as plt
+import flare.pyplot      as fplt
 
 def set_default_subparser(self, name, args=None):
     """default subparser selection:
@@ -50,6 +51,7 @@ def run(args):
 # 2. connection length and other data plots
 def plot(args):
     fplt.plot_lc(args.geometry_file, args.data_file, qplot=args.qplot)
+    plt.show()
 
 
 def main():
