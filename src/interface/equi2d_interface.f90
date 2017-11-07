@@ -13,34 +13,75 @@ module equi2d_interface
 
 
   !---------------------------------------------------------------------
-  subroutine guess_equilibrium_format(filename, i_equi)
-  use equilibrium_format
-  character(len=*), intent(in)  :: filename
-  integer,          intent(out) :: i_equi
-
-
-  i_equi = get_equilibrium_format(filename)
-
-  end subroutine guess_equilibrium_format
+  ! Load equilibrium data file
+  ! Error codes:
+  !   1:  invalid format string given
+  !   2:  no format string given and guess failed
+  !   3:  loading data file failed
   !---------------------------------------------------------------------
-
-
-
-  !---------------------------------------------------------------------
-  subroutine load(filename, iformat, ierr)
+  subroutine load(data_file, data_format, ierr)
   use equilibrium_format
   use equilibrium, only: load_equilibrium_data, setup_equilibrium, i_equi
-  character(len=*), intent(in)  :: filename
-  integer,          intent(in)  :: iformat
+  use boundary
+  character(len=*), intent(in)  :: data_file, data_format
   integer,          intent(out) :: ierr
 
 
-  ierr   = 0
-  i_equi = iformat
-  call load_equilibrium_data(filename, ierr)
+  i_equi = get_equilibrium_format_from_string(data_format)
+  ! error 1: invalid data format
+  if (i_equi == EQ_UNDEFINED) then
+     ierr = 1
+     return
+  endif
+
+  ! guess equilibrium data format, if necessary
+  if (i_equi == EQ_GUESS) then
+     i_equi = get_equilibrium_format(data_file)
+
+     ! error 2: guess failed
+     if (i_equi == EQ_UNDEFINED) then
+        ierr = 2
+        return
+     endif
+  endif
+
+
+  ! load equilibrium data
+  ierr = 0
+  call load_equilibrium_data(data_file, ierr)
+  if (ierr > 0) return
+
+  ! set up backend
   call setup_equilibrium()
+  call setup_boundary()
 
   end subroutine load
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
+  ! initialize magnetic configuration for new equilibrium
+  ! 1) create configuration file bfield.conf
+  ! 2) scan for X-points
+  !---------------------------------------------------------------------
+  subroutine init_config(data_file, data_format, ierr)
+  use equilibrium_format
+  use equilibrium, only: i_equi
+  character(len=*), intent(in)  :: data_file, data_format
+  integer,          intent(out) :: ierr
+
+
+  ! 0. load equilibrium data
+  call load(data_file, data_format, ierr)
+  if (ierr > 0) return
+
+  ! 1. create configuration file bfield.conf
+  call write_config_file(data_file, i_equi)
+
+  ! 2. scan for X-points
+
+  end subroutine init_config
   !---------------------------------------------------------------------
 
 
