@@ -35,8 +35,15 @@ def run(args):
     THIS  = os.path.dirname(__file__)
     flare = os.path.join(THIS, "FLARE")
     cmd   = [flare, args.cmd, args.control_file]
+
+    # 1.3. debugging
     if args.debug: args.Debugger = 'gdb'
     if args.Debugger: [cmd.insert(0, x) for x in ['--args', args.Debugger]]
+
+    # 1.2. parallel execution
+    if args.parallel: [cmd.insert(0, x) for x in [str(args.parallel), '-n', 'mpiexec']]
+
+    # 1.99. main call
     call(cmd)
 
 
@@ -52,10 +59,15 @@ def main():
 
     # 1. create parser for FLARE backend
     parser_run  = subparsers.add_parser("run", help="run FLARE backend")
+    # 1.1. run control file
     parser_run.add_argument("-c", "--control_file", default="run.conf", help="set run control file (default: run.conf)")
+    # 1.2. parallel execution
+    parser_run.add_argument("-p", "--parallel", type=int, help="parallel execution through mpiexec")
+    # 1.3. debugging
     debug_run   = parser_run.add_mutually_exclusive_group()
     debug_run.add_argument("-d", "--debug", action='store_true', help="run FLARE through default debugger (gdb)")
     debug_run.add_argument("-D", "--Debugger", help="run FLARE through selected debugger")
+    # 1.99. callback
     parser_run.set_defaults(func=run)
 
     # 2. create parser for connection length and other data plots
