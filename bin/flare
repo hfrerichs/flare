@@ -32,9 +32,12 @@ argparse.ArgumentParser.set_default_subparser = set_default_subparser
 
 # 1. run FLARE backend
 def run(args):
-    THIS = os.path.dirname(__file__)
+    THIS  = os.path.dirname(__file__)
     flare = os.path.join(THIS, "FLARE")
-    call([flare, args.cmd, args.control_file])
+    cmd   = [flare, args.cmd, args.control_file]
+    if args.debug: args.Debugger = 'gdb'
+    if args.Debugger: [cmd.insert(0, x) for x in ['--args', args.Debugger]]
+    call(cmd)
 
 
 # 2. connection length and other data plots
@@ -50,6 +53,9 @@ def main():
     # 1. create parser for FLARE backend
     parser_run  = subparsers.add_parser("run", help="run FLARE backend")
     parser_run.add_argument("-c", "--control_file", default="run.conf", help="set run control file (default: run.conf)")
+    debug_run   = parser_run.add_mutually_exclusive_group()
+    debug_run.add_argument("-d", "--debug", action='store_true', help="run FLARE through default debugger (gdb)")
+    debug_run.add_argument("-D", "--Debugger", help="run FLARE through selected debugger")
     parser_run.set_defaults(func=run)
 
     # 2. create parser for connection length and other data plots
