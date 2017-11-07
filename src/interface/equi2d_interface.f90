@@ -13,33 +13,6 @@ module equi2d_interface
 
 
   !---------------------------------------------------------------------
-  subroutine get_equilibrium_format_from_string(sformat, i_equi)
-  use equilibrium_format
-  character(len=*), intent(in)  :: sformat
-  integer,          intent(out) :: i_equi
-
-
-  select case(sformat)
-  case (S_GEQDSK, S_GEQDSK_FREE)
-     i_equi   = EQ_GEQDSK
-  case (S_DIVAMHD)
-     i_equi   = EQ_DIVAMHD
-  case (S_SONNET)
-     i_equi   = EQ_SONNET
-  case (S_M3DC1)
-     i_equi   = EQ_M3DC1
-  case (S_AMHD)
-     i_equi   = EQ_AMHD
-  case default
-     i_equi   = EQ_UNDEFINED
-  end select
-
-  end subroutine get_equilibrium_format_from_string
-  !---------------------------------------------------------------------
-
-
-
-  !---------------------------------------------------------------------
   subroutine guess_equilibrium_format(filename, i_equi)
   use equilibrium_format
   character(len=*), intent(in)  :: filename

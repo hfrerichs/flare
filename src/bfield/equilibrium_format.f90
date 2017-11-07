@@ -76,6 +76,34 @@ module equilibrium_format
 
 
   !=====================================================================
+  function get_equilibrium_format_from_string(sformat) result(i_equi)
+  character(len=*), intent(in)  :: sformat
+  integer                       :: i_equi
+
+
+  select case(sformat)
+  case(S_GEQDSK, S_GEQDSK_FREE)
+     i_equi   = EQ_GEQDSK
+  case(S_DIVAMHD)
+     i_equi   = EQ_DIVAMHD
+  case(S_SONNET)
+     i_equi   = EQ_SONNET
+  case(S_M3DC1)
+     i_equi   = EQ_M3DC1
+  case(S_AMHD)
+     i_equi   = EQ_AMHD
+  case('')
+     i_equi   = EQ_GUESS
+  case default
+     i_equi   = EQ_UNDEFINED
+  end select
+
+  end function get_equilibrium_format_from_string
+  !=====================================================================
+
+
+
+  !=====================================================================
   subroutine write_config_file(data_file, i_equi)
   character(len=*), intent(in) :: data_file
   integer,          intent(in) :: i_equi
