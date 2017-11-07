@@ -3,6 +3,7 @@ include ../include.mk
 alldirs = gui pyplot
 
 MODULES = __init__.py\
+          equi2d.py\
           boundary.py\
           separatrix.py\
           grid.py

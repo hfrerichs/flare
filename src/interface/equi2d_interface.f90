@@ -13,22 +13,58 @@ module equi2d_interface
 
 
   !---------------------------------------------------------------------
-  subroutine load(filename, ierr)
+  subroutine get_equilibrium_format_from_string(sformat, i_equi)
+  use equilibrium_format
+  character(len=*), intent(in)  :: sformat
+  integer,          intent(out) :: i_equi
+
+
+  select case(sformat)
+  case (S_GEQDSK, S_GEQDSK_FREE)
+     i_equi   = EQ_GEQDSK
+  case (S_DIVAMHD)
+     i_equi   = EQ_DIVAMHD
+  case (S_SONNET)
+     i_equi   = EQ_SONNET
+  case (S_M3DC1)
+     i_equi   = EQ_M3DC1
+  case (S_AMHD)
+     i_equi   = EQ_AMHD
+  case default
+     i_equi   = EQ_UNDEFINED
+  end select
+
+  end subroutine get_equilibrium_format_from_string
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
+  subroutine guess_equilibrium_format(filename, i_equi)
+  use equilibrium_format
+  character(len=*), intent(in)  :: filename
+  integer,          intent(out) :: i_equi
+
+
+  i_equi = get_equilibrium_format(filename)
+
+  end subroutine guess_equilibrium_format
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
+  subroutine load(filename, iformat, ierr)
   use equilibrium_format
   use equilibrium, only: load_equilibrium_data, setup_equilibrium, i_equi
   character(len=*), intent(in)  :: filename
+  integer,          intent(in)  :: iformat
   integer,          intent(out) :: ierr
 
 
   ierr   = 0
-  i_equi = get_equilibrium_format(filename)
-  if (i_equi == EQ_UNDEFINED) then
-     ierr = 1
-     return
-  endif
-
-
-  call load_equilibrium_data(filename)
+  i_equi = iformat
+  call load_equilibrium_data(filename, ierr)
   call setup_equilibrium()
 
   end subroutine load

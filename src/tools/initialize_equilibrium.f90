@@ -106,6 +106,7 @@ subroutine import_equilibrium()
   integer, parameter :: iu = 99
   character(len=128) :: filename, fileformat
   logical            :: writeformat
+  integer            :: ierr
 
 
   call get_command_argument(2, filename)
@@ -136,7 +137,7 @@ subroutine import_equilibrium()
      writeformat = .true.
   endif
 
-  call load_equilibrium_data(filename)
+  call load_equilibrium_data(filename, ierr)
   call setup_equilibrium()
   call setup_magnetic_axis()
 

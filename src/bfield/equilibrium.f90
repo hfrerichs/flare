@@ -3,6 +3,7 @@
 !===============================================================================
 module equilibrium
   use iso_fortran_env
+  use system
   use equilibrium_format
   use magnetic_axis
   use curve2D
@@ -151,7 +152,7 @@ module equilibrium
 
   integer :: ipanic = 0
 
-  integer, private :: i_format
+  integer, private :: i_format = FREE
 
   contains
 !=======================================================================
@@ -170,7 +171,7 @@ module equilibrium
   integer, intent(out) :: iconfig
 
   character(len=256)   :: filename
-  integer              :: ix
+  integer              :: ix, ierr
   real(real64)         :: r(3)
 
 
@@ -244,7 +245,8 @@ module equilibrium
      if (Data_File == '') then
         use_boundary = .false.
      else
-        call load_equilibrium_data(filename)
+        call load_equilibrium_data(filename, ierr)
+        if (ierr > 0) stop
      endif
   end select
   call setup_equilibrium()
@@ -284,18 +286,17 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine load_equilibrium_data(filename)
+  subroutine load_equilibrium_data(filename, ierr)
   use run_control, only: Prefix
   use geqdsk
   use divamhd
 
-  character(len=*), intent(in) :: filename
-
-  integer :: ierr
-
+  character(len=*), intent(in)  :: filename
+  integer,          intent(out) :: ierr
 
 
 ! load equilibrium data
+  ierr = 0
   select case (i_equi)
   case (EQ_GEQDSK)
      call geqdsk_load (filename, Ip, Bt, Current_Fix, Psi_axis, Psi_sepx, Header_Format=i_format)
@@ -305,7 +306,7 @@ module equilibrium
   case (EQ_SONNET)
      allocate (t_sonnet :: Bequi)
      call Bequi%load(filename, ierr)
-     if (ierr > 0) stop
+     if (ierr > 0) return
      select type(Bequi)
      class is (t_sonnet)
         call Bequi%info(R0)
