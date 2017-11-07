@@ -80,6 +80,7 @@ module equi2d_interface
   call write_config_file(data_file, i_equi)
 
   ! 2. scan for X-points
+  call initialize_equilibrium()
 
   end subroutine init_config
   !---------------------------------------------------------------------
