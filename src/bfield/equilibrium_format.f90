@@ -30,10 +30,10 @@ module equilibrium_format
 
 
   contains
-!=======================================================================
+  !=====================================================================
 
 
-!=======================================================================
+  !=====================================================================
   function get_equilibrium_format(filename) result(i_equi)
   character(len=*), intent(in) :: filename
   integer                      :: i_equi
@@ -71,6 +71,30 @@ module equilibrium_format
 
  1000 format(a80)
   end function get_equilibrium_format
-!=======================================================================
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine write_config_file(data_file, i_equi)
+  character(len=*), intent(in) :: data_file
+  integer,          intent(in) :: i_equi
+
+  integer, parameter :: iu = 99
+
+
+  open  (iu, file='bfield.conf')
+  write (iu, 1000)
+  write (iu, 1001) trim(data_file)
+  write (iu, 1002) EQ_FORMAT(i_equi)
+  write (iu, 1003)
+  close (iu)
+
+ 1000 format("&Equilibrium_Input")
+ 1001 format(2x,"Data_file    = '",a,"'")
+ 1002 format(2x,"Data_format  = '",a,"'")
+ 1003 format("/")
+  end subroutine write_config_file
+  !=====================================================================
 
 end module equilibrium_format

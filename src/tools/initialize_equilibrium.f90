@@ -143,16 +143,6 @@ subroutine import_equilibrium()
 
 
   call initialize_equilibrium()
-  open  (iu, file='bfield.conf')
-  write (iu, 1000)
-  write (iu, 1001) trim(filename)
-  if (writeformat) write (iu, 1002) trim(fileformat)
-  write (iu, 1003)
-  close (iu)
+  call write_config_file(filename, i_equi)
 
- 1000 format("&Equilibrium_Input")
- 1001 format(2x,"Data_file    = '",a,"'")
- 1002 format(2x,"Data_format  = '",a,"'")
- 1003 format("/")
-  contains
 end subroutine import_equilibrium
