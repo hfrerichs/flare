@@ -249,7 +249,7 @@ module divamhd
   ! convert cm -> m
   rr   = r(1) / 100.d0
   zz   = r(2) / 100.d0
-  DPsi = dbs2dr(0,0,rr,zz,arkorder,arkorder,arkrnot,arkznot,nrark+1,nzark+1,arkcoef)
+  DPsi = dbs2dr(mR,mZ,rr,zz,arkorder,arkorder,arkrnot,arkznot,nrark+1,nzark+1,arkcoef)
   DPsi = DPsi / 100.d0**(mR+mZ)
 
   end function divamhd_get_DPsi
