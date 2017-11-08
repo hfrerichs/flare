@@ -177,7 +177,9 @@ module grid
 !  endif
 !  if (layout == SEMI_STRUCTURED) then
   case(SEMI_STRUCTURED)
+     if (allocated(this%x1)) deallocate(this%x1)
      if (allocated(this%x2)) deallocate(this%x2)
+     allocate (this%x1(this%n1))
      allocate (this%x2(this%n2))
 !  endif
 
@@ -315,7 +317,10 @@ module grid
 
      ! read list of (x(coord1), x(coord2))
      do i=1,n1
-        read  (iu, *) y2
+        y1 = 0.d0
+        read  (iu, *, end=3200) y2, y1(1)
+ 3200 continue
+        this%x1(i) = y1(1)
 
         ! set y2 for all n2 values of x(fixed_coord)
         do j=1,n2

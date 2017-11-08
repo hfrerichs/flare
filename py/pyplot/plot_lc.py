@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 def plot_lc(grid_file, data_file, qplot='lc'):
     # load grid file
     G = Grid(grid_file)
-    if G.layout != STRUCTURED:
+    if G.layout != STRUCTURED  and  G.layout != SEMI_STRUCTURED:
         print "error: cannot visualize unstructured grid!"
         return
 

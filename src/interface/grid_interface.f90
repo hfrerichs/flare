@@ -5,7 +5,7 @@ module grid_interface
 
 
   integer :: layout
-  integer :: n, n1, n2, n3, coord1, coord2
+  integer :: n, n1, n2, n3, coord1, coord2, fixed_coord
   real(dp), dimension(:,:), allocatable :: x
   real(dp), dimension(:),   allocatable :: x1, x2, x3
 
@@ -24,7 +24,9 @@ module grid_interface
 
   ! cleanup
   if (allocated(x))  deallocate(x)
-  if (allocated(x1)) deallocate(x1, x2, x3)
+  if (allocated(x1)) deallocate(x1)
+  if (allocated(x2)) deallocate(x2)
+  if (allocated(x3)) deallocate(x3)
 
 
   ! load grid layout and nodes
@@ -35,6 +37,7 @@ module grid_interface
   x = G%x
   coord1 = G%coord1
   coord2 = G%coord2
+  fixed_coord = G%fixed_coord
 
 
   ! set up structured grid
@@ -50,6 +53,14 @@ module grid_interface
      else
         x3 = G%fixed_coord_value
      endif
+  ! set up semi-structured grid (structured in 1 coordinate)
+  elseif (layout == SEMI_STRUCTURED) then
+     n1 = G%n1
+     n2 = G%n2
+     n3 = 1
+     allocate (x1(n1), x2(n2))
+     x1 = G%x1
+     x2 = G%x2
   endif
 
   end subroutine load

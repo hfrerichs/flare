@@ -23,5 +23,14 @@ class Grid():
             self.x2 = grid_interface.x2
             self.x3 = grid_interface.x3
 
-        self.x1_label = CYL_LABEL[grid_interface.coord1-1]
-        self.x2_label = CYL_LABEL[grid_interface.coord2-1]
+            self.x1_label = CYL_LABEL[grid_interface.coord1-1]
+            self.x2_label = CYL_LABEL[grid_interface.coord2-1]
+
+        if self.layout == SEMI_STRUCTURED:
+            self.n1 = grid_interface.n1
+            self.n2 = grid_interface.n2
+            self.x1 = grid_interface.x1
+            self.x2 = grid_interface.x2
+
+            self.x1_label = 'sample coordinate'
+            self.x2_label = CYL_LABEL[grid_interface.fixed_coord-1]
