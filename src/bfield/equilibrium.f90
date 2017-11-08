@@ -785,11 +785,13 @@ module equilibrium
   integer :: i, j
 
 
+  H = 0.d0
   do j=1,2
      do i=1,2
         xi       = x
         xi(3-j)  = x(3-j) + (-1.d0)**i * gamma_1
 
+        if (outside_domain(xi)) return
         dfdxi(i) = get_DPsi(xi, 1, 0)
         dfdyi(i) = get_DPsi(xi, 0, 1)
      enddo
@@ -1442,8 +1444,8 @@ module equilibrium
   B = approximate_H(X) ! get an initial approximate
   Bdisc  = B(1,1) * B(2,2) - B(1,2)*B(2,1)
   if (Bdisc == 0.d0) then
-     write (6, *) 'error: initial estimate of Hessian matrix has determinant = 0!'
-     stop
+     X = -1.d0
+     return
   endif
   ! calculate the gradient
   dfdx = get_DPsi(X, 1, 0)
@@ -1461,6 +1463,12 @@ module equilibrium
      ! 3. calculate increment
      S     = gamma_1 * P
      X     = X + S
+     ! check definition domain boundary
+     if (outside_domain(X)) then
+        X = -1.d0
+        return
+     endif
+
      dxmod = sqrt(sum(S**2))
      if (Debug) write (90, *) k, X, S, dxmod
      if (dxmod < delta) exit
