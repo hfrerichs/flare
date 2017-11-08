@@ -61,6 +61,35 @@ module equi2d_interface
 
 
   !---------------------------------------------------------------------
+  subroutine get_psi(r, z, nr, nz, psi)
+  use equilibrium, only: get_Psi_backend => get_Psi
+  real(dp),         intent(in)  :: r(nr), z(nz)
+  real(dp),         intent(out) :: psi(nz,nr)
+  integer                       :: nr, nz
+!f2py intent(in) :: r
+!f2py intent(in) :: z
+!f2py integer intent(hide),depend(r) :: nr=shape(r,0)
+!f2py integer intent(hide),depend(z) :: nz=shape(z,0)
+
+  real(dp) :: r3(3)
+  integer  :: i, j
+
+
+  r3(3) = 0.d0
+  do i=1,nr
+  do j=1,nz
+     r3(1)    = r(i)
+     r3(2)    = z(j)
+     psi(j,i) = get_Psi_backend(r3)
+  enddo
+  enddo
+
+  end subroutine get_psi
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
   ! initialize magnetic configuration for new equilibrium
   ! 1) create configuration file bfield.conf
   ! 2) scan for X-points

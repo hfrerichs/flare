@@ -5,7 +5,10 @@ from subprocess import call
 import sys
 
 import matplotlib.pyplot as plt
+
 import flare.pyplot      as fplt
+import flare.equi2d
+
 
 def set_default_subparser(self, name, args=None):
     """default subparser selection:
@@ -31,6 +34,7 @@ def set_default_subparser(self, name, args=None):
 
 argparse.ArgumentParser.set_default_subparser = set_default_subparser
 
+
 # 1. run FLARE backend
 def run(args):
     THIS  = os.path.dirname(__file__)
@@ -54,10 +58,16 @@ def plot(args):
     plt.show()
 
 
+# 3. interface for axisymmetric (2D) equilibrium
+# 3.1. visualization
+def equi2d_view(args):
+    flare.equi2d.view(args.data_file, args.format)
+
+
 def main():
     # create main parser
     parser      = argparse.ArgumentParser()
-    subparsers  = parser.add_subparsers(title='subcommands', dest='cmd')
+    subparsers  = parser.add_subparsers(title='commands', dest='cmd')
 
     # 1. create parser for FLARE backend
     parser_run  = subparsers.add_parser("run", help="run FLARE backend")
@@ -80,6 +90,15 @@ def main():
     parser_plot.add_argument("-d", "--data_file", default="output.txt")
     parser_plot.set_defaults(func=plot)
 
+
+    # 3. create parser for equi2d interface
+    parser_equi2d = subparsers.add_parser("equi2d", help="interface for axisymmetric equilibrium")
+    subparsers_equi2d = parser_equi2d.add_subparsers(title='subcommands', dest='scmd')
+    # 3.1 visualize equilibrium
+    p_equi2dview = subparsers_equi2d.add_parser("view", help="visualize equilibrium")
+    p_equi2dview.add_argument("data_file")
+    p_equi2dview.add_argument("-f", "--format", default="", help="equilibrium format string")
+    p_equi2dview.set_defaults(func=equi2d_view)
 
     # parse the args and call whatever subcommand was selected
     parser.set_default_subparser("run")
