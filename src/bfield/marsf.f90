@@ -405,6 +405,8 @@ module marsf
 
 
   Bf   = 0.d0
+
+  ! expected coordinate order: R[m], Phi[rad], Z[m]
   x(1) = r(1) * cm_to_m
   x(2) = r(3)
   x(3) = r(2) * cm_to_m
