@@ -114,7 +114,7 @@ module equilibrium_format
   open  (iu, file='bfield.conf')
   write (iu, 1000)
   write (iu, 1001) trim(data_file)
-  write (iu, 1002) EQ_FORMAT(i_equi)
+  write (iu, 1002) trim(EQ_FORMAT(i_equi))
   write (iu, 1003)
   close (iu)
 
