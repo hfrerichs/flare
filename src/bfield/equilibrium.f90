@@ -835,6 +835,7 @@ module equilibrium
   end select
 
 
+  theta = 0.d0;   if (.not.associated(get_magnetic_axis)) return
   Maxis = get_magnetic_axis(phi)
   theta = atan2(r(2) - Maxis(2), r(1) - Maxis(1))
 
