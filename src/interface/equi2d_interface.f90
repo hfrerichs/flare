@@ -21,7 +21,7 @@ module equi2d_interface
   !---------------------------------------------------------------------
   subroutine load(data_file, data_format, ierr)
   use equilibrium_format
-  use equilibrium, only: load_equilibrium_data, setup_equilibrium, i_equi
+  use equilibrium, only: load_equilibrium_data, setup_equilibrium, i_equi, setup_magnetic_axis
   use boundary
   character(len=*), intent(in)  :: data_file, data_format
   integer,          intent(out) :: ierr
@@ -53,6 +53,7 @@ module equi2d_interface
 
   ! set up backend
   call setup_equilibrium()
+  call setup_magnetic_axis()
   call setup_boundary()
 
   end subroutine load
@@ -94,24 +95,21 @@ module equi2d_interface
   ! 1) create configuration file bfield.conf
   ! 2) scan for X-points
   !---------------------------------------------------------------------
-  subroutine init_config(data_file, data_format, ierr)
+  subroutine init(data_file, data_format, ierr)
   use equilibrium_format
   use equilibrium, only: i_equi
   character(len=*), intent(in)  :: data_file, data_format
   integer,          intent(out) :: ierr
 
 
-  ! 0. load equilibrium data
-  call load(data_file, data_format, ierr)
-  if (ierr > 0) return
-
   ! 1. create configuration file bfield.conf
   call write_config_file(data_file, i_equi)
 
   ! 2. scan for X-points
   call initialize_equilibrium()
+  ierr = 0
 
-  end subroutine init_config
+  end subroutine init
   !---------------------------------------------------------------------
 
 

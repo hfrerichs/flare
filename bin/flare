@@ -63,6 +63,10 @@ def plot(args):
 def equi2d_view(args):
     flare.equi2d.view(args.data_file, args.format)
 
+# 3.2. create FLARE configuration for new equilibrium
+def equi2d_init(args):
+    flare.equi2d.init(args.data_file, args.format)
+
 
 def main():
     # create main parser
@@ -94,11 +98,17 @@ def main():
     # 3. create parser for equi2d interface
     parser_equi2d = subparsers.add_parser("equi2d", help="interface for axisymmetric equilibrium")
     subparsers_equi2d = parser_equi2d.add_subparsers(title='subcommands', dest='scmd')
-    # 3.1 visualize equilibrium
+    # 3.1. visualize equilibrium
     p_equi2dview = subparsers_equi2d.add_parser("view", help="visualize equilibrium")
     p_equi2dview.add_argument("data_file")
     p_equi2dview.add_argument("-f", "--format", default="", help="equilibrium format string")
     p_equi2dview.set_defaults(func=equi2d_view)
+    # 3.2. create FLARE configuration
+    p_equi2dview = subparsers_equi2d.add_parser("init", help="initialize FLARE configuration for equilibrium")
+    p_equi2dview.add_argument("data_file")
+    p_equi2dview.add_argument("-f", "--format", default="", help="equilibrium format string")
+    p_equi2dview.set_defaults(func=equi2d_init)
+
 
     # parse the args and call whatever subcommand was selected
     parser.set_default_subparser("run")

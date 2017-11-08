@@ -61,7 +61,13 @@ def view(filename, format):
     plt.show()
 
 
-def init_config(filename, format):
-    ierr = equi2d_interface.init_config(filename, format)
-    if ierr > 0:
-        raise LoadError(LOAD_ERROR[ierr])
+def init(filename, format):
+    try:
+        load(filename, format)
+    except LoadError as e:
+        print 'error: ', e.value
+        print 'use "-f FORMAT" to provide equilibrium format'
+        sys.exit(2)
+
+
+    ierr = equi2d_interface.init(filename, format)
