@@ -54,11 +54,11 @@ def run(args):
 
 # 2. connection length and other data plots
 def plot(args):
-    fplt.plot_lc(args.geometry_file, args.data_file, qplot=args.qplot)
+    fplt.plot_data(args.data_file, args.data_key, args.geometry_file)
     plt.show()
 # query data file for available data
 def info(args):
-    print fplt.Abstract(args.data_file)
+    print fplt.Data(args.data_file)
 
 
 # 3. interface for axisymmetric (2D) equilibrium
@@ -92,9 +92,10 @@ def main():
 
     # 2. create parser for connection length and other data plots
     parser_plot = subparsers.add_parser("plot", help="plot connection length and other data")
-    parser_plot.add_argument("qplot", choices=['lc', 'lcs', 'lc_bwd', 'lc_fwd'], help="data quantity")
-    parser_plot.add_argument("-g", "--geometry_file", default="grid.dat")
-    parser_plot.add_argument("-d", "--data_file", default="output.txt")
+    parser_plot.add_argument("data_key", help="data key as listed by 'flare info'")
+    #parser_plot.add_argument("-g", "--geometry_file", default=None, help="alternative geometry file")
+    parser_plot.add_argument("-g", "--geometry_file", help="alternative geometry file")
+    parser_plot.add_argument("data_file")
     parser_plot.set_defaults(func=plot)
     # 2.b
     parser_info = subparsers.add_parser("info", help="query data file for available data")

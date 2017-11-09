@@ -1,5 +1,9 @@
 import os, sys
+import numpy as np
+import matplotlib.pyplot as plt
 from collections import OrderedDict
+
+from flare import Grid, STRUCTURED, SEMI_STRUCTURED
 
 
 FLARE             = "# FLARE"
@@ -7,11 +11,15 @@ FLARE_DATA_TYPE   = "# FLARE DATA TYPE"
 FLARE_GEOMETRY    = "# FLARE GEOMETRY"
 FLARE_DATA_COLUMN = "# FLARE DATA COLUMN"
 
+PLOT_2D = "2D"
 
-class Abstract():
+
+class Data():
     def __init__(self, data_file):
         self.q         = OrderedDict()
         self.data_type = None
+        self.data_file = data_file
+        self.geometry  = None
 
         if not os.path.isfile(data_file):
             print "error: data file '{}' does not exist!".format(data_file)
@@ -60,6 +68,14 @@ class Abstract():
         return info
 
 
+    def get_data_type(self):
+        return self.data_type
+
+
+    def get_geometry(self):
+        return self.geometry
+
+
     def available_data(self):
         return self.q.keys()
 
@@ -68,11 +84,78 @@ class Abstract():
         return self.q.keys().index(key)
 
 
+    # load data
+    def load(self):
+        self.d = np.loadtxt(self.data_file, dtype='float')
+        if self.d.ndim == 1: self.d = self.d.reshape((self.d.size, 1))
+        if self.d.ndim != 2:
+            print "error: unexpected dimension of data array!"
+            print "dimension = ", self.d.ndim
+            sys.exit(2)
+
+
+    # return data qkey
+    def get_data(self, qkey):
+        i = self.q.keys().index(qkey)
+        return self.d[:,i]
+
+
+    def plot_2d(self, qkey, geometry=None, *args, **kwargs):
+        # load user defined geometry
+        if geometry:
+            G = Grid(geometry)
+        # load default geometry
+        else:
+            if not self.geometry:
+                print "error: geometry is undefined!"
+                sys.exit(2)
+            G = Grid(self.geometry)
+        # check geometry
+        if G.layout != STRUCTURED  and  G.layout != SEMI_STRUCTURED:
+            print "error: visualization on unstructured grids not implemented yet!"
+            sys.exit(2)
+
+
+        # prepare data
+        q    = self.get_data(qkey).reshape(G.n2, G.n1)
+        qmin = np.nanmin(q)
+        qmax = np.nanmax(q)
+
+
+        # create plot
+        levels = np.linspace(qmin, qmax, 64)
+        plt.contourf(G.x1, G.x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
+        plt.xlabel(G.x1_label)
+        plt.ylabel(G.x2_label)
+        cbar = plt.colorbar()
+        cbar.set_label(self.q[qkey][1:-1])
+
+
 
 # Interface for data visualization
 # Input:
 #   data_file
-#   q           data key
+#   qkey        data key
 #   grid_file   (optional) non-default geometry
-def plot_data(data_file, q, grid_file=None):
-    pass
+def plot_data(data_file, qkey, grid_file=None):
+    # get data abstract
+    d = Data(data_file)
+    if not qkey in d.available_data():
+        print "error: '{}' is not available in data file {}".format(qkey, data_file)
+        sys.exit(2)
+
+
+    # load data
+    d.load()
+
+
+
+    # select plot type
+    data_type = d.get_data_type()
+    if data_type == PLOT_2D:
+        #print "plotting", qkey, "on", grid_file
+        d.plot_2d(qkey, grid_file)
+
+    else:
+        print "error: plotting of data type '{}' is not implemented (yet)!".format(data_type)
+        sys.exit(2)
