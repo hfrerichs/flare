@@ -261,6 +261,8 @@ module run_control
      call quasi_surfaces()
   case ('perturbation_spectrum')
      call perturbation_spectrum()
+  case ('equi2d_geometry')
+     call equi2d_geometry(N_R)
   case default
 !     if (Run_Type(1:27) == 'generate_field_aligned_grid') then
 !        read (Run_Type(40:42), *) i
