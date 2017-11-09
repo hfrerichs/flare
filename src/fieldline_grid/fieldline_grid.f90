@@ -136,6 +136,7 @@ module fieldline_grid
 
   logical :: &
      extend_alpha_SOL2   =  .true., &
+     sample_Bf_on_extended_grid = .false., &
      stellarator_symmetry = .false.
 
 
@@ -405,7 +406,8 @@ module fieldline_grid
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
      Dtheta_sampling, Dtheta_separatrix, &
-     discretization_method, poloidal_discretization, radial_discretization, guiding_surface
+     discretization_method, poloidal_discretization, radial_discretization, guiding_surface, &
+     sample_Bf_on_extended_grid
 
 
   ! 1. read user configuration from input file
@@ -1316,7 +1318,7 @@ module fieldline_grid
   integer, parameter :: iu = 72
 
   real(real64) :: x(3), Bf(3)
-  integer :: ir, ip, it, iz, ig
+  integer :: ir, ir1, ir2, ip, it, iz, ig
 
 
   write (6, *) 'sampling magnetic field strength on grid ...'
@@ -1327,11 +1329,16 @@ module fieldline_grid
 
 
   do iz=0,NZONET-1
+  if (sample_Bf_on_extended_grid) then
+     ir1 = 0;   ir2 = SRF_RADI(iz)-1
+  else
+     ir1 = R_SURF_PL_TRANS_RANGE(1,iz);   ir2 = R_SURF_PL_TRANS_RANGE(2,iz)
+  endif
   do it=0,SRF_TORO(iz)-1
      write (6, *) iz, it
      x(3) = PHI_PLANE(it + PHI_PL_OS(iz))
      do ip=0,SRF_POLO(iz)-1
-     do ir=R_SURF_PL_TRANS_RANGE(1,iz),R_SURF_PL_TRANS_RANGE(2,iz)
+     do ir=ir1,ir2
         ig = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
 
         x(1) = RG(ig)
