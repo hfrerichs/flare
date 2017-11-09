@@ -13,6 +13,10 @@ FLARE_DATA_COLUMN = "# FLARE DATA COLUMN"
 
 PLOT_2D = "2D"
 
+DERIVED_DATA = ['Lc', 'Lcs']
+#    'Lc':   'abs(Lc_bwd) + abs(Lc_fwd)'
+#    'Lcs':  'abs(Lc_bwd) + abs(Lc_fwd)'
+#}
 
 class Data():
     def __init__(self, data_file):
@@ -94,10 +98,26 @@ class Data():
             sys.exit(2)
 
 
+    # return derived data
+    def get_derived_data(self, qkey):
+        d = {
+            'Lc':   abs(self.get_data('Lc_bwd'))+abs(self.get_data('Lc_fwd')),
+            'Lcs':  np.minimum(abs(self.get_data('Lc_bwd')), abs(self.get_data('Lc_fwd')))
+        }.get(qkey)
+        return d
+
+
     # return data qkey
     def get_data(self, qkey):
+        if qkey in DERIVED_DATA: return self.get_derived_data(qkey)
+
         i = self.q.keys().index(qkey)
         return self.d[:,i]
+
+    def get_data_label(self, qkey):
+        if qkey in DERIVED_DATA: return "derived data"
+
+        return self.q[qkey][1:-1]
 
 
     def plot_2d(self, qkey, geometry=None, *args, **kwargs):
@@ -128,7 +148,8 @@ class Data():
         plt.xlabel(G.x1_label)
         plt.ylabel(G.x2_label)
         cbar = plt.colorbar()
-        cbar.set_label(self.q[qkey][1:-1])
+        qlabel = self.get_data_label(qkey)
+        cbar.set_label(qlabel)
 
 
 
@@ -140,7 +161,7 @@ class Data():
 def plot_data(data_file, qkey, grid_file=None):
     # get data abstract
     d = Data(data_file)
-    if not qkey in d.available_data():
+    if not qkey in d.available_data()  and  not qkey in DERIVED_DATA:
         print "error: '{}' is not available in data file {}".format(qkey, data_file)
         sys.exit(2)
 
