@@ -13,10 +13,10 @@ FLARE_DATA_COLUMN = "# FLARE DATA COLUMN"
 
 PLOT_2D = "2D"
 
-DERIVED_DATA = ['Lc', 'Lcs']
-#    'Lc':   'abs(Lc_bwd) + abs(Lc_fwd)'
-#    'Lcs':  'abs(Lc_bwd) + abs(Lc_fwd)'
-#}
+DERIVED_DATA = {
+    'Lc':   ('abs(Lc_bwd) + abs(Lc_fwd)',            "Connection length"),
+    'Lcs':  ('np.minimum(abs(Lc_bwd), abs(Lc_fwd))', "Shortest connection length")
+}
 
 class Data():
     def __init__(self, data_file):
@@ -100,10 +100,15 @@ class Data():
 
     # return derived data
     def get_derived_data(self, qkey):
-        d = {
-            'Lc':   abs(self.get_data('Lc_bwd'))+abs(self.get_data('Lc_fwd')),
-            'Lcs':  np.minimum(abs(self.get_data('Lc_bwd')), abs(self.get_data('Lc_fwd')))
-        }.get(qkey)
+        for q0 in self.q:
+            exec("{} = self.get_data('{}')".format(q0, q0))
+        try:
+            exec("d = "+DERIVED_DATA[qkey][0])
+        except:
+            print "error: cannot evaluate derived quantity {}".format(qkey)
+            print "from", DERIVED_DATA[qkey][0]
+            sys.exit(2)
+
         return d
 
 
@@ -115,7 +120,7 @@ class Data():
         return self.d[:,i]
 
     def get_data_label(self, qkey):
-        if qkey in DERIVED_DATA: return "derived data"
+        if qkey in DERIVED_DATA: return DERIVED_DATA[qkey][1]
 
         return self.q[qkey][1:-1]
 
