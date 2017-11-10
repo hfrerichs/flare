@@ -12,8 +12,17 @@ module dataset
      VERBOSE = 1
 
 
+  type :: t_data_abstract
+     character(len=256) :: qkey = '', qlabel = ''
+  end type t_data_abstract
+
+
   type, public :: t_dataset
      integer :: nrow, ncol, nrow_offset
+
+     integer :: ndim = -1
+     character(len=256) :: geometry
+     type(t_data_abstract), dimension(:), pointer :: col => null()
 
      real(real64), dimension(:,:), pointer :: x => null()
 
@@ -22,6 +31,8 @@ module dataset
      procedure :: plot
      procedure :: store => plot
      procedure :: new
+     procedure :: set_info
+     procedure :: set_column_info
      procedure :: extend
      procedure :: resize
      procedure :: destroy
@@ -30,7 +41,7 @@ module dataset
      procedure :: smooth
   end type t_dataset
 
-  type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,null())
+  type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,0,'',null(),null())
 
   contains
 !=======================================================================
@@ -124,6 +135,8 @@ module dataset
   deallocate (tmp)
 
 
+  allocate (this%col(ncol))
+
   return
  1000 format ('found ',i6,' data lines in file: ',a)
  4000 format (a)
@@ -191,6 +204,18 @@ module dataset
      endif
   endif
 
+
+  ! writa data info
+  if (this%ndim >= 0) write (iu0, 2001) this%ndim
+  if (this%geometry /= '') write (iu0, 2002) trim(this%geometry)
+ 2001 format("# FLARE DATA DIMENSION ",i0,'D')
+ 2002 format("# FLARE GEOMETRY ",a)
+  do i=1,this%ncol
+     if (this%col(i)%qkey /= '') write (iu0, 2003) trim(this%col(i)%qkey), trim(this%col(i)%qlabel)
+  enddo
+ 2003 format("# FLARE DATA COLUMN ",a,' "',a,'"')
+
+
   ! write data
   do i=1+n0,n+n0
      write (iu0, f) this%x(i,:)
@@ -226,7 +251,44 @@ module dataset
   allocate (this%x(1+n0:nrow+n0, ncol))
   this%x    = 0.d0
 
+  allocate (this%col(ncol))
+
   end subroutine new
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine set_info(this, ndim, geometry)
+  class(t_dataset)             :: this
+  integer,          intent(in) :: ndim
+  character(len=*), intent(in) :: geometry
+
+
+  this%ndim     = ndim
+  this%geometry = geometry
+
+  end subroutine set_info
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine set_column_info(this, col, qkey, qlabel)
+  class(t_dataset)             :: this
+  integer,          intent(in) :: col
+  character(len=*), intent(in) :: qkey, qlabel
+
+
+  if (col < 1  .or.  col > this%ncol) then
+     write (6, 9000) col
+ 9000 format("error in t_dataset%set_column_info: col = ",i0," out of range!")
+     stop
+  endif
+  this%col(col)%qkey   = qkey
+  this%col(col)%qlabel = qlabel
+
+  end subroutine set_column_info
 !=======================================================================
 
 
@@ -295,6 +357,7 @@ module dataset
   class(t_dataset) :: this
 
   if (associated(this%x)) deallocate(this%x)
+  if (associated(this%col)) deallocate(this%col)
   end subroutine destroy
 !=======================================================================
 

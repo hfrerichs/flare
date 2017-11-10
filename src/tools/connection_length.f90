@@ -52,6 +52,7 @@ subroutine connection_length
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Trace_Coords, &
                          Output_Format, Limit, Psi, max_pt
   use grid
+  use dataset
   use parallel
   use math
   use equilibrium
@@ -63,16 +64,15 @@ subroutine connection_length
   integer, parameter :: nout_max = 12
   integer, parameter :: iu = 42
 
-  real(real64), dimension(:,:), allocatable :: lc_data
   type(t_flux_surface_3D)                   :: LCFS
   type(t_fieldline)  :: F
   type(t_grid)       :: G
+  type(t_dataset)    :: D
 
-  character(len=12)  :: fstr
   real(real64)       :: y(3), r(3), dl, PsiN, Psi_min, Psi_av, ntt(-1:1)
-  real(real64)       :: lc(-1:1), npt(-1:1), dist2PsiN(-1:1,2), d, d_min, PsiN_final(-1:1)
+  real(real64)       :: lc(-1:1), npt(-1:1), dist2PsiN(-1:1,2), dist, d_min, PsiN_final(-1:1)
   logical :: distance_to_lcfs
-  integer :: itrace, nout, iout(nout_max), i, i2, ig, iflag, idir, id, id_limit(-1:1)
+  integer :: itrace, nout, iout(nout_max), i, i2, ig, ig1, iflag, idir, id, id_limit(-1:1)
 
 
   if (firstP) then
@@ -112,14 +112,16 @@ subroutine connection_length
         if (i == 7) distance_to_lcfs = .true.
      endif
   enddo
+
+
+  call D%new(G%nodes(), 5+nout)
+  call D%set_info(2, trim(Grid_File))
+  call D%set_column_info(1, 'Lc_bwd', "Backward connection length [m]")
+  call D%set_column_info(2, 'Lc_fwd', "Forward connection length [m]")
+  call D%set_column_info(3, 'Lpt_bwd', "Backward connection length [poloidal turns]")
+  call D%set_column_info(4, 'Lpt_fwd', "Forward connection length [poloidal turns]")
+  call D%set_column_info(5, 'minPsiN', "Minimum(PsiN) along field line")
   if (firstP) call additional_output_info()
-
-  ! set format string
-  write (fstr, '(i4)') 5+nout
-  fstr = '('//trim(adjustl(fstr))//'e18.10)'
-
-  allocate (lc_data(0:G%nodes()-1,5+nout))
-  lc_data = 0.d0
 
 
   ! 2.7. distance to last closed flux surface
@@ -131,7 +133,8 @@ subroutine connection_length
 
 ! main loop (begin) ....................................................
   grid_loop: do ig=mype,G%nodes()-1,nprs
-     y = G%node(ig+1, coordinates=itrace)
+     ig1 = ig + 1
+     y = G%node(ig1, coordinates=itrace)
 
      ! initial values
      ! ... for connection length calculation
@@ -181,8 +184,8 @@ subroutine connection_length
 
            ! shortest distance (in RZ-plane) to last closed flux surface
            if (distance_to_lcfs) then
-              d = abs(LCFS%get_distance_to(F%rc))
-              if (d < d_min) d_min = d
+              dist = abs(LCFS%get_distance_to(F%rc))
+              if (dist < d_min) d_min = dist
            endif
 
 
@@ -201,38 +204,38 @@ subroutine connection_length
      ! update connection length data for selected field line
      lc(0)  = abs(lc(-1)) + abs(lc(1))
      Psi_av = Psi_av / lc(0)
-     lc_data(ig,1) = lc(-1)
-     lc_data(ig,2) = lc( 1)
-     lc_data(ig,3) = npt(-1)
-     lc_data(ig,4) = npt( 1)
-     lc_data(ig,5) = Psi_min
+     D%x(ig1, 1) = abs(lc(-1) / 100.d0)
+     D%x(ig1, 2) = abs(lc( 1) / 100.d0)
+     D%x(ig1, 3) = npt(-1)
+     D%x(ig1, 4) = npt( 1)
+     D%x(ig1, 5) = Psi_min
      do i=1,nout
         i2 = nint(log(1.d0*iout(i))/log(2.d0))
         select case (i2)
         case (0)
-           lc_data(ig,5+i) = Psi_av
+           D%x(ig1,5+i) = Psi_av
         case (1)
-           lc_data(ig,5+i) = real(id_limit(-1))
+           D%x(ig1,5+i) = real(id_limit(-1))
         case (2)
-           lc_data(ig,5+i) = real(id_limit( 1))
+           D%x(ig1,5+i) = real(id_limit( 1))
         case (3)
-           lc_data(ig,5+i) = dist2PsiN(-1,1)
+           D%x(ig1,5+i) = dist2PsiN(-1,1)
         case (4)
-           lc_data(ig,5+i) = dist2PsiN( 1,1)
+           D%x(ig1,5+i) = dist2PsiN( 1,1)
         case (5)
-           lc_data(ig,5+i) = dist2PsiN(-1,2)
+           D%x(ig1,5+i) = dist2PsiN(-1,2)
         case (6)
-           lc_data(ig,5+i) = dist2PsiN( 1,2)
+           D%x(ig1,5+i) = dist2PsiN( 1,2)
         case (7)
-           lc_data(ig,5+i) = d_min
+           D%x(ig1,5+i) = d_min
         case (8)
-           lc_data(ig,5+i) = PsiN_final(-1)
+           D%x(ig1,5+i) = PsiN_final(-1)
         case (9)
-           lc_data(ig,5+i) = PsiN_final(1)
+           D%x(ig1,5+i) = PsiN_final(1)
         case (10)
-           lc_data(ig,5+i) = ntt(-1)
+           D%x(ig1,5+i) = ntt(-1)
         case (11)
-           lc_data(ig,5+i) = ntt(1)
+           D%x(ig1,5+i) = ntt(1)
         end select
      enddo
 
@@ -242,18 +245,11 @@ subroutine connection_length
 
 
 ! finalize .............................................................
-  call wait_pe()
-  call sum_real_data (lc_data, (5+nout)*G%nodes())
+  call D%mpi_allreduce()
 
   if (firstP) then
-     open  (iu, file=Output_File, err=5010)
-     do ig=0,G%nodes()-1
-        write (iu, fstr) lc_data(ig,:)
-     enddo
-     close (iu)
+     call D%store(filename=Output_File)
   endif
-
-  deallocate (lc_data)
 ! ......................................................................
 
 
@@ -266,59 +262,66 @@ subroutine connection_length
 !.......................................................................
   subroutine additional_output_info
 
-  character*120 :: info_file, text
+  character(len=256) :: qkey, text
   integer :: i, i2
 
 
   if (nout.gt.0) then
      write (6, 1000)
-     info_file = trim(adjustl(Output_File))//'.info'
-     open  (iu, file=info_file)
-     write (iu, *) nout
   endif
 
   do i=1,nout
      i2 = nint(log(1.d0*iout(i))/log(2.d0))
      select case (i2)
      case (0)
+        qkey = 'avPsiN'
         text = 'Field line averaged poloidal flux'
      case (1)
+        qkey = 'surf_id_bwd'
         text = 'Limiting surface id in neg. direction'
      case (2)
+        qkey = 'surf_id_fwd'
         text = 'Limiting surface id in pos. direction'
      case (3)
+        qkey = 'dist_PsiN1_bwd'
         write (text, '(f8.4)') Psi(1)
         text = 'Backward distance to Psi = '//trim(text)
      case (4)
+        qkey = 'dist_PsiN1_fwd'
         write (text, '(f8.4)') Psi(1)
         text = 'Forward  distance to Psi = '//trim(text)
      case (5)
+        qkey = 'dist_PsiN2_bwd'
         write (text, '(f8.4)') Psi(2)
         text = 'Backward distance to Psi = '//trim(text)
      case (6)
+        qkey = 'dist_PsiN2_fwd'
         write (text, '(f8.4)') Psi(2)
         text = 'Forward  distance to Psi = '//trim(text)
      case (7)
+        qkey = 'dist_LCFS'
         text = 'Distance to last closed flux surface'
      case (8)
+        qkey = 'PsiN_bwd'
         text = 'Final radial position (PsiN) in backward direction'
      case (9)
+        qkey = 'PsiN_fwd'
         text = 'Final radial position (PsiN) in forward direction'
      case (10)
+        qkey = 'Ltt_bwd'
         text = 'Backward connection length [toroidal turns]'
      case (11)
+        qkey = 'Ltt_fwd'
         text = 'Forward connection length [toroidal turns]'
      case default
         write (6, *) 'error: ', 2**i2, ' is not a valid data id!'
         stop
      end select
-     write (iu, 2000) i2, text
+     call D%set_column_info(5+i, trim(qkey), trim(text))
      write (6, 2001) trim(text)
   enddo
-  if (nout.gt.0) close (iu)
 
  1000 format (3x,'- Additional output:')
- 2000 format (i4,3x,a)
  2001 format (8x,a)
   end subroutine additional_output_info
 !.......................................................................

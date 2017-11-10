@@ -5,11 +5,13 @@ subroutine get_equi_info_2D
   use iso_fortran_env
   use run_control, only: N_R, N_Z, Output_Format
   use magnetic_axis
-  use equilibrium, only: get_domain, find_hyperbolic_points, get_Psi, &
+  use equilibrium, only: get_domain, find_hyperbolic_points, get_PsiN, &
                          equilibrium_info, Psi_axis, Psi_sepx, i_equi, EQ_AMHD, Xp, nx_max
   use separatrix
   use xpaths
   use boundary
+  use grid
+  use dataset
   use string
   use parallel
   implicit none
@@ -19,6 +21,8 @@ subroutine get_equi_info_2D
 
   type(t_separatrix) :: S(nx_max)
   type(t_xpath)      :: X
+  type(t_grid)       :: G
+  type(t_dataset)    :: D
   character(len=120) :: fout, sboundary
   character(len=8)   :: cid
   logical            :: append, parts
@@ -87,37 +91,20 @@ subroutine get_equi_info_2D
   ! write grid with sample locations
   nR = 128
   nZ = 128
-  fout = 'equi_info.grid'
-  open  (iu, file=fout)
-  write (iu, 1000)
-  write (iu, 1001) nR
-  write (iu, 1002) nZ
-  write (iu, 1003) 0.d0
-  do i=0,nR-1
-     r(1) = Rbox(1) + (Rbox(2)-Rbox(1)) * i / (nR-1)
-     write (iu, 1004) r(1)
-  enddo
-  do j=0,nZ-1
-     r(2) = Zbox(1) + (Zbox(2)-Zbox(1)) * j / (nZ-1)
-     write (iu, 1004) r(2)
-  enddo
-  close (iu)
+  call G%new(STRUCTURED, CYLINDRICAL, 3, nR, nZ)
+  call G%create_rlinspace(nR, Rbox(1), Rbox(2), nZ, Zbox(1), Zbox(2))
+  call G%store('equi2d.grid')
 
 
   ! write normalized poloidal magnetic flux
-  fout = 'equi_info.data'
-  r(3) = 0.d0
-  open  (iu, file=fout)
-  do j=0,nZ-1
-  do i=0,nR-1
-     r(1) = Rbox(1) + (Rbox(2)-Rbox(1)) * i / (nR-1)
-     r(2) = Zbox(1) + (Zbox(2)-Zbox(1)) * j / (nZ-1)
-     Psi = get_Psi(r)
-     Psi = (Psi - Psi_axis) / (Psi_sepx - Psi_axis)
-     write (iu, 1004) Psi
+  call D%new(nR*nZ, 1)
+  call D%set_info(2, 'equi2d.grid')
+  call D%set_column_info(1, 'PsiN', 'Normalized Poloidal Flux')
+  do i=1,G%nodes()
+     r        = G%node(i)
+     D%x(i,1) = get_PsiN(r)
   enddo
-  enddo
-  close (iu)
+  call D%store(filename='equi2d.info')
 
 
   ! write boundary data

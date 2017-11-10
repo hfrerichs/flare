@@ -64,6 +64,7 @@ subroutine sample_bfield
   if (Output_Format == 8) n = 4
   if (Output_Format == 9) n = 9
   call D%new(G%nodes(), n)
+  call D%set_info(2, trim(Grid_File))
 
 
   ! main loop
@@ -74,6 +75,11 @@ subroutine sample_bfield
      select case (Output_Format)
      case (1)
         Bf = get_Bf_Cart (xvec)
+        call D%set_column_info(1, 'absB', 'Magnetic field strength [T]')
+        call D%set_column_info(2, 'Bx',   'Bx [T]')
+        call D%set_column_info(3, 'By',   'By [T]')
+        call D%set_column_info(4, 'Bz',   'Bz [T]')
+        call D%set_column_info(5, 'PsiN', 'Normalized Poloidal Flux')
      case (2,3,4,5,6,8)
         Bf = get_Bf_Cyl (xvec)
      end select
@@ -101,6 +107,13 @@ subroutine sample_bfield
         D%x(ig,2:4) = Bf
         D%x(ig,5)   = PsiN
      endif
+     if (Output_Format == 2) then
+        call D%set_column_info(1, 'absB', 'Magnetic field strength [T]')
+        call D%set_column_info(2, 'Br',   'Br [T]')
+        call D%set_column_info(3, 'Bz',   'Bz [T]')
+        call D%set_column_info(4, 'Bphi', 'Bphi [T]')
+        call D%set_column_info(5, 'PsiN', 'Normalized Poloidal Flux')
+     endif
      if (Output_Format == 3) then
         ! ratio of poloidal to toroidal field
         Bpol = sqrt(Bf(1)**2 + Bf(2)**2)
@@ -108,12 +121,18 @@ subroutine sample_bfield
         D%x(ig,2)   = Bf(3)
         D%x(ig,3)   = r(1)
         D%x(ig,4)   = Bpol / Bf(3)
+        call D%set_column_info(1, 'Bpol', 'Poloidal magnetic field [T]')
+        call D%set_column_info(2, 'Btor', 'Toroidal magnetic field [T]')
+        call D%set_column_info(3, 'R',    'Major Radius [cm]')
+        call D%set_column_info(4, 'Bpol_Btor', 'Bpol / Btor')
      endif
      if (Output_Format == 4) then
         DPsiDR      = get_DPsiN(r, 1, 0)
         DPsiDZ      = get_DPsiN(r, 0, 1)
         D%x(ig,1)   = sqrt(DPsiDR**2 + DPsiDZ**2)
         D%x(ig,2)   = (DPsiDR*Bf(1) + DPsiDZ*Bf(2)) / D%x(ig,1) / Bmod
+        call D%set_column_info(1, 'GradPsiN', '|Grad PsiN| [1/cm]')
+        call D%set_column_info(2, 'Brad', 'radial magnetic field [T]')
      endif
      if (Output_Format == 5) then
         divB        = get_divB(r)
@@ -130,12 +149,20 @@ subroutine sample_bfield
         D%x(ig,2)   = PsiN
         D%x(ig,3)   = DPsiDR
         D%x(ig,4)   = DPsiDZ
+        call D%set_column_info(1, 'Psi', 'Poloidal Flux [Weber]')
+        call D%set_column_info(2, 'PsiN', 'Normalized Poloidal Flux')
+        call D%set_column_info(3, 'dPsidr', 'dPsi/dr [Weber/cm]')
+        call D%set_column_info(4, 'dPsidz', 'dPsi/dz [Weber/cm]')
      endif
      if (Output_Format == 7) then
         D%x(ig,1)   = get_Psi(r)
         D%x(ig,2)   = get_DPsi(r, 2, 0)
         D%x(ig,3)   = get_DPsi(r, 1, 1)
         D%x(ig,4)   = get_DPsi(r, 0, 2)
+        call D%set_column_info(1, 'Psi', 'Poloidal Flux [Weber]')
+        call D%set_column_info(2, 'd2Psidr2', 'd**2 Psi/dr**2 [Weber/cm**2]')
+        call D%set_column_info(3, 'd2Psidrdz', 'd**2 Psi/dr/dz [Weber/cm**2]')
+        call D%set_column_info(4, 'd2Psidz2', 'd**2 Psi/dz**2 [Weber/cm**2]')
      endif
      if (Output_Format == 8) then
         ! non-equilibrium field
@@ -145,12 +172,25 @@ subroutine sample_bfield
         D%x(ig,2)   = sum(Bf(1:2)*ePol)
         D%x(ig,3)   = sum(Bf(1:2)*ePsi)
         D%x(ig,4)   = D%x(ig,3) / sqrt(sum(Beq**2))
+        call D%set_column_info(1, 'Btor', 'Toroidal perturbation field [T]')
+        call D%set_column_info(2, 'Bpol', 'Poloidal perturbation field [T]')
+        call D%set_column_info(3, 'Brad', 'Radial perturbation field [T]')
+        call D%set_column_info(4, 'BradN', 'Normalized radial perturbation field')
      endif
      if (Output_Format == 9) then
         JBf         = get_JBf_Cyl(r)
         D%x(ig,1:3) = JBf(1,1:3)
         D%x(ig,4:6) = JBf(2,1:3)
         D%x(ig,7:9) = JBf(3,1:3)
+        call D%set_column_info(1, 'J11', '11- component of Jacobian [T/m]')
+        call D%set_column_info(2, 'J12', '12- component of Jacobian [T/m]')
+        call D%set_column_info(3, 'J13', '13- component of Jacobian [T/m]')
+        call D%set_column_info(4, 'J21', '21- component of Jacobian [T/m]')
+        call D%set_column_info(5, 'J22', '22- component of Jacobian [T/m]')
+        call D%set_column_info(6, 'J23', '23- component of Jacobian [T/m]')
+        call D%set_column_info(7, 'J31', '31- component of Jacobian [T/m]')
+        call D%set_column_info(8, 'J32', '32- component of Jacobian [T/m]')
+        call D%set_column_info(9, 'J33', '33- component of Jacobian [T/m]')
      endif
   enddo grid_loop
   call D%mpi_allreduce()

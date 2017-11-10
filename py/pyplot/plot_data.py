@@ -14,8 +14,8 @@ FLARE_DATA_COLUMN    = "# FLARE DATA COLUMN"
 PLOT_2D = "2D"
 
 DERIVED_DATA = {
-    'Lc':   ('abs(Lc_bwd) + abs(Lc_fwd)',            "Connection length"),
-    'Lcs':  ('np.minimum(abs(Lc_bwd), abs(Lc_fwd))', "Shortest connection length")
+    'Lc':   ('abs(Lc_bwd) + abs(Lc_fwd)',            "Connection length [m]"),
+    'Lcs':  ('np.minimum(abs(Lc_bwd), abs(Lc_fwd))', "Shortest connection length [m]")
 }
 
 class Data():
