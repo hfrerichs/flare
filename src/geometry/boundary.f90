@@ -61,6 +61,7 @@ module boundary
   subroutine setup_boundary()
   use parallel
 
+  call cleanup()
   ! load configuration on first processor
   if (mype == 0) call load_boundary()
   call broadcast_boundary()
@@ -659,6 +660,37 @@ module boundary
   endif
 
   end function boundary_label
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine cleanup()
+
+  integer :: i
+
+
+  if (allocated(S_axi)) then
+     do i=1,n_axi
+        call S_axi(i)%destroy()
+     enddo
+     deallocate(S_axi)
+  endif
+
+  if (allocated(S_quad)) then
+     do i=1,n_quad
+        call S_quad(i)%destroy()
+     enddo
+     deallocate(S_quad)
+  endif
+
+  if (allocated(L_axi))   deallocate(L_axi)
+  if (allocated(L_block)) deallocate(L_block)
+  if (allocated(L_tri))   deallocate(L_tri)
+  if (allocated(L_quad))  deallocate(L_quad)
+  if (allocated(elem_os)) deallocate(elem_os)
+
+  end subroutine cleanup
 !=======================================================================
 
 end module boundary

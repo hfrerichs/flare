@@ -79,6 +79,7 @@ module geqdsk
   logical      :: lL, lR, concaveup
 
 
+  call geqdsk_cleanup()
   ! 0. set defaults for optional input .................................
   ! 0.1. header format: STRICT or FREE
   iformat = STRICT
@@ -568,6 +569,36 @@ module geqdsk
 
  1000 format (5e16.8)
   end subroutine geqdsk_info
+!===============================================================================
+
+
+
+!===============================================================================
+! cleanup
+!===============================================================================
+  subroutine geqdsk_cleanup()
+
+
+  if (allocated(psirz))       deallocate(psirz)
+  if (allocated(Psicoeff))    deallocate(Psicoeff)
+  if (allocated(fpol))        deallocate(fpol)
+  if (allocated(pres))        deallocate(pres)
+  if (allocated(ffprim))      deallocate(ffprim)
+  if (allocated(pprime))      deallocate(pprime)
+  if (allocated(qpsi))        deallocate(qpsi)
+  if (allocated(fpolcoeff))   deallocate(fpolcoeff)
+  if (allocated(prescoeff))   deallocate(prescoeff)
+  if (allocated(ffprimcoeff)) deallocate(ffprimcoeff)
+  if (allocated(pprimecoeff)) deallocate(pprimecoeff)
+  if (allocated(REQD))        deallocate(REQD)
+  if (allocated(ZEQD))        deallocate(ZEQD)
+  if (allocated(PsinEQD))     deallocate(PsinEQD)
+  if (allocated(rbbbs))       deallocate(rbbbs)
+  if (allocated(zbbbs))       deallocate(zbbbs)
+  if (allocated(rlim))        deallocate(rlim)
+  if (allocated(zlim))        deallocate(zlim)
+
+  end subroutine geqdsk_cleanup
 !===============================================================================
 
   end module geqdsk
