@@ -8,7 +8,7 @@ class Boundary():
         self.n = boundary_interface.num_boundaries()
 
 
-    def plot_slice(self, phi):
+    def plot_slice(self, phi=0.0):
         for i in range(self.n):
             boundary_interface.get_slice(i+1, phi)
             if boundary_interface.n > 0:
