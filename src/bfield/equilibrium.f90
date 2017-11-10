@@ -492,7 +492,7 @@ module equilibrium
   inquire (file=xpoint_file, exist=ex)
 
   ! 1.1. run subroutine initialize_equilibrium if file doesn't exist
-  if (.not.ex) call initialize_equilibrium()
+  !if (.not.ex) call initialize_equilibrium()
 
   ! 1.2. read pre-defined X-points
   if (ex) then
