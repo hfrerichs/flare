@@ -1,15 +1,18 @@
 module marsf
   use iso_fortran_env
   use bfield_component
+  use math
   implicit none
   private
 
 
-  ! for internal use
   integer, parameter :: B_FIELD = 1, A_FIELD = 2, X_FIELD = 3
-  integer::nr,nz,ns,mmaxe,nmax
+
+
+  ! for internal use
+  integer::nr,nz,ns,mmaxe,nmax,mmaxpm,nsp
   integer,dimension(:),allocatable::nn,mmaxp,m1,m2
-  real*8 ::raxis,zaxis,pi_value
+  real*8 ::raxis,zaxis
   real*8,dimension(:),  allocatable::cs,csm
   real*8,dimension(:,:),allocatable::r,z,s,chi
   complex*16,dimension(:,:),allocatable::rmi,zmi,rmm,zmm
@@ -65,9 +68,44 @@ module marsf
   subroutine marsf_broadcast()
   use parallel
 
-  if (nprs == 1) return
-  write (6, *) 'parallelization of MARS-F data not implemented yet!'
-  stop
+
+  call broadcast_inte_s(nr)
+  call broadcast_inte_s(nz)
+  call broadcast_inte_s(ns)
+  call broadcast_inte_s(mmaxe)
+  call broadcast_inte_s(nmax)
+  call broadcast_real_s(raxis)
+  call broadcast_real_s(zaxis)
+  call broadcast_real_s(I_scale)
+
+  if (mype > 0) then
+     allocate (r(nr,nz), z(nr,nz), s(nr,nz), chi(nr,nz))
+     allocate (nn(nmax),mmaxp(nmax),m1(nmax),m2(nmax))
+     allocate (cs(ns),csm(ns))
+     allocate (rmi(ns,mmaxe),zmi(ns,mmaxe),rmm(ns,mmaxe),zmm(ns,mmaxe))
+     allocate (b1(ns,mmaxpm,nmax),b2(ns,mmaxpm,nmax),b3(ns,mmaxpm,nmax))
+     allocate (x1(nsp+1,mmaxpm,nmax))
+  endif
+
+  call broadcast_real(r, nr*nz)
+  call broadcast_real(z, nr*nz)
+  call broadcast_real(s, nr*nz)
+  call broadcast_real(chi, nr*nz)
+  call broadcast_inte(nn, nmax)
+  call broadcast_inte(mmaxp, nmax)
+  call broadcast_inte(m1, nmax)
+  call broadcast_inte(m2, nmax)
+  call broadcast_real(cs, ns)
+  call broadcast_real(csm, ns)
+  call broadcast_complex(rmi, ns*mmaxe)
+  call broadcast_complex(zmi, ns*mmaxe)
+  call broadcast_complex(rmm, ns*mmaxe)
+  call broadcast_complex(zmm, ns*mmaxe)
+  call broadcast_complex(b1, ns*mmaxpm*nmax)
+  call broadcast_complex(b2, ns*mmaxpm*nmax)
+  call broadcast_complex(b3, ns*mmaxpm*nmax)
+  call broadcast_complex(x1, (nsp+1)*mmaxpm*nmax)
+
   end subroutine marsf_broadcast
   !=====================================================================
 
@@ -81,17 +119,17 @@ module marsf
   integer, parameter :: iu = 99
 
   real(real64) :: rtmp(8)
-  integer :: ir, iz, i, j, k, n, nsp, nsv, mmaxpm
+  integer :: ir, iz, i, j, k, n, nsv
 
 
   ierr = 0
   ! read geometry
   open  (iu, file=geo_file, status='old', form='formatted')
   read  (iu, *) nr, nz, raxis, zaxis
-  allocate (r(nr, nz), z(nr, nz), s(nr, nz), chi(nr, nz))
+  allocate (r(nr,nz), z(nr,nz), s(nr,nz), chi(nr,nz))
   do ir=1,nr
   do iz=1,nz
-     read  (iu, *) r(ir, iz), z(ir, iz), s(ir, iz), chi(ir, iz)
+     read  (iu, *) r(ir,iz), z(ir,iz), s(ir,iz), chi(ir,iz)
   enddo
   enddo
   close (iu)
@@ -227,7 +265,7 @@ module marsf
       chi11 = chi(ir+1,iz+1)
 
       if ( (max(chi00,chi01,chi10,chi11) - &
-            min(chi00,chi01,chi10,chi11)).lt.pi_value ) then 
+            min(chi00,chi01,chi10,chi11)).lt.pi ) then 
           
          chi0 = ( chi00*(r2-r0)*(z2-z0) + &
                   chi01*(r2-r0)*(z0-z1) + &
@@ -239,12 +277,12 @@ module marsf
                   exp((0.,1.)*chi10)*(r0-r1)*(z2-z0) + &
                   exp((0.,1.)*chi11)*(r0-r1)*(z0-z1) )/(r2-r1)/(z2-z1)
          chi0 = datan2(imag(ctmp),real(ctmp))
-         if (chi0.lt.0.) chi0 = chi0 + 2.*pi_value
+         if (chi0.lt.0.) chi0 = chi0 + 2.*pi
       endif
 
       if (s0.lt.cs(2)) then
          chi0 = datan2(z0-zaxis,r0-raxis)
-         if (chi0.lt.0.) chi0 = chi0 + 2.*pi_value
+         if (chi0.lt.0.) chi0 = chi0 + 2.*pi
       endif
 
 !     on the s-mesh, compute dR/ds,dZ/ds,dR/dchi,dZ/dchi, at (s0,chi0)
