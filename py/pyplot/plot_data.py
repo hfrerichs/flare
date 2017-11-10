@@ -6,10 +6,10 @@ from collections import OrderedDict
 from flare import Grid, STRUCTURED, SEMI_STRUCTURED
 
 
-FLARE             = "# FLARE"
-FLARE_DATA_TYPE   = "# FLARE DATA TYPE"
-FLARE_GEOMETRY    = "# FLARE GEOMETRY"
-FLARE_DATA_COLUMN = "# FLARE DATA COLUMN"
+FLARE                = "# FLARE"
+FLARE_DATA_DIMENSION = "# FLARE DATA DIMENSION"
+FLARE_GEOMETRY       = "# FLARE GEOMETRY"
+FLARE_DATA_COLUMN    = "# FLARE DATA COLUMN"
 
 PLOT_2D = "2D"
 
@@ -21,7 +21,7 @@ DERIVED_DATA = {
 class Data():
     def __init__(self, data_file):
         self.q         = OrderedDict()
-        self.data_type = None
+        self.ndim      = None
         self.data_file = data_file
         self.geometry  = None
 
@@ -36,10 +36,10 @@ class Data():
             if not s.startswith('# '): break
             if not s.startswith(FLARE): continue
 
-            # set data type
-            if s.startswith(FLARE_DATA_TYPE):
-                self.data_type = s[len(FLARE_DATA_TYPE):].strip()
-                #print "data type = '{}'".format(self.data_type)
+            # set data dimension
+            if s.startswith(FLARE_DATA_DIMENSION):
+                self.ndim = s[len(FLARE_DATA_DIMENSION):].strip()
+                #print "data dimension = '{}'".format(self.ndim)
 
             # set geometry
             if s.startswith(FLARE_GEOMETRY):
@@ -63,8 +63,8 @@ class Data():
 
 
     def __str__(self):
-        if self.data_type == None  or not self.q:
-            return "Data type missing or no data description available\n"
+        if self.ndim == None  or not self.q:
+            return "Data dimension missing or no data description available\n"
 
         info = "Available data:\n"
         for key, value in self.q.items():
@@ -72,8 +72,8 @@ class Data():
         return info
 
 
-    def get_data_type(self):
-        return self.data_type
+    def get_data_dimension(self):
+        return self.ndim
 
 
     def get_geometry(self):
@@ -177,11 +177,11 @@ def plot_data(data_file, qkey, grid_file=None):
 
 
     # select plot type
-    data_type = d.get_data_type()
-    if data_type == PLOT_2D:
+    ndim = d.get_data_dimension()
+    if ndim == PLOT_2D:
         #print "plotting", qkey, "on", grid_file
         d.plot_2d(qkey, grid_file)
 
     else:
-        print "error: plotting of data type '{}' is not implemented (yet)!".format(data_type)
+        print "error: plotting of data dimension '{}' is not implemented (yet)!".format(ndim)
         sys.exit(2)
