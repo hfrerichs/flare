@@ -14,8 +14,8 @@ FLARE_DATA_COLUMN    = "# FLARE DATA COLUMN"
 PLOT_2D = "2D"
 
 DERIVED_DATA = {
-    'Lc':   ('abs(Lc_bwd) + abs(Lc_fwd)',            "Connection length [m]"),
-    'Lcs':  ('np.minimum(abs(Lc_bwd), abs(Lc_fwd))', "Shortest connection length [m]")
+    'Lc':   (['Lc_bwd', 'Lc_fwd'], 'abs(Lc_bwd) + abs(Lc_fwd)',            "Connection length [m]"),
+    'Lcs':  (['Lc_bwd', 'Lc_fwd'], 'np.minimum(abs(Lc_bwd), abs(Lc_fwd))', "Shortest connection length [m]")
 }
 
 class Data():
@@ -62,6 +62,13 @@ class Data():
         f.close()
 
 
+    # returns true if derived data dkey is available
+    def supports(self, dkey):
+        for key in DERIVED_DATA[dkey][0]:
+            if key not in self.q: return False
+        return True
+
+
     def __str__(self):
         if self.ndim == None  or not self.q:
             return "Data dimension missing or no data description available\n"
@@ -69,6 +76,16 @@ class Data():
         info = "Available data:\n"
         for key, value in self.q.items():
             info += "\t{}: {}\n".format(key, value)
+
+        # Derived data
+        n = 0
+        derived_info = "Supported derived data:\n"
+        for key in DERIVED_DATA:
+            if self.supports(key):
+                n +=1
+                derived_info += "\t{}: {}\n".format(key, DERIVED_DATA[key][2])
+        if n > 0: info += derived_info
+
         return info
 
 
@@ -100,13 +117,13 @@ class Data():
 
     # return derived data
     def get_derived_data(self, qkey):
-        for q0 in self.q:
+        for q0 in DERIVED_DATA[qkey][0]:
             exec("{} = self.get_data('{}')".format(q0, q0))
         try:
-            exec("d = "+DERIVED_DATA[qkey][0])
+            exec("d = "+DERIVED_DATA[qkey][1])
         except:
             print "error: cannot evaluate derived quantity {}".format(qkey)
-            print "from", DERIVED_DATA[qkey][0]
+            print "from", DERIVED_DATA[qkey][1]
             sys.exit(2)
 
         return d
@@ -120,7 +137,7 @@ class Data():
         return self.d[:,i]
 
     def get_data_label(self, qkey):
-        if qkey in DERIVED_DATA: return DERIVED_DATA[qkey][1]
+        if qkey in DERIVED_DATA: return DERIVED_DATA[qkey][2]
 
         return self.q[qkey][1:-1]
 
