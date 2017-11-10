@@ -91,6 +91,19 @@ module equi2d_interface
 
 
   !---------------------------------------------------------------------
+  subroutine auto_setup_xpoints(nR, nZ)
+  use equilibrium, only: find_hyperbolic_points
+  integer, intent(in) :: nR, nZ
+
+
+  call find_hyperbolic_points(nR, nZ, .true., .false.)
+
+  end subroutine auto_setup_xpoints
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
   ! initialize magnetic configuration for new equilibrium
   ! 1) create configuration file bfield.conf
   ! 2) scan for X-points

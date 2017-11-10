@@ -19,7 +19,7 @@ class LoadError(Exception):
         return repr(self.value)
 
 
-def load(filename, format):
+def load(filename, format=''):
     ierr = equi2d_interface.load(filename, format)
     if ierr > 0:
         raise(LoadError(LOAD_ERROR[ierr]))
@@ -59,6 +59,10 @@ def view(filename, format):
     cbar = plt.colorbar()
     cbar.set_label("Poloidal flux [weber]")
     plt.show()
+
+
+def auto_setup_xpoints(nR=20, nZ=20):
+    equi2d_interface.auto_setup_xpoints(nR, nZ)
 
 
 def init(filename, format):
