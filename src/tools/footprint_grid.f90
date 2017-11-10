@@ -88,9 +88,9 @@ subroutine footprint_grid
   phi0    = Phi_output / pi * 180.d0
 
 
-  open  (iu, file='run_input')
-  read  (iu, Grid_Input, end=1000)
- 1000 close (iu)
+!  open  (iu, file='run_input')
+!  read  (iu, Grid_Input, end=1000)
+! 1000 close (iu)
 
 
   ! Find reference markers from strike point position
