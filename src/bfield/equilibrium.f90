@@ -1538,9 +1538,9 @@ module equilibrium
 
 
 !=======================================================================
-  subroutine find_hyperbolic_points(nR, nZ, setup_Xpoints)
+  subroutine find_hyperbolic_points(nR, nZ, setup_Xpoints, file_output)
   integer, intent(in)  :: nR, nZ
-  logical, intent(in)  :: setup_Xpoints
+  logical, intent(in)  :: setup_Xpoints, file_output
 
   integer, parameter   :: iu = 54
 
@@ -1557,8 +1557,10 @@ module equilibrium
   indh   = 0
   indm   = 0
   r3(3) = 0.d0
-  open  (iu, file='hyperbolic_points.dat')
-  write (iu, 1001)
+  if (file_output) then
+     open  (iu, file='hyperbolic_points.dat')
+     write (iu, 1001)
+  endif
   write (6,  1002)
   loop2: do i=0, nR
   loop1: do j=0, nZ
@@ -1594,7 +1596,7 @@ module equilibrium
      indh = indh + 1
      xh(indh,:) = x
      write (6, 1003) indh, x, Xp0%PsiN(), lambda1, lambda2
-     write (iu, *) x, Xp0%PsiN(), lambda1, lambda2
+     if (file_output) write (iu, *) x, Xp0%PsiN(), lambda1, lambda2
 
      if (setup_Xpoints) then
         if (indh > nx_max) then
@@ -1607,16 +1609,18 @@ module equilibrium
      endif
   enddo loop1
   enddo loop2
-  close (iu)
+  if (file_output) close (iu)
 
 
   ! store minima/maxima
+  if (file_output) then
   open  (iu, file='minima_and_maxima.dat')
   do k=1,indm
      x = xm(k,:)
      write (iu, *) x, get_PsiN(x)
   enddo
   close (iu)
+  endif
 !  ! find primary X-point
 !  DPsi1 = huge(1.d0)
 !  iPsi  = 0

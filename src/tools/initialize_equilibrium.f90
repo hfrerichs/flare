@@ -18,7 +18,7 @@ subroutine initialize_equilibrium()
   ! 1. find hyperbolic points / X-points
   nR = 20;    if (N_R > 1) nR = N_R
   nZ = 20;    if (N_Z > 1) nZ = N_Z
-  call find_hyperbolic_points(nR, nZ, .true.)
+  call find_hyperbolic_points(nR, nZ, .true., .true.)
 
 
   ! 2. generate separatrix for each X-point
