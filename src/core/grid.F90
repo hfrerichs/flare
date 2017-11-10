@@ -501,10 +501,10 @@ module grid
   integer, intent(out) :: iout
   character(len=82) :: str
   read  (iu, 2000) str
-  if (screen_output) write (6,2001) str(3:82)
+  if (screen_output) write (6,2001) trim(str(3:82))
   read  (str(33:42),*) iout
  2000 format (a82)
- 2001 format (8x,a80)
+ 2001 format (8x,a)
   end subroutine iscrape
 !-----------------------------------------------------------------------
 ! internal routine to read real values from header
@@ -514,10 +514,10 @@ module grid
   real(real64), intent(out) :: rout
   character(len=82) :: str
   read  (iu, 2000) str
-  if (screen_output) write (6,2001) str(3:82)
+  if (screen_output) write (6,2001) trim(str(3:82))
   read  (str(33:42),*) rout
  2000 format (a82)
- 2001 format (8x,a80)
+ 2001 format (8x,a)
   end subroutine rscrape
 !-----------------------------------------------------------------------
   end subroutine load
