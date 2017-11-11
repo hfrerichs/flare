@@ -243,7 +243,13 @@ module equilibrium
 
   case default
      if (Data_File == '') then
-        use_boundary = .false.
+        select case(i_equi)
+        case(EQ_GEQDSK, EQ_SONNET, EQ_DIVAMHD)
+           write (6, *) 'error: data file required for data format ', Data_Format
+           stop
+        case default
+           use_boundary = .false.
+        end select
      else
         call load_equilibrium_data(filename, ierr)
         if (ierr > 0) stop
