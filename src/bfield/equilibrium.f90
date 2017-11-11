@@ -1551,7 +1551,7 @@ module equilibrium
 
 !=======================================================================
   subroutine find_hyperbolic_points(nR, nZ, setup_Xpoints, file_output)
-  use exceptions, only: OUT_OF_BOUNDS
+  use exceptions
   integer, intent(in)  :: nR, nZ
   logical, intent(in)  :: setup_Xpoints, file_output
 
@@ -1650,7 +1650,7 @@ module equilibrium
   write (6, *)
 
   ! reset out of bounds flag
-  OUT_OF_BOUNDS = .false.
+  call reset(OUT_OF_BOUNDS)
 
  1000 format(3x,'- Running search for hyperbolic points in domain: ',&
              '(',f0.2,' -> ',f0.2,') x (',f0.2,' -> ',f0.2,')')
