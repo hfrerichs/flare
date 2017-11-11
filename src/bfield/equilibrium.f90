@@ -499,7 +499,13 @@ module equilibrium
   inquire (file=xpoint_file, exist=ex)
 
   ! 1.1. run subroutine initialize_equilibrium if file doesn't exist
-  !if (.not.ex) call initialize_equilibrium()
+  ! only for axisymmetric equilibrium with poloidal flux function
+  select case(i_equi)
+  case(EQ_GEQDSK, EQ_SONNET, EQ_DIVAMHD)
+     if (.not.ex) call initialize_equilibrium()
+     inquire (file=xpoint_file, exist=ex)
+  case default
+  end select
 
   ! 1.2. read pre-defined X-points
   if (ex) then
@@ -1545,6 +1551,7 @@ module equilibrium
 
 !=======================================================================
   subroutine find_hyperbolic_points(nR, nZ, setup_Xpoints, file_output)
+  use exceptions, only: OUT_OF_BOUNDS
   integer, intent(in)  :: nR, nZ
   logical, intent(in)  :: setup_Xpoints, file_output
 
@@ -1641,6 +1648,9 @@ module equilibrium
 !  enddo
 !  write (6, *) 'primary X-point is: ', xk(iPsi,:)
   write (6, *)
+
+  ! reset out of bounds flag
+  OUT_OF_BOUNDS = .false.
 
  1000 format(3x,'- Running search for hyperbolic points in domain: ',&
              '(',f0.2,' -> ',f0.2,') x (',f0.2,' -> ',f0.2,')')
