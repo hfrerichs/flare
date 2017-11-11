@@ -107,7 +107,7 @@ module bfield
 
 
   call wait_pe()
-  call broadcast_inte (iconfig, BF_MAX_CONFIG)
+  call broadcast_inte (iconfig, BF_MAX_CONFIG+1)
 
   if (iconfig(BF_RECONSTRUCT ) == 1) call broadcast_mod_reconstruct()
   if (iconfig(BF_EQ2D        ) == 1) call broadcast_mod_equilibrium()

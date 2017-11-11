@@ -74,6 +74,8 @@ module marsf
   call broadcast_inte_s(ns)
   call broadcast_inte_s(mmaxe)
   call broadcast_inte_s(nmax)
+  call broadcast_inte_s(mmaxpm)
+  call broadcast_inte_s(nsp)
   call broadcast_real_s(raxis)
   call broadcast_real_s(zaxis)
   call broadcast_real_s(I_scale)
