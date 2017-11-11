@@ -6,7 +6,10 @@ subroutine init(machine, configuration)
   character(len=*), intent(in), optional :: machine, configuration
 
 
-  if (present(machine) .and. present(configuration)) then
+  if (present(configuration)  .and.  configuration == './') then
+     Prefix = './'
+     Bfield_input_file = trim(Prefix)//'bfield.conf'
+  elseif (present(machine) .and. present(configuration)) then
      Prefix = data_dir//'/'//trim(machine)//'/'//trim(configuration)//'/'
      Bfield_input_file = trim(Prefix)//'bfield.conf'
   else

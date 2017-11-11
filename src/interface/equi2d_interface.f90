@@ -104,21 +104,29 @@ module equi2d_interface
 
 
   !---------------------------------------------------------------------
-  ! initialize magnetic configuration for new equilibrium
-  ! 1) create configuration file bfield.conf
-  ! 2) scan for X-points
+  ! create configuration file bfield.conf
   !---------------------------------------------------------------------
-  subroutine init(data_file, data_format, ierr)
-  use equilibrium_format
+  subroutine write_config_file(data_file)
+  use equilibrium_format, only: wcf => write_config_file
   use equilibrium, only: i_equi
-  character(len=*), intent(in)  :: data_file, data_format
+  character(len=*), intent(in)  :: data_file
+
+
+  call wcf(data_file, i_equi)
+
+  end subroutine write_config_file
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
+  ! initialize magnetic configuration for new equilibrium
+  !---------------------------------------------------------------------
+  subroutine init(ierr)
+  use equilibrium_format
   integer,          intent(out) :: ierr
 
 
-  ! 1. create configuration file bfield.conf
-  call write_config_file(data_file, i_equi)
-
-  ! 2. scan for X-points
   call initialize_equilibrium()
   ierr = 0
 

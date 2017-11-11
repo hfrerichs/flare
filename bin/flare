@@ -113,7 +113,7 @@ def main():
     p_equi2dview.set_defaults(func=equi2d_view)
     # 3.2. create FLARE configuration
     p_equi2dview = subparsers_equi2d.add_parser("init", help="initialize FLARE configuration for equilibrium")
-    p_equi2dview.add_argument("data_file")
+    p_equi2dview.add_argument("-d", "--data_file", help="equilibrium data file (default: use bfield.conf)")
     p_equi2dview.add_argument("-f", "--format", default="", help="equilibrium format string")
     p_equi2dview.set_defaults(func=equi2d_init)
 

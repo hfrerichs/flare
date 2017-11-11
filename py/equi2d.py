@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from backend  import equi2d_interface
+import backend
 from boundary import *
 
 
@@ -66,12 +67,18 @@ def auto_setup_xpoints(nR=20, nZ=20):
 
 
 def init(filename, format):
-    try:
-        load(filename, format)
-    except LoadError as e:
-        print 'error: ', e.value
-        print 'use "-f FORMAT" to provide equilibrium format'
-        sys.exit(2)
+    if filename:
+        try:
+            load(filename, format)
+        except LoadError as e:
+            print 'error: ', e.value
+            print 'use "-f FORMAT" to provide equilibrium format'
+            sys.exit(2)
+
+        equi2d_interface.write_config_file(filename)
+
+    else:
+        backend.init("", "./")
 
 
-    ierr = equi2d_interface.init(filename, format)
+    ierr = equi2d_interface.init()
