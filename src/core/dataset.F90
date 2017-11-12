@@ -226,7 +226,7 @@ module dataset
                        trim(this%der(i)%label)
   enddo
   endif
- 2004 format("# FLARE DERIVED DATA ",a,' "',a,'" "',a,'"')
+ 2004 format("# FLARE DERIVED DATA ",a,'="',a,'" "',a,'"')
 
 
   ! write data

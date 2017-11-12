@@ -75,7 +75,7 @@ class Data():
 
     def decode_derived_data(self, text):
         # 1. decode data key
-        s = text.split()
+        s = text.split('=')
         if len(s) == 0:
             print "error in data description: no data key given!"
             return None
@@ -83,7 +83,7 @@ class Data():
 
 
         # 2+3. decode recipe and label
-        s = text[len(q):].strip()
+        s = text[len(q)+1:]
         s = [d.strip() for d in s.split('"') if d.strip() != '']
         if len(s) < 2:
             print "error in data description: cannot read recipe and label!"
