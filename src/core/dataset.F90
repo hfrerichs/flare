@@ -13,8 +13,12 @@ module dataset
 
 
   type :: t_data_abstract
-     character(len=256) :: qkey = '', qlabel = ''
+     character(len=256) :: key = '', label = ''
   end type t_data_abstract
+
+  type :: t_derived_data_abstract
+     character(len=256) :: key = '', dependency = '', recipe = '', label = ''
+  end type t_derived_data_abstract
 
 
   type, public :: t_dataset
@@ -23,6 +27,7 @@ module dataset
      integer :: ndim = -1
      character(len=256) :: geometry
      type(t_data_abstract), dimension(:), pointer :: col => null()
+     type(t_derived_data_abstract), dimension(:), pointer :: der => null()
 
      real(real64), dimension(:,:), pointer :: x => null()
 
@@ -33,6 +38,7 @@ module dataset
      procedure :: new
      procedure :: set_info
      procedure :: set_column_info
+     procedure :: add_derived_data
      procedure :: extend
      procedure :: resize
      procedure :: destroy
@@ -41,7 +47,7 @@ module dataset
      procedure :: smooth
   end type t_dataset
 
-  type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,0,'',null(),null())
+  type(t_dataset), public, parameter :: Empty_dataset = t_dataset(0,0,0,0,'',null(),null(),null())
 
   contains
 !=======================================================================
@@ -211,9 +217,16 @@ module dataset
  2001 format("# FLARE DATA DIMENSION ",i0,'D')
  2002 format("# FLARE GEOMETRY ",a)
   do i=1,this%ncol
-     if (this%col(i)%qkey /= '') write (iu0, 2003) trim(this%col(i)%qkey), trim(this%col(i)%qlabel)
+     if (this%col(i)%key /= '') write (iu0, 2003) trim(this%col(i)%key), trim(this%col(i)%label)
   enddo
  2003 format("# FLARE DATA COLUMN ",a,' "',a,'"')
+  if (associated(this%der)) then
+  do i=1,size(this%der)
+     write (iu0, 2004) trim(this%der(i)%key), trim(this%der(i)%dependency), &
+                       trim(this%der(i)%recipe), trim(this%der(i)%label)
+  enddo
+  endif
+ 2004 format("# FLARE DERIVED DATA ",a,' [',a,'] "',a,'" "',a,'"')
 
 
   ! write data
@@ -274,10 +287,10 @@ module dataset
 
 
 !=======================================================================
-  subroutine set_column_info(this, col, qkey, qlabel)
+  subroutine set_column_info(this, col, key, label)
   class(t_dataset)             :: this
   integer,          intent(in) :: col
-  character(len=*), intent(in) :: qkey, qlabel
+  character(len=*), intent(in) :: key, label
 
 
   if (col < 1  .or.  col > this%ncol) then
@@ -285,10 +298,59 @@ module dataset
  9000 format("error in t_dataset%set_column_info: col = ",i0," out of range!")
      stop
   endif
-  this%col(col)%qkey   = qkey
-  this%col(col)%qlabel = qlabel
+  this%col(col)%key   = key
+  this%col(col)%label = label
 
   end subroutine set_column_info
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine add_derived_data(this, key, idepend, recipe, label)
+  class(t_dataset)             :: this
+  character(len=*), intent(in) :: key, recipe, label
+  integer,          intent(in), dimension(:) :: idepend
+
+  type(t_derived_data_abstract), dimension(:), allocatable :: der
+  character(len=256) :: q
+  integer :: i, n
+
+
+  ! check input
+  do i=1,size(idepend)
+     if (idepend(i) < 1  .or.  idepend(i) > this%ncol) then
+        write (6, 9000) idepend(i)
+ 9000 format("error in t_dataset%add_derived_data: idepend = ",i0," out of range!")
+        stop
+     endif
+  enddo
+
+
+  if (.not.associated(this%der)) then
+     n = 1
+     allocate(this%der(n))
+  else
+     n = size(this%der)
+     allocate(der(n))
+     der = this%der
+     deallocate(this%der)
+     allocate(this%der(n+1))
+     this%der(1:n) = der
+     n = n + 1
+  endif
+
+
+  this%der(n)%key    = key
+  this%der(n)%dependency = trim(this%col(idepend(1))%key)
+  do i=2,size(idepend)
+     q = trim(this%col(idepend(i))%key)
+     this%der(n)%dependency = trim(this%der(n)%dependency)//', '//trim(q)
+  enddo
+  this%der(n)%recipe = recipe
+  this%der(n)%label  = label
+
+  end subroutine add_derived_data
 !=======================================================================
 
 
