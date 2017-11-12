@@ -17,7 +17,7 @@ module dataset
   end type t_data_abstract
 
   type :: t_derived_data_abstract
-     character(len=256) :: key = '', dependency = '', recipe = '', label = ''
+     character(len=256) :: key = '', recipe = '', label = ''
   end type t_derived_data_abstract
 
 
@@ -222,11 +222,11 @@ module dataset
  2003 format("# FLARE DATA COLUMN ",a,' "',a,'"')
   if (associated(this%der)) then
   do i=1,size(this%der)
-     write (iu0, 2004) trim(this%der(i)%key), trim(this%der(i)%dependency), &
-                       trim(this%der(i)%recipe), trim(this%der(i)%label)
+     write (iu0, 2004) trim(this%der(i)%key), trim(this%der(i)%recipe), &
+                       trim(this%der(i)%label)
   enddo
   endif
- 2004 format("# FLARE DERIVED DATA ",a,' [',a,'] "',a,'" "',a,'"')
+ 2004 format("# FLARE DERIVED DATA ",a,' "',a,'" "',a,'"')
 
 
   ! write data
@@ -307,24 +307,13 @@ module dataset
 
 
 !=======================================================================
-  subroutine add_derived_data(this, key, idepend, recipe, label)
+  subroutine add_derived_data(this, key, recipe, label)
   class(t_dataset)             :: this
   character(len=*), intent(in) :: key, recipe, label
-  integer,          intent(in), dimension(:) :: idepend
 
   type(t_derived_data_abstract), dimension(:), allocatable :: der
   character(len=256) :: q
   integer :: i, n
-
-
-  ! check input
-  do i=1,size(idepend)
-     if (idepend(i) < 1  .or.  idepend(i) > this%ncol) then
-        write (6, 9000) idepend(i)
- 9000 format("error in t_dataset%add_derived_data: idepend = ",i0," out of range!")
-        stop
-     endif
-  enddo
 
 
   if (.not.associated(this%der)) then
@@ -342,11 +331,6 @@ module dataset
 
 
   this%der(n)%key    = key
-  this%der(n)%dependency = trim(this%col(idepend(1))%key)
-  do i=2,size(idepend)
-     q = trim(this%col(idepend(i))%key)
-     this%der(n)%dependency = trim(this%der(n)%dependency)//', '//trim(q)
-  enddo
   this%der(n)%recipe = recipe
   this%der(n)%label  = label
 

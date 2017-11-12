@@ -121,8 +121,8 @@ subroutine connection_length
   call D%set_column_info(3, 'Lpt_bwd', "Backward connection length [poloidal turns]")
   call D%set_column_info(4, 'Lpt_fwd', "Forward connection length [poloidal turns]")
   call D%set_column_info(5, 'minPsiN', "Minimum(PsiN) along field line")
-  call D%add_derived_data('Lc', (/1, 2/), "Lc_bwd + Lc_fwd", "Connection length [m]")
-  call D%add_derived_data('Lcs', (/1, 2/), "min(Lc_bwd, Lc_fwd)", "Shortest connection length [m]")
+  call D%add_derived_data('Lc', "Lc_bwd + Lc_fwd", "Connection length [m]")
+  call D%add_derived_data('Lcs', "min(Lc_bwd, Lc_fwd)", "Shortest connection length [m]")
   if (firstP) call additional_output_info()
 
 

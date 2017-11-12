@@ -68,7 +68,7 @@ class Data():
                 c = s[len(FLARE_DERIVED_DATA):].strip()
                 d = self.decode_derived_data(c)
                 if d:
-                    self.q_derived[d[0]] = (d[1], d[2], d[3])
+                    self.q_derived[d[0]] = (d[1], d[2])
 
         f.close()
 
@@ -82,23 +82,8 @@ class Data():
         q = s[0]
 
 
-        # 2. decode dependencies
+        # 2+3. decode recipe and label
         s = text[len(q):].strip()
-        if not s.startswith('['):
-            print "error in data description: unexpected character!"
-            print "'%s'" % s
-            return None
-
-        i = s.find(']')
-        if i == -1:
-            print "error in data description: unexpected end of dependency list!"
-            print "'%s'" % s
-            return None
-        dependency = [d.strip() for d in s[1:i].split(',')]
-
-
-        # 3+4. decode recipe and label
-        s = s[i+1:].strip()
         s = [d.strip() for d in s.split('"') if d.strip() != '']
         if len(s) < 2:
             print "error in data description: cannot read recipe and label!"
@@ -109,16 +94,10 @@ class Data():
         for subst in SUBST:
             recipe = re.sub(subst[0], subst[1], recipe)
         label  = s[1]
-        return q, dependency, recipe, label
+        return q, recipe, label
 
 
     # returns true if derived data dkey is available
-    def supports(self, dkey):
-        for key in self.q_derived[dkey][0]:
-            if key not in self.q: return False
-        return True
-
-
     def __str__(self):
         if self.ndim == None  or not self.q:
             return "Data dimension missing or no data description available\n"
@@ -129,11 +108,10 @@ class Data():
 
         # Derived data
         n = 0
-        derived_info = "Supported derived data:\n"
+        derived_info = "Supports derived data:\n"
         for key in self.q_derived:
-            if self.supports(key):
-                n +=1
-                derived_info += "\t{}: {}\n".format(key, self.q_derived[key][2])
+            n +=1
+            derived_info += "\t{}: {}\n".format(key, self.q_derived[key][1])
         if n > 0: info += derived_info
 
         return info
@@ -167,13 +145,14 @@ class Data():
 
     # return derived data
     def get_derived_data(self, qkey):
-        for q0 in self.q_derived[qkey][0]:
-            exec("{} = self.get_data('{}')".format(q0, q0))
+        for q0 in self.q:
+            if re.search(q0, self.q_derived[qkey][0]):
+                exec("{} = self.get_data('{}')".format(q0, q0))
         try:
-            exec("d = "+self.q_derived[qkey][1])
+            exec("d = "+self.q_derived[qkey][0])
         except:
             print "error: cannot evaluate derived quantity {}".format(qkey)
-            print "from", self.q_derived[qkey][1]
+            print "from", self.q_derived[qkey][0]
             sys.exit(2)
 
         return d
@@ -187,7 +166,7 @@ class Data():
         return self.d[:,i]
 
     def get_data_label(self, qkey):
-        if qkey in self.q_derived: return self.q_derived[qkey][2]
+        if qkey in self.q_derived: return self.q_derived[qkey][1]
 
         return self.q[qkey][1:-1]
 
