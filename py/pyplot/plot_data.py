@@ -7,11 +7,10 @@ from collections import OrderedDict
 from flare import Grid, STRUCTURED, SEMI_STRUCTURED
 
 
-FLARE                = "# FLARE"
-FLARE_DATA_DIMENSION = "# FLARE DATA DIMENSION"
-FLARE_GEOMETRY       = "# FLARE GEOMETRY"
-FLARE_DATA_COLUMN    = "# FLARE DATA COLUMN"
-FLARE_DERIVED_DATA   = "# FLARE DERIVED DATA"
+FLARE_DATA_DIMENSION = "# DATA DIMENSION"
+FLARE_GEOMETRY       = "# GEOMETRY"
+FLARE_DATA_COLUMN    = "# DATA COLUMN"
+FLARE_DERIVED_DATA   = "# DERIVED DATA"
 
 PLOT_2D = "2D"
 
@@ -38,7 +37,6 @@ class Data():
             s = f.readline()
             if not s: break
             if not s.startswith('# '): break
-            if not s.startswith(FLARE): continue
 
             # set data dimension
             if s.startswith(FLARE_DATA_DIMENSION):
