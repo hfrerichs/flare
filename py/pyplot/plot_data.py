@@ -2,9 +2,10 @@ import os, sys
 import re
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.tri    as tri
 from collections import OrderedDict
 
-from flare import Grid, STRUCTURED, SEMI_STRUCTURED
+from flare import Grid, UNSTRUCTURED, STRUCTURED, SEMI_STRUCTURED
 
 
 FLARE_DATA_DIMENSION = "# DATA DIMENSION"
@@ -179,21 +180,24 @@ class Data():
                 print "error: geometry is undefined!"
                 sys.exit(2)
             G = Grid(self.geometry)
-        # check geometry
-        if G.layout != STRUCTURED  and  G.layout != SEMI_STRUCTURED:
-            print "error: visualization on unstructured grids not implemented yet!"
-            sys.exit(2)
 
 
         # prepare data
-        q    = self.get_data(qkey).reshape(G.n2, G.n1)
+        q    = self.get_data(qkey)
         qmin = np.nanmin(q)
         qmax = np.nanmax(q)
 
 
         # create plot
         levels = np.linspace(qmin, qmax, 64)
-        plt.contourf(G.x1, G.x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
+        if G.layout == STRUCTURED  or  G.layout == SEMI_STRUCTURED:
+            q    = q.reshape(G.n2, G.n1)
+            plt.contourf(G.x1, G.x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
+
+        elif G.layout == UNSTRUCTURED:
+            triang = tri.Triangulation(G.x[:,0], G.x[:,1])
+            plt.tricontourf(triang, q, levels=levels, *args, **kwargs)
+
         plt.xlabel(G.x1_label)
         plt.ylabel(G.x2_label)
         cbar = plt.colorbar()

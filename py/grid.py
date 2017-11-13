@@ -15,6 +15,10 @@ class Grid():
         self.x = grid_interface.x
         self.layout = grid_interface.layout
 
+        if self.layout == UNSTRUCTURED:
+            self.x1_label = CYL_LABEL[grid_interface.coord1-1]
+            self.x2_label = CYL_LABEL[grid_interface.coord2-1]
+
         if self.layout == STRUCTURED:
             self.n1 = grid_interface.n1
             self.n2 = grid_interface.n2
