@@ -468,6 +468,7 @@ module grid
   end subroutine read_grid
 !-----------------------------------------------------------------------
   subroutine broadcast_layout
+  integer :: n1, n2, n3
 
 #ifdef MPI
   call wait_pe()
@@ -480,8 +481,9 @@ module grid
   call broadcast_real_s(this%fixed_coord_value)
 
   if (mype > 0) then
+     n1 = this%n1;   n2 = this%n2;   n3 = this%n3
      call this%new(this%coordinates, this%layout, this%fixed_coord, &
-                   this%n1, this%n2, this%n3, this%fixed_coord_value)
+                   n1, n2, n3, this%fixed_coord_value)
   endif
 #endif
 

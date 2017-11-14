@@ -16,9 +16,10 @@ module bfield
      BF_INTERPOLATEB = 4, &
      BF_SPLINEB      = 5, &
      BF_HINT         = 6, &
-     BF_TOR_HARMONICS= 7
+     BF_TOR_HARMONICS= 7, &
+     BF_MARSF        = 8
 
-  integer, parameter :: BF_MAX_CONFIG = 7
+  integer, parameter :: BF_MAX_CONFIG = 8
 
 
   integer :: iconfig(0:BF_MAX_CONFIG), icall(2)
@@ -41,6 +42,7 @@ module bfield
   use splineB
   use HINT
   use toroidal_harmonics
+  use marsf
 
   integer, parameter :: iu = 24
 
@@ -69,6 +71,7 @@ module bfield
      call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
      call         HINT_load       (iu, iconfig(BF_HINT        ))
      call tor_harmonics_load      (iu, iconfig(BF_TOR_HARMONICS))
+     call        marsf_load       (iu, iconfig(BF_MARSF       ))
      close (iu)
 
 
@@ -104,7 +107,7 @@ module bfield
 
 
   call wait_pe()
-  call broadcast_inte (iconfig, BF_MAX_CONFIG)
+  call broadcast_inte (iconfig, BF_MAX_CONFIG+1)
 
   if (iconfig(BF_RECONSTRUCT ) == 1) call broadcast_mod_reconstruct()
   if (iconfig(BF_EQ2D        ) == 1) call broadcast_mod_equilibrium()
@@ -114,6 +117,7 @@ module bfield
   if (iconfig(BF_SPLINEB     ) == 1) call      splineB_broadcast()
   if (iconfig(BF_HINT        ) == 1) call         HINT_broadcast()
   if (iconfig(BF_TOR_HARMONICS) == 1) call tor_harmonics_broadcast()
+  if (iconfig(BF_MARSF       ) == 1) call        marsf_broadcast()
 
 
 
@@ -137,6 +141,7 @@ module bfield
   use splineB
   use HINT
   use toroidal_harmonics
+  use marsf
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -150,6 +155,7 @@ module bfield
   if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
   if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
+  if (iconfig(BF_MARSF)         == 1) Bf = Bf +        marsf_get_Bf(r)
   icall(1) = icall(1) + 1
 
 
@@ -163,6 +169,7 @@ module bfield
   use splineB
   use HINT
   use toroidal_harmonics
+  use marsf
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
 
@@ -175,6 +182,7 @@ module bfield
   if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
   if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
+  if (iconfig(BF_MARSF)         == 1) Bf = Bf +        marsf_get_Bf(r)
   icall(1) = icall(1) + 1
 
 
@@ -240,6 +248,7 @@ module bfield
   use splineB
   use HINT
   use toroidal_harmonics
+  use marsf
   real*8, intent(in) :: x(3)
   real*8             :: Bf(3)
 
@@ -264,6 +273,7 @@ module bfield
   if (iconfig(BF_SPLINEB)       == 1) Bcyl = Bcyl +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bcyl = Bcyl +         HINT_get_Bf(r)
   if (iconfig(BF_TOR_HARMONICS) == 1) Bcyl = Bcyl + tor_harmonics_get_Bf(r)
+  if (iconfig(BF_MARSF)         == 1) Bcyl = Bcyl +        marsf_get_Bf(r)
 
 
   ! combine Cartesian and cylindrical components
@@ -289,8 +299,10 @@ module bfield
   subroutine finished_bfield
   use m3dc1
   use parallel
+  use marsf
 
   if (iconfig(BF_M3DC1)         == 1) call m3dc1_close()
+  if (iconfig(BF_MARSF)         == 1) call marsf_close()
 
   call wait_pe()
   call sum_inte_data(icall,2)
