@@ -15,26 +15,30 @@ class Grid():
         self.x = grid_interface.x
         self.layout = grid_interface.layout
 
-        if self.layout == UNSTRUCTURED:
-            self.x1_label = CYL_LABEL[grid_interface.coord1-1]
-            self.x2_label = CYL_LABEL[grid_interface.coord2-1]
+        # set default coordinate labels
+        self.x1_label = CYL_LABEL[grid_interface.coord1-1]
+        self.x2_label = CYL_LABEL[grid_interface.coord2-1]
+
+        # set dimension of structured grid
+        self.n1 = grid_interface.n1
+        self.n2 = grid_interface.n2
+        self.n3 = grid_interface.n3
+
 
         if self.layout == STRUCTURED:
-            self.n1 = grid_interface.n1
-            self.n2 = grid_interface.n2
-            self.n3 = grid_interface.n3
             self.x1 = grid_interface.x1
             self.x2 = grid_interface.x2
             self.x3 = grid_interface.x3
 
-            self.x1_label = CYL_LABEL[grid_interface.coord1-1]
-            self.x2_label = CYL_LABEL[grid_interface.coord2-1]
 
         if self.layout == SEMI_STRUCTURED:
-            self.n1 = grid_interface.n1
-            self.n2 = grid_interface.n2
             self.x1 = grid_interface.x1
             self.x2 = grid_interface.x2
 
             self.x1_label = 'sample coordinate'
             self.x2_label = CYL_LABEL[grid_interface.fixed_coord-1]
+
+        if self.layout == MESH_2D:
+            self.x1 = grid_interface.x1
+            self.x2 = grid_interface.x2
+

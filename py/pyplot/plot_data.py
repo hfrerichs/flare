@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri    as tri
 from collections import OrderedDict
 
-from flare import Grid, UNSTRUCTURED, STRUCTURED, SEMI_STRUCTURED
+from flare import Grid, UNSTRUCTURED, STRUCTURED, SEMI_STRUCTURED, MESH_2D
 
 
 FLARE_DATA_DIMENSION = "# DATA DIMENSION"
@@ -193,6 +193,12 @@ class Data():
         if G.layout == STRUCTURED  or  G.layout == SEMI_STRUCTURED:
             q    = q.reshape(G.n2, G.n1)
             plt.contourf(G.x1, G.x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
+
+        if G.layout == MESH_2D:
+            x1   = G.x1.reshape(G.n2, G.n1)
+            x2   = G.x2.reshape(G.n2, G.n1)
+            q    = q.reshape(G.n2, G.n1)
+            plt.contourf(x1, x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
 
         elif G.layout == UNSTRUCTURED:
             triang = tri.Triangulation(G.x[:,0], G.x[:,1])

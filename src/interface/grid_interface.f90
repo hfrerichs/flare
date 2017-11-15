@@ -39,12 +39,12 @@ module grid_interface
   coord2 = G%coord2
   fixed_coord = G%fixed_coord
 
+  n1 = G%n1
+  n2 = G%n2
+  n3 = G%n3
 
   ! set up structured grid
   if (layout == STRUCTURED) then
-     n1 = G%n1
-     n2 = G%n2
-     n3 = G%n3
      allocate (x1(n1), x2(n2), x3(n3))
      x1 = G%x1
      x2 = G%x2
@@ -53,14 +53,19 @@ module grid_interface
      else
         x3 = G%fixed_coord_value
      endif
+
   ! set up semi-structured grid (structured in 1 coordinate)
   elseif (layout == SEMI_STRUCTURED) then
-     n1 = G%n1
-     n2 = G%n2
-     n3 = 1
      allocate (x1(n1), x2(n2))
      x1 = G%x1
      x2 = G%x2
+
+  ! set up 2D mesh
+  elseif (layout == MESH_2D) then
+     allocate (x1(n), x2(n))
+     x1 = G%x(:,1)
+     x2 = G%x(:,2)
+
   endif
 
   end subroutine load
