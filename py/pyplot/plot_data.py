@@ -98,6 +98,16 @@ class Data():
         return q, recipe, label
 
 
+    def add_derived_data(self, dkey, recipe, label):
+        if dkey in self.q_derived:
+            print "error: {} is already defined!"
+            sys.exit(2)
+
+        for subst in SUBST:
+            recipe = re.sub(subst[0], subst[1], recipe)
+        self.q_derived[dkey] = (recipe, label)
+
+
     # returns true if derived data dkey is available
     def __str__(self):
         if self.ndim == None  or not self.q:
@@ -245,6 +255,13 @@ class Data():
 def plot_data(data_file, qkey, grid_file=None, *args, **kwargs):
     # get data abstract
     d = Data(data_file)
+
+    # plot user defined derived quantity
+    if re.search('=', qkey):
+        recipe = qkey
+        qkey   = qkey.split('=')[0]
+        d.add_derived_data(qkey, recipe, recipe)
+
     if not qkey in d.available_data():
         print "error: '{}' is not available in data file {}".format(qkey, data_file)
         sys.exit(2)
