@@ -203,8 +203,7 @@ class Data():
             plt.contourf(x1, x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
 
         elif G.layout == UNSTRUCTURED:
-            #method = kwargs.get('plot_method', 'tricontourf')
-            method = 'grid_pcontourf'
+            method = kwargs.get('plot_function', 'tricontourf')
 
             x1   = G.x[:,0]
             x2   = G.x[:,1]
@@ -223,7 +222,7 @@ class Data():
                 zi = sgriddata((x1, x2), q, (xi[None,:], yi[:,None]), method='nearest')
                 cs = plt.contourf(xi, yi, zi, levels=levels, *args, **kwargs)
 
-            elif method == 'grid_pcontourf':
+            elif method == 'matplotlib_griddata_pcontourf':
                 n  = np.sqrt(len(q))
                 xi = np.linspace(xmin, xmax, n)
                 yi = np.linspace(ymin, ymax, n)
@@ -243,7 +242,7 @@ class Data():
 #   data_file
 #   qkey        data key
 #   grid_file   (optional) non-default geometry
-def plot_data(data_file, qkey, grid_file=None):
+def plot_data(data_file, qkey, grid_file=None, *args, **kwargs):
     # get data abstract
     d = Data(data_file)
     if not qkey in d.available_data():
@@ -260,7 +259,7 @@ def plot_data(data_file, qkey, grid_file=None):
     ndim = d.get_data_dimension()
     if ndim == PLOT_2D:
         #print "plotting", qkey, "on", grid_file
-        d.plot_2d(qkey, grid_file)
+        d.plot_2d(qkey, grid_file, *args, **kwargs)
 
     else:
         print "error: plotting of data dimension '{}' is not implemented (yet)!".format(ndim)

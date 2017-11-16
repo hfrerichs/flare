@@ -54,7 +54,7 @@ def run(args):
 
 # 2. connection length and other data plots
 def plot(args):
-    fplt.plot_data(args.data_file, args.data_key, args.geometry_file)
+    fplt.plot_data(args.data_file, args.data_key, args.geometry_file, plot_function=args.plot_function)
     plt.show()
 # query data file for available data
 def info(args):
@@ -95,6 +95,8 @@ def main():
     parser_plot.add_argument("data_key", help="data key as listed by 'flare info'")
     #parser_plot.add_argument("-g", "--geometry_file", default=None, help="alternative geometry file")
     parser_plot.add_argument("-g", "--geometry_file", help="alternative geometry file")
+    plot_functions = ['tricontourf', 'scipy_griddata_pcontourf', 'matplotlib_griddata_pcontourf']
+    parser_plot.add_argument("-pf", "--plot_function", choices=plot_functions, default=plot_functions[0], help="select plot function for unstructured data")
     parser_plot.add_argument("data_file")
     parser_plot.set_defaults(func=plot)
     # 2.b
