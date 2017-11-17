@@ -604,7 +604,8 @@ module mesh_spacing
 
   integer, parameter :: &
      STYLE_FUNCTION = 1, &
-     STYLE_MESH     = 2
+     STYLE_MESH     = 2, &
+     STYLE_LIST     = 3
 
   real(real64) :: t, xi
   integer :: i, n, istyle, iu0 = 99
@@ -621,6 +622,8 @@ module mesh_spacing
         istyle = STYLE_FUNCTION
      case('mesh')
         istyle = STYLE_MESH
+     case('list')
+        istyle = STYLE_LIST
      case default
         write (6, *) 'error in t_spacing%plot: invalid style ', trim(style)
         stop
@@ -636,12 +639,16 @@ module mesh_spacing
   do i=0,n
      t  = 1.d0 * i / n
      xi = this%node(i, n)
-     write (iu0, *) t, xi
+     if (istyle == STYLE_LIST) then
+        write (iu0, *) xi
+     else
+        write (iu0, *) t, xi
+     endif
   enddo
-  write (iu0, *)
 
 
   if (istyle == STYLE_MESH) then
+  write (iu0, *)
   ! write horizontal and vertical bars
   do i=1,n-1
      t  = 1.d0 * i / n

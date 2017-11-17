@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import os
+import re
 from subprocess import call
 import sys
 
@@ -8,6 +9,7 @@ import matplotlib.pyplot as plt
 
 import flare.pyplot      as fplt
 import flare.equi2d
+import flare.backend
 
 
 def set_default_subparser(self, name, args=None):
@@ -71,6 +73,13 @@ def equi2d_init(args):
     flare.equi2d.init(args.data_file, args.format)
 
 
+# 4. create parser for interfacing grid functions
+# 4.1 mesh spacing
+def mesh_spacing(args):
+    filename = re.sub(" ", "_", args.spacing_command)
+    flare.backend.mesh_spacing_interface.generate(args.spacing_command, args.sample_segments, filename, args.output_format)
+
+
 def main():
     # create main parser
     parser      = argparse.ArgumentParser()
@@ -118,6 +127,18 @@ def main():
     p_equi2dview.add_argument("-d", "--data_file", help="equilibrium data file (default: use bfield.conf)")
     p_equi2dview.add_argument("-f", "--format", default="", help="equilibrium format string")
     p_equi2dview.set_defaults(func=equi2d_init)
+
+
+    # 4. create parser for interfacing grid functions
+    parser_grid = subparsers.add_parser("grid", help="interface for grid related functions")
+    subparsers_grid = parser_grid.add_subparsers(title='subcommands', dest='scmd')
+    # 4.1. mesh spacing
+    p_spacing = subparsers_grid.add_parser("spacing", help="generate mesh spacing function")
+    p_spacing.add_argument("spacing_command")
+    p_spacing.add_argument("-s", "--sample_segments", default=20, help="number of segments to sample")
+    spacing_formats=['function', 'list']
+    p_spacing.add_argument("-o", "--output_format", default=spacing_formats[0], choices=spacing_formats)
+    p_spacing.set_defaults(func=mesh_spacing)
 
 
     # parse the args and call whatever subcommand was selected

@@ -6,7 +6,8 @@ SOURCES = types.f90\
           grid_interface.f90\
           equi2d_interface.f90\
           separatrix_interface.f90\
-          grid3dgen_interface.f90
+          grid3dgen_interface.f90\
+          mesh_spacing_interface.f90
 
 BACKEND = backend
 
