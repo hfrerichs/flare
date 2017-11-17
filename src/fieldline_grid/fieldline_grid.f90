@@ -959,12 +959,13 @@ module fieldline_grid
   write (iu, 9999)
   write (iu, 3000)
   write (iu, 9999)
-  write (iu, *) -1, (1, iz=1,NZONET)
+  write (iu, 3003) -1, (1, iz=1,NZONET)
   write (iu, 3001)
   write (iu, 3002) .true.
  3000 format ('*** 3. physical cell definition')
  3001 format ('* run cell check?')
  3002 format (L1)
+ 3003 format (99(2x,i0))
   close (iu)
  9999 format ('*',32('-'))
 
