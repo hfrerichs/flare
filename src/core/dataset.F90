@@ -17,6 +17,8 @@ module dataset
 
      real(real64), dimension(:,:), pointer :: x => null()
 
+     character(len=256) :: title = ''
+
      contains
      procedure :: load
      procedure :: plot
@@ -117,6 +119,8 @@ module dataset
         read (str, *) tmp
         this%x(j,:) = tmp
         j = j + 1
+     elseif (i==1) then
+        this%title = str
      endif
   enddo read_loop
   close (iu)
@@ -124,6 +128,7 @@ module dataset
   deallocate (tmp)
 
 
+  if (this%title == '') this%title = data_file
   return
  1000 format ('found ',i6,' data lines in file: ',a)
  4000 format (a)
