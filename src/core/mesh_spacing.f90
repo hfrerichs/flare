@@ -20,6 +20,7 @@ module mesh_spacing
      X1_SMOOTH   = 'X1_SMOOTH', &
      D_CURVE     = 'D_CURVE', &
      USER_DEF    = 'LOAD', &
+     USER_DEF_LIST = 'LOAD_LIST', &
      S_RECURSIVE = 'RECURSIVE'
 
 
@@ -40,7 +41,8 @@ module mesh_spacing
      procedure init_X1
      procedure init_recursive
      procedure init_Dcurve
-     procedure init_manual
+     procedure init_manual_function
+     procedure init_manual_list
   end type t_spacing
   
   type(t_spacing), public, parameter :: Equidistant = t_spacing(LINEAR,0,null(),Empty_curve,null())
@@ -150,6 +152,11 @@ module mesh_spacing
      call this%D%load(arguments)
      call check_manual_stretching_function(this%D)
      call this%D%setup_coordinate_sampling(1)
+
+
+  ! user defined (external) spacing function, given by list of nodes
+  case(USER_DEF_LIST)
+     call this%init_manual_list(filename=arguments)
 
 
   ! undefined mode string
@@ -313,7 +320,7 @@ module mesh_spacing
 
 
 !=======================================================================
-  subroutine init_manual(this, C)
+  subroutine init_manual_function(this, C)
   class(t_spacing)            :: this
   type(t_curve), intent(in)   :: C
 
@@ -324,7 +331,62 @@ module mesh_spacing
   call check_manual_stretching_function(this%D)
   call this%D%setup_coordinate_sampling(1)
 
-  end subroutine init_manual
+  end subroutine init_manual_function
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine init_manual_list(this, L, filename)
+  class(t_spacing)             :: this
+  real(real64),     intent(in), optional :: L(:)
+  character(len=*), intent(in), optional :: filename
+
+  integer, parameter :: iu = 99
+
+  real(real64) :: x
+  integer      :: i, n
+
+
+  if (.not.present(L)  .and.  .not.present(filename)) then
+     write (6, *) "error in t_spacing%init_manual_list: neither L nor filename is given!"
+     stop
+  endif
+
+
+  if (present(L)) then
+     n = size(L)
+     call this%D%new(n-1)
+     this%D%x(:,2) = L
+  endif
+
+
+  if (present(filename)) then
+     n = 0
+     ! scan file
+     open  (iu, file=filename)
+     scan_loop: do
+        read (iu, *, end=2000) x
+        n = n + 1
+     enddo scan_loop
+ 2000 rewind(iu)
+
+     call this%D%new(n-1)
+     do i=0,n-1
+        read (iu, *) x
+        this%D%x(i,2) = x
+     enddo
+     close (iu)
+  endif
+
+
+  do i=0,n-1
+     this%D%x(i,1) = 1.d0 * i / (n-1)
+  enddo
+  call check_manual_stretching_function(this%D)
+  call this%D%setup_coordinate_sampling(1)
+
+  end subroutine init_manual_list
 !=======================================================================
 
 
@@ -343,6 +405,7 @@ module mesh_spacing
   if (D%x(0,1).ne.0.d0 .or. D%x(0,2).ne.0.d0) then
      write (6, 9000)
      write (6, *) 'first data point must be (0.0, 0.0)!'
+     call D%plot(filename="ERROR_MESH_SPACLING.PLT")
      stop
   endif
 
@@ -350,6 +413,7 @@ module mesh_spacing
   if (D%x(n,1).ne.1.d0 .or. D%x(n,2).ne.1.d0) then
      write (6, 9000)
      write (6, *) 'last data point must be (1.0, 1.0)!'
+     call D%plot(filename="ERROR_MESH_SPACLING.PLT")
      stop
   endif
 
@@ -445,7 +509,7 @@ module mesh_spacing
      xi = sample_X1_SMOOTH(t, this%c(1), this%c(2))
 
   ! user defined spacings
-  case(USER_DEF)
+  case(USER_DEF, USER_DEF_LIST)
      call this%D%sample_at(t, x)
      xi = x(2)
 
