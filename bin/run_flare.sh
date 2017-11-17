@@ -36,6 +36,18 @@ if [ "$1" == "run" ]; then
     shift
 
 
+# debug specific subroutine
+elif [ "$1" == "DEBUG" ]; then
+    shift
+    if [ $# -eq 0 ]; then
+        echo "error: missing argument for subroutine!"
+        exit -1
+    fi
+
+    arg_list="$arg_list $1"
+    shift
+
+
 # import equilibrium into database
 elif [ "$1" == "import" ]; then
     shift
