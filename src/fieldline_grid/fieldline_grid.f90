@@ -756,7 +756,7 @@ module fieldline_grid
 
 
 !=======================================================================
-! WRITE INPUT FILES (input.geo, input.n0g, input.par)
+! WRITE INPUT FILES (input.geo, input.n0g, input.par, ADD_SF_N0)
 !=======================================================================
   subroutine write_emc3_input_files
   use emc3_grid
@@ -768,6 +768,7 @@ module fieldline_grid
   call write_input_geo()
   call write_input_n0g()
   call write_input_par()
+  call write_ADD_SF_N0()
 
   contains
   !---------------------------------------------------------------------
@@ -1209,6 +1210,32 @@ module fieldline_grid
  9999 format ('*',32('-'))
 
   end subroutine write_input_par
+  !---------------------------------------------------------------------
+  subroutine write_ADD_SF_N0()
+  use boundary
+
+  character(len=256) :: filename
+  integer :: i, n
+
+
+  n = n_axi + n_quad
+  open  (iu, file='ADD_SF_N0')
+  write (iu, *) n
+  ! 1. axisymmetric surfaces
+  do i=1,n_axi
+     write (filename, 1001) i
+     call S_axi(i)%plot(filename=filename, output_format=EIRENE_BOUNDARY_FORMAT)
+     write (iu, *) 0, -4, 1
+     write (iu, '(a)') trim(filename)
+  enddo
+ 1001 format('axisymmetric_surface_',i0,'.dat')
+
+  ! 2. non-axisymmetric surfaces
+  do i=1,n_quad
+  enddo
+  close (iu)
+
+  end subroutine write_ADD_SF_N0
   !---------------------------------------------------------------------
   end subroutine write_emc3_input_files
 !=======================================================================
