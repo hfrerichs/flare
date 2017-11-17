@@ -186,7 +186,7 @@
      C%x(ip,2) = C%x(ip-1,2) + w
   enddo
   C%x(:,2) = C%x(:,2) / C%x(SRF_POLO(iz)-1,2)
-  call Sp%init_manual(C)
+  call Sp%init_manual_function(C)
 
 
   ! initialize base grid for core region
