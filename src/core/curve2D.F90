@@ -1034,11 +1034,11 @@ module curve2D
            x12 = this%x(k  ,:)
            x21 = this%x(k+1,:)
            x22 = this%x(k+2,:)
-           if (intersect_lines (x11, x12, x21, x22, t, s, xh))then
-              x_tmp(k2,:) = xh
-           else
+!           if (intersect_lines (x11, x12, x21, x22, t, s, xh))then
+!              x_tmp(k2,:) = xh
+!           else
               x_tmp(k2,:) = 0.5d0 * (x12 + x21)
-           endif
+!           endif
         endif
      ! just copy node data if this segment's alignment is ok
      else
