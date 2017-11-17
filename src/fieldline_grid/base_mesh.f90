@@ -1066,7 +1066,7 @@ module base_mesh
 
 
   ! cleanup
-  deallocate (M, Mtmp, markz)
+  deallocate (M, Mtmp, markz, L)
 
   end subroutine generate_base_mesh
 !=======================================================================
