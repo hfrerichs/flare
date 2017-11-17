@@ -521,6 +521,7 @@ module geqdsk
   call make_2D_curve (limitr, rlim, zlim, S)
   ! m -> cm
   S%x = S%x * 1.d2
+  S%title = 'from_equilibrium'
 
   end subroutine geqdsk_export_boundary
 !===============================================================================

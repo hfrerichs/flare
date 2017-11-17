@@ -166,6 +166,7 @@ module quad_ele
 ! Plot surface mesh
 !=======================================================================
   subroutine quad_ele_plot(this, filename, Output_Format)
+  use curve2D
   class(t_quad_ele)         :: this
   character*120, intent(in) :: filename
   integer, intent(in)       :: Output_Format
@@ -193,6 +194,18 @@ module quad_ele
      enddo
      write (iu, *)
   enddo
+
+  elseif (Output_Format == EIRENE_BOUNDARY_FORMAT) then
+  ! original format (title, slices at phi)
+  write (iu, *) this%label
+  write (iu, *) this%n_phi+1, this%n_RZ+1, this%n_sym, this%dR, this%dZ
+  do i=0,this%n_phi
+     write (iu, *) this%phi(i)
+     do j=0,this%n_RZ
+        write (iu, *) this%R(i, j), this%Z(i, j)
+     enddo
+  enddo
+
   endif
   close (iu)
 
