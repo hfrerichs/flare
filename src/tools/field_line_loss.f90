@@ -26,16 +26,16 @@ subroutine field_line_loss
   use fieldline
   use parallel
   use grid
+  use dataset
   implicit none
-
-  integer, parameter      :: iu = 80
 
   integer, dimension(:,:), allocatable :: iloss
   type(t_flux_surface_2D), dimension(:), allocatable :: S2D
   type(t_flux_surface_3D), dimension(:), allocatable :: S3D
-  type(t_grid) :: G
+  type(t_dataset) :: D
+  type(t_grid) :: G, P
   real(real64) :: r(3), y(3), DPsi
-  integer      :: i, ierr, j, n
+  integer      :: i, ierr, j, ig, n
 
 
   ! check user input, set default values
@@ -72,10 +72,19 @@ subroutine field_line_loss
  1006 format(3x,'- Reference length [m]:           ',5x,f0.2)
  1007 format(3x,'- Reference length [m]:           ',5x,i0,' x ',f0.2,' = ',f0.2)
 
-     open  (iu, file=Output_File)
-     write (iu, 2000)
+     call D%new(N_Psi * N_theta, 2)
+     call D%set_info(2, trim(Grid_File))
+     call D%set_column_info(1, 'Floss_bwd', 'Field line losses (backward direction)')
+     call D%set_column_info(2, 'Floss_fwd', 'Field line losses (forward  direction)')
+     call D%add_derived_data('Floss', "0.5 * (Floss_bwd + Floss_fwd)", 'Field line losses')
   endif
   call G%new(CYLINDRICAL, MESH_2D, FIXED_COORD3, N_Psi, N_theta)
+  call P%new(LOCAL, STRUCTURED, FIXED_COORD3, N_steps, N_Psi)
+  P%coord_label(1) = "Distance along field line [m]"
+  P%coord_label(2) = "Normalized poloidal flux"
+  do j=1,N_steps
+     P%x1(j) = j*Limit / 1.d2
+  enddo
 
 
   ! generate unperturbed flux surfaces Psi(1) -> Psi(2) for reference points
@@ -86,7 +95,7 @@ subroutine field_line_loss
   DPsi = 0.d0; if (N_psi > 1) DPsi = (Psi(2)-Psi(1)) / (N_psi - 1.d0)
   do i=0,N_psi-1
      y(2) = Psi(1) + i * DPsi
-     if (firstP) write (6, *) y(2)
+     if (firstP) write (6, *) y(2);   P%x2(i+1) = y(2)
 
      ! 1. find reference coordinate on flux surface (inboard midplane)
      r    = get_cylindrical_coordinates (y, ierr)
@@ -105,7 +114,8 @@ subroutine field_line_loss
   enddo
   if (firstP) then
      write (6, *) ' -> stored in ', adjustl(trim(Grid_File))
-     call G%store(Grid_File)
+     call G%store('flux_surfaces.geo')
+     call P%store(Grid_File)
   endif
   write (6, *)
 
@@ -126,7 +136,9 @@ subroutine field_line_loss
      n     = N_phi * N_theta
      if (firstP) then
         do j=1,N_steps
-           write (iu, 2001) y(2), j*Limit, 1.d0*iloss(-1,j)/n, 1.d0*iloss(1,j)/n
+           ig = G%index(i,j)
+           D%x(ig,1) = 1.d0*iloss(-1,j)/n
+           D%x(ig,2) = 1.d0*iloss( 1,j)/n
         enddo
      endif
   enddo
@@ -135,7 +147,7 @@ subroutine field_line_loss
   ! finalize
   if (firstP) then
      write (6, *) 'done'
-     close (iu)
+     call D%store(filename=Output_File)
   endif
   deallocate (iloss, S2D, S3D)
 
