@@ -539,6 +539,7 @@ module curve2D
   endif
 
   ! select output format
+  if (present(output_format)) then
   select case(output_format)
   case(2)
      write_length = .true.
@@ -546,6 +547,7 @@ module curve2D
      write_header = .true.
   case default
   end select
+  endif
 
 
   ! write header (optional)
