@@ -4,11 +4,11 @@ module grid_interface
   integer, parameter :: dp = selected_real_kind(15,307)
 
 
-  integer :: layout
+  integer :: layout, coordinates
   integer :: n, n1, n2, n3, coord1, coord2, fixed_coord
   real(dp), dimension(:,:), allocatable :: x
   real(dp), dimension(:),   allocatable :: x1, x2, x3
-
+  character(len=120) :: coord_label1, coord_label2
 
   contains
   !---------------------------------------------------------------------
@@ -32,6 +32,7 @@ module grid_interface
   ! load grid layout and nodes
   call G%load(filename)
   layout = G%layout
+  coordinates = G%coordinates
   n = G%n
   allocate (x(n,3))
   x = G%x
@@ -42,6 +43,8 @@ module grid_interface
   n1 = G%n1
   n2 = G%n2
   n3 = G%n3
+  coord_label1 = adjustl(G%coord_label(coord1))
+  coord_label2 = adjustl(G%coord_label(coord2))
 
   ! set up structured grid
   if (layout == STRUCTURED) then

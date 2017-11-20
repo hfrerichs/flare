@@ -67,6 +67,9 @@ module grid
      integer :: layout, coordinates, fixed_coord, coord1, coord2
      real(real64) :: fixed_coord_value
 
+     ! user defined coordinate lables
+     character(len=120) :: coord_label(3) = ''
+
      contains
      procedure :: new
      procedure :: load
@@ -240,7 +243,7 @@ module grid
 !-----------------------------------------------------------------------
   subroutine read_grid()
 
-  character(len=120) :: str
+  character(len=120) :: str, str1, str2
   real(real64), dimension(:), allocatable :: yi
   real(real64)       :: y3(3), r(3), y2(2), y1(1), x0, R0
   integer :: grid_id, coordinates, layout, fixed_coord, &
@@ -312,9 +315,11 @@ module grid
         write (6, *) 'error: fixed_coord > 0 required for semi-structured grids!'
         stop
      endif
-     call iscrape (iu, n1)
-     call iscrape (iu, n2)
+     call iscrape (iu, n1, str1)
+     call iscrape (iu, n2, str2)
      call this%new(coordinates, layout, fixed_coord, n1, n2)
+     this%coord_label(this%coord1) = str1
+     this%coord_label(this%coord2) = str2
 
      ! read list of (x(coord1), x(coord2))
      do i=1,n1
@@ -344,21 +349,25 @@ module grid
   !.....................................................................
   ! 3.3. structured grid, separate list of coordinates
   elseif (layout == STRUCTURED) then
-     call iscrape (iu, n1)
-     call iscrape (iu, n2)
+     call iscrape (iu, n1, str1)
+     call iscrape (iu, n2, str2)
      ! all coordinates are structured
      if (fixed_coord == 0) then
-        call iscrape (iu, n3)
+        call iscrape (iu, n3, str)
         x0 = 0.d0
+        this%coord_label(3) = str
 
      ! one coordinate is fixed
      else
         n3 = 1
-        call rscrape (iu, x0)
+        call rscrape (iu, x0, str)
         this%fixed_coord_value = x0
+        this%coord_label(fixed_coord) = str
      endif
 
      call this%new(coordinates, layout, fixed_coord, n1, n2, n3, x0)
+     this%coord_label(this%coord1) = str1
+     this%coord_label(this%coord2) = str2
 
      ! read 1st coordinates
      do i=1,n1
@@ -499,26 +508,30 @@ module grid
 !-----------------------------------------------------------------------
 ! internal routine to read integer values from header
 !-----------------------------------------------------------------------
-  subroutine iscrape (iu, iout)
+  subroutine iscrape (iu, iout, label)
   integer, intent(in)  :: iu
   integer, intent(out) :: iout
+  character(len=120), intent(out), optional :: label
   character(len=82) :: str
   read  (iu, 2000) str
   if (screen_output) write (6,2001) trim(str(3:82))
   read  (str(33:42),*) iout
+  if (present(label)) label = trim(str(43:82))
  2000 format (a82)
  2001 format (8x,a)
   end subroutine iscrape
 !-----------------------------------------------------------------------
 ! internal routine to read real values from header
 !-----------------------------------------------------------------------
-  subroutine rscrape (iu, rout)
+  subroutine rscrape (iu, rout, label)
   integer,      intent(in)  :: iu
   real(real64), intent(out) :: rout
+  character(len=120), intent(out), optional :: label
   character(len=82) :: str
   read  (iu, 2000) str
   if (screen_output) write (6,2001) trim(str(3:82))
   read  (str(33:42),*) rout
+  if (present(label)) label = trim(str(43:82))
  2000 format (a82)
  2001 format (8x,a)
   end subroutine rscrape
@@ -848,10 +861,10 @@ module grid
   ! 3. structured grid, list of (x(coord1), x(coord2)), then list of x(fixed_coord)
   elseif (layout == STRUCTURED) then
      ! header
-     write (iu, 2003) this%n1
-     write (iu, 2004) this%n2
+     write (iu, 2003) this%n1, trim(this%coord_label(this%coord1))
+     write (iu, 2004) this%n2, trim(this%coord_label(this%coord2))
      if (this%fixed_coord == 0) then
-        write (iu, 2005) this%n3
+        write (iu, 2005) this%n3, trim(this%coord_label(this%fixed_coord))
      else
         write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
      endif
@@ -921,9 +934,9 @@ module grid
  1100 format ('# grid_id = 1000    (cylindrical coordinates: R[cm], Z[cm], Phi[rad])')
  2001 format ('# grid resolution:   n_grid  =  ',i10)
  2002 format ('# ',a12,' =                ',f10.5)
- 2003 format ('# grid resolution:   n1      =  ',i10)
- 2004 format ('#                    n2      =  ',i10)
- 2005 format ('#                    n3      =  ',i10)
+ 2003 format ('# grid resolution:   n1      =  ',i10,1x,a)
+ 2004 format ('#                    n2      =  ',i10,1x,a)
+ 2005 format ('#                    n3      =  ',i10,1x,a)
  3001 format (1e25.17)
  3002 format (2e18.10)
  3003 format (3e18.10)
