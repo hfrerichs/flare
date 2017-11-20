@@ -81,6 +81,7 @@ module grid
      procedure :: plot_mesh
      procedure :: node                   ! return node coordinates
      procedure :: nodes                  ! return number of grid nodes
+     procedure :: index
   end type t_grid
 
   contains
@@ -1034,6 +1035,33 @@ module grid
 
   n = this%n
   end function nodes
+!=======================================================================
+
+
+
+!=======================================================================
+  function index(this, i1, i2, i3)
+  class(t_grid)       :: this
+  integer, intent(in) :: i1, i2
+  integer, intent(in), optional :: i3
+
+  integer :: index
+
+
+  index = 0
+  if (this%layout == STRUCTURED) then
+     index = (i2-1)*this%n1  +  i1
+     if (this%fixed_coord /= 0) then
+        if (.not.present(i3)) then
+           write (6, *) 'error in t_grid%index: i3 required!'
+           stop
+        endif
+        index = index + (i3-1)*this%n1*this%n2
+     endif
+  endif
+  if (this%layout == MESH_2D) index = (i2-1)*this%n1  +  i1
+
+  end function index
 !=======================================================================
 
 end module grid
