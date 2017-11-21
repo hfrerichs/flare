@@ -236,14 +236,14 @@ module flux_surface_3D
 ! stop_at_boundary	(.false. allows to generate a full flux surface beyond the boundary)
 !=======================================================================
   subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, &
-      poloidal_coordinate, resample, spacings, updown_symmetry, stop_at_boundary)
+      poloidal_coordinate, resample, spacings, updown_symmetry, stop_at_boundary, bfield)
   use equilibrium, only: get_PsiN
   use mesh_spacing
   class(t_flux_surface_3D) :: this
   real(real64), intent(in) :: y0(3)
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
   integer,      intent(in), optional :: poloidal_coordinate
-  integer,      intent(in), optional :: resample, updown_symmetry
+  integer,      intent(in), optional :: resample, updown_symmetry, bfield
   logical,      intent(in), optional :: stop_at_boundary
   type(t_spacing), intent(in), optional :: spacings
 
@@ -278,9 +278,9 @@ module flux_surface_3D
   n     = nsteps
   if (n == 0) n = 16
   if (present(stop_at_boundary)) then
-     call P%generate(y0, npoints, nsym, nslice, n, solver, stop_at_boundary)
+     call P%generate(y0, npoints, nsym, nslice, n, solver, stop_at_boundary, bfield=bfield)
   else
-     call P%generate(y0, npoints, nsym, nslice, n, solver, .true.)
+     call P%generate(y0, npoints, nsym, nslice, n, solver, .true., bfield=bfield)
   endif
 
 

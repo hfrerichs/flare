@@ -13,6 +13,10 @@ module fieldline
   integer, parameter :: FL_ARC   = 2
   integer, parameter :: FL_ANGLE = 3
 
+  integer, parameter :: &
+     FULL_FIELD        = 0, &
+     EQUILIBRIUM_FIELD = 1
+
   integer, parameter :: FL_Reconstruction = 0
 
   type, extends(t_ODE) :: t_fieldline
@@ -58,7 +62,7 @@ module fieldline
 ! 2:     D = sqrt(DR**2 + DZ**2 + (R*DPHI)**2)
 ! 3:     D = DPHI
 !=======================================================================
-  subroutine init (this, y0, Trace_Step, Trace_Method, Trace_Coords)
+  subroutine init (this, y0, Trace_Step, Trace_Method, Trace_Coords, bfield)
   use numerics, only: Trace_Step_default   => Trace_Step, &
                       Trace_Method_default => Trace_Method, &
                       Trace_Coords_default => Trace_Coords
@@ -67,10 +71,10 @@ module fieldline
   class (t_fieldline) :: this
   real*8, intent(in)  :: y0(3)
   real*8, intent(in), optional  :: Trace_Step
-  integer, intent(in), optional :: Trace_Method, Trace_Coords
+  integer, intent(in), optional :: Trace_Method, Trace_Coords, bfield
 
   real*8  :: y1(3), ds
-  integer :: tm
+  integer :: tm, bf, tc
 
 
   this%ierr     = 0
@@ -89,6 +93,10 @@ module fieldline
   this%Trace_Coords = Trace_Coords_default
   if (present(Trace_Coords)) this%Trace_Coords = Trace_Coords
 
+  ! set magnetic field model
+  bf = FULL_FIELD
+  if (present(bfield)) bf = bfield
+
 
   y1 = y0
   ! use field line reconstruction method
@@ -101,13 +109,18 @@ module fieldline
 
      this%trace_1step  => trace_1step_ODE
 
-     select case (this%Trace_Coords)
+     tc = this%Trace_Coords + 10*bf
+     select case (tc)
      case (FL_LINE)
         call this%init_ODE (3, y1, ds, Bf_sub_cart,     tm)
      case (FL_ARC)
         call this%init_ODE (3, y1, ds, Bf_sub_cyl,      tm)
+     case (FL_ARC   + 10*EQUILIBRIUM_FIELD)
+        call this%init_ODE (3, y1, ds, Bfeq_sub_cyl,    tm)
      case (FL_ANGLE)
         call this%init_ODE (3, y1, ds, Bf_sub_cyl_norm, tm)
+     case (FL_ANGLE + 10*EQUILIBRIUM_FIELD)
+        call this%init_ODE (3, y1, ds, Bfeq_sub_cyl_norm, tm)
      case default
         write (6, *) 'invalid parameter Trace_Coords = ', this%Trace_Coords
         stop
@@ -450,6 +463,24 @@ module fieldline
 
 
 !=======================================================================
+  subroutine Bfeq_sub_cyl (n, t, y, f)
+  use equilibrium
+  implicit none
+
+  integer, intent(in) :: n
+  real*8,  intent(in) :: t, y(n)
+  real*8, intent(out) :: f(n)
+
+  f    = get_Bf_eq2D(y)
+  f    = f / dsqrt(sum(f**2))
+  f(3) = f(3) / y(1)
+
+  end subroutine Bfeq_sub_cyl
+!=======================================================================
+
+
+
+!=======================================================================
   subroutine Bf_sub_cyl_norm (n, t, y, f)
   use bfield
   implicit none
@@ -463,6 +494,24 @@ module fieldline
   f(3)   = 1.d0
 
   end subroutine Bf_sub_cyl_norm
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine Bfeq_sub_cyl_norm (n, t, y, f)
+  use equilibrium
+  implicit none
+
+  integer, intent(in) :: n
+  real*8,  intent(in) :: t, y(n)
+  real*8, intent(out) :: f(n)
+
+  f      = get_Bf_eq2D(y)
+  f(1:2) = y(1) * f(1:2) / f(3)
+  f(3)   = 1.d0
+
+  end subroutine Bfeq_sub_cyl_norm
 !=======================================================================
 
 
