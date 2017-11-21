@@ -1126,7 +1126,7 @@ module fieldline_grid
   write (iu, 9999)
   write (iu, 1000)
   write (iu, 9999)
- 1000 format ('*** 6. boundary contitions')
+ 1000 format ('*** 6. boundary conditions')
 
   ! 1. particle transport
   write (iu, 1001)
