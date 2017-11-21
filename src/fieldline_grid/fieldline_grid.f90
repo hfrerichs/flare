@@ -60,8 +60,9 @@ module fieldline_grid
 
   ! Method for core domain
   character(len=*), parameter :: &
-     CORE_EXTRAPOLATE   = 'EXTRAPOLATE', &
-     CORE_FLUX_SURFACES = 'FLUX_SURFACES'
+     CORE_EXTRAPOLATE      = 'EXTRAPOLATE', &
+     CORE_FLUX_SURFACES    = 'FLUX_SURFACES', &
+     CORE_EQ_FLUX_SURFACES = 'EQUILIBRIUM_FLUX_SURFACES'
 
   ! Plate definition methods
   character(len=*), parameter :: &

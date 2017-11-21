@@ -2,6 +2,7 @@
 ! Set up core domain for EIRENE
 !===============================================================================
   subroutine setup_core_domain()
+  use fieldline, only: FULL_FIELD, EQUILIBRIUM_FIELD
   use emc3_grid, only: NZONET
   use fieldline_grid
   use string
@@ -33,7 +34,11 @@
 
      case(CORE_FLUX_SURFACES)
         write (6, 1002) iz, alpha_core
-        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core)
+        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core, FULL_FIELD)
+
+     case(CORE_EQ_FLUX_SURFACES)
+        write (6, 1002) iz, alpha_core
+        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core, EQUILIBRIUM_FIELD)
 
      case default
         write (6, 9000) trim(core_domain)
@@ -133,7 +138,7 @@
 
 
   !=====================================================================
-  subroutine setup_core_domain_from_flux_surfaces(iz, nr_core, alpha_core)
+  subroutine setup_core_domain_from_flux_surfaces(iz, nr_core, alpha_core, bfield)
   use iso_fortran_env
   use emc3_grid
   use fieldline_grid
@@ -145,7 +150,7 @@
   use curve2D
   implicit none
 
-  integer,      intent(in) :: iz, nr_core
+  integer,      intent(in) :: iz, nr_core, bfield
   real(real64), intent(in) :: alpha_core
 
   type(t_flux_surface_3D) :: F
@@ -208,7 +213,7 @@
      x = xmag + r * (x0-xmag)
 
      call F%generate(x, N_points, symmetry, 1, 360, Trace_Method, poloidal_coordinate=ipc, &
-        resample=SRF_POLO(iz), spacings=Sp, updown_symmetry=updown_symmetry)
+        resample=SRF_POLO(iz), spacings=Sp, updown_symmetry=updown_symmetry, bfield=bfield)
      do ip=0,SRF_POLO(iz)-1
         B%mesh(ir,ip,:) = F%slice(0)%x(ip,:)
      enddo
