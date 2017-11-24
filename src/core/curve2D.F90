@@ -946,6 +946,7 @@ module curve2D
   type(t_curve) :: Ctmp
   real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s, d
   integer       :: k, n, k2, kmax, n2, i_remove
+  logical       :: intersect
 
 
 ! 1. initialize local variables
@@ -1060,11 +1061,12 @@ module curve2D
            x12 = this%x(k  ,:)
            x21 = this%x(k+1,:)
            x22 = this%x(k+2,:)
-!           if (intersect_lines (x11, x12, x21, x22, t, s, xh))then
-!              x_tmp(k2,:) = xh
-!           else
+           intersect = intersect_lines (x11, x12, x21, x22, t, s, xh)
+           if (intersect  .and.  t > 0.d0  .and.  s < 1.d0) then
+              x_tmp(k2,:) = xh
+           else
               x_tmp(k2,:) = 0.5d0 * (x12 + x21)
-!           endif
+           endif
         endif
      ! just copy node data if this segment's alignment is ok
      else
