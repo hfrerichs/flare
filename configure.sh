@@ -2,12 +2,14 @@
 
 
 ################################################################################
-# predefine parameter
+# set default values
 
-bindir=$HOME/.local/bin
-libdir=$HOME/.local/lib
+prefix=$HOME/.local
+bindir=bin
+libdir=lib
 pythondir=$libdir/python
 datadir=$HOME/Database/Magnetic_Configuration
+gui=gui
 
 EMC3_dir=""
 
@@ -18,47 +20,61 @@ EXTERNAL_DIR=external
 ################################################################################
 # scanning arguments
 for opt in "$@"; do
-    par=${opt%%=*}
+    var=${opt%%=*}
     val=${opt##*=}
-    if [ "$par" == "--help" ]; then
-        echo "Configuration script for FLARE"
-        echo ""
-        echo "Optional arguments are:"
-        echo "  --datadir=DIR           data directory for magnetic configurations"
+    case "$var" in
+    "--help")
+        echo -e "Configuration script for FLARE\n"
+        echo -e "usage: ./configure.sh [variable=value]\n"
+        echo "Available options:"
+        echo "  --prefix                prefix for installation directories"
+	echo "  --bindir                directory for installing FLARE executables"
+        echo "  --datadir               data directory for magnetic configurations"
+	echo "  --libdir                directory for the FLARE library"
+	echo "  --pythondir             directory for python modules"
 	echo ""
-	echo "  --bindir=DIR            directory for installing FLARE executables"
-	echo ""
-	echo "  --libdir=DIR            directory for the FLARE library"
-	echo ""
-	echo "  --pythondir=DIR         directory for python modules"
-	echo ""
-	echo "  --emc3_dir=DIR          set EMC3 source directory"
-	echo ""
-	echo "  --fusion_io_dir=DIR     set directory of Fusion-IO installation"
-	echo ""
+	echo "  --fusion_io_dir         set directory of Fusion-IO installation"
 	echo "  --with-fgsl             compile with FGSL support"
+	echo "  --without-gui           compile without GUI support"
 	echo ""
 
-	exit
-    elif [ "$par" == "--datadir" ]; then
-        datadir=$val
-    elif [ "$par" == "--bindir" ]; then
+	exit 0
+        ;;
+    "--prefix")
+        prefix=$val
+        ;;
+    "--bindir")
         bindir=$val
-    elif [ "$par" == "--libdir" ]; then
+        ;;
+    "--datadir")
+        datadir=$val
+        ;;
+    "--libdir")
         libdir=$val
-    elif [ "$par" == "--pythondir" ]; then
+        ;;
+    "--pythondir")
         pythondir=$val
-    elif [ "$par" == "--emc3_dir" ]; then
-        emc3_dir=$val
-    elif [ "$par" == "--fusion_io_dir" ]; then
+        ;;
+    "--fusion_io_dir")
         fusion_io_dir=$val
-    elif [ "$par" == "--with_fgsl" ]; then
+        ;;
+    "--with_fgsl")
         FGSL_SUPPORT=1
-    else
-        echo "error: unkown parameter " $par
-    fi
+        ;;
+    "--without-gui")
+        gui=
+        ;;
+    *)
+        echo "error: invalid argument ${var}!"
+        echo "see ./configure --help"
+        exit 1
+    esac
 done
 echo
+
+bindir=$prefix/$bindir
+libdir=$prefix/$libdir
+pythondir=$prefix/$pythondir
 ################################################################################
 
 
@@ -249,6 +265,18 @@ for (( i=0; i<${n_ode}; i++ )); do
 done
 echo "ODE_FLAGS      = $ODE_FLAGS"			>> include.mk
 echo "ODE_OBJECTS    = $ODE_OBJECTS"			>> include.mk
+echo "" >> include.mk
+# ------------------------------------------------------------------------------
+
+
+# GUI --------------------------------------------------------------------------
+echo "# GUI" >> include.mk
+echo "GUI            = $gui" >> include.mk
+if [ -n "$gui" ]; then
+    echo "Compling with GUI support" | tee -a $LOG_FILE
+else
+    echo "Compling without GUI support" | tee -a $LOG_FILE
+fi
 echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
