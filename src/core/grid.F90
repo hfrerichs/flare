@@ -753,7 +753,6 @@ module grid
   nz1 = 1;   if (present(nz)) nz1 = nz
   np1 = 1;   if (present(np)) np1 = np
   call this%new(CYLINDRICAL, STRUCTURED, 0, nr1, nz1, np1)
-  call this%setup_structured_grid()
 
 
   ! domain

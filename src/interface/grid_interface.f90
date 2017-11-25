@@ -1,7 +1,6 @@
 module grid_interface
+  use types
   implicit none
-
-  integer, parameter :: dp = selected_real_kind(15,307)
 
 
   integer :: layout, coordinates
@@ -72,6 +71,24 @@ module grid_interface
   endif
 
   end subroutine load
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
+  subroutine create(n1, x1min, x1max, n2, x2min, x2max, n3, x3min, x3max, filename)
+  use grid
+  integer,          intent(in) :: n1, n2, n3
+  real(dp),         intent(in) :: x1min, x1max, x2min, x2max, x3min, x3max
+  character(len=*), intent(in) :: filename
+
+  type(t_grid) :: G
+
+
+  call G%create_rlinspace(n1, x1min, x1max, n2, x2min, x2max, n3, x3min, x3max)
+  call G%store(filename)
+
+  end subroutine create
   !---------------------------------------------------------------------
 
 end module grid_interface

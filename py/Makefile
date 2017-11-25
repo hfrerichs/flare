@@ -1,6 +1,6 @@
 include ../include.mk
 
-alldirs = $(GUI) pyplot
+alldirs = $(GUI) pyplot ui
 
 MODULES = __init__.py\
           equi2d.py\
