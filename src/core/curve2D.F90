@@ -40,6 +40,9 @@ module curve2D
      LOWER     = -1, &
      UPPER     =  1
 
+  integer, parameter, public :: &
+     EIRENE_BOUNDARY_FORMAT = 3
+
 
   type, public :: t_curve
      ! number of line segments (n_seg), number of coordinates (n_dim)
@@ -59,6 +62,8 @@ module curve2D
 
      ! treat curve as closed loop?
      logical :: closed = .false.
+
+     character(len=256) :: title = ''
 
      contains
 
@@ -125,6 +130,7 @@ module curve2D
   this%x     => this%nodes%x
   call this%closed_check()
   call this%duplicate_node_check()
+  this%title = this%nodes%title
 
   end subroutine load
 !=======================================================================
@@ -505,14 +511,15 @@ module curve2D
 
 
 !=======================================================================
-  subroutine plot(this, iu, filename, append, length)
+  subroutine plot(this, iu, filename, append, output_format)
   class(t_curve) :: this
-  integer,          intent(in), optional :: iu
+  integer,          intent(in), optional :: iu, output_format
   character(len=*), intent(in), optional :: filename
-  logical,          intent(in), optional :: append, length
+  logical,          intent(in), optional :: append
 
   real(real64) :: l
   integer      :: i, iu0
+  logical      :: write_length = .false., write_header = .false.
 
 
   ! nothing to be done here
@@ -535,11 +542,30 @@ module curve2D
      endif
   endif
 
+  ! select output format
+  if (present(output_format)) then
+  select case(output_format)
+  case(2)
+     write_length = .true.
+  case(EIRENE_BOUNDARY_FORMAT)
+     write_header = .true.
+  case default
+  end select
+  endif
+
+
+  ! write header (optional)
+  if (write_header) then
+     write (iu0, *) this%title
+     write (iu0, *) 1, this%n_seg+1, 1, 0.0, 0.0
+     write (iu0, *) -180.d0
+  endif
+
 
   ! write data
   l = 0.d0
   do i=0,this%n_seg
-     if (present(length)  .and.  length) then
+     if (write_length) then
         if (i>0) l = l + sqrt(sum((this%x(i,:)-this%x(i-1,:))**2))
         write (iu0, *) this%x(i,:), l
      elseif (associated(this%w)) then
@@ -924,6 +950,7 @@ module curve2D
   type(t_curve) :: Ctmp
   real(real64)  :: el(2), en(2), x11(2), x12(2), x21(2), x22(2), xh(2), t, s, d
   integer       :: k, n, k2, kmax, n2, i_remove
+  logical       :: intersect
 
 
 ! 1. initialize local variables
@@ -1038,7 +1065,8 @@ module curve2D
            x12 = this%x(k  ,:)
            x21 = this%x(k+1,:)
            x22 = this%x(k+2,:)
-           if (intersect_lines (x11, x12, x21, x22, t, s, xh))then
+           intersect = intersect_lines (x11, x12, x21, x22, t, s, xh)
+           if (intersect  .and.  t > 0.d0  .and.  s < 1.d0) then
               x_tmp(k2,:) = xh
            else
               x_tmp(k2,:) = 0.5d0 * (x12 + x21)

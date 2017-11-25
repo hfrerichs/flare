@@ -31,6 +31,8 @@ module dataset
 
      real(real64), dimension(:,:), pointer :: x => null()
 
+     character(len=256) :: title = ''
+
      contains
      procedure :: load
      procedure :: plot
@@ -134,12 +136,14 @@ module dataset
         read (str, *) tmp
         this%x(j,:) = tmp
         j = j + 1
+     elseif (i==1) then
+        this%title = str
      endif
   enddo read_loop
   close (iu)
   this%ncol = ncol
   deallocate (tmp)
-
+  if (this%title == '') this%title = data_file
 
   allocate (this%col(ncol))
 

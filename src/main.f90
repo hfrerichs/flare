@@ -8,7 +8,7 @@ program main
   use boundary
   implicit none
 
-  character(len=128) :: keyword, input_file
+  character(len=128) :: keyword, input_file, subroutine_name
   real(real64) :: t1, t2, t3
 
 
@@ -52,6 +52,13 @@ program main
   ! import equilibrium into database
   case('import')
      call import_equilibrium()
+
+
+  ! debug specific subroutine
+  case('DEBUG')
+     call get_command_argument(2, subroutine_name)
+     call debug_subroutine(trim(subroutine_name))
+
 
   case('')
      write (6, *) 'error: argument list too short!'

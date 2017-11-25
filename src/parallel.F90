@@ -122,6 +122,37 @@ end subroutine broadcast_inte
 
 
 !===============================================================================
+subroutine broadcast_complex_s(C)
+double complex, intent(inout) :: C
+
+if (nprs.le.1) return
+#if defined(MPI)
+    call MPI_BCAST (C, 1, MPI_DOUBLE_COMPLEX, 0, MPI_COMM_WORLD, er_par)
+#endif
+
+return
+end subroutine broadcast_complex_s
+!===============================================================================
+
+
+
+!===============================================================================
+subroutine broadcast_complex(C,ndim)
+integer, intent(in) :: ndim
+double complex, dimension(ndim), intent(inout) :: C
+
+if (nprs.le.1) return
+#if defined(MPI)
+    call MPI_BCAST (C, ndim, MPI_DOUBLE_COMPLEX, 0, MPI_COMM_WORLD, er_par)
+#endif
+
+return
+end subroutine broadcast_complex
+!===============================================================================
+
+
+
+!===============================================================================
 subroutine broadcast_logi(A)
 logical, intent(inout) :: A
 

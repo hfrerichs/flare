@@ -352,6 +352,10 @@ module mesh_spacing
      write (6, *) "error in t_spacing%init_manual_list: neither L nor filename is given!"
      stop
   endif
+  if (present(L)  .and.  present(filename)) then
+     write (6, *) "error in t_spacing%init_manual_list: both L and filename cannot be given at the same time!"
+     stop
+  endif
 
 
   if (present(L)) then

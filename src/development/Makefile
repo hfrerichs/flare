@@ -2,7 +2,8 @@ include ../../include.mk
 
 
 OBJECTS =  \
-               run_control_development.o
+               run_control_development.o\
+               debug.o
 
 
 INC_DIR = -I .. -I ../$(EXTERNAL_DIR) -I ../$(EMC3_LINK_DIR) -I ../$(BFIELD_DIR) -I ../$(CORE_DIR) -I ../$(GEOMETRY_DIR) -I ../$(GRIDGEN_DIR)

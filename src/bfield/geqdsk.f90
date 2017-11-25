@@ -354,6 +354,7 @@ module geqdsk
 
   ! toroidal field
   if (psi.gt.1.d0) psi = 1.d0
+  if (psi.lt.0.d0) psi = 1.d0 ! quick bugfix for far PFR
   Bf(3)   =  dbsval(psi,nord,PsinEQD,nR,fpolcoeff) / rr
   Bf(3)   =  Bf(3) * 1.d4    ! T -> Gauss
 
@@ -521,6 +522,7 @@ module geqdsk
   call make_2D_curve (limitr, rlim, zlim, S)
   ! m -> cm
   S%x = S%x * 1.d2
+  S%title = 'from_equilibrium'
 
   end subroutine geqdsk_export_boundary
 !===============================================================================

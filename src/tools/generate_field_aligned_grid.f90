@@ -13,7 +13,7 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
 
   integer, intent(inout) :: run_level, run_level_end
 
-  integer, parameter     :: max_level = 9
+  integer, parameter     :: max_level = 10
 
   procedure(), pointer :: make_base_grids, post_process_grid
   integer :: ilevel
@@ -147,5 +147,11 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
      call write_emc3_grid()
   endif
 
+
+  ! Level 10: write new input files
+  if (level(10)) then
+     call initialize_emc3_grid()
+     call write_emc3_input_files()
+  endif
 
 end subroutine generate_field_aligend_grid

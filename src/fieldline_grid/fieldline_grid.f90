@@ -60,8 +60,9 @@ module fieldline_grid
 
   ! Method for core domain
   character(len=*), parameter :: &
-     CORE_EXTRAPOLATE   = 'EXTRAPOLATE', &
-     CORE_FLUX_SURFACES = 'FLUX_SURFACES'
+     CORE_EXTRAPOLATE      = 'EXTRAPOLATE', &
+     CORE_FLUX_SURFACES    = 'FLUX_SURFACES', &
+     CORE_EQ_FLUX_SURFACES = 'EQUILIBRIUM_FLUX_SURFACES'
 
   ! Plate definition methods
   character(len=*), parameter :: &
@@ -758,7 +759,7 @@ module fieldline_grid
 
 
 !=======================================================================
-! WRITE INPUT FILES (input.geo, input.n0g, input.par)
+! WRITE INPUT FILES (input.geo, input.n0g, input.par, ADD_SF_N0)
 !=======================================================================
   subroutine write_emc3_input_files
   use emc3_grid
@@ -767,11 +768,60 @@ module fieldline_grid
   integer, parameter :: iu = 72
 
 
+  call write_info()
   call write_input_geo()
   call write_input_n0g()
-  call write_input_par()
+  !call write_input_par()
+  call write_ADD_SF_N0()
 
   contains
+  !---------------------------------------------------------------------
+  subroutine write_info
+  real(real64) :: Atot, A
+  integer      :: iz, irun, iside, nb, nc
+
+
+  open  (iu, file='SYMMETRY')
+  write (iu, 1001) symmetry
+  close (iu)
+ 1001 format('symmetry=',i0)
+
+  ! generate surface splitting factors
+  Atot = 0.d0
+  open  (iu, file='EMC3_BOUNDARIES')
+  do irun=0,1
+  nb   = 0
+  nc   = 0
+  do iz=0,NZONET-1
+  do iside=1,2
+     ! core boundary
+     if (Zone(iz)%isfr(iside) == SF_CORE) then
+        nb = nb + 1
+        nc = nc + 1
+        ! define weight by toroidal size of zone
+        A  = Zone(iz)%phi(Zone(iz)%nt) - Zone(iz)%phi(0)
+        ! TODO: calculate area of innermost surface
+        if (irun == 0) then
+           Atot = Atot + A
+        else
+           write (iu, 2001) nb
+           write (iu, 2011) nc, A/Atot
+        endif
+     endif
+
+     ! vacuum boundary
+     if (Zone(iz)%isfr(iside) == SF_VACUUM) then
+        nb = nb + 1;   if (irun == 1) write (iu, 2002) nb
+     endif
+  enddo
+  enddo
+  enddo
+  close (iu)
+ 2001 format("emc3_boundary[",i0,"]=EMC3_SF_CORE")
+ 2002 format("emc3_boundary[",i0,"]=EMC3_SF_VACUUM")
+ 2011 format("core_interface_split_factor[",i0,"]=",e11.5)
+
+  end subroutine write_info
   !---------------------------------------------------------------------
   subroutine write_input_geo
   integer :: ir, ip, it, iz, irun, n
@@ -961,12 +1011,13 @@ module fieldline_grid
   write (iu, 9999)
   write (iu, 3000)
   write (iu, 9999)
-  write (iu, *) -1, (1, iz=1,NZONET)
+  write (iu, 3003) -1, (1, iz=1,NZONET)
   write (iu, 3001)
   write (iu, 3002) .true.
  3000 format ('*** 3. physical cell definition')
  3001 format ('* run cell check?')
  3002 format (L1)
+ 3003 format (99(2x,i0))
   close (iu)
  9999 format ('*',32('-'))
 
@@ -1125,7 +1176,7 @@ module fieldline_grid
   write (iu, 9999)
   write (iu, 1000)
   write (iu, 9999)
- 1000 format ('*** 6. boundary contitions')
+ 1000 format ('*** 6. boundary conditions')
 
   ! 1. particle transport
   write (iu, 1001)
@@ -1210,6 +1261,32 @@ module fieldline_grid
  9999 format ('*',32('-'))
 
   end subroutine write_input_par
+  !---------------------------------------------------------------------
+  subroutine write_ADD_SF_N0()
+  use boundary
+
+  character(len=256) :: filename
+  integer :: i, n
+
+
+  n = n_axi + n_quad
+  open  (iu, file='ADD_SF_N0')
+  write (iu, *) n
+  ! 1. axisymmetric surfaces
+  do i=1,n_axi
+     write (filename, 1001) i
+     call S_axi(i)%plot(filename=filename, output_format=EIRENE_BOUNDARY_FORMAT)
+     write (iu, *) 0, -4, 1
+     write (iu, '(a)') trim(filename)
+  enddo
+ 1001 format('axisymmetric_surface_',i0,'.dat')
+
+  ! 2. non-axisymmetric surfaces
+  do i=1,n_quad
+  enddo
+  close (iu)
+
+  end subroutine write_ADD_SF_N0
   !---------------------------------------------------------------------
   end subroutine write_emc3_input_files
 !=======================================================================

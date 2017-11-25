@@ -42,7 +42,7 @@ module poincare_set
 ! solver      id of ODE solver
 ! offset      toroidal offset between reference point and first location for Poincare set
 !=======================================================================
-  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, stop_at_boundary, offset)
+  subroutine generate(this, y0, npoints, nsym, nslice, nsteps, solver, stop_at_boundary, offset, bfield)
   use fieldline
   use equilibrium, only: get_poloidal_angle
   class(t_poincare_set)    :: this
@@ -50,6 +50,7 @@ module poincare_set
   integer,      intent(in) :: npoints, nsym, nslice, nsteps, solver
   logical,      intent(in) :: stop_at_boundary
   real(real64), intent(in), optional :: offset
+  integer,      intent(in), optional :: bfield
 
   type (t_fieldline) :: F
   real(real64)       :: y1(3), ds, ds1, dl, theta, theta0
@@ -86,7 +87,7 @@ module poincare_set
   if (dl > 0.d0) then
      n   = ceiling(dl / ds)
      ds1 = dl / n
-     call F%init(y0, ds, solver, FL_ANGLE)
+     call F%init(y0, ds, solver, FL_ANGLE, bfield=bfield)
      do istep=1,n
         dl = F%trace_1step()
         if (stop_at_boundary  .and.  F%intersect_boundary()) return
@@ -97,7 +98,7 @@ module poincare_set
   endif
 
 
-  call F%init(y1, ds, solver, FL_ANGLE)
+  call F%init(y1, ds, solver, FL_ANGLE, bfield=bfield)
 
   theta0 = get_poloidal_angle(y1) / pi * 180.d0
   main_loop: do ipoint=1,npoints

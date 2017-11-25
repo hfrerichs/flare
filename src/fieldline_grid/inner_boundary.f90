@@ -291,6 +291,7 @@ end module inner_boundary
      N_mult   = blocks
      Output_File = s5//'.txt'
      if (blocks == 1) Output_File = s5//'_0.txt'
+     Phi_output  = Block(0)%phi_base / 180.d0 * pi
      call poincare_plot()
   else
      N_mult   = 1
