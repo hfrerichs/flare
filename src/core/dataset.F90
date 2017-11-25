@@ -218,19 +218,19 @@ module dataset
   ! writa data info
   if (this%ndim >= 0) write (iu0, 2001) this%ndim
   if (this%geometry /= '') write (iu0, 2002) trim(this%geometry)
- 2001 format("# FLARE DATA DIMENSION ",i0,'D')
- 2002 format("# FLARE GEOMETRY ",a)
+ 2001 format("# DATA DIMENSION ",i0,'D')
+ 2002 format("# GEOMETRY ",a)
   do i=1,this%ncol
      if (this%col(i)%key /= '') write (iu0, 2003) trim(this%col(i)%key), trim(this%col(i)%label)
   enddo
- 2003 format("# FLARE DATA COLUMN ",a,' "',a,'"')
+ 2003 format("# DATA COLUMN ",a,' "',a,'"')
   if (associated(this%der)) then
   do i=1,size(this%der)
      write (iu0, 2004) trim(this%der(i)%key), trim(this%der(i)%recipe), &
                        trim(this%der(i)%label)
   enddo
   endif
- 2004 format("# FLARE DERIVED DATA ",a,'="',a,'" "',a,'"')
+ 2004 format("# DERIVED DATA ",a,'="',a,'" "',a,'"')
 
 
   ! write data
