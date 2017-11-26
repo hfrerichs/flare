@@ -23,45 +23,45 @@ for opt in "$@"; do
     var=${opt%%=*}
     val=${opt##*=}
     case "$var" in
-    "--help")
+    --help)
         echo -e "Configuration script for FLARE\n"
-        echo -e "usage: ./configure.sh [variable=value]\n"
+        echo -e "usage: ./configure.sh [options]\n"
         echo "Available options:"
-        echo "  --prefix                prefix for installation directories"
-	echo "  --bindir                directory for installing FLARE executables"
-        echo "  --datadir               data directory for magnetic configurations"
-	echo "  --libdir                directory for the FLARE library"
-	echo "  --pythondir             directory for python modules"
+        echo "  --prefix=<path>         prefix for installation directories"
+	echo "  --bindir=<path>         directory for installing FLARE executables"
+        echo "  --datadir=<path>        data directory for magnetic configurations"
+	echo "  --libdir=<path>         directory for the FLARE library"
+	echo "  --pythondir=<path>      directory for python modules"
 	echo ""
-	echo "  --fusion_io_dir         set directory of Fusion-IO installation"
+	echo "  --fusion_io_dir=<path>  set directory of Fusion-IO installation"
 	echo "  --with-fgsl             compile with FGSL support"
 	echo "  --without-gui           compile without GUI support"
 	echo ""
 
 	exit 0
         ;;
-    "--prefix")
+    --prefix)
         prefix=$val
         ;;
-    "--bindir")
+    --bindir)
         bindir=$val
         ;;
-    "--datadir")
+    --datadir)
         datadir=$val
         ;;
-    "--libdir")
+    --libdir)
         libdir=$val
         ;;
-    "--pythondir")
+    --pythondir)
         pythondir=$val
         ;;
-    "--fusion_io_dir")
+    --fusion_io_dir)
         fusion_io_dir=$val
         ;;
-    "--with_fgsl")
+    --with_fgsl)
         FGSL_SUPPORT=1
         ;;
-    "--without-gui")
+    --without-gui)
         gui=
         ;;
     *)
@@ -273,9 +273,9 @@ echo "" >> include.mk
 echo "# GUI" >> include.mk
 echo "GUI            = $gui" >> include.mk
 if [ -n "$gui" ]; then
-    echo "Compling with GUI support" | tee -a $LOG_FILE
+    echo "Compiling with GUI support" | tee -a $LOG_FILE
 else
-    echo "Compling without GUI support" | tee -a $LOG_FILE
+    echo "Compiling without GUI support" | tee -a $LOG_FILE
 fi
 echo "" >> include.mk
 # ------------------------------------------------------------------------------
