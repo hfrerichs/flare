@@ -1,18 +1,24 @@
 include ../include.mk
 
 SCRIPT = flare
+TARGETS = flare-info flare-plot flare-equi2d flare-grid
 
 
-.PHONY: all install clean uninstall
+.PHONY: all install clean uninstall $(TARGETS)
 all:
 
 
-install:
+$(BINDIR):
 	install -d $(BINDIR)
+
+
+$(TARGETS):
+	install $@.py $(BINDIR)/$@
+
+
+install: $(BINDIR) $(TARGETS)
 	install $(PROGRAM) $(BINDIR)
 	install $(SCRIPT) $(BINDIR)
-	install $(RUN_FLARE) $(BINDIR)
-	install $(FLAREUI) $(BINDIR)
 
 
 clean:
@@ -21,5 +27,4 @@ clean:
 uninstall:
 	-rm -f $(BINDIR)/$(PROGRAM)
 	-rm -f $(BINDIR)/$(SCRIPT)
-	-rm -f $(BINDIR)/$(RUN_FLARE)
-	-rm -f $(BINDIR)/$(FLAREUI)
+	-rm -f $(foreach target,$(TARGETS),$(BINDIR)/$(target))

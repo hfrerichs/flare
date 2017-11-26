@@ -1,0 +1,99 @@
+#!/bin/bash
+
+run() {
+# set default values
+ctrl_file=run.conf
+procs=1
+mpiexec="mpiexec -n"
+debug=false
+debugger="gdb --args"
+this=$(readlink -f "$0")
+bindir=$(dirname $this)
+flare=${bindir}/FLARE
+
+
+# parse argument list
+while getopts ":c:p:m:dD:h" opt; do
+    case $opt in
+    h)
+        echo -e "Running FLARE ...\n"
+        echo -e "usage: flare run [options]\n"
+        echo "Available options:"
+        echo "    -c file                 provide alternative control file (default: run.conf)"
+        echo "    -p #                    parallel execution on # processors"
+        echo "    -m command              provide alternative MPI command"
+        echo "    -d                      run FLARE through debugger"
+        echo "    -D debugger             run FLARE through selected debugger"
+        ;;
+    c)
+        ctrl_file=$OPTARG
+        ;;
+    p)
+        procs=$OPTARG
+        ;;
+    d)
+        debug=true
+        ;;
+    D)
+        debug=true
+        debugger=$OPTARG
+        ;;
+    \?)
+        echo "invalid option: $OPTARG! See 'flare run -h'." 1>&2
+        exit 1
+        ;;
+    :)
+        echo "invalid option: $OPTARG requires an argument" 1>&2
+        exit 1
+        ;;
+    esac
+done
+
+
+# run FLARE
+if $debug; then
+    $debugger $mpiexec $procs $flare run $ctrl_file
+else
+    $mpiexec $procs $flare run $ctrl_file
+fi
+}
+
+
+
+command=$1
+shift
+case $command in
+"--help")
+    echo -e "FLARE - a Field Line Analysis and Reconstruction Environment\n"
+    echo -e "usage: flare {info,equi2d,grid,plot,run} ..."
+    echo "    run                 run FLARE backend"
+    echo "    info                query data file for available data"
+    echo "    plot                plot data file (e.g. connection length)"
+    echo "    equi2d              access axisymmetric equilibrium data"
+    echo "    grid                access grid related functions"
+    exit 0
+    ;;
+"run")
+    run $@
+    ;;
+"info")
+    flare-info $@
+    ;;
+"plot")
+    flare-plot $@
+    ;;
+"equi2d")
+    flare-equi2d $@
+    ;;
+"grid")
+    flare-grid $@
+    ;;
+"")
+    echo "error: no command given. See 'flare --help'."
+    exit 1
+    ;;
+*)
+    echo "error: $command is not a flare command. See 'flare --help'."
+    exit 1
+    ;;
+esac
