@@ -863,7 +863,7 @@ module grid
      write (iu, 2003) this%n1, trim(this%coord_label(this%coord1))
      write (iu, 2004) this%n2, trim(this%coord_label(this%coord2))
      if (this%fixed_coord == 0) then
-        write (iu, 2005) this%n3, trim(this%coord_label(this%fixed_coord))
+        write (iu, 2005) this%n3, trim(this%coord_label(3))
      else
         write (iu, 2002) COORD_STR(this%fixed_coord, this%coordinates), fixed_coord_value_out
      endif
