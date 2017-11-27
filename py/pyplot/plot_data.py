@@ -12,10 +12,13 @@ from flare import Grid, UNSTRUCTURED, STRUCTURED, SEMI_STRUCTURED, MESH_2D
 
 FLARE_DATA_DIMENSION = "# DATA DIMENSION"
 FLARE_GEOMETRY       = "# GEOMETRY"
+FLARE_DATA_TYPE      = "# TYPE"
 FLARE_DATA_COLUMN    = "# DATA COLUMN"
 FLARE_DERIVED_DATA   = "# DERIVED DATA"
 
 PLOT_2D = "2D"
+POINT_DATA = "POINT_DATA"
+CELL_DATA  = "CELL_DATA"
 
 SUBST = [
     ['min', 'np.minimum'],
@@ -29,6 +32,7 @@ class Data():
         self.q_derived = OrderedDict()
         self.ndim      = None
         self.data_file = data_file
+        self.data_type = POINT_DATA
         self.geometry  = None
 
         if not os.path.isfile(data_file):
@@ -50,6 +54,10 @@ class Data():
             if s.startswith(FLARE_GEOMETRY):
                 self.geometry = s[len(FLARE_GEOMETRY):].strip()
                 #print "geometry = '{}'".format(self.geometry)
+
+            # set data type
+            if s.startswith(FLARE_DATA_TYPE):
+                self.data_type = s[len(FLARE_DATA_TYPE):].strip()
 
             # add data column
             if s.startswith(FLARE_DATA_COLUMN):
@@ -202,6 +210,12 @@ class Data():
 
         # create plot
         levels = np.linspace(qmin, qmax, 64)
+
+        if self.data_type == CELL_DATA:
+            G.plot2d_cells(q, vmin=qmin, vmax=qmax)
+            return
+
+
         if G.layout == STRUCTURED  or  G.layout == SEMI_STRUCTURED:
             q    = q.reshape(G.n2, G.n1)
             plt.contourf(G.x1, G.x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
