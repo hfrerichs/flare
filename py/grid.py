@@ -1,10 +1,14 @@
+import sys
+
 from backend import grid_interface
+
 
 UNSTRUCTURED    = 1
 SEMI_STRUCTURED = 2
 STRUCTURED      = 3
 MESH_2D         = 4
 MESH_3D         = 5
+COMPOSITE       = 9
 
 USER_DEFINED    = 0
 CARTESIAN       = 1
@@ -15,6 +19,31 @@ CYL_LABEL = ['Major Radius [cm]', 'Vertical coordinate [cm]', 'Toroidal Angle [d
 
 class Grid():
     def __init__(self, filename):
+        if filename.startswith("COMPOSITE"):
+            self.load_composite(filename)
+        else:
+            self.load(filename)
+
+
+    def load_composite(self, c):
+        self.layout = COMPOSITE
+        i1 = c.find("(")+1
+        i2 = c.rfind(")")
+        if i1<0  or  i2<0:
+            print("error: invalid geometry '{}'!".format(c))
+            sys.exit(1)
+
+        filelist = [s.strip() for s in c[i1:i2].split(',')]
+        self.G = []
+        for filename in filelist:
+            self.G.append(Grid(filename))
+
+        self.n = 0
+        for G in self.G:
+            self.n += G.n
+
+
+    def load(self, filename):
         grid_interface.load(filename)
         self.n = grid_interface.n
         self.x = grid_interface.x
