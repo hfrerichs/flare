@@ -247,10 +247,8 @@ module run_control
      call FLR_analysis
   case ('melnikov_function')
      call melnikov_function()
-  case ('generate_field_aligned_grid')
-     call generate_field_aligend_grid(Run_Level(1), Run_Level(2))
   case ('generate_3D_fieldline_grid')
-     call generate_field_aligend_grid(Run_Level(1), Run_Level(2))
+     call generate_3D_fieldline_grid(Run_Level(1), Run_Level(2))
   case ('critical_point_analysis')
      !call G%load(Grid_File)
      !call critical_point_analysis(G, D, ind)

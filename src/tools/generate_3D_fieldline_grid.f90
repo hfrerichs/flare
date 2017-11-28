@@ -1,4 +1,4 @@
-subroutine generate_field_aligend_grid (run_level, run_level_end)
+subroutine generate_3D_fieldline_grid (run_level, run_level_end)
   use parallel
   use fieldline_grid
   use emc3_grid
@@ -148,4 +148,4 @@ subroutine generate_field_aligend_grid (run_level, run_level_end)
   endif
 
 
-end subroutine generate_field_aligend_grid
+end subroutine generate_3D_fieldline_grid

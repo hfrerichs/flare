@@ -15,7 +15,7 @@ OBJECTS =  \
                transform_to_flux_coordinates.o\
                generate_mag_file.o\
                generate_magnetic_axis.o\
-               generate_field_aligned_grid.o\
+               generate_3D_fieldline_grid.o\
                flux_surface_grid.o\
                field_line_loss.o\
                generate_separatrix.o\
