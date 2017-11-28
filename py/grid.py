@@ -103,6 +103,7 @@ class Grid(object):
         return self.n
 
 
+    # 2d visualization of data in cells
     def plot2d_cells(self, data, *args, **kwargs):
         m = self.cells()
         if len(data) != m:
@@ -127,3 +128,54 @@ class Grid(object):
 
         if self.layout == STRUCTURED  or  self.layout == SEMI_STRUCTURED:
             plt.pcolormesh(self.x1, self.x2, data, *args, **kwargs)
+
+
+    # 2d visualization of data on nodes
+    # - unstructured nodes -
+    def plot2d_unstructured_nodes(self, data, *args, **kwargs):
+        method = kwargs.get('plot_function', 'tricontourf')
+
+        x1   = self.x[:,0]
+        x2   = self.x[:,1]
+        xmin = min(x1)
+        xmax = max(x1)
+        ymin = min(x2)
+        ymax = max(x2)
+        if method == 'tricontourf':
+            triang = tri.Triangulation(x1, x2)
+            plt.tricontourf(triang, data, *args, **kwargs)
+
+        elif method == 'scipy_griddata_pcontourf':
+            n  = np.sqrt(len(data))
+            xi = np.linspace(xmin, xmax, n)
+            yi = np.linspace(ymin, ymax, n)
+            zi = sgriddata((x1, x2), q, (xi[None,:], yi[:,None]), method='nearest')
+            cs = plt.contourf(xi, yi, zi, *args, **kwargs)
+
+        elif method == 'matplotlib_griddata_pcontourf':
+            n  = np.sqrt(len(data))
+            xi = np.linspace(xmin, xmax, n)
+            yi = np.linspace(ymin, ymax, n)
+            zi = mgriddata(x1, x2, q, xi, yi, interp='linear')
+            cs = plt.contourf(xi, yi, zi, *args, **kwargs)
+
+
+    # - structured nodes -
+    def plot2d_structured_nodes(self, data, *args, **kwargs):
+        if self.layout == STRUCTURED  or  self.layout == SEMI_STRUCTURED:
+            q    = data.reshape(self.n2, self.n1)
+            plt.contourf(self.x1, self.x2, q, *args, **kwargs)
+
+        if self.layout == MESH_2D:
+            x1   = self.x1.reshape(self.n2, self.n1)
+            x2   = self.x2.reshape(self.n2, self.n1)
+            q    = q.reshape(self.n2, self.n1)
+            plt.contourf(x1, x2, q, *args, **kwargs)
+
+
+    # - wrapper -
+    def plot2d_nodes(self, data, *args, **kwargs):
+        if self.layout == UNSTRUCTURED:
+            self.plot2d_unstructured_nodes(data, *args, **kwargs)
+        else:
+            self.plot2d_structured_nodes(data, *args, **kwargs)

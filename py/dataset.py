@@ -216,45 +216,9 @@ class Dataset():
 
         if self.data_type == CELL_DATA:
             G.plot2d_cells(q, vmin=qmin, vmax=qmax)
-            return
+        elif self.data_type == POINT_DATA:
+            G.plot2d_nodes(q, vmin=qmin, vmax=qmax, levels=levels)
 
-
-        if G.layout == STRUCTURED  or  G.layout == SEMI_STRUCTURED:
-            q    = q.reshape(G.n2, G.n1)
-            plt.contourf(G.x1, G.x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
-
-        if G.layout == MESH_2D:
-            x1   = G.x1.reshape(G.n2, G.n1)
-            x2   = G.x2.reshape(G.n2, G.n1)
-            q    = q.reshape(G.n2, G.n1)
-            plt.contourf(x1, x2, q, vmin=qmin, vmax=qmax, levels=levels, *args, **kwargs)
-
-        elif G.layout == UNSTRUCTURED:
-            method = kwargs.get('plot_function', 'tricontourf')
-
-            x1   = G.x[:,0]
-            x2   = G.x[:,1]
-            xmin = min(x1)
-            xmax = max(x1)
-            ymin = min(x2)
-            ymax = max(x2)
-            if method == 'tricontourf':
-                triang = tri.Triangulation(x1, x2)
-                plt.tricontourf(triang, q, levels=levels, *args, **kwargs)
-
-            elif method == 'scipy_griddata_pcontourf':
-                n  = np.sqrt(len(q))
-                xi = np.linspace(xmin, xmax, n)
-                yi = np.linspace(ymin, ymax, n)
-                zi = sgriddata((x1, x2), q, (xi[None,:], yi[:,None]), method='nearest')
-                cs = plt.contourf(xi, yi, zi, levels=levels, *args, **kwargs)
-
-            elif method == 'matplotlib_griddata_pcontourf':
-                n  = np.sqrt(len(q))
-                xi = np.linspace(xmin, xmax, n)
-                yi = np.linspace(ymin, ymax, n)
-                zi = mgriddata(x1, x2, q, xi, yi, interp='linear')
-                cs = plt.contourf(xi, yi, zi, levels=levels, *args, **kwargs)
 
         plt.xlabel(G.x1_label)
         plt.ylabel(G.x2_label)
