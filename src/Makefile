@@ -31,7 +31,7 @@ OBJECTS = \
 
 
 .PHONY: all
-all: $(OBJECTS) $(alldirs) $(FLARELIB) interface
+all: $(OBJECTS) $(alldirs) $(FLARELIB)
 	$(FC) -c $(EXTERNAL_INC) $(CORE_INC) $(GEOMETRY_INC) $(BFIELD_INC) main.f90
 	$(FC) -o ../bin/$(PROGRAM) main.o $(FLARELIB)
 
@@ -68,26 +68,21 @@ debug:
 
 
 .PHONY: install
-install: interface
+install:
 	install -d $(LIBDIR)
 	install $(FLARELIB) $(LIBDIR)
 
 
 .PHONY: uninstall
-uninstall: interface
+uninstall:
 	-rm -f $(LIBDIR)/$(FLARELIB)
 	-rm -d $(LIBDIR)
 
 
 .PHONY: clean
-clean: $(alldirs) interface
+clean: $(alldirs)
 	rm -rf *.o
 	rm -rf *.mod
-
-
-.PHONY: interface
-interface:
-	cd $@; $(MAKE) $(MAKECMDGOALS)
 
 
 .PHONY: $(alldirs)

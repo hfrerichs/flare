@@ -9,6 +9,11 @@ SOURCES = types.f90\
           grid3dgen_interface.f90\
           mesh_spacing_interface.f90
 
+FLARE_SRC_DIR = ../../src
+INC_DIRS = "" $(BFIELD_DIR) $(CORE_DIR) $(GEOMETRY_DIR) $(GRIDGEN_DIR)
+INC = $(foreach dir,$(INC_DIRS),-I$(FLARE_SRC_DIR)/$(dir))
+LIB = -L$(FLARE_SRC_DIR) -lFLARE
+
 BACKEND = backend
 
 INSTALLDIR = $(PYTHONDIR)/flare
@@ -16,7 +21,7 @@ INSTALLDIR = $(PYTHONDIR)/flare
 
 .PHONY: all clean install uninstall
 all:
-	f2py -I.. -I../$(BFIELD_DIR) -I../$(CORE_DIR) -I../$(GEOMETRY_DIR) -I../$(GRIDGEN_DIR) -c $(SOURCES) -m $(BACKEND) -L.. -lFLARE
+	f2py $(INC) -c $(SOURCES) -m $(BACKEND) $(LIB)
 
 
 clean:
