@@ -70,7 +70,7 @@ $prefix $mpiexec $procs $flare $cmd $ctrl_file
 command=$1
 shift
 case $command in
---help)
+-h|--help)
     echo -e "FLARE - a Field Line Analysis and Reconstruction Environment\n"
     echo -e "usage: flare {info,equi2d,grid,plot,run} ..."
     echo "    run                 run FLARE backend"
