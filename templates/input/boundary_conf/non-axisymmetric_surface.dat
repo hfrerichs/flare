@@ -1,0 +1,17 @@
+# This is a non-axisymmetric surface with 3 x 4 points (2 x 3 segments) in toroidal x poloidal direction, n = 5 toroidal symmetry, shifted by (0.0, 0.0) in R, Z direction
+3    4    5    0.0    0.0
+Phi0
+R0(Phi0)  Z0(Phi0)
+R1(Phi0)  Z1(Phi0)
+R2(Phi0)  Z2(Phi0)
+R3(Phi0)  Z3(Phi0)
+Phi1
+R0(Phi1)  Z0(Phi1)
+R1(Phi1)  Z1(Phi1)
+R2(Phi1)  Z2(Phi1)
+R3(Phi1)  Z3(Phi1)
+Phi2
+R0(Phi2)  Z0(Phi2)
+R1(Phi2)  Z1(Phi2)
+R2(Phi2)  Z2(Phi2)
+R3(Phi2)  Z3(Phi2)
