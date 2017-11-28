@@ -49,11 +49,6 @@ program main
      call finished_bfield()
 
 
-  ! import equilibrium into database
-  case('import')
-     call import_equilibrium()
-
-
   ! debug specific subroutine
   case('DEBUG')
      call get_command_argument(2, subroutine_name)
