@@ -1,6 +1,11 @@
 #!/bin/bash
 
-run() {
+main() {
+
+# set main command (run or subroutine)
+cmd=$1
+shift
+
 # set default values
 ctrl_file=run.conf
 procs=1
@@ -48,13 +53,14 @@ while getopts ":c:p:m:dD:h" opt; do
         ;;
     esac
 done
+shift $((OPTIND -1))
 
 
 # run FLARE
 if $debug; then
-    $debugger $mpiexec $procs $flare run $ctrl_file
+    $debugger $mpiexec $procs $flare $cmd $ctrl_file
 else
-    $mpiexec $procs $flare run $ctrl_file
+    $mpiexec $procs $flare $cmd $ctrl_file
 fi
 }
 
@@ -73,8 +79,13 @@ case $command in
     echo "    grid                access grid related functions"
     exit 0
     ;;
-"run")
-    run $@
+run)
+    main run $@
+    ;;
+subroutine)
+    subroutine=$1
+    shift
+    main "$command $subroutine" $@
     ;;
 "info")
     flare-info $@

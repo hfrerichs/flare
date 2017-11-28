@@ -50,7 +50,7 @@ program main
 
 
   ! debug specific subroutine
-  case('DEBUG')
+  case('subroutine')
      call get_command_argument(2, subroutine_name)
      call debug_subroutine(trim(subroutine_name))
 
