@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import argparse
 
-import flare.pyplot as fplt
+from flare.dataset import Dataset
 
 
 
@@ -12,7 +12,7 @@ def info():
     parser = argparse.ArgumentParser(prog="flare info")
     parser.add_argument("data_file")
     args   = parser.parse_args()
-    print fplt.Data(args.data_file)
+    print Dataset(args.data_file)
 #===============================================================================
 
 

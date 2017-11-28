@@ -1,6 +1,6 @@
 include ../../include.mk
 
-MODULES = __init__.py plot_lc.py plot_1d.py plot_2d.py plot_data.py
+MODULES = __init__.py plot_lc.py plot_1d.py plot_2d.py
 
 
 .PHONY: all install clean uninstall

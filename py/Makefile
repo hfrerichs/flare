@@ -6,7 +6,9 @@ MODULES = __init__.py\
           equi2d.py\
           boundary.py\
           separatrix.py\
-          grid.py
+          grid.py\
+          dataset.py\
+          plot_data.py
 
 INSTALLDIR = $(PYTHONDIR)/flare
 

@@ -2,7 +2,7 @@
 import argparse
 
 import matplotlib.pyplot as plt
-import flare.pyplot      as fplt
+import flare.plot_data
 
 
 
@@ -17,7 +17,7 @@ def plot():
     parser.add_argument("-pf", "--plot_function", choices=plot_functions, default=plot_functions[0], help="select plot function for unstructured data")
     parser.add_argument("data_file")
     args   = parser.parse_args()
-    fplt.plot_data(args.data_file, args.data_key, args.geometry_file, plot_function=args.plot_function)
+    flare.plot_data.plot_data(args.data_file, args.data_key, args.geometry_file, plot_function=args.plot_function)
     plt.show()
 #===============================================================================
 
