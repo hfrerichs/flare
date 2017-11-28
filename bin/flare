@@ -67,13 +67,34 @@ $prefix $mpiexec $procs $flare $cmd $ctrl_file
 
 
 
+config() {
+run_conf=run.conf
+if [ -e "$run_conf" ]; then
+    echo "error: $run_conf already exists!"
+    exit 1
+fi
+echo -e "&RunControl\n"                                 > $run_conf
+echo    "   ! Choose input from database"              >> $run_conf
+echo    "   Machine         =  'select machine'"       >> $run_conf
+echo    "   Configuration   =  'select configuration'" >> $run_conf
+
+echo -e "\n"                                           >> $run_conf
+echo    "   ! Choose which sub-program to run"         >> $run_conf
+echo    "   Run_Type        =  'select what to to'"    >> $run_conf
+echo -e "\n/"                                          >> $run_conf
+
+}
+
+
+
 command=$1
 shift
 case $command in
 -h|--help)
     echo -e "FLARE - a Field Line Analysis and Reconstruction Environment\n"
-    echo -e "usage: flare {info,equi2d,geometry,plot,run} ..."
+    echo -e "usage: flare {config,info,equi2d,geometry,plot,run} ..."
     echo "    run                 run FLARE backend"
+    echo "    config              create template run configuration file"
     echo "    info                query data file for available data"
     echo "    plot                plot data file (e.g. connection length)"
     echo "    equi2d              access axisymmetric equilibrium data"
@@ -87,6 +108,9 @@ subroutine)
     subroutine=$1
     shift
     main "$command $subroutine" $@
+    ;;
+config)
+    config
     ;;
 info)
     flare-info $@
