@@ -82,8 +82,11 @@ subroutine generate_3D_fieldline_grid (run_level, run_level_end)
   if (level(2)) then
      if (mesh_generator == MANUAL) then
         call make_base_grids()
-     else
+     elseif (mesh_generator == ORTHOGONAL) then
         call make_base_mesh_generic()
+     else
+        write (6, *) 'error: invalid mesh generator ', mesh_generator
+        stop
      endif
   endif
 
