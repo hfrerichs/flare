@@ -1,7 +1,7 @@
 include ../include.mk
 
 SCRIPT = flare
-TARGETS = flare-info flare-plot flare-equi2d flare-grid
+TARGETS = flare-info flare-plot flare-equi2d flare-geometry
 
 
 .PHONY: all install clean uninstall $(TARGETS)

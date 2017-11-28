@@ -72,12 +72,12 @@ shift
 case $command in
 -h|--help)
     echo -e "FLARE - a Field Line Analysis and Reconstruction Environment\n"
-    echo -e "usage: flare {info,equi2d,grid,plot,run} ..."
+    echo -e "usage: flare {info,equi2d,geometry,plot,run} ..."
     echo "    run                 run FLARE backend"
     echo "    info                query data file for available data"
     echo "    plot                plot data file (e.g. connection length)"
     echo "    equi2d              access axisymmetric equilibrium data"
-    echo "    grid                access grid related functions"
+    echo "    geometry            user defined geometry functions"
     exit 0
     ;;
 run)
@@ -97,8 +97,8 @@ plot)
 equi2d)
     flare-equi2d $@
     ;;
-grid)
-    flare-grid $@
+geometry)
+    flare-geometry $@
     ;;
 "")
     echo "error: no command given. See 'flare --help'."

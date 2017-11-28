@@ -26,7 +26,7 @@ def nodes(args):
 # GRID.main
 def grid():
     # create main parser
-    parser     = argparse.ArgumentParser(prog="flare grid")
+    parser     = argparse.ArgumentParser(prog="flare geometry")
     subparsers = parser.add_subparsers(title="commands")
 
 
