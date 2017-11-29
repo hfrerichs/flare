@@ -38,7 +38,7 @@ module HINT
   mag_form = data_format
   write (6, *)
   write (6, 1001)
-  open  (25, file=trim(Prefix)//data_file, form='unformatted', status='old')
+  open  (25, file=trim(Prefix)//data_file, form='unformatted', status='old', convert='big_endian')
   call magset()
   close (25)
 

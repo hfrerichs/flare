@@ -92,12 +92,13 @@ shift
 case $command in
 -h|--help)
     echo -e "FLARE - a Field Line Analysis and Reconstruction Environment\n"
-    echo -e "usage: flare {config,info,equi2d,geometry,plot,run} ..."
+    echo -e "usage: flare {run,config,info,plot,equi2d,equi3d,geometry} ..."
     echo "    run                 run FLARE backend"
     echo "    config              create template run configuration file"
     echo "    info                query data file for available data"
     echo "    plot                plot data file (e.g. connection length)"
     echo "    equi2d              access axisymmetric equilibrium data"
+    echo "    equi3d              non-axisymmetric equilibrium related functions"
     echo "    geometry            user defined geometry functions"
     exit 0
     ;;
@@ -120,6 +121,9 @@ plot)
     ;;
 equi2d)
     flare-equi2d $@
+    ;;
+equi3d)
+    flare-equi3d $@
     ;;
 geometry)
     flare-geometry $@

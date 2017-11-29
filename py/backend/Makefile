@@ -7,7 +7,8 @@ SOURCES = types.f90\
           equi2d_interface.f90\
           separatrix_interface.f90\
           grid3dgen_interface.f90\
-          mesh_spacing_interface.f90
+          mesh_spacing_interface.f90\
+          tools_interface.f90
 
 FLARE_SRC_DIR = ../../src
 INC_DIRS = "" $(BFIELD_DIR) $(CORE_DIR) $(GEOMETRY_DIR) $(GRIDGEN_DIR)
