@@ -167,9 +167,16 @@ class Dataset():
 
     # return derived data
     def get_derived_data(self, qkey):
+        # prepare labeled data (by key)
         for q0 in self.q:
             if re.search(q0, self.q_derived[qkey][0]):
                 exec("{} = self.get_data('{}')".format(q0, q0))
+        # prepare raw data (by column number)
+        for i in range(self.d.shape[1]):
+            q0 = 'COLUMN{}'.format(i+1)
+            if re.search(q0, self.q_derived[qkey][0]):
+                exec("{} = self.get_data('{}')".format(q0, q0))
+
         try:
             exec("d = "+self.q_derived[qkey][0])
         except:
@@ -182,10 +189,16 @@ class Dataset():
 
     # return data qkey
     def get_data(self, qkey):
+        # 1. qkey is derived data
         if qkey in self.q_derived: return self.get_derived_data(qkey)
-
-        i = self.q.keys().index(qkey)
-        return self.d[:,i]
+        # 2. qkey is primary data
+        if qkey in self.q:
+            i = self.q.keys().index(qkey)
+            return self.d[:,i]
+        # 3. qkey is column number
+        if qkey.startswith('COLUMN'):
+            i = int(qkey[6:])
+            return self.d[:,i-1]
 
     def get_data_label(self, qkey):
         if qkey in self.q_derived: return self.q_derived[qkey][1]
