@@ -9,7 +9,7 @@ from dataset import Dataset
 #   data_file
 #   qkey        data key
 #   grid_file   (optional) non-default geometry
-def plot_data(data_file, qkey, grid_file=None, *args, **kwargs):
+def plot_data(data_file, qkey, grid_file=None, dimension=None, *args, **kwargs):
     qkey = re.sub('\$', 'COLUMN', qkey)
 
     # get data abstract
@@ -44,6 +44,7 @@ def plot_data(data_file, qkey, grid_file=None, *args, **kwargs):
 
     # select plot type
     ndim = d.get_data_dimension()
+    if dimension: ndim = dimension
     if ndim == 2:
         #print "plotting", qkey, "on", grid_file
         d.plot_2d(qkey, grid_file, *args, **kwargs)
