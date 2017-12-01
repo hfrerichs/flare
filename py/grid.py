@@ -1,6 +1,9 @@
 from copy import copy
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.tri    as tri
+from matplotlib.mlab   import griddata as mgriddata
+from scipy.interpolate import griddata as sgriddata
 
 from backend import grid_interface
 
@@ -20,11 +23,13 @@ CYL_LABEL = ['Major Radius [cm]', 'Vertical coordinate [cm]', 'Toroidal Angle [d
 
 
 class Grid(object):
-    def __init__(self, filename):
-        if filename.startswith("COMPOSITE"):
-            self.load_composite(filename)
-        else:
-            self.load(filename)
+    def __init__(self, filename=None, layout=None):
+        self.layout = layout
+        if filename:
+            if filename.startswith("COMPOSITE"):
+                self.load_composite(filename)
+            else:
+                self.load(filename)
 
 
     def load_composite(self, c):
