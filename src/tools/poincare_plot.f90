@@ -89,6 +89,7 @@ subroutine poincare_plot
   if (firstP) then
   if (N_mult == 1) then
      open  (iu, file=Output_File)
+     call write_header(iu)
   else
      do imult=0,N_mult-1
         tmp_filename = Output_File
@@ -106,6 +107,7 @@ subroutine poincare_plot
         write (smult, *) imult
         tmp_filename = trim(tmp_filename)//'_'//trim(adjustl(smult))//trim(suffix)
         open  (iu+imult, file=tmp_filename)
+        call write_header(iu+imult)
      enddo
   endif
   endif
@@ -263,4 +265,21 @@ subroutine poincare_plot
  4000 format (5x,i5,',',8x,'L_c = ',f9.2,' m,',8x,'n_points = ',i5)
  4001 format (5x,i5,',',8x,'L_c > ',f9.2,' m,',8x,'n_points = ',i5)
  4002 format (5x,i5,',',8x,'Field line leaves magnetic field domain')
+  contains
+  subroutine write_header(iu)
+  integer, intent(in) :: iu
+
+  write (iu, 5001)
+  write (iu, 5002) 'R "Major radius [cm]"'
+  write (iu, 5002) 'Z "Vertical coordinate [cm]"'
+  write (iu, 5002) 'Theta "Poloidal angle [deg]"'
+  write (iu, 5002) 'PsiN "Normalized poloidal flux"'
+  write (iu, 5003)
+  write (iu, 5004) "R-Z"
+  write (iu, 5004) "Theta-PsiN"
+ 5001 format("# DATA DIMENSION 2D")
+ 5002 format("# DATA COLUMN ",a)
+ 5003 format("# TYPE POINT_DATA")
+ 5004 format("# GEOMETRY ",a)
+  end subroutine write_header
 end subroutine poincare_plot

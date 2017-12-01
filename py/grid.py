@@ -184,3 +184,8 @@ class Grid(object):
             self.plot2d_unstructured_nodes(data, *args, **kwargs)
         else:
             self.plot2d_structured_nodes(data, *args, **kwargs)
+
+
+    def plot2d_points(self, *args, **kwargs):
+        if self.layout == UNSTRUCTURED:
+            plt.scatter(self.x[:,0], self.x[:,1], *args, **kwargs)

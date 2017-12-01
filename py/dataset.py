@@ -2,9 +2,6 @@ import os, sys
 import re
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.tri    as tri
-from matplotlib.mlab   import griddata as mgriddata
-from scipy.interpolate import griddata as sgriddata
 from collections       import OrderedDict
 
 from flare import Grid, UNSTRUCTURED, STRUCTURED, SEMI_STRUCTURED, MESH_2D
@@ -17,8 +14,10 @@ FLARE_DATA_COLUMN    = "# DATA COLUMN"
 FLARE_DERIVED_DATA   = "# DERIVED DATA"
 
 PLOT_2D = "2D"
+FILE       = "FILE"
 POINT_DATA = "POINT_DATA"
 CELL_DATA  = "CELL_DATA"
+NODE_DATA  = "NODE_DATA"
 
 SUBST = [
     ['min', 'np.minimum'],
@@ -32,8 +31,8 @@ class Dataset():
         self.q_derived = OrderedDict()
         self.ndim      = None
         self.data_file = data_file
-        self.data_type = POINT_DATA
-        self.geometry  = None
+        self.data_type = NODE_DATA
+        self.geometry  = OrderedDict()
 
         if not os.path.isfile(data_file):
             print "error: data file '{}' does not exist!".format(data_file)
@@ -52,8 +51,12 @@ class Dataset():
 
             # set geometry
             if s.startswith(FLARE_GEOMETRY):
-                self.geometry = s[len(FLARE_GEOMETRY):].strip()
-                #print "geometry = '{}'".format(self.geometry)
+                g = s[len(FLARE_GEOMETRY):].strip()
+                if g.startswith(FILE):
+                    filename = g[len(FILE):].strip()
+                    self.geometry[filename] = FILE
+                else:
+                    self.geometry[g] = g
 
             # set data type
             if s.startswith(FLARE_DATA_TYPE):
@@ -118,8 +121,8 @@ class Dataset():
 
     # returns true if derived data dkey is available
     def __str__(self):
-        if self.ndim == None  or not self.q:
-            return "Data dimension missing or no data description available\n"
+        if not self.q:
+            return "no data description available\n"
 
         info = "Available data:\n"
         for key, value in self.q.items():
@@ -143,8 +146,35 @@ class Dataset():
         return ndim
 
 
-    def get_geometry(self):
-        return self.geometry
+    def make_geometry(self, recipe):
+        xy = recipe.split('-')
+        geometry = Grid(layout=UNSTRUCTURED)
+        x1       = self.get_data(xy[0])
+        x2       = self.get_data(xy[1])
+        geometry.x = np.concatenate((x1, x2)).reshape(2, len(x1)).T
+        geometry.x1_label = self.get_data_label(xy[0])
+        geometry.x2_label = self.get_data_label(xy[1])
+        return geometry
+
+
+    def get_geometry(self, user_geometry=None):
+        if user_geometry:
+            if user_geometry in self.geometry:
+                recipe = self.geometry[user_geometry]
+                return self.make_geometry(recipe)
+            else:
+                return Grid(user_geometry)
+
+        # try default geometry
+        if len(self.geometry) == 0:
+            print "error: geometry is undefined!"
+            sys.exit(1)
+        key    = self.geometry.keys()[0]
+        recipe = self.geometry[key]
+        if recipe == FILE:
+            return Grid(key)
+        else:
+            return self.make_geometry(recipe)
 
 
     def available_data(self):
@@ -207,16 +237,7 @@ class Dataset():
 
 
     def plot_2d(self, qkey, geometry=None, *args, **kwargs):
-        # load user defined geometry
-        if geometry:
-            G = Grid(geometry)
-        # load default geometry
-        else:
-            if not self.geometry:
-                print "error: geometry is undefined!"
-                sys.exit(2)
-            G = Grid(self.geometry)
-
+        geometry = self.get_geometry(user_geometry=geometry)
 
         # prepare data
         q    = self.get_data(qkey)
@@ -228,13 +249,18 @@ class Dataset():
         levels = np.linspace(qmin, qmax, 64)
 
         if self.data_type == CELL_DATA:
-            G.plot2d_cells(q, vmin=qmin, vmax=qmax)
+            geometry.plot2d_cells(q, vmin=qmin, vmax=qmax)
+        elif self.data_type == NODE_DATA:
+            geometry.plot2d_nodes(q, vmin=qmin, vmax=qmax, levels=levels)
         elif self.data_type == POINT_DATA:
-            G.plot2d_nodes(q, vmin=qmin, vmax=qmax, levels=levels)
+            geometry.plot2d_points(q, c=q)
+        else:
+            print("error: invalid data type '{}'!".format(data_type))
+            sys.exit(1)
 
 
-        plt.xlabel(G.x1_label)
-        plt.ylabel(G.x2_label)
+        plt.xlabel(geometry.x1_label)
+        plt.ylabel(geometry.x2_label)
         cbar = plt.colorbar()
         qlabel = self.get_data_label(qkey)
         cbar.set_label(qlabel)
