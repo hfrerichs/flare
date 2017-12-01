@@ -219,7 +219,7 @@ module dataset
   if (this%ndim >= 0) write (iu0, 2001) this%ndim
   if (this%geometry /= '') write (iu0, 2002) trim(this%geometry)
  2001 format("# DATA DIMENSION ",i0,'D')
- 2002 format("# GEOMETRY ",a)
+ 2002 format("# GEOMETRY FILE ",a)
   do i=1,this%ncol
      if (this%col(i)%key /= '') write (iu0, 2003) trim(this%col(i)%key), trim(this%col(i)%label)
   enddo
