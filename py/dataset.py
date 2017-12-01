@@ -253,7 +253,7 @@ class Dataset():
         elif self.data_type == NODE_DATA:
             geometry.plot2d_nodes(q, vmin=qmin, vmax=qmax, levels=levels)
         elif self.data_type == POINT_DATA:
-            geometry.plot2d_points(q, c=q)
+            geometry.plot2d_points(c=q)
         else:
             print("error: invalid data type '{}'!".format(data_type))
             sys.exit(1)

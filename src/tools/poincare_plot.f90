@@ -275,8 +275,8 @@ subroutine poincare_plot
   write (iu, 5002) 'Theta "Poloidal angle [deg]"'
   write (iu, 5002) 'PsiN "Normalized poloidal flux"'
   write (iu, 5003)
-  write (iu, 5004) "R-Z"
   write (iu, 5004) "Theta-PsiN"
+  write (iu, 5004) "R-Z"
  5001 format("# DATA DIMENSION 2D")
  5002 format("# DATA COLUMN ",a)
  5003 format("# TYPE POINT_DATA")
