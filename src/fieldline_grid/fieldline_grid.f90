@@ -768,55 +768,12 @@ module fieldline_grid
   integer, parameter :: iu = 72
 
 
-  call write_info()
   call write_input_geo()
   call write_input_n0g()
   !call write_input_par()
   call write_ADD_SF_N0()
 
   contains
-  !---------------------------------------------------------------------
-  subroutine write_info
-  real(real64) :: Atot, A
-  integer      :: iz, irun, iside, nb, nc
-
-
-  ! generate surface splitting factors
-  Atot = 0.d0
-  open  (iu, file='EMC3_BOUNDARIES')
-  do irun=0,1
-  nb   = 0
-  nc   = 0
-  do iz=0,NZONET-1
-  do iside=1,2
-     ! core boundary
-     if (Zone(iz)%isfr(iside) == SF_CORE) then
-        nb = nb + 1
-        nc = nc + 1
-        ! define weight by toroidal size of zone
-        A  = Zone(iz)%phi(Zone(iz)%nt) - Zone(iz)%phi(0)
-        ! TODO: calculate area of innermost surface
-        if (irun == 0) then
-           Atot = Atot + A
-        else
-           write (iu, 2001) nb
-           write (iu, 2011) nc, A/Atot
-        endif
-     endif
-
-     ! vacuum boundary
-     if (Zone(iz)%isfr(iside) == SF_VACUUM) then
-        nb = nb + 1;   if (irun == 1) write (iu, 2002) nb
-     endif
-  enddo
-  enddo
-  enddo
-  close (iu)
- 2001 format("emc3_boundary[",i0,"]=EMC3_SF_CORE")
- 2002 format("emc3_boundary[",i0,"]=EMC3_SF_VACUUM")
- 2011 format("core_interface_split_factor[",i0,"]=",e11.5)
-
-  end subroutine write_info
   !---------------------------------------------------------------------
   subroutine write_input_geo
   real(real64) :: Atot, A
