@@ -819,7 +819,8 @@ module fieldline_grid
   end subroutine write_info
   !---------------------------------------------------------------------
   subroutine write_input_geo
-  integer :: ir, ip, it, iz, irun, n
+  real(real64) :: Atot, A
+  integer :: ir, ip, it, iz, irun, iside, n
 
 
   open  (iu, file='input.geo')
@@ -930,31 +931,37 @@ module fieldline_grid
   enddo
 
   ! 2.2 non transparent surfaces (boundary conditions)
+  Atot = 0.d0
   write (iu, 2005)
   ! 2.2.a - radial
   write (iu, 2002)
-  n = 0
   do irun=0,1
      ! write number of non transparent radial surfaces
      if (irun == 1) write (iu, *) n
+     n = 0
 
      do iz=0,NZONET-1
-        if (Zone(iz)%isfr(1) < 0) then
+     do iside=1,2
+        if (Zone(iz)%isfr(iside) == SF_CORE) then
+           A = Zone(iz)%phi(Zone(iz)%nt) - Zone(iz)%phi(0)
+           n = n + 1
            if (irun == 0) then
-              n = n + 1
+              Atot = Atot + A
            else
-              write (iu, *) R_SURF_PL_TRANS_RANGE(1,iz), iz, 1
-              write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
+              write (iu, 2010) n, A/Atot
            endif
         endif
-        if (Zone(iz)%isfr(2) < 0) then
-           if (irun == 0) then
-              n = n + 1
-           else
-              write (iu, *) R_SURF_PL_TRANS_RANGE(2,iz), iz, -1
-              write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
-           endif
+        if (Zone(iz)%isfr(iside) == SF_VACUUM) then
+           n = n + 1
+           if (irun == 1) write (iu, 2011) n
         endif
+
+
+        if (irun == 1  .and.  Zone(iz)%isfr(iside) < 0) then
+           write (iu, *) R_SURF_PL_TRANS_RANGE(iside,iz), iz, (-1)**(iside+1)
+           write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
+        endif
+     enddo
      enddo
   enddo
   ! 2.2.b - poloidal
@@ -1002,6 +1009,8 @@ module fieldline_grid
  2004 format ('* toroidal')
  2005 format ('*** 2.2 non transparent surface (Boundary condition must be defined)')
  2006 format ('*** 2.3 plate surface (Bohm Boundary condition)')
+ 2010 format ('* ',i0,': CORE BOUNDARY 'e11.5)
+ 2011 format ('* ',i0,': VACUUM BOUNDARY ')
 
 
   ! 3. physical cell definition
