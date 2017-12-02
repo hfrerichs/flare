@@ -781,11 +781,6 @@ module fieldline_grid
   integer      :: iz, irun, iside, nb, nc
 
 
-  open  (iu, file='SYMMETRY')
-  write (iu, 1001) symmetry
-  close (iu)
- 1001 format('symmetry=',i0)
-
   ! generate surface splitting factors
   Atot = 0.d0
   open  (iu, file='EMC3_BOUNDARIES')
@@ -829,7 +824,9 @@ module fieldline_grid
 
   open  (iu, file='input.geo')
   write (iu, 1000)
+  write (iu, 1010) symmetry
  1000 format ('* geometry information for EMC3')
+ 1010 format ('* SYMMETRY ',i0)
 
   ! 1. geometry, mesh resolution
   write (iu, 9999)
