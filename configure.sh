@@ -130,7 +130,7 @@ elif type gfortran >/dev/null 2>/dev/null; then
 	echo "COMPILER       = gfortran" >> include.mk
 fi
 echo "OPT            = -O2 -fconvert=big-endian" >> include.mk
-echo "OPT_DEBUG      = -g  -fconvert=big-endian" >> include.mk
+echo "OPT_DEBUG      = -g  -fconvert=big-endian -fcheck=all -ffpe-trap=zero,overflow,invalid -fbacktrace" >> include.mk
 echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
@@ -147,7 +147,7 @@ else
 	FGSL_LIBS=`pkg-config --libs fgsl`
 	if [ "$FGSL_LIBS" == "" ]; then
 		echo "error: cannot find FGSL libraries"
-		exit
+		exit 1
 	fi
 
 	gsl_version=`pkg-config --modversion gsl`
