@@ -72,7 +72,7 @@ subroutine field_line_loss
  1006 format(3x,'- Reference length [m]:           ',5x,f0.2)
  1007 format(3x,'- Reference length [m]:           ',5x,i0,' x ',f0.2,' = ',f0.2)
 
-     call D%new(N_Psi * N_theta, 2)
+     call D%new(N_Psi * N_steps, 2)
      call D%set_info(2, trim(Grid_File))
      call D%set_column_info(1, 'Floss_bwd', 'Field line losses (backward direction)')
      call D%set_column_info(2, 'Floss_fwd', 'Field line losses (forward  direction)')
@@ -136,7 +136,7 @@ subroutine field_line_loss
      n     = N_phi * N_theta
      if (firstP) then
         do j=1,N_steps
-           ig = G%index(i,j)
+           ig = G%index(i,j-1)
            D%x(ig,1) = 1.d0*iloss(-1,j)/n
            D%x(ig,2) = 1.d0*iloss( 1,j)/n
         enddo
