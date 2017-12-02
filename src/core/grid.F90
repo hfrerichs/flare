@@ -1052,6 +1052,8 @@ module grid
 
 
 !=======================================================================
+! return index in this%x: 1 -> n
+!=======================================================================
   function index(this, i1, i2, i3)
   class(t_grid)       :: this
   integer, intent(in) :: i1, i2
@@ -1061,6 +1063,7 @@ module grid
 
 
   index = 0
+  ! indices in structured grid x1, x2, x3: 1 -> n1, n2, n3
   if (this%layout == STRUCTURED) then
      index = (i2-1)*this%n1  +  i1
      if (this%fixed_coord /= 0) then
@@ -1071,7 +1074,8 @@ module grid
         index = index + (i3-1)*this%n1*this%n2
      endif
   endif
-  if (this%layout == MESH_2D) index = (i2-1)*this%n1  +  i1
+  ! mesh indices: 0 -> n1-1, n2-1, n3-1
+  if (this%layout == MESH_2D) index = i2*this%n1  +  i1  +  1
 
   end function index
 !=======================================================================
