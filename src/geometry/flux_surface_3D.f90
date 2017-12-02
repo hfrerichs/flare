@@ -72,7 +72,7 @@ module flux_surface_3D
 
   ! set up curve for re-sampling
   call C%new(D%nrow)
-  C%x = D%x(:,1:2);  C%x(D%nrow,1:2) = D%x(1,1:2)
+  C%x(0:D%nrow-1,1:2) = D%x(:,1:2);  C%x(D%nrow,1:2) = D%x(1,1:2)
   call C%setup_length_sampling()
 
   ! re-sample points on flux surface
