@@ -136,7 +136,7 @@ subroutine field_line_loss
      n     = N_phi * N_theta
      if (firstP) then
         do j=1,N_steps
-           ig = G%index(i,j-1)
+           ig = P%index(j,i+1)
            D%x(ig,1) = 1.d0*iloss(-1,j)/n
            D%x(ig,2) = 1.d0*iloss( 1,j)/n
         enddo

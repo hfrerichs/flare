@@ -1066,7 +1066,7 @@ module grid
   ! indices in structured grid x1, x2, x3: 1 -> n1, n2, n3
   if (this%layout == STRUCTURED) then
      index = (i2-1)*this%n1  +  i1
-     if (this%fixed_coord /= 0) then
+     if (this%fixed_coord == 0) then
         if (.not.present(i3)) then
            write (6, *) 'error in t_grid%index: i3 required!'
            stop
