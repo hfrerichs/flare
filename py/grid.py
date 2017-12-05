@@ -174,7 +174,7 @@ class Grid(object):
         if self.layout == MESH_2D:
             x1   = self.x1.reshape(self.n2, self.n1)
             x2   = self.x2.reshape(self.n2, self.n1)
-            q    = q.reshape(self.n2, self.n1)
+            q    = data.reshape(self.n2, self.n1)
             plt.contourf(x1, x2, q, *args, **kwargs)
 
 
