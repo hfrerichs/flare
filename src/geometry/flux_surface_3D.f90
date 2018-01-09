@@ -123,7 +123,7 @@ module flux_surface_3D
   C%x(1:i180,1:2) = D%x(1:i180,1:2)
 
   ! set 1st node
-  D%x(D%nrow,3) = D%x(D%nrow,3) - 360.d0
+  !D%x(D%nrow,3) = D%x(D%nrow,3) - 360.d0
   t = D%x(1,2) / (D%x(1,2) - D%x(D%nrow,2))
   C%x(0,1:2) = D%x(1,1:2) + t * (D%x(D%nrow,1:2) - D%x(1,1:2))
 
