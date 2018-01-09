@@ -6,10 +6,14 @@ program main
   use bfield
   use equilibrium
   use boundary
+  use exceptions
   implicit none
 
   character(len=128) :: keyword, input_file, subroutine_name
   real(real64) :: t1, t2, t3
+
+
+  call init_exception()
 
 
   ! Initialize parallel execution (using MPI)

@@ -2,7 +2,7 @@ module exceptions
   implicit none
 
   logical, dimension(1), target :: EXCEPTION = .false.
-  logical, pointer :: OUT_OF_BOUNDS => EXCEPTION(1)
+  logical, pointer :: OUT_OF_BOUNDS
 
   contains
   !---------------------------------------------------------------------
@@ -24,6 +24,14 @@ module exceptions
 
   flag = .false.
   end subroutine reset
+  !---------------------------------------------------------------------
+
+
+
+  !---------------------------------------------------------------------
+  subroutine init_exception()
+  OUT_OF_BOUNDS => EXCEPTION(1)
+  end subroutine init_exception
   !---------------------------------------------------------------------
 
 end module exceptions
