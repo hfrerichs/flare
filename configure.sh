@@ -121,13 +121,16 @@ echo
 echo "# Fortran compiler and options"			>> include.mk
 if type mpif90 >/dev/null 2>/dev/null; then
 	echo "Compiling with MPI support" | tee -a $LOG_FILE
-	echo "COMPILER       = mpif90 -DMPI" >> include.mk
+	echo "COMPILER       = mpifort -DMPI" >> include.mk
+	compiler=$(mpifort --showme:command)
 elif type ifort >/dev/null 2>/dev/null; then
 	echo "Using Intel Fortran compiler" | tee -a $LOG_FILE
 	echo "COMPILER       = ifort" >> include.mk
+	compiler=ifort
 elif type gfortran >/dev/null 2>/dev/null; then
 	echo "Using GNU Fortran compiler" | tee -a $LOG_FILE
 	echo "COMPILER       = gfortran" >> include.mk
+	compiler=gfortran
 fi
 echo "OPT            = -O2 -fconvert=big-endian" >> include.mk
 echo "OPT_DEBUG      = -g  -fconvert=big-endian -fcheck=all -ffpe-trap=zero,overflow,invalid -fbacktrace" >> include.mk
@@ -265,6 +268,13 @@ for (( i=0; i<${n_ode}; i++ )); do
 done
 echo "ODE_FLAGS      = $ODE_FLAGS"			>> include.mk
 echo "ODE_OBJECTS    = $ODE_OBJECTS"			>> include.mk
+echo "" >> include.mk
+# ------------------------------------------------------------------------------
+
+
+# f2py--------------------------------------------------------------------------
+echo "# f2py " >> include.mk
+echo "F2PY           = f2py --fcompiler=$compiler"	>> include.mk
 echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
