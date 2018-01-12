@@ -324,7 +324,8 @@ module grid
      ! read list of (x(coord1), x(coord2))
      do i=1,n1
         y1 = 0.d0
-        read  (iu, *, end=3200) y2, y1(1)
+        read  (iu, 2000) str
+        read  (str, *, end=3200) y2, y1(1)
  3200 continue
         this%x1(i) = y1(1)
 
