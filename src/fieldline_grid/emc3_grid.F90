@@ -166,9 +166,10 @@ module emc3_grid
   call scrape(iu, readfi)
   read (readfi, *) n
   do i=1,n
-     read  (iu, *) ir, iz, itmp
+     call scrape(iu, readfi)
+     read  (readfi, *) ir, iz, itmp
      write (6,  *) ir, iz, itmp
-     read  (iu, *) readfi
+     call scrape(iu, readfi)
      R_SURF_PL_TRANS_RANGE(1,iz) = min(R_SURF_PL_TRANS_RANGE(1,iz), ir)
      R_SURF_PL_TRANS_RANGE(2,iz) = max(R_SURF_PL_TRANS_RANGE(2,iz), ir)
   enddo
