@@ -28,7 +28,7 @@ module mesh_spacing
      character(len=256) :: dist = LINEAR
 
      integer :: nc ! number of coefficients
-     real(real64), dimension(:), allocatable :: c ! internal coefficients
+     real(real64),    dimension(:), pointer  :: c => null() ! internal coefficients
      type(t_curve) :: D
      type(t_spacing), dimension(:), pointer  :: S
 
@@ -64,7 +64,7 @@ module mesh_spacing
   real(real64) :: eps, kap, del, phi0, dphi, Delta, R, eta1, xi1, beta
 
 
-  if (allocated(this%c)) deallocate(this%c)
+  if (associated(this%c)) deallocate(this%c)
   ! default distribution is linear i.e. equidistant
   arguments = ''
   if (distribution == '') then
@@ -186,7 +186,7 @@ module mesh_spacing
 
   this%dist = SPLINE_X1
   this%nc   = 3
-  if (allocated(this%c)) deallocate(this%c)
+  if (associated(this%c)) deallocate(this%c)
   allocate(this%c(this%nc))
   this%c(1) = eta1
   this%c(2) = xi1
@@ -231,7 +231,7 @@ module mesh_spacing
 
   this%dist = X1
   this%nc   = 2
-  if (allocated(this%c)) deallocate(this%c)
+  if (associated(this%c)) deallocate(this%c)
   allocate(this%c(this%nc))
   this%c(1) = eta1
   this%c(2) = xi1
@@ -267,7 +267,7 @@ module mesh_spacing
   this%S(1) = S_left
   this%S(2) = S_right
 
-  if (allocated(this%c)) deallocate(this%c)
+  if (associated(this%c)) deallocate(this%c)
   allocate (this%c(2))
   this%c(1) = eta1
   this%c(2) = rho1
