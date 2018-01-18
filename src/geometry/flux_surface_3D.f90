@@ -140,6 +140,7 @@ module flux_surface_3D
         else
            t = Equidistant%node(j, nsample-1) * 2.d0
         endif
+        t = min(1.d0, max(0.d0, t))
         call C%sample_at(t, x)
         this%x(j,:) = x
      else
@@ -148,6 +149,7 @@ module flux_surface_3D
         else
            t = (1.d0 - Equidistant%node(j, nsample-1)) * 2.d0
         endif
+        t = min(1.d0, max(0.d0, t))
         call C%sample_at(t, x)
         this%x(j,1) = x(1)
         this%x(j,2) = -x(2)
