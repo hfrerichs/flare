@@ -1333,7 +1333,7 @@ subroutine interpolated_normal(Bvac, Dplas, Cref, Dvac, ierr)
            if ((xi(1)-xf(1))*cos(f) + (xi(2)-xf(2))*sin(f) > 0.d0) then
               x2(1) = xi(1) + cos(f)
               x2(2) = xi(2) + sin(f)
-              if (intersect_curve(xi, x2, Bvac, xh, intersect_mode=-1)) then
+              if (intersect_curve(xi, x2, Bvac, xh, intersect_mode=1)) then
                  Dvac%x(i,1:2) = xh
                  icheck(i)     = 1
                  exit
