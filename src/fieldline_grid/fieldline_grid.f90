@@ -1006,7 +1006,8 @@ module fieldline_grid
  1003 format ('*  this surface being defined in EIRENE. The surface')
  1004 format ('*  number must be indicated here.')
 
-  ! 1. non-transparent radial surfaces
+  ! 1. non-transparent surfaces
+  ! 1.1 radial
   write (iu, 1012)
   n = 0
   do irun=0,1
@@ -1032,9 +1033,33 @@ module fieldline_grid
         endif
      enddo
   enddo
-  ! non-transparent poloidal and toroidal surfaces
+  ! 1.2. poloidal
   write (iu, 1013)
-  write (iu, *) 0
+  n = 0
+  do irun=0,1
+     ! write number of non transparent poloidal surfaces
+     if (irun == 1) write (iu, *) n
+
+     do iz=0,NZONET-1
+        if (Zone(iz)%isfp(1) < 0) then
+           if (irun == 0) then
+              n = n + 1
+           else
+              write (iu, 1015) 0, iz, -Zone(iz)%isfp(1)
+              write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
+           endif
+        endif
+        if (Zone(iz)%isfp(2) < 0) then
+           if (irun == 0) then
+              n = n + 1
+           else
+              write (iu, 1015) ZON_POLO(iz), iz, -Zone(iz)%isfp(2)
+              write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
+           endif
+        endif
+     enddo
+  enddo
+  ! 1.3. toroidal
   write (iu, 1014)
   write (iu, *) 0
  1012 format ('* radial')
