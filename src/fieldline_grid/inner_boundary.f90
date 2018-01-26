@@ -85,7 +85,7 @@ module inner_boundary
         PsiN_in           = PsiN_in + PsiN_x / n
      enddo
      DPsiN1(iblock,0) = sqrt(DPsiN1(iblock,0) / (n - 1.d0))
-     write (6, 1002), iblock, PsiN1(iblock), DPsiN1(iblock,0), DPsiN1(iblock,-1), DPsiN1(iblock,1)
+     write (6, 1002) iblock, PsiN1(iblock), DPsiN1(iblock,0), DPsiN1(iblock,-1), DPsiN1(iblock,1)
   enddo
   PsiN_in = PsiN_in / blocks
 

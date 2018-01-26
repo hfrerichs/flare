@@ -67,7 +67,7 @@ subroutine trace_bline
 
   ! Field line tracing is performed on the 1st processor only!
   if (firstP) then
-     write (6, *),'Tracing field line(s), output in: ', adjustl(trim(Output_File))
+     write (6, *) 'Tracing field line(s), output in: ', adjustl(trim(Output_File))
      write (6, *)
      write (6,  1001) N_steps
      write (6, *)
