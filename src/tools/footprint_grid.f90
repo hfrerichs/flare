@@ -218,7 +218,12 @@ subroutine footprint_grid
      phii = phi0 + i * dphi
      write (iuD, 3002) phii
   do j=0,N_theta-1
-     t = 1.d0 * j / (N_theta-1)
+     select case(N_psi)
+     case(4)
+        t = 1.d0 - 1.d0 * j / (N_theta-1)
+     case default
+        t = 1.d0 * j / (N_theta-1)
+     end select
      call C%sample_at (t, x, x1)
 
      ! select diagnostic coordinate used for plotting (3rd column)
