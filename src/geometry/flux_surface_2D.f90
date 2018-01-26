@@ -527,7 +527,7 @@ module flux_surface_2D
   x1 = this%x(0,:)
   x2 = this%x(this%n_seg,:)
   dl = sqrt(sum((x1-x2)**2))
-  this%closed          = .true.
+  this%closed          = 1
   this%x(this%n_seg,:) = x1
   if (dl > 1.d-2*dl0) then
      write (6, *) 'warning: deviation in closed flux surface > 0.01 * Trace_Step!'

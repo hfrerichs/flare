@@ -146,6 +146,7 @@ module boundary
               n_axi   = n_axi   + 1
               if (irun == 2) then
                  call S_axi(n_axi)%load(boundary_file(j), output=SILENT, header=header)
+                 S_axi(n_axi)%closed = S_axi(n_axi)%closed * sign(1, boundary_side(j))
                  if (header .ne. '') then
                     write (6, 3000) trim(header)
                     L_axi(n_axi) = trim(header)
@@ -182,6 +183,7 @@ module boundary
               n_quad  = n_quad  + 1
               if (irun == 2) then
                  call S_quad(n_quad)%load(boundary_file(j), title=header)
+                 S_quad(n_quad)%closed = S_quad(n_quad)%closed * sign(1, boundary_side(j))
                  if (header .ne. '') then
                     write (6, 3000) trim(header)
                     L_quad(n_quad) = trim(header)
@@ -201,6 +203,7 @@ module boundary
               n_quad  = n_quad  + 1
               if (irun == 2) then
                  S_quad(n_quad) = S_quad(n_quad-1)%get_stellarator_symmetric_element()
+                 S_quad(n_quad)%closed = S_quad(n_quad-1)%closed
               endif
            endif
         enddo
@@ -323,6 +326,7 @@ module boundary
      call broadcast_inte_s (S_quad(i)%n_phi)
      call broadcast_inte_s (S_quad(i)%n_RZ)
      call broadcast_inte_s (S_quad(i)%n_sym)
+     call broadcast_inte_s (S_quad(i)%closed)
 
      n = S_quad(i)%n_phi
      m = S_quad(i)%n_RZ
@@ -527,7 +531,6 @@ module boundary
   logical                  :: outside_boundary
 
   type(t_curve) :: C
-  logical       :: side
   real(real64)  :: phi
   integer       :: l
 
@@ -538,8 +541,7 @@ module boundary
 
   ! 1. check axisymmetric (L2-type) surfaces
   do l=1,n_axi
-     side = boundary_side(l) == 1
-     if (S_axi(l)%outside(r(1:2)) .eqv. side) then
+     if (S_axi(l)%outside(r(1:2))) then
         outside_boundary = .true.
         return
      endif
@@ -558,9 +560,8 @@ module boundary
   ! 3.c heck Q4-type boundaries
   phi = r(3)
   do l=1,n_quad
-     side = boundary_side(n_axi + n_block + l) == 1
      C    = S_quad(l)%slice(phi)
-     if (C%outside(r(1:2)) .eqv. side) then
+     if (C%outside(r(1:2))) then
         outside_boundary = .true.
         return
      endif

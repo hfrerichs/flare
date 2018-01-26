@@ -61,7 +61,7 @@ module curve2D
      real(real64), dimension(:),   pointer :: w => null()
 
      ! treat curve as closed loop?
-     logical :: closed = .false.
+     integer :: closed = 0 ! 0: not closed, 1: closed, -1: closed with opposide meaning of "outside"
 
      character(len=256) :: title = ''
 
@@ -144,13 +144,14 @@ module curve2D
   real(real64) :: dl, x1(2), x2(2)
 
 
+  this%closed = 0
   if (this%n_seg < 0) return
   ! check if curve is closed
   x1 = this%x(0,:)
   x2 = this%x(this%n_seg,:)
   dl = sqrt(sum((x1-x2)**2))
   if (dl < epsilon(real(1.0,real64))) then
-     this%closed          = .true.
+     this%closed          = 1
      this%x(0,:)          = 0.5d0 * (x1+x2)
      this%x(this%n_seg,:) = 0.5d0 * (x1+x2)
   endif
@@ -297,6 +298,7 @@ module curve2D
      this%x => this%nodes%x
   endif
   call broadcast_real  (this%nodes%x, (n+1)*m)
+  call broadcast_inte_s (this%closed)
 
 #endif
 
@@ -746,7 +748,7 @@ module curve2D
         C%x(  n+2,:) = x_0
      endif
   endif
-  C%closed = .true.
+  C%closed = 1
   call C%setup_angular_sampling(xc)
 
   end subroutine sort_by_angle
@@ -801,7 +803,7 @@ module curve2D
   x0 = x(0,:) + t * (x(n,:) - x(0,:))
   x(0,:) = x0
   x(n,:) = x0
-  C%closed = .true.
+  C%closed = 1
 
   C%x = x
 
@@ -1000,7 +1002,7 @@ module curve2D
   ts_new(1,0)   = 0.d0
   ts_new(2,n-1) = 1.d0
   kmax          = n-1
-  if (this%closed) kmax = n
+  if (this%closed /= 0) kmax = n
   ! calculate new nodes (at the intersection of the 2 lines defined by the shiftet adjacent segments)
   do k=1,kmax
      k2  = mod(k,n)
@@ -1098,7 +1100,7 @@ module curve2D
   call Ctmp%destroy()
 
 ! 6. close curve (optional)
-  if (this%closed) then
+  if (this%closed /= 0) then
      n = this%n_seg
      x11 = 0.5d0 * (this%x(0,:) + this%x(n,:))
      this%x(0,:) = x11
@@ -1451,7 +1453,7 @@ module curve2D
         i2 = i-1
         if (i2 < 0) then
            i2 = 0
-           if (L%closed) i2 = n - 1
+           if (L%closed /= 0) i2 = n - 1
         endif
 
         et = L%x(i+1,:)-L%x(i2,:)
@@ -1461,7 +1463,7 @@ module curve2D
         i2 = i+2
         if (i2 > n) then
            i2 = n
-           if (L%closed) i2 = 1
+           if (L%closed /= 0) i2 = 1
         endif
 
         et = L%x(i2,:)-L%x(i,:)
@@ -1691,7 +1693,7 @@ module curve2D
 
 
   A = 0.d0
-  if (.not. this%closed) return
+  if (this%closed == 0) return
   do i=1,this%n_seg
      dl = this%x(i,:) - this%x(i-1,:)
      x  = 0.5d0*(this%x(i,:) + this%x(i-1,:))
@@ -1720,7 +1722,7 @@ module curve2D
 
   ! set default
   outside = .false.
-  if (.not.this%closed) then
+  if (this%closed == 0) then
      write (6, *) 'warning: "outside" of open curve not defined!'
      return
   endif
@@ -1745,6 +1747,7 @@ module curve2D
   if (abs(Iphi) < eps) then
      outside = .true.
   endif
+  if (this%closed == -1) outside = .not.outside
 
   end function outside
 !=======================================================================

@@ -5,11 +5,12 @@ module quad_ele
 
   type, public :: t_quad_ele
      ! n_sym = toroidal symmetry, coordinates should be in the range 0 <= phi <= 2*pi / n_sym
-     integer :: n_phi, n_RZ, n_sym
+     integer :: n_phi = 0, n_RZ = 0, n_sym
      real*8  :: dR, dZ
      real*8, dimension(:), allocatable   :: phi    ! dimension(0:n_phi)
      real*8, dimension(:,:), allocatable :: R, Z   ! dimension(0:n_phi, 0:n_RZ)
 
+     integer :: closed = 0 ! 0: not closed, 1: closed, -1: closed with opposide meaning of "outside"
      character(len=256) :: label
 
      ! working array
@@ -18,6 +19,7 @@ module quad_ele
      contains
      procedure :: new
      procedure :: load      => quad_ele_load
+     procedure :: closed_check
      procedure :: plot      => quad_ele_plot
      procedure :: plot_at   => quad_ele_plot_at
      procedure :: intersect => quad_ele_intersect
@@ -123,8 +125,42 @@ module quad_ele
   deallocate (Di)
 
   call this%setup_coefficients()
+  call this%closed_check()
 
   end subroutine quad_ele_load
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine closed_check(this)
+  class(t_quad_ele)         :: this
+
+  real(real64) :: x1(2), x2(2), dl
+  integer :: i
+
+
+  this%closed = 0
+  if (this%n_phi == 0  .or.  this%n_RZ == 0) return
+
+  this%closed = 1
+  do i=0,this%n_phi
+     x1(1) = this%R(i,0);   x2(1) = this%R(i,this%n_RZ)
+     x1(2) = this%Z(i,0);   x2(2) = this%Z(i,this%n_RZ)
+
+     ! surface is not closed if any of the slices are not closed
+     dl = sqrt(sum((x1-x2)**2))
+     if (dl > epsilon(real(1.0,real64))) then
+        this%closed          = 0
+        return
+     endif
+
+     x1 = 0.5d0 * (x1+x2)
+     this%R(i,0) = x1(1);   this%R(i,this%n_RZ) = x1(1)
+     this%Z(i,0) = x1(2);   this%Z(i,this%n_RZ) = x1(2)
+  enddo
+
+  end subroutine closed_check
 !=======================================================================
 
 
@@ -266,10 +302,7 @@ module quad_ele
      C%x(i,1) = R
      C%x(i,2) = Z
   enddo
-
-  ! check if slice is closed
-  dl = sqrt((Z-C%x(0,2))**2 + (R-C%x(0,1))**2)
-  if (dl < epsilon(real(1.0,real64))) C%closed = .true.
+  C%closed = this%closed
 
   end function slice
 !=======================================================================

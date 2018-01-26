@@ -184,7 +184,7 @@ module modtopo_sc
 
      call w%new(np+1, 2, -1)
      call C0%new(np)
-     C0%closed = .true.
+     C0%closed = 1
      do j=0,np
         xi = Zone(iz)%Sp%node(j,np)
         call C_in(iblock,0)%sample_at(xi, x, et)

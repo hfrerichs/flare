@@ -201,15 +201,13 @@ module plates
   integer,      intent(in) :: k
   logical                  :: outside_boundary
 
-  logical :: side
   integer :: l
 
 
   outside_boundary = .false.
   ! check axisymmetric (L2-type) surfaces
   do l=1,n_axi
-     side = boundary_side(l) == 1
-     if (S_axi(l)%outside(x(1:2)) .eqv. side) then
+     if (S_axi(l)%outside(x(1:2))) then
         outside_boundary = .true.
         return
      endif
@@ -228,8 +226,7 @@ module plates
   ! check Q4-type surfaces
   do l=1,n_quad
      if (C(k,l)%n_seg <= 0) cycle
-     side = boundary_side(n_axi + n_block + l) == 1
-     if (C(k,l)%outside(x(1:2)) .eqv. side) then
+     if (C(k,l)%outside(x(1:2))) then
         outside_boundary = .true.
         return
      endif
