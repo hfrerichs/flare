@@ -161,9 +161,6 @@ module fieldline_grid
 !.......................................................................
 ! internal variables
 !.......................................................................
-  character(len=*), parameter :: config_file = 'grid.conf'
-
-
   ! extended block data
   type, extends(t_block_input) :: t_block
      ! toroidal cell spacings
@@ -466,7 +463,7 @@ module fieldline_grid
  1000 format(3x,'- Calculating cylindrical coordinates for reference points:')
  1001 format(8x,'( ',f0.3,', ',f0.3,', ',f0.3,')  ->  ( ',f0.3,', ',f0.3,', ',f0.3,')')
  9001 format('error: cannot convert ( ',f0.3,', ',f0.3,', ',f0.3,') to cylindrical coordinates!')
- 9000 write (6, *) 'error while reading input file ', trim(config_file), '!'
+ 9000 write (6, *) 'error while reading namelist FieldlineGrid_Input from input file!'
   stop
  9100 write (6, *) 'error: cannot find FieldlineGrid_Input namelist in run control file!'
   stop

@@ -268,7 +268,6 @@ end module inner_boundary
 
   return
  1000 format(3x,'- Generate inner simulation boundaries (based on Poincare plots)')
- 9000 write (6, *) 'error while reading input file ', trim(config_file), '!'
   stop
   contains
 !-----------------------------------------------------------------------
