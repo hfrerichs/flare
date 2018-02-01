@@ -58,6 +58,7 @@ module base_mesh
   type(t_mfs_mesh), dimension(:), allocatable :: M
   type(t_mfs_mesh), dimension(:), allocatable, target :: Mtmp
 
+  logical :: bugfix_ddn
 
   public :: setup_topology
   public :: setup_geometry
@@ -232,6 +233,8 @@ module base_mesh
   use fieldline_grid
   integer, intent(out), optional :: nx_out, nrpath_out
 
+
+  bugfix_ddn = .false.
   ! 1. initialize topology
   layers = -1
   select case(topology)
@@ -245,6 +248,7 @@ module base_mesh
 
   ! disconnected double null (DDN)
   case(TOPO_DDN, TOPO_DDN1)
+     bugfix_ddn = .true.
      nrpath = 10
      call initialize_elements(16)
      call initialize_interfaces(nrpath) ! radial interfaces
@@ -657,12 +661,14 @@ module base_mesh
         ! outer SOL with left and right branch on individual flux surfaces
         iSOL = iSOL + 1
         write (6, 3023) ix, d_SOL(iSOL)
-        call R(ix, ASCENT_LEFT)%generateX(ix, ASCENT_LEFT, LIMIT_LENGTH, d_SOL(iSOL))
+        k = ASCENT_LEFT;   if (bugfix_ddn) k = ASCENT_RIGHT
+        call R(ix, ASCENT_LEFT)%generateX(ix, k, LIMIT_LENGTH, d_SOL(iSOL))
         call poloidal_interface(ipi+3)%set_curve(R(ix, ASCENT_LEFT)%t_curve)
 
         iSOL = iSOL + 1
         write (6, 3024) ix, d_SOL(iSOL)
-        call R(ix, ASCENT_RIGHT)%generateX(ix, ASCENT_RIGHT, LIMIT_LENGTH, d_SOL(iSOL))
+        k = ASCENT_RIGHT;   if (bugfix_ddn) k = ASCENT_LEFT
+        call R(ix, ASCENT_RIGHT)%generateX(ix, k, LIMIT_LENGTH, d_SOL(iSOL))
         call poloidal_interface(ipi+2)%set_curve(R(ix, ASCENT_RIGHT)%t_curve)
 
      elseif (jx < 0  .and.  connectX(abs(jx)) == jx) then
