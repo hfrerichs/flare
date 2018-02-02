@@ -35,7 +35,7 @@ for opt in "$@"; do
 	echo ""
 	echo "  --fusion_io_dir=<path>  set directory of Fusion-IO installation"
 	echo "  --with-fgsl             compile with FGSL support"
-	echo "  --without-gui           compile without GUI support"
+#	echo "  --without-gui           compile without GUI support"
 	echo ""
 
 	exit 0
@@ -270,14 +270,14 @@ echo "" >> include.mk
 
 
 # GUI --------------------------------------------------------------------------
-echo "# GUI" >> include.mk
-echo "GUI            = $gui" >> include.mk
-if [ -n "$gui" ]; then
-    echo "Compiling with GUI support" | tee -a $LOG_FILE
-else
-    echo "Compiling without GUI support" | tee -a $LOG_FILE
-fi
-echo "" >> include.mk
+#echo "# GUI" >> include.mk
+#echo "GUI            = $gui" >> include.mk
+#if [ -n "$gui" ]; then
+#    echo "Compiling with GUI support" | tee -a $LOG_FILE
+#else
+#    echo "Compiling without GUI support" | tee -a $LOG_FILE
+#fi
+#echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
 
