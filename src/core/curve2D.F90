@@ -910,7 +910,7 @@ module curve2D
   subroutine flip(this)
   class(t_curve)           :: this
 
-  real(real64) :: xtmp(this%n_dim)
+  real(real64) :: xtmp(this%n_dim), wtmp
   integer      :: i, j
 
 
@@ -921,6 +921,16 @@ module curve2D
      this%x(i,:) = this%x(j,:)
      this%x(j,:) = xtmp
   enddo
+
+  if (associated(this%w)) then
+  do i=0,this%n_seg/2
+     j = this%n_seg - i
+
+     wtmp      = this%w(i)
+     this%w(i) = 1.d0 - this%w(j)
+     this%w(j) = 1.d0 - wtmp
+  enddo
+  endif
 
   end subroutine flip
 !=======================================================================
