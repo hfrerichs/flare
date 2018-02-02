@@ -266,9 +266,11 @@ module dataset
   this%ncol        = ncol
   this%nrow_offset = n0
   allocate (this%x(1+n0:nrow+n0, ncol))
-  this%x    = 0.d0
+  this%x           = 0.d0
 
   allocate (this%col(ncol))
+  this%ndim        = -1
+  this%geometry    = ''
 
   end subroutine new
 !=======================================================================
