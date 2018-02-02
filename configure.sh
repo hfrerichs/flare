@@ -243,6 +243,7 @@ else
 	echo "# $NOTE" >> include.mk
 	echo "FIO_FLAGS      = -DFIO -I $fusion_io_dir/include" >> include.mk
 	echo "FIO_LIBS       = -L $fusion_io_dir/lib -lfusionio -lm3dc1 -lstdc++" >> include.mk
+        echo "FIO_PATH       = -Wl,-rpath-link,/home/hfrerichs/repositories/fusion-io/fio_install/lib" >> include.mk
 	echo "" >> include.mk
 fi
 # ------------------------------------------------------------------------------

@@ -33,7 +33,7 @@ OBJECTS = \
 .PHONY: all
 all: $(OBJECTS) $(alldirs) $(FLARELIB)
 	$(FC) -c $(EXTERNAL_INC) $(CORE_INC) $(GEOMETRY_INC) $(BFIELD_INC) main.f90
-	$(FC) -o ../bin/$(PROGRAM) main.o $(FLARELIB)
+	$(FC) -o ../bin/$(PROGRAM) main.o $(FLARELIB) $(FIO_PATH)
 
 
 .PHONY: $(VERSION_F90)
