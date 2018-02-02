@@ -204,6 +204,7 @@ module boundary
               if (irun == 2) then
                  S_quad(n_quad) = S_quad(n_quad-1)%get_stellarator_symmetric_element()
                  S_quad(n_quad)%closed = S_quad(n_quad-1)%closed
+                 L_quad(n_quad) = L_quad(n_quad-1)
               endif
            endif
         enddo
