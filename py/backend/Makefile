@@ -22,7 +22,7 @@ INSTALLDIR = $(PYTHONDIR)/flare
 
 .PHONY: all clean install uninstall
 all:
-	f2py $(INC) -c $(SOURCES) -m $(BACKEND) $(LIB)
+	$(F2PY) $(INC) -c $(SOURCES) -m $(BACKEND) $(LIB)
 
 
 clean:

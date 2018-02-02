@@ -122,12 +122,16 @@ echo "# Fortran compiler and options"			>> include.mk
 if type mpif90 >/dev/null 2>/dev/null; then
 	echo "Compiling with MPI support" | tee -a $LOG_FILE
 	echo "COMPILER       = mpif90 -DMPI" >> include.mk
+	FC=$(mpif90 -show | cut -d\  -f1)
+	fc=$(basename $FC)
 elif type ifort >/dev/null 2>/dev/null; then
 	echo "Using Intel Fortran compiler" | tee -a $LOG_FILE
 	echo "COMPILER       = ifort" >> include.mk
+        fc=ifort
 elif type gfortran >/dev/null 2>/dev/null; then
 	echo "Using GNU Fortran compiler" | tee -a $LOG_FILE
 	echo "COMPILER       = gfortran" >> include.mk
+        fc=gfortran
 fi
 echo "OPT            = -O2 -fconvert=big-endian" >> include.mk
 echo "OPT_DEBUG      = -g  -fconvert=big-endian -fcheck=all -ffpe-trap=zero,overflow,invalid -fbacktrace" >> include.mk
@@ -278,6 +282,13 @@ echo "" >> include.mk
 #    echo "Compiling without GUI support" | tee -a $LOG_FILE
 #fi
 #echo "" >> include.mk
+# ------------------------------------------------------------------------------
+
+
+# f2py--------------------------------------------------------------------------
+echo "# f2py " >> include.mk
+echo "F2PY           = f2py2.7 --fcompiler=$fc"	>> include.mk
+echo "" >> include.mk
 # ------------------------------------------------------------------------------
 
 
