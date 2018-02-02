@@ -315,6 +315,7 @@ module mfs_mesh
   type(t_xpath) :: R
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final
   integer       :: ir, ir0, ir1, ir2, ir_final, ip, ip0, ip1, ip2, ipp, direction, ix, ipx
+  integer       :: inverse
   logical       :: screen_output
 
 
@@ -360,10 +361,12 @@ module mfs_mesh
      ir1        = 1
      ir2        = this%nr
      direction  = ASCENT
+     inverse    = DESCENT
   elseif (ir0 == this%nr) then
      ir1        = 0
      ir2        = this%nr - 1
      direction  = DESCENT
+     inverse    = ASCENT
   else
      write (6, 9000)
      write (6, 9002) ir0
@@ -376,6 +379,8 @@ module mfs_mesh
 
 
   ! setup reference PsiN values
+  x         = M(ir0,ip0,:)
+  PsiN(ir0) = get_PsiN(x)
   do ir=ir1,ir2
      x        = M(ir,ip0,:)
      PsiN(ir) = get_PsiN(x)
@@ -405,9 +410,13 @@ module mfs_mesh
   ! set up nodes in poloidal range ip1->ip2 and radial range ir1->ir2
   write (6, 1000) ir0, ir1, ir2, ip0, ip1, ip2
   do ip=ip1,ip2
-     if (ip == ipx) then
+     if (ip == ipx .and. ix > 0) then
         if (screen_output) write (6, *) ip, ix
         call R%generateX(ix,         direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)
+     elseif (ip == ipx .and. ix < 0) then
+        if (screen_output) write (6, *) ip, ix
+        call R%generateX(-ix,        inverse  , LIMIT_PSIN, PsiN(ir0), sampling=SAMPLE_PSIN)
+        R%PsiN(1) = PsiN_final
      else
         if (screen_output) write (6, *) ip, M(ir0,ip,:)
         call R%generate(M(ir0,ip,:), direction, LIMIT_PSIN, PsiN_final, sampling=SAMPLE_PSIN)

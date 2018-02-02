@@ -275,6 +275,13 @@ module elements
         addX(1) = ix(-ipside)
         addX(2) = AUTOMATIC
         write (6, *) 'upstream segment connecting X-point ', ix(ipside), ' to ', ix(-ipside)
+
+     ! guide by X-point?
+     elseif (iri2 > 0) then
+        addX(1) = ix(-ipside)
+        addX(2) = AUTOMATIC
+        write (6, *) 'upstream segment guided by X-point ', -ix(-ipside)
+
      else
         write (6, *) 'upstream segment connecting to X-point ', ix(ipside)
      endif
