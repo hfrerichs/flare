@@ -9,6 +9,7 @@ bindir=bin
 libdir=lib
 pythondir=$libdir/python
 datadir=$HOME/Database/Magnetic_Configuration
+python=python
 gui=gui
 
 EMC3_dir=""
@@ -37,6 +38,8 @@ for opt in "$@"; do
 	echo "  --with-fgsl             compile with FGSL support"
 #	echo "  --without-gui           compile without GUI support"
 	echo ""
+        echo "  --with-python=<path>    Python 2.7 command"
+	echo ""
 
 	exit 0
         ;;
@@ -63,6 +66,9 @@ for opt in "$@"; do
         ;;
     --without-gui)
         gui=
+        ;;
+    --with-python)
+        python=$val
         ;;
     *)
         echo "error: invalid argument ${var}!"
@@ -288,6 +294,7 @@ echo "" >> include.mk
 
 # f2py--------------------------------------------------------------------------
 echo "# f2py " >> include.mk
+echo "PYTHON         = $python"                 >> include.mk
 echo "F2PY           = f2py2.7 --fcompiler=$fc"	>> include.mk
 echo "" >> include.mk
 # ------------------------------------------------------------------------------

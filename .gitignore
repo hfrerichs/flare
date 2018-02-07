@@ -1,4 +1,6 @@
 bin/FLARE
+bin/flare-*
+!bin/flare-*.py
 configure.log
 config.h
 include*

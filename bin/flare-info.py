@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env PYTHON
 import argparse
 
 from flare.dataset import Dataset

@@ -5,20 +5,18 @@ TARGETS = flare-info flare-plot flare-equi2d flare-equi3d flare-geometry
 
 
 .PHONY: all install clean uninstall $(TARGETS)
-all:
-
-
-$(BINDIR):
-	install -d $(BINDIR)
+all: $(TARGETS)
 
 
 $(TARGETS):
-	install $@.py $(BINDIR)/$@
+	sed "s|PYTHON|$(PYTHON)|" $@.py > $@
 
 
-install: $(BINDIR) $(TARGETS)
+install:
+	install -d $(BINDIR)
 	install $(PROGRAM) $(BINDIR)
 	install $(SCRIPT) $(BINDIR)
+	install $(TARGETS) $(BINDIR)
 
 
 clean:
