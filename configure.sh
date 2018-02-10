@@ -11,6 +11,7 @@ pythondir=$libdir/python
 datadir=$HOME/Database/Magnetic_Configuration
 python=python
 gui=gui
+HDF5="hdf5-openmpi"
 
 EMC3_dir=""
 
@@ -39,6 +40,7 @@ for opt in "$@"; do
 #	echo "  --without-gui           compile without GUI support"
 	echo ""
         echo "  --with-python=<path>    Python 2.7 command"
+        echo "  --with-hdf5=<name>      HDF5 library name"
 	echo ""
 
 	exit 0
@@ -69,6 +71,9 @@ for opt in "$@"; do
         ;;
     --with-python)
         python=$val
+        ;;
+    --with-HDF5)
+        HDF5=$val
         ;;
     *)
         echo "error: invalid argument ${var}!"
@@ -239,7 +244,6 @@ else
 	NOTE='Compiling with Fusion-IO support'
 
 	# check HDF5 installation
-	HDF5="hdf5-openmpi"
 	HDF5_CFLAGS=`pkg-config --cflags $HDF5`
 	HDF5_LIBS=`pkg-config --libs $HDF5`
 	echo "HDF5_FLAGS     = $HDF5_CFLAGS"		        >> include.mk
