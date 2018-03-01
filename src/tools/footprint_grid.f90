@@ -149,7 +149,7 @@ subroutine footprint_grid
   integer, parameter :: iu = 99, iuD = 36
 
   type(t_curve) :: C, Ctmp1, Ctmp2
-  real(real64)  :: t, t1, x(2), x1(2), xn(2), L, L0, L1, alphan, phii, dphi
+  real(real64)  :: t, t1, x(2), x1(2), xn(2), L, L0, L1, alphan, phii, dphi, s0
   integer :: i, j, n_start, n_end
 
 
@@ -208,8 +208,15 @@ subroutine footprint_grid
   write (iuD, FMT="(a,f6.2,a,f6.2)") "deposition: phi =", phi0, " -> ", &
                                      phi0 + 360.d0 / N_sym
   write (iuD, *)
+  if (mod(Output_Format,10) == 1) then
+     s0 = L0_off
+     if (N_psi == 4) s0 = s0 + Side*L0
   write (iuD, FMT='(3(I5,1x),3(F10.5,1x),a)') N_phi, N_theta, N_sym, &
-           0.0,0.0,0.0,"  : NPoints_tor  NPoints_pol  NPeriod  DR  DZ  DL"
+           0.0,0.0,s0,"  : NPoints_tor  NPoints_pol  NPeriod  DR  DZ  DL"
+  else
+  write (iuD, FMT='(3(I5,1x),2(F10.5,1x),a)') N_phi, N_theta, N_sym, &
+           0.0,0.0,"  : NPoints_tor  NPoints_pol  NPeriod  DR  DZ"
+  endif
 
   ! 1. write coordinates along boundary profile
   dphi = 0.d0
@@ -244,7 +251,11 @@ subroutine footprint_grid
         L  = t1
      end select
 
-     write (iuD, 3003) x, L
+     if (mod(Output_Format,10) == 1) then
+        write (iuD, 3005) x
+     else
+        write (iuD, 3003) x, L
+     endif
      if (i > 0) cycle
 
      ! default grid
@@ -276,6 +287,7 @@ subroutine footprint_grid
  3002 format (1e18.10)
  3003 format (2e18.10,2x,f12.7)
  3004 format (2e18.10,2x,f8.3,e18.10)
+ 3005 format (2e18.10)
   end subroutine footprint_grid_axi
 !=======================================================================
   subroutine footprint_grid_Q4 (iele)
