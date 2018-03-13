@@ -51,6 +51,8 @@ module fieldline_grid
      SF_MAPPING  =  3, &
      SF_CORE     = -1, &
      SF_VACUUM   = -2
+  character(len=*), parameter :: &
+     EIRENE_SF(2)= (/'CORE_SF_NUM     ', 'OUTERMOST_SF_NUM'/)
 
 
   ! Type of innermost flux surface (exact or quasi flux surface)
@@ -1017,7 +1019,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) 0, iz, -Zone(iz)%isfr(1)
+              write (iu, 1015) 0, iz, EIRENE_SF(-Zone(iz)%isfr(1))
               write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1025,7 +1027,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) SRF_RADI(iz)-1, iz, -Zone(iz)%isfr(2)
+              write (iu, 1015) SRF_RADI(iz)-1, iz, EIRENE_SF(-Zone(iz)%isfr(2))
               write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1043,7 +1045,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) 0, iz, -Zone(iz)%isfp(1)
+              write (iu, 1015) 0, iz, EIRENE_SF(-Zone(iz)%isfp(1))
               write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1051,7 +1053,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) ZON_POLO(iz), iz, -Zone(iz)%isfp(2)
+              write (iu, 1015) ZON_POLO(iz), iz, EIRENE_SF(-Zone(iz)%isfp(2))
               write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1063,7 +1065,7 @@ module fieldline_grid
  1012 format ('* radial')
  1013 format ('* poloidal')
  1014 format ('* toroidal')
- 1015 format (2i8,4x,'EIRENE_SF',i0)
+ 1015 format (2i8,4x,a)
 
 
   ! 2. additional physical cells for neutrals
@@ -1086,7 +1088,7 @@ module fieldline_grid
               n = n + R_SURF_PL_TRANS_RANGE(1,iz)
            else
               do ir=0,R_SURF_PL_TRANS_RANGE(1,iz)-1
-                 write (iu, *) 2, 1
+                 write (iu, *) 2, 'EIRENE_CORE_MODEL'
                  write (iu, 2003) iz, ir, ir+1, 1, &
                            0, ZON_POLO(iz), ZON_POLO(iz), &
                            0, ZON_TORO(iz), ZON_TORO(iz)
@@ -1113,8 +1115,8 @@ module fieldline_grid
  2001 format ('*   ZONE  R1    R2    DR    P1    P2    DP    T1    T2    DT')
  2002 format ('* ne       Te      Ti        M')
  2003 format (10i6)
- 2004 format ('EIRENE_CORE_',i0,'_',i0)
- 2005 format ('EIRENE_VACUUM_',i0)
+ 2004 format ('EIRENE_CORE_DATA_',i0,'_',i0)
+ 2005 format ('EIRENE_VACUUM_DATA_',i0)
 
 
   ! 3. Neutral sources
