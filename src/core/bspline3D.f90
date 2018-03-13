@@ -24,7 +24,7 @@ module bspline3D
      procedure :: broadcast
      procedure :: eval
      procedure :: derivative
-     procedure :: cleanup
+     final     :: cleanup
   end type t_bspline3D
 
   contains
@@ -52,7 +52,7 @@ module bspline3D
   else
      this%nord = 5
   endif
-  call this%cleanup()
+  call cleanup(this)
 
 
   allocate (this%x1not(n1+this%nord), this%x2not(n2+this%nord), this%x3not(n3+this%nord))
@@ -147,7 +147,7 @@ module bspline3D
 
 !=======================================================================
   subroutine cleanup(this)
-  class(t_bspline3D) :: this
+  type(t_bspline3D) :: this
 
 
   if (allocated(this%x1not))  deallocate(this%x1not)

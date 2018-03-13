@@ -24,7 +24,7 @@ module bspline1D
      procedure :: broadcast
      procedure :: eval
      procedure :: derivative
-     procedure :: cleanup
+     final     :: cleanup
   end type t_bspline1D
 
   contains
@@ -50,7 +50,7 @@ module bspline1D
   else
      this%nord = 5
   endif
-  call this%cleanup()
+  call cleanup(this)
 
 
   allocate (this%x1not(n1+this%nord))
@@ -136,7 +136,7 @@ module bspline1D
 
 !=======================================================================
   subroutine cleanup(this)
-  class(t_bspline1D) :: this
+  type(t_bspline1D) :: this
 
 
   if (allocated(this%x1not))  deallocate(this%x1not)
