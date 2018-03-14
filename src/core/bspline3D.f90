@@ -72,18 +72,69 @@ module bspline3D
   subroutine init(this, n1, n2, n3, x1, x2, x3, D, nord)
   class(t_bspline3D)       :: this
   integer,      intent(in) :: n1, n2, n3
-  real(real64), intent(in) :: x1(n1), x2(n2), x3(n3), D(n1,n2,n3)
+  real(real64), intent(in) :: x1(:), x2(:), x3(:), D(n1,n2,n3)
   integer,      intent(in), optional :: nord
+
+  real(real64), dimension(:), allocatable :: x1tmp, x2tmp, x3tmp
+
+  integer :: i
+
+
+  ! generate node array
+  allocate (x1tmp(n1), x2tmp(n2), x3tmp(n3))
+  x1tmp = make_xtmp(n1, x1, 1)
+  x2tmp = make_xtmp(n2, x2, 2)
+  x3tmp = make_xtmp(n3, x3, 3)
 
 
   call this%new(n1, n2, n3, nord)
 
-  call dbsnak(n1, x1, this%nord, this%x1not)
-  call dbsnak(n2, x2, this%nord, this%x2not)
-  call dbsnak(n3, x3, this%nord, this%x3not)
-  call dbs3in(n1, x1, n2, x2, n3, x3, D, &
+  call dbsnak(n1, x1tmp, this%nord, this%x1not)
+  call dbsnak(n2, x2tmp, this%nord, this%x2not)
+  call dbsnak(n3, x3tmp, this%nord, this%x3not)
+  call dbs3in(n1, x1tmp, n2, x2tmp, n3, x3tmp, D, &
               n1, n2, this%nord, this%nord, this%nord, this%x1not, this%x2not, this%x3not, this%dcoeff)
+  deallocate (x1tmp, x2tmp, x3tmp)
 
+  contains
+  !.....................................................................
+  function make_xtmp(n, x, ilabel) result(xtmp)
+  integer,      intent(in) :: n, ilabel
+  real(real64), intent(in) :: x(:)
+  real(real64)             :: xtmp(n)
+
+  real(real64) :: x1, x2
+  integer :: i
+
+
+  ! nodes already given, just copy them
+  if (size(x) == n) then
+     xtmp = x
+     return
+  endif
+
+
+  ! upper boundary given, lower boundary = 0
+  if (size(x) == 1) then
+     x1 = 0.d0;   x2 = x(1)
+
+  ! both lower and upper boundary given
+  elseif (size(x) == 2) then
+     x1 = x(1);   x2 = x(2)
+  else
+     write (6, 9000) ilabel
+     stop
+  endif
+ 9000 format('error: invalid size of variable x',i0,'!')
+
+
+  ! generate nodes
+  do i=1,n
+     xtmp(i) = x1 + 1.d0 * (i-1) / (n-1) * (x2 - x1)
+  enddo
+
+  end function make_xtmp
+  !.....................................................................
   end subroutine init
 !=======================================================================
 
