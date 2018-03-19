@@ -1,12 +1,12 @@
 module sonnet
   use iso_fortran_env
-  use bfield_component
+  use abstract_bfield
   use bspline2D
   implicit none
   private
 
 
-  type, extends(t_bfield), public :: t_sonnet
+  type, extends(t_equi2d), public :: t_sonnet
      ! no. of grid points in radial and vertical direction
      integer :: jm, km
 
@@ -43,10 +43,10 @@ module sonnet
   !=====================================================================
   ! load configuration and setup related variables
   !=====================================================================
-  subroutine load(this, filename, ierr)
+  subroutine load(this, source, ierr)
   use numerics, only: m_to_cm
   class(t_sonnet)               :: this
-  character(len=*), intent(in)  :: filename
+  character(len=*), intent(in)  :: source
   integer,          intent(out) :: ierr
 
   integer, parameter :: iu = 17
@@ -57,16 +57,16 @@ module sonnet
 
 
   ierr = 0
-  inquire (file=filename, exist=ex)
+  inquire (file=source, exist=ex)
   if (.not.ex) then
-     write (6, 9000) trim(filename)
+     write (6, 9000) trim(source)
      ierr = 1
      return
   endif
  9000 format('error: file ',a,' does not exist!')
 
 
-  open  (iu, file=filename)
+  open  (iu, file=source)
 
   ! skip past header lines
   do i=1,10

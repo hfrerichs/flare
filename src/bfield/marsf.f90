@@ -1,6 +1,5 @@
 module marsf
   use iso_fortran_env
-  use bfield_component
   use math
   implicit none
   private

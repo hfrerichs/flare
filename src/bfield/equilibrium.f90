@@ -7,7 +7,7 @@ module equilibrium
   use equilibrium_format
   use magnetic_axis
   use curve2D
-  use bfield_component
+  use abstract_bfield
   use sonnet
   implicit none
 
@@ -49,7 +49,7 @@ module equilibrium
 
   type(t_Xpoint) :: Xp(nX_max), M
 
-  class(t_bfield), pointer :: Bequi => null()
+  class(t_equi2d), pointer :: Bequi => null()
 
   logical :: &
      use_boundary     = .true., &
@@ -311,10 +311,11 @@ module equilibrium
 
   case (EQ_SONNET)
      allocate (t_sonnet :: Bequi)
-     call Bequi%load(filename, ierr)
-     if (ierr > 0) return
      select type(Bequi)
      class is (t_sonnet)
+        call Bequi%load(filename, ierr)
+        if (ierr > 0) return
+
         call Bequi%info(R0)
      end select
      if (M%R_estimate <= 0.d0) M%R_estimate = R0

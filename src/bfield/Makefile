@@ -4,7 +4,7 @@ include ../../include.mk
 OBJECTS =  \
                magnetic_axis.o\
                reconstruct.o\
-               bfield_component.o\
+               abstract_bfield.o\
                equilibrium_format.o\
                m3dc1.o\
                geqdsk.o\
