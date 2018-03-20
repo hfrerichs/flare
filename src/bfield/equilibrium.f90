@@ -112,7 +112,7 @@ module equilibrium
   procedure(default_get_JBf), pointer :: get_JBf_eq2D
 
   ! get poloidal magnetic flux
-  procedure(default_get_Psi), pointer :: get_Psi
+  procedure(default_get_Psi), pointer :: get_Psi => default_get_Psi
 
   ! get derivative of poloidal magnetic flux
   procedure(default_get_DPsi), pointer :: get_DPsi
