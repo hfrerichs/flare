@@ -9,7 +9,7 @@ module abstract_bfield
 
   type, abstract, public :: t_bfield
      ! boundaries for domain of definition
-     real(real64) :: Rmin = 0.d0, Rmax = huge(1.d0), Zmin = -huge(1.d0), Zmax = - huge(1.d0)
+     real(real64) :: Rmin = 0.d0, Rmax = huge(1.d0), Zmin = -huge(1.d0), Zmax = huge(1.d0)
 
      contains
      procedure :: broadcast_bounds
