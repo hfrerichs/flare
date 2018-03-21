@@ -14,7 +14,7 @@ OBJECTS =  \
                equilibrium.o\
                mfc_polygon.o\
                polygones.o\
-               splineB.o\
+               bspline_group.o\
                interpolateB.o\
                libHINT.o\
                HINT.o\

@@ -6,9 +6,11 @@
 !===============================================================================
 module bfield
   use iso_fortran_env
+  use abstract_bfield
   implicit none
+  private
 
-  integer, parameter :: &
+  integer, public, parameter :: &
      BF_RECONSTRUCT  = 0, &
      BF_EQ2D         = 1, &
      BF_COILS        = 2, &
@@ -19,12 +21,115 @@ module bfield
      BF_TOR_HARMONICS= 7, &
      BF_MARSF        = 8
 
-  integer, parameter :: BF_MAX_CONFIG = 8
+  integer, public, parameter :: BF_MAX_CONFIG = 8
 
 
-  integer :: iconfig(0:BF_MAX_CONFIG), icall(2)
+  integer, public :: iconfig(0:BF_MAX_CONFIG), icall(2)
+
+
+  type t_bfield_wrapper
+     class(t_bfield), allocatable :: content
+     contains
+     procedure :: broadcast => broadcast_wrapper
+     procedure :: get_Bf    => get_Bf_wrapper
+     procedure :: get_JBf   => get_JBf_wrapper
+  end type t_bfield_wrapper
+  type(t_bfield_wrapper), dimension(:), allocatable :: bfield_group
+  integer :: ngroup
+
+
+  public :: &
+     setup_bfield_configuration, &
+     get_Bf_Cyl, &
+     get_JBf_Cyl, &
+     get_Bf_Cyl_non2D, &
+     get_Bf_Cart, &
+     get_divB, &
+     finished_bfield
 
   contains
+!=======================================================================
+
+
+!=======================================================================
+  subroutine broadcast_wrapper(this)
+  use parallel
+  use bspline_group
+  class(t_bfield_wrapper) :: this
+
+  integer, parameter :: &
+     TYPE_BSPLINE_POTENTIAL = 1, &
+     TYPE_BSPLINE_BFIELD = 2
+
+  integer :: itype
+  associate (bf => this%content)
+
+
+  ! get dynamic type of bfield group from process 0
+  if (mype == 0) then
+     select type (bf)
+     type is(t_bspline_potential)
+        itype = TYPE_BSPLINE_POTENTIAL
+
+     type is(t_bspline_bfield)
+        itype = TYPE_BSPLINE_BFIELD
+
+     class default
+        write (6, 9000)
+        stop
+
+     end select
+  endif
+ 9000 format("error: unsupported dynamic type in t_bfield_wrapper%broadcast!")
+  call broadcast_inte_s(itype)
+
+
+  ! set dynamic type on process > 0
+  if (mype > 0) then
+     select case(itype)
+     case(TYPE_BSPLINE_POTENTIAL)
+        allocate (t_bspline_potential :: this%content)
+
+     case(TYPE_BSPLINE_BFIELD)
+        allocate (t_bspline_bfield    :: this%content)
+
+     end select
+  endif
+
+
+  ! broadcast data
+  call bf%broadcast()
+
+  end associate
+  end subroutine broadcast_wrapper
+!=======================================================================
+
+
+
+!=======================================================================
+  function get_Bf_wrapper(this, r) result(Bf)
+  class(t_bfield_wrapper)  :: this
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: Bf(3)
+
+
+  Bf = this%content%get_Bf(r)
+
+  end function get_Bf_wrapper
+!=======================================================================
+
+
+
+!=======================================================================
+  function get_JBf_wrapper(this, r) result(JBf)
+  class(t_bfield_wrapper)  :: this
+  real(real64), intent(in) :: r(3)
+  real(real64)             :: JBf(3,3)
+
+
+  JBf = this%content%get_JBf(r)
+
+  end function get_JBf_wrapper
 !=======================================================================
 
 
@@ -39,7 +144,6 @@ module bfield
   use polygones
   use m3dc1
   use interpolateB
-  use splineB
   use HINT
   use toroidal_harmonics
   use marsf
@@ -48,6 +152,7 @@ module bfield
 
   logical      :: ex
   real(real64) :: r(3), Bf(3)
+  integer      :: i, irun
 
 
   icall = 0
@@ -68,10 +173,16 @@ module bfield
      call load_equilibrium_config (iu, iconfig(BF_EQ2D        ))
      call read_polygones_config   (iu, iconfig(BF_COILS       ),      Prefix)
      call interpolateB_load       (iu, iconfig(BF_INTERPOLATEB))
-     call      splineB_load       (iu, iconfig(BF_SPLINEB     ))
      call         HINT_load       (iu, iconfig(BF_HINT        ))
      call tor_harmonics_load      (iu, iconfig(BF_TOR_HARMONICS))
      call        marsf_load       (iu, iconfig(BF_MARSF       ))
+
+     do irun=1,2
+        ngroup = 0
+        call read_bspline_input(iu, irun)
+
+        if (irun == 1) allocate(bfield_group(ngroup))
+     enddo
      close (iu)
 
 
@@ -115,11 +226,15 @@ module bfield
   if (iconfig(BF_COILS       ) == 1) call broadcast_mod_polygones()
   if (iconfig(BF_M3DC1       ) == 1) call        m3dc1_broadcast()
   if (iconfig(BF_INTERPOLATEB) == 1) call interpolateB_broadcast()
-  if (iconfig(BF_SPLINEB     ) == 1) call      splineB_broadcast()
   if (iconfig(BF_HINT        ) == 1) call         HINT_broadcast()
   if (iconfig(BF_TOR_HARMONICS) == 1) call tor_harmonics_broadcast()
   if (iconfig(BF_MARSF       ) == 1) call        marsf_broadcast()
 
+  call broadcast_inte_s(ngroup)
+  if (mype > 0) allocate(bfield_group(ngroup))
+  do i=1,ngroup
+     call bfield_group(i)%broadcast()
+  enddo
 
 
  1000 format (/ '========================================================================')
@@ -132,6 +247,42 @@ module bfield
 
 
 !=======================================================================
+  subroutine read_bspline_input(iu, irun)
+  use run_control, only: Prefix
+  use bspline_group
+  use string
+  integer, intent(in) :: iu, irun
+
+  integer, parameter :: nsource_max = 128, ngroup_max = 256
+
+  character(len=256), dimension(nsource_max) :: source = ''
+  real(real64),       dimension(nsource_max) :: amplify = 1.d0
+  real(real64),       dimension(nsource_max,ngroup_max) :: scale_subset = 1.d0
+  character(len=256) :: filename, src_type
+  integer :: i
+
+  namelist /Bspline_Input/ source, amplify, scale_subset
+
+
+  rewind (iu);   read (iu, Bspline_Input, end=9000)
+  do i=1,nsource_max
+  if (source(i) /= '') then
+     ngroup = ngroup + 1
+     if (irun == 1) cycle
+
+     src_type = parse_string(source(i), 1, ':')
+     filename = trim(Prefix)//parse_string(source(i), 2, ':')
+     bfield_group(ngroup)%content = t_bspline_group(filename, src_type, amplify(i), scale_subset(i,1:ngroup_max))
+  endif
+  enddo
+
+ 9000 return
+  end subroutine read_bspline_input
+!=======================================================================
+
+
+
+!=======================================================================
 ! return magnetic field components using Cylindrical coordinates
 !=======================================================================
   function get_Bf_Cyl(r) result(Bf)
@@ -139,12 +290,12 @@ module bfield
   use polygones
   use m3dc1
   use interpolateB
-  use splineB
   use HINT
   use toroidal_harmonics
   use marsf
   real*8, intent(in) :: r(3)
-  real*8             :: Bf(3)
+  real*8             :: Bf(3), Bf_T(3), r_m(3)
+  integer :: i
 
 
   Bf = 0.d0
@@ -153,10 +304,16 @@ module bfield
   if (iconfig(BF_COILS)         == 1) Bf = Bf + get_Bcyl_polygones(r)
   if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
-  if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
   if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
   if (iconfig(BF_MARSF)         == 1) Bf = Bf +        marsf_get_Bf(r)
+
+  r_m(1:2) = r(1:2) / 1.d2;   r_m(3) = r(3)
+  Bf_T = 0.d0
+  do i=1,ngroup
+     Bf_T = Bf_T + bfield_group(i)%get_Bf(r_m)
+  enddo
+  Bf = Bf + Bf_T * 1.d4
   icall(1) = icall(1) + 1
 
 
@@ -167,12 +324,14 @@ module bfield
   use polygones
   use m3dc1
   use interpolateB
-  use splineB
   use HINT
   use toroidal_harmonics
   use marsf
   real*8, intent(in) :: r(3)
   real*8             :: Bf(3)
+
+  real(real64) :: r_m(3), Bf_T(3)
+  integer :: i
 
 
   Bf = 0.d0
@@ -180,10 +339,24 @@ module bfield
   if (iconfig(BF_COILS)         == 1) Bf = Bf + get_Bcyl_polygones(r)
   if (iconfig(BF_M3DC1)         == 1) Bf = Bf +        m3dc1_get_Bf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) Bf = Bf + interpolateB_get_Bf(r)
-  if (iconfig(BF_SPLINEB)       == 1) Bf = Bf +      splineB_get_Bf(r)
   if (iconfig(BF_HINT)          == 1) Bf = Bf +         HINT_get_Bf(r)
   if (iconfig(BF_TOR_HARMONICS) == 1) Bf = Bf + tor_harmonics_get_Bf(r)
   if (iconfig(BF_MARSF)         == 1) Bf = Bf +        marsf_get_Bf(r)
+
+  r_m(1:2) = r(1:2) / 1.d2;   r_m(3) = r(3)
+  Bf_T = 0.d0
+  do i=1,ngroup
+     associate (bf => bfield_group(i)%content)
+     select type(bf)
+     class is(t_equi2d)
+        cycle
+
+     class default
+        Bf_T = Bf_T + bfield_group(i)%get_Bf(r_m)
+     end select
+     end associate
+  enddo
+  Bf = Bf + Bf_T * 1.d4
   icall(1) = icall(1) + 1
 
 
@@ -198,19 +371,25 @@ module bfield
 !=======================================================================
   function get_JBf_Cyl(r) result(J)
   use equilibrium
-  use splineB
   use interpolateB
   use toroidal_harmonics
   real(real64), intent(in) :: r(3)
   real(real64)             :: J(3,3)
 
+  real(real64) :: r_m(3)
+  integer :: i
+
 
   J = 0.d0
 
   if (iconfig(BF_EQ2D   )       == 1) J = J + get_JBf_eq2D(r)
-  if (iconfig(BF_SPLINEB)       == 1) J = J + splineB_get_JBf(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) J = J + interpolateB_get_JBf(r) / 100.d0
   if (iconfig(BF_TOR_HARMONICS) == 1) J = J + tor_harmonics_get_JBf(r)
+
+  r_m(1:2) = r(1:2) / 1.d2;   r_m(3) = r(3)
+  do i=1,ngroup
+     J = J + bfield_group(i)%get_JBf(r_m)
+  enddo
 
   end function get_JBf_Cyl
 !========================================================================
@@ -242,18 +421,10 @@ module bfield
 ! return magnetic field components using Cartesian coordinates
 !=======================================================================
   function get_Bf_Cart(x) result(Bf)
-  use equilibrium
-  use polygones
-  use m3dc1
-  use interpolateB
-  use splineB
-  use HINT
-  use toroidal_harmonics
-  use marsf
-  real*8, intent(in) :: x(3)
-  real*8             :: Bf(3)
+  real(real64), intent(in) :: x(3)
+  real(real64)             :: Bf(3)
 
-  real*8 :: r(3), Bcyl(3), sin_phi, cos_phi
+  real(real64) :: r(3), Bcyl(3), sin_phi, cos_phi
 
 
   ! coordinate transformation (Cartesian to cylindrical coordinates)
@@ -264,23 +435,10 @@ module bfield
   sin_phi = x(2) / r(1)
 
 
-  ! collect all magnetic field components
-  Bf      = 0.d0
-  Bcyl    = 0.d0
-  if (iconfig(BF_EQ2D)          == 1) Bcyl = Bcyl + get_Bf_eq2D(r)
-  if (iconfig(BF_COILS)         == 1) Bf   = Bf   + get_Bcart_polygones(x)
-  if (iconfig(BF_M3DC1)         == 1) Bcyl = Bcyl +        m3dc1_get_Bf(r)
-  if (iconfig(BF_INTERPOLATEB)  == 1) Bcyl = Bcyl + interpolateB_get_Bf(r)
-  if (iconfig(BF_SPLINEB)       == 1) Bcyl = Bcyl +      splineB_get_Bf(r)
-  if (iconfig(BF_HINT)          == 1) Bcyl = Bcyl +         HINT_get_Bf(r)
-  if (iconfig(BF_TOR_HARMONICS) == 1) Bcyl = Bcyl + tor_harmonics_get_Bf(r)
-  if (iconfig(BF_MARSF)         == 1) Bcyl = Bcyl +        marsf_get_Bf(r)
-
-
-  ! combine Cartesian and cylindrical components
-  Bf(1) = Bf(1) + Bcyl(1) * cos_phi - Bcyl(3) * sin_phi
-  Bf(2) = Bf(2) + Bcyl(1) * sin_phi + Bcyl(3) * cos_phi
-  Bf(3) = Bf(3) + Bcyl(2)
+  Bcyl    = get_Bf_Cyl(r)
+  Bf(1)   = Bcyl(1) * cos_phi - Bcyl(3) * sin_phi
+  Bf(2)   = Bcyl(1) * sin_phi + Bcyl(3) * cos_phi
+  Bf(3)   = Bcyl(2)
   icall(2) = icall(2) + 1
 
   end function get_Bf_Cart
