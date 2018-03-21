@@ -20,6 +20,7 @@ fi
 
 with_fgsl=false
 with_fio=false
+with_netcdf=false
 hdf5="hdf5-openmpi"
 python=python
 f2py=f2py2.7
@@ -63,7 +64,10 @@ for opt in "$@"; do
         echo "  fio_dir=<path>          installation directory for Fusion-IO library"
         echo
      fi
+	echo "  --with-netcdf           compile with netcdf support"
      if [ "$var" == "--help" ]; then
+	echo "  netcf5_cflags=<cflags>  compiler flags for netcdf support"
+	echo "  netcf5_libs=<libs>      libraries for netcdf support"
         echo "  mpifc=<compiler>        MPI Fortran wrapper compiler"
         echo "  cflags=<cflags>         Extra flags to give to the Fortran compiler"
         echo "  python=<command>        Python 2.7 command"
@@ -119,6 +123,15 @@ for opt in "$@"; do
         ;;
     --without-gui)
         gui=
+        ;;
+    --with-netcdf)
+        with_netcdf=true
+        ;;
+    netcdf_cflags)
+        netcdf_cflags=$val
+        ;;
+    netcdf_libs)
+        netcdf_libs=$val
         ;;
     mpifc)
         mpifc=$val
@@ -231,12 +244,12 @@ echo "$mpifc is using $compiler" | tee -a $LOG_FILE
 if [ -z "$cflags" ]; then
 case "$compiler" in
 gfortran)
-   cflags="-O2 -fconvert=big-endian -fPIC"
-   cflags_debug="-g -fconvert=big-endian -fPIC -fcheck=all -ffpe-trap=zero,overflow,invalid -fbacktrace"
+   cflags="-cpp -O2 -fconvert=big-endian -fPIC"
+   cflags_debug="-cpp -g -fconvert=big-endian -fPIC -fcheck=all -ffpe-trap=zero,overflow,invalid -fbacktrace"
    ;;
 ifort)
-   cflags="-O2 -convert big_endian -fPIC"
-   cflags_debug="-g -convert big_endian -fPIC -check all -debug all -fp-model strict -fp-speculation=off -fp-stack-check -fpconstant -fpe0 -traceback -fstack-security-check"
+   cflags="-cpp -O2 -convert big_endian -fPIC"
+   cflags_debug="-cpp -g -convert big_endian -fPIC -check all -debug all -fp-model strict -fp-speculation=off -fp-stack-check -fpconstant -fpe0 -traceback -fstack-security-check"
    ;;
 *)
    echo "error: cannot find flags for Fortran compiler $compiler, explicit user of cflags required!"
@@ -269,7 +282,7 @@ if $with_fgsl; then
    fgsl_version_minor=$(echo $fgsl_version | cut -d. -f2)
    fgsl_version_micro=$(echo $fgsl_version | cut -d. -f3)
 
-   echo "#define FGSL" >> config.h
+   echo "#define FGSL" >> $cnf
    echo "#define GSL_VERSION_MAJOR_FORTRAN $gsl_version_major" >> $cnf
    echo "#define GSL_VERSION_MINOR_FORTRAN $gsl_version_minor" >> $cnf
 
@@ -304,6 +317,24 @@ done
 echo "ODE_CFLAGS     = $ode_cflags"                            >> $incmk
 echo "ODE_OBJECTS    = $ode_objects"                           >> $incmk
 echo >> $incmk
+#-------------------------------------------------------------------------------
+
+
+# netcdf -----------------------------------------------------------------------
+if $with_netcdf; then
+   NOTE='Compiling with netcdf support'
+   echo $NOTE | tee -a $LOG_FILE
+   echo "# $NOTE"                                              >> $incmk
+   echo "#define NETCDF" >> $cnf
+
+   autoset netcdf_cflags   cflags      netcdf-fortran
+   autoset netcdf_libs     libs        netcdf-fortran
+   echo "NETCDF_CFLAGS    = $netcdf_cflags"                    >> $incmk
+   echo "NETCDF_LIBS      = $netcdf_libs"                      >> $incmk
+else
+   NOTE='Compiling without netcdf support'
+   echo $NOTE | tee -a $LOG_FILE
+fi
 #-------------------------------------------------------------------------------
 
 
@@ -397,8 +428,8 @@ echo >> $incmk
 
 
 # Flags and libraries ----------------------------------------------------------
-CFLAGS='$(FGSL_CFLAGS) $(HDF5_CFLAGS) $(FIO_CFLAGS) $(ODE_CFLAGS)'
-LIBS='$(FGSL_LIBS)   $(HDF5_LIBS)   $(FIO_LIBS)'
+CFLAGS='$(FGSL_CFLAGS) $(HDF5_CFLAGS) $(NETCDF_CFLAGS) $(FIO_CFLAGS) $(ODE_CFLAGS)'
+LIBS='$(FGSL_LIBS)   $(HDF5_LIBS)   $(NETCDF_LIBS)  $(FIO_LIBS)'
 
 echo "# Flags and libraries"                                   >> $incmk
 echo "CFLAGS         = $CFLAGS"                                >> $incmk

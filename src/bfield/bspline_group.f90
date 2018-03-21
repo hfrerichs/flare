@@ -1,3 +1,4 @@
+#include "../../config.h"
 module bspline_group
   use iso_fortran_env
   use abstract_bfield
@@ -299,7 +300,9 @@ module bspline_group
                      NGROUP_NAME, LABEL_NAME, &
                      scale_subset)
   use iso_fortran_env
+#if defined(NETCDF)
   use netcdf
+#endif
   implicit none
 
   character(len=*), intent(in)  :: filename
@@ -321,6 +324,7 @@ module bspline_group
   integer :: i, ngroup, ncid, varid, jr, jz
 
 
+#if defined(NETCDF)
   ! open data file
   call check(nf90_open(filename, NF90_NOWRITE, ncid))
 
@@ -401,16 +405,22 @@ module bspline_group
   ! close data file and cleanup
   call check( nf90_close(ncid) )
   deallocate (tmpr, tmpz, tmpp, scale_factor)
+#else
+  write (6, *) 'error: FLARE has been compiled without netcdf support!'
+  stop
+#endif
 
   contains
 
   subroutine check(status)
   integer, intent(in) :: status
 
+#if defined(NETCDF)
   if (status /= nf90_noerr) then
      print *, trim(nf90_strerror(status))
      stop "Stopped"
   endif
+#endif
 
   end subroutine check
 
