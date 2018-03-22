@@ -972,6 +972,7 @@ module curve2D
      stop
   endif
   call Ctmp%copy(this)
+  call Ctmp%duplicate_node_check()
 #ifdef DEBUG
   write (6, *) 'left_hand_shift', IDEBUG
 #endif
