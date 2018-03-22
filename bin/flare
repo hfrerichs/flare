@@ -18,21 +18,19 @@ flare=${bindir}/FLARE
 
 
 # parse argument list
-while getopts ":c:p:m:dD:h" opt; do
+while getopts ":p:m:dD:h" opt; do
     case $opt in
     h)
         echo -e "Running FLARE ...\n"
-        echo -e "usage: flare run [options]\n"
+        echo -e "usage: flare run [options] <control file>\n"
         echo "Available options:"
-        echo "    -c file                 provide alternative control file (default: run.conf)"
         echo "    -p #                    parallel execution on # processors"
         echo "    -m command              provide alternative MPI command"
         echo "    -d                      run FLARE through debugger"
         echo "    -D debugger             run FLARE through selected debugger"
+        echo
+        echo "    <control file>          provide alternative control file (default: run.conf)"
         exit 0
-        ;;
-    c)
-        ctrl_file=$OPTARG
         ;;
     p)
         procs=$OPTARG
@@ -55,6 +53,13 @@ while getopts ":c:p:m:dD:h" opt; do
     esac
 done
 shift $((OPTIND -1))
+
+
+# set alternative control file (if available
+if [ -n "$1" ]; then
+    ctrl_file=$1
+    shift
+fi
 
 
 # run FLARE
