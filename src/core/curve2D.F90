@@ -109,6 +109,11 @@ module curve2D
   public :: intersect_curve, intersect_lines, make_2D_curve, connect
   public :: SILENT, VERBOSE
 
+
+  interface t_curve
+     procedure constructor
+  end interface
+
   contains
 !=======================================================================
 
@@ -133,6 +138,24 @@ module curve2D
   this%title = this%nodes%title
 
   end subroutine load
+!=======================================================================
+
+
+
+!=======================================================================
+  function constructor(nodes, reverse)
+  real(real64), dimension(:,:), intent(in) :: nodes
+  logical,                      intent(in), optional :: reverse
+  type(t_curve) :: constructor
+
+
+  call constructor%new(size(nodes,1)-1)
+  constructor%x = nodes
+  if (present(reverse)) then
+     if (reverse) call constructor%flip()
+  endif
+
+  end function constructor
 !=======================================================================
 
 
