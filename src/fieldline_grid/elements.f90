@@ -198,7 +198,7 @@ module elements
   type(t_spacing),  intent(in)    :: Sr, Sp
   logical,          intent(in), optional :: debug
 
-  integer :: iri, iri2, ix(-1:1), ix2(-1:1), iside, addX(2), np0, np1, ierr
+  integer :: ir0, iri, iri2, ix(-1:1), ix2(-1:1), iside, addX(2), np0, np1, ierr
 
 
   iri = this%rad_bound(irside)
@@ -209,6 +209,7 @@ module elements
 
 
   ! 0. check if generating boundary nodes are set
+  ir0 = M%ir0
   if (M%ir0 < 0) then
      ! check if interface geometry is defined
      if (radial_interface(iri)%geometry_undefined()) then
@@ -247,7 +248,7 @@ module elements
      if (np1 > 0) then
         call M%make_interpolated_submesh((/0,this%nr-1/), (/this%np-1-np1, this%np/))
      endif
-     call M%make_divertor_grid(UPPER, this%np-np0, Sp, this%T, ierr)
+     call M%make_divertor_grid(UPPER, this%np-np0, Sp, this%T, ir0, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif
@@ -261,7 +262,7 @@ module elements
      if (np1 > 0) then
         call M%make_interpolated_submesh((/0,this%nr-1/), (/0, 1+np1/))
      endif
-     call M%make_divertor_grid(LOWER, np0, Sp, this%T, ierr)
+     call M%make_divertor_grid(LOWER, np0, Sp, this%T, ir0, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif

@@ -631,7 +631,7 @@ module mfs_mesh
 ! Rside: location of seed mesh
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
-  subroutine make_divertor_grid(this, Rside, ip0, Sp, Z, ierr)
+  subroutine make_divertor_grid(this, Rside, ip0, Sp, Z, ir_skip, ierr)
   use run_control,    only: Debug
   use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor, poloidal_discretization, ORTHOGONAL_AUTO_ADJUST
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
@@ -642,7 +642,7 @@ module mfs_mesh
 !  type(t_curve),   intent(in)  :: R, P
 !  integer,         intent(in)  :: Rside, Pside
 !  type(t_spacing), intent(in)  :: Sr, Sp
-  integer,         intent(in)  :: Rside, ip0
+  integer,         intent(in)  :: Rside, ip0, ir_skip
   type(t_spacing), intent(in)  :: Sp
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
@@ -656,7 +656,7 @@ module mfs_mesh
   real(real64), dimension(:,:), allocatable :: MSP
   real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, xi, L0, L, dphi
   real(real64)  :: Ladjust, Lu1, Lu2, Lcompress
-  integer       :: ir, ir0, ir1, ir2, ip, ips, dir, iextend, np_SP
+  integer       :: ir, ir0, ir1, ir2, ip, ips, ipt, dir, iextend, np_SP
   integer       :: it, its, it_start, it_end, dirT, downstream, nsub, np_skip
   integer       :: ipu
 
@@ -690,11 +690,13 @@ module mfs_mesh
      dir        = RIGHT_HANDED
      downstream = 1
      ips        = this%np - np_SP
+     ipt        = this%np
      ipu        = 0
   case(UPPER)
      dir        = LEFT_HANDED
      downstream = -1
      ips        = np_SP
+     ipt        = 0
      ipu        = this%np
      ! ip_ds    = 0
   end select
@@ -747,12 +749,22 @@ module mfs_mesh
   M => this%mesh
   allocate (MSP(0:TSP%nt, 2))
   do ir=0,this%nr
+     if (ir == ir_skip) cycle
+
+     ! separatrix leg
+     if (ir == this%ir0) then
+        ! separatrix strike point is already known from setup_boundary_nodes
+        F%t_curve = t_curve(M(ir, min(ip0,ipt):max(ip0,ipt), :), reverse= ip0 > ipt)
+        ierr = 0
+     ! divertor leg of flux surface
+     else
      x = M(ir,ip0,:)
 
      ! generate flux surface from "upstream" location x to target
      !call F%generate(x, dir, Trace_Step=0.1d0, AltSurf=C_guide)
      call F%generate_branch(x, dir, ierr, reference_direction=CCW_DIRECTION, &
              Trace_Step=0.1d0, cutoff_boundary=C_guide, stop_at_boundary=.false.)
+     endif
      ! A. successfull trace of flux surface to target
      if (ierr == 0) then
 !        select case(dir)
