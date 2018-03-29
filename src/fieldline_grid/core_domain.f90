@@ -11,18 +11,28 @@
   ! relative radial position of core surface
   real(real64), parameter :: alpha_core_default = 0.5d0
 
-  character(len=len(core_domain)) :: command, argument
+  character(len=len(core_domain)) :: command, argument, stmp
   real(real64) :: alpha_core
-  integer      :: iz
+  integer      :: iz, alpha_type
 
 
   write (6, 1000)
   call read_command(core_domain, 1, command, argument)
   if (argument == 'undefined') then
      alpha_core = alpha_core_default
+     alpha_type = 0
   else
-     read  (argument, *) alpha_core
+     read  (argument, *) stmp, alpha_core
+     select case(stmp)
+     case('relative')
+        alpha_type = 0
+     case('PsiN')
+        alpha_type = 1
+     case default
+        write (6, 9001) trim(command);   stop
+     end select
   endif
+ 9001 format("error: keyword 'PsiN' or 'relative' expected in argument in ",a)
 
 
   do iz=0,NZONET-1
@@ -34,11 +44,11 @@
 
      case(CORE_FLUX_SURFACES)
         write (6, 1002) iz, alpha_core
-        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core, FULL_FIELD)
+        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core, alpha_type, FULL_FIELD)
 
      case(CORE_EQ_FLUX_SURFACES)
         write (6, 1002) iz, alpha_core
-        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core, EQUILIBRIUM_FIELD)
+        call setup_core_domain_from_flux_surfaces(iz, nr_EIRENE_core, alpha_core, alpha_type, EQUILIBRIUM_FIELD)
 
      case default
         write (6, 9000) trim(core_domain)
@@ -138,7 +148,7 @@
 
 
   !=====================================================================
-  subroutine setup_core_domain_from_flux_surfaces(iz, nr_core, alpha_core, bfield)
+  subroutine setup_core_domain_from_flux_surfaces(iz, nr_core, alpha_core, alpha_type, bfield)
   use iso_fortran_env
   use emc3_grid
   use fieldline_grid
@@ -148,9 +158,10 @@
   use mesh_spacing
   use grid
   use curve2D
+  use equilibrium, only: get_PsiN, get_cylindrical_coordinates
   implicit none
 
-  integer,      intent(in) :: iz, nr_core, bfield
+  integer,      intent(in) :: iz, nr_core, bfield, alpha_type
   real(real64), intent(in) :: alpha_core
 
   type(t_flux_surface_3D) :: F
@@ -158,8 +169,8 @@
   type(t_curve)           :: C
   type(t_grid)            :: B, G
   character(len=80)       :: filename
-  real(real64) :: x0(3), xmag(3), x(3), r, w
-  integer      :: ig, ir, ip, ipc, it, updown_symmetry
+  real(real64) :: x0(3), xmag(3), x(3), y(3), r, w, PsiN1, theta
+  integer      :: ierr, ig, ir, ip, ipc, it, updown_symmetry
 
 
   ! set default number of points for flux surfaces
@@ -180,17 +191,21 @@
   x0(2) = ZG(ig)
   x0(3) = Zone(iz)%phi(Zone(iz)%it_base) / 180.d0 * pi
   xmag  = get_magnetic_axis(x0(3))
+  theta = atan2(x0(2)-xmag(2), x0(1)-xmag(1))
   call Sr%init(radial_spacing(-1))
   ! set up poloidal spacing
   call C%new(ZON_POLO(iz))
   C%x(0,:) = 0.d0
+  PsiN1    = 0
   do ip=1,SRF_POLO(iz)-1
      ig = ig + SRF_RADI(iz)
      w  = sqrt((RG(ig)-RG(ig-SRF_RADI(iz)))**2 + (ZG(ig)-ZG(ig-SRF_RADI(iz)))**2)
      C%x(ip,1) = 1.d0 * ip / (SRF_POLO(iz)-1)
      C%x(ip,2) = C%x(ip-1,2) + w
+     if (alpha_type == 1) PsiN1 = PsiN1 + get_PsiN((/ RG(ig), ZG(ig)/))
   enddo
   C%x(:,2) = C%x(:,2) / C%x(SRF_POLO(iz)-1,2)
+  PsiN1    = PsiN1 / (SRF_POLO(iz)-1)
   call Sp%init_manual_function(C)
 
 
@@ -209,8 +224,19 @@
   ! generate flux surfaces for core region -> setup base grid
   do ir=0,nr_core-1
      r = Sr%node(ir,nr_core)
-     r = alpha_core + (1.d0 - alpha_core) * r
-     x = xmag + r * (x0-xmag)
+     select case(alpha_type)
+     case(0)
+        r = alpha_core + (1.d0 - alpha_core) * r
+        x = xmag + r * (x0-xmag)
+     case(1)
+        y(1) = theta*180.d0/pi;   y(3) = x0(3)*180.d0/pi
+        y(2) = alpha_core + (PsiN1 - alpha_core) * r
+        x    = get_cylindrical_coordinates(y, ierr)
+        if (ierr > 0) then
+           write (6, *) 'error: cannot find coordinates for flux surface PsiN = ', y(2)
+           stop
+        endif
+     end select
 
      call F%generate(x, N_points, symmetry, 1, 360, Trace_Method, poloidal_coordinate=ipc, &
         resample=SRF_POLO(iz), spacings=Sp, updown_symmetry=updown_symmetry, bfield=bfield)
