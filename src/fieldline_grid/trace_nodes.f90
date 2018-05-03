@@ -5,6 +5,7 @@ subroutine trace_nodes(post_process_grid)
   use emc3_grid, only: NZONET
   use grid
   use string
+  use fieldline
   implicit none
 
   interface
@@ -28,7 +29,7 @@ subroutine trace_nodes(post_process_grid)
      call B%load('base_grid_'//trim(str(iz))//'.dat')
 
      ! generate 3D grid
-     call trace_nodes_1zone(iz, B, G3D(iz))
+     call trace_nodes_1zone(iz, B, G3D(iz), FULL_FIELD)
   enddo
 
 
@@ -58,7 +59,7 @@ end subroutine trace_nodes
 ! output:
 !    G          slices with nodes on field lines
 !-----------------------------------------------------------------------
-  subroutine trace_nodes_1zone(iz, B, G)
+  subroutine trace_nodes_1zone(iz, B, G, bfield)
   use grid
   use fieldline
   use fieldline_grid
@@ -67,6 +68,7 @@ end subroutine trace_nodes
   integer,      intent(in)  :: iz
   type(t_grid), intent(in)  :: B
   type(t_grid), intent(out) :: G
+  integer,      intent(in)  :: bfield
 
   type(t_fieldline) :: F
   real(real64) :: y0(3), y1(3), Dphi
@@ -129,7 +131,7 @@ end subroutine trace_nodes
         !         1: positive (counter-clockwise) toroidal direction
         do idir=-1,1,2
            ! initialize field line at grid node
-           call F%init(y0, idir*ts, tm, tc)
+           call F%init(y0, idir*ts, tm, tc, bfield=bfield)
 
            it_end = 0
            if (idir > 0) it_end = Zone(iz)%nt

@@ -250,7 +250,7 @@
 
 
   ! trace nodes from base grid and set up 3D grid
-  call trace_nodes_1zone(iz, B, G)
+  call trace_nodes_1zone(iz, B, G, bfield)
   do it=0,SRF_TORO(iz)-1
   do ip=0,SRF_POLO(iz)-1
   do ir=0,nr_core-1
