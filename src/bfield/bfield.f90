@@ -371,6 +371,7 @@ module bfield
 !=======================================================================
   function get_JBf_Cyl(r) result(J)
   use equilibrium
+  use polygones
   use interpolateB
   use toroidal_harmonics
   real(real64), intent(in) :: r(3)
@@ -383,6 +384,7 @@ module bfield
   J = 0.d0
 
   if (iconfig(BF_EQ2D   )       == 1) J = J + get_JBf_eq2D(r)
+  if (iconfig(BF_COILS)         == 1) J = J + get_JBf_cyl_polygones(r)
   if (iconfig(BF_INTERPOLATEB)  == 1) J = J + interpolateB_get_JBf(r) / 100.d0
   if (iconfig(BF_TOR_HARMONICS) == 1) J = J + tor_harmonics_get_JBf(r)
 
