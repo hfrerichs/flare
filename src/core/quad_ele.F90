@@ -342,18 +342,18 @@ module quad_ele
 
 
 !=======================================================================
-  function quad_ele_intersect(this, r1, r2, X, nelem, tau) result(l)
+  function quad_ele_intersect(this, r1, r2, X, nelem, tau, eta) result(l)
   use math
   use search
   class(t_quad_ele)   :: this
   real*8, intent(in)  :: r1(3), r2(3)
   real*8, intent(out) :: X(3)
   integer, intent(out), optional :: nelem
-  real(real64), intent(out), optional :: tau
+  real(real64), intent(out), optional :: tau, eta
   logical             :: l
 
   logical :: ljump
-  real*8  :: r1s(3), r2s(3), rAs(3), rBs(3), Dphi, xi
+  real*8  :: r1s(3), r2s(3), rAs(3), rBs(3), Dphi, xi, eta_check
   integer :: k, n, Di, istat
 
 
@@ -390,20 +390,22 @@ module quad_ele
 
   ! now check for intersections
   if (ljump) then
-     call check_intersection (r1s, rBs, xi, istat)
-     if (istat.ne.1) call check_intersection (rAs, r2s, xi, istat)
+     call check_intersection (r1s, rBs, xi, eta_check, istat)
+     if (istat.ne.1) call check_intersection (rAs, r2s, xi, eta_check, istat)
      ! TODO: update xi?
   else
-     call check_intersection (r1s, r2s, xi, istat)
+     call check_intersection (r1s, r2s, xi, eta_check, istat)
   endif
 
 
   l = .false.
   if (present(tau)) tau = -1.d0
+  if (present(eta)) eta = -1.d0
   if (istat.eq.1) then
      l = .true.
      X = r1 + (r2-r1) * xi
      if (present(tau)) tau = xi
+     if (present(eta)) eta = eta_check
      if (nelem < 0) then
         write (6, *) 'nelem = ', nelem
         write (6, *) 'ljump = ', ljump
@@ -413,13 +415,14 @@ module quad_ele
 
   contains
   !---------------------------------------------------------------------
-  subroutine check_intersection(r1, r2, t, istat)
+  subroutine check_intersection(r1, r2, t, eta, istat)
   real*8, intent(in)   :: r1(3), r2(3)
-  real*8, intent(out)  :: t
+  real*8, intent(out)  :: t, eta
   integer, intent(out) :: istat
 
   real*8  :: Dphi, phil, phir, phi1, phi2
   real*8  :: xA(2), xB(2), xC(2), xD(2), x5(2), x6(2), y1(2), y2(2), tc(2), ts
+  real*8  :: sc(2), s
   integer :: Di, i, iA, iB, j, n, is, js
 
 
@@ -505,6 +508,7 @@ module quad_ele
   t     = 2.d0
   is    = -1
   js    = -1
+  eta   = -1.d0
   do i=iA+1,iB+1,Di
      do j=1,this%n_RZ
         x5 = r1(1:2) + (r2(1:2)-r1(1:2)) * (this%phi(i-1)-phi1) / Dphi
@@ -516,8 +520,8 @@ module quad_ele
         call solve_bilinear_system_bc (xA, xB, xC, xD, y1, y2, istat)
 
         ! for each intersection with the surface element check if ts in [0,1]
-        tc(1) = y1(2)
-        tc(2) = y2(2)
+        sc(1) = y1(1);   tc(1) = y1(2)
+        sc(2) = y2(1);   tc(2) = y2(2)
         do k=1,istat
            ts = (this%phi(i-1)-phi1) / Dphi + (this%phi(i)-this%phi(i-1)) / Dphi * tc(k)
 
@@ -526,6 +530,7 @@ module quad_ele
               t = ts
               js = j
               is = i
+              s  = sc(k)
            endif
         enddo
      enddo
@@ -533,9 +538,12 @@ module quad_ele
      ! exit if an intersection has been found in this slice
      if (t < 2.d0) then
         istat = 1
-        if (present(nelem)) nelem = (js-1) + (is-1)*this%n_RZ
-        if (nelem < 0) then
-           write (6, *) 'nelem1 = ', nelem, js, is, this%n_RZ
+        eta = (1.d0*(js-1) + (s+1.d0)/2.d0) / this%n_RZ
+        if (present(nelem)) then
+           nelem = (js-1) + (is-1)*this%n_RZ
+           if (nelem < 0) then
+              write (6, *) 'nelem1 = ', nelem, js, is, this%n_RZ
+           endif
         endif
         return
      endif

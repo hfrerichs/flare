@@ -408,14 +408,15 @@ module boundary
 !    id:     boundary number
 !    ielem:  element number on boundary
 !    tau:    relative coordinate along trajectory r1->r2
+!    eta:    poloidal coordinate on boundary
 !=======================================================================
-  function intersect_boundary(r1, r2, X, id, ielem, tau) result(l)
+  function intersect_boundary(r1, r2, X, id, ielem, tau, eta) result(l)
   use math
   real*8, intent(in)   :: r1(3), r2(3)
   real*8, intent(out)  :: X(3)
   integer, intent(out) :: id
   integer, intent(out), optional :: ielem
-  real(real64), intent(out), optional :: tau
+  real(real64), intent(out), optional :: tau, eta
   logical :: l
 
   real*8  :: phih, rz(2), t, x1(3), x2(3), lambda_min
@@ -436,6 +437,7 @@ module boundary
         id     = i
         if (present(ielem)) ielem  = ish
         if (present(tau))   tau    = t
+        if (present(eta))   eta    = 0.d0
         return
      endif
   enddo
@@ -451,6 +453,7 @@ module boundary
         l  = .true.
         id = n_axi + i
         if (present(tau))   tau    = lambda_min
+        if (present(eta))   eta    = 0.d0
         return
      endif
   enddo
@@ -458,7 +461,7 @@ module boundary
 
   ! check intersection with mesh of quadrilateral elements
   do i=1,n_quad
-     if (S_quad(i)%intersect(r1, r2, X, ish, tau)) then
+     if (S_quad(i)%intersect(r1, r2, X, ish, tau, eta)) then
         l  = .true.
         id = n_axi + n_block + i
         if (ish < 0) then
