@@ -2,6 +2,7 @@
 module run_control
   use parallel
   use numerics
+  use diffusion
   implicit none
 
 
@@ -41,7 +42,8 @@ module run_control
      Psi(2)         = 0.d0, &
      offset         = 1.d-2, &
      tolerance      = 0.2d0, &
-     max_pt         = 0.d0          ! max. number of poloidal turns
+     max_pt         = 0.d0, &       ! max. number of poloidal turns
+     Dfl            = 0.d0          ! field line diffusion coeff [cm**2 / cm]
 
 
   integer :: &
@@ -60,7 +62,8 @@ module run_control
      Output_Format  = 1, &          ! See individual tools
      Panic_Level    = IMODERATE, &
      Surface_Id     = 1, &
-     Surface_Type   = 1
+     Surface_Type   = 1, &
+     field_line_diffusion_model = DIFFUSION_RZ_CIRCLE
 
 
   logical :: &
@@ -85,7 +88,8 @@ module run_control
      Theta, Psi, N_theta, N_psi, N_phi, N_R, N_Z, offset, tolerance, &
      Run_Level, &
      Surface_Id, Surface_Type, &
-     Debug, use_boundary_from_equilibrium, stop_at_boundary, Run_Mode
+     Debug, use_boundary_from_equilibrium, stop_at_boundary, Run_Mode, &
+     Dfl, field_line_diffusion_model
 
 
   private :: Boundary, RunControl
@@ -132,6 +136,9 @@ module run_control
   endif
 
 
+  call setup_diffusion(Dfl, field_line_diffusion_model)
+
+
   ! broadcast data to other processors
   if (nprs == 1) return
   call wait_pe()
@@ -166,6 +173,9 @@ module run_control
   call broadcast_inte_s (Panic_Level     )
   call broadcast_logi   (Debug           )
   call broadcast_logi   (stop_at_boundary)
+  call broadcast_real_s (Dfl             )
+  call broadcast_inte_s (field_line_diffusion_model)
+
 
   return
  1000 format(3x,'- Magnetic setup:')

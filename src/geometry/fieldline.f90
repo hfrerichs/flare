@@ -152,6 +152,7 @@ module fieldline
   function trace_1step_ODE(this) result(dl)
   use equilibrium
   use exceptions, only: OUT_OF_BOUNDS
+  use diffusion
   class(t_fieldline), intent(inout) :: this
   real(real64) :: dl
 
@@ -166,6 +167,11 @@ module fieldline
 
   ! calculate next step
   yc             = this%next_step()
+  if (field_line_diffusion) then
+     ! TODO: trace step in case Trace_Coords = FL_ANGLE
+     call diffusion_step(yc, abs(this%Trace_Step))
+     this%yc = yc
+  endif
   call coord_trans (yc, this%Trace_Coords, this%rc, CYLINDRICAL)
 
 
@@ -333,19 +339,19 @@ module fieldline
 
 
 !=======================================================================
-  function fieldline_intersects_boundary(this, rcut, id, ielem, tau) result(l)
+  function fieldline_intersects_boundary(this, rcut, id, ielem, tau, eta) result(l)
   use boundary
   class(t_fieldline), intent(inout) :: this
   real*8, intent(out), optional     :: rcut(3)
   integer, intent(out), optional    :: id, ielem
-  real(real64), intent(out), optional :: tau
+  real(real64), intent(out), optional :: tau, eta
   logical                           :: l
 
   real*8  :: X(3)
   integer :: id1, ielem1
 
 
-  l = intersect_boundary (this%rl, this%rc, X, id1, ielem1, tau)
+  l = intersect_boundary (this%rl, this%rc, X, id1, ielem1, tau, eta)
   if (present(rcut)) rcut = X
   if (present(id))   id   = id1
   if (present(ielem)) ielem = ielem1

@@ -9,6 +9,7 @@ OBJECTS =  \
                math.o\
                numerics.o\
                linalg.o\
+               diffusion.o\
                run_control.o\
                dataset.o\
                grid.o\
