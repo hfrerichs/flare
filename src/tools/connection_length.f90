@@ -50,7 +50,7 @@
 !===============================================================================
 subroutine connection_length
   use run_control, only: Grid_File, Output_File, Trace_Step, Trace_Method, Trace_Coords, &
-                         Output_Format, Limit, Psi, max_pt
+                         Output_Format, Limit, Psi, max_pt, N_sym
   use grid
   use dataset
   use parallel
@@ -61,7 +61,7 @@ subroutine connection_length
   use flux_surface_3D
   implicit none
 
-  integer, parameter :: nout_max = 12
+  integer, parameter :: nout_max = 18
   integer, parameter :: iu = 42
 
   type(t_flux_surface_3D)                   :: LCFS
@@ -70,7 +70,8 @@ subroutine connection_length
   type(t_dataset)    :: D
 
   real(real64)       :: y(3), r(3), dl, PsiN, Psi_min, Psi_av, ntt(-1:1)
-  real(real64)       :: lc(-1:1), npt(-1:1), dist2PsiN(-1:1,2), dist, d_min, PsiN_final(-1:1)
+  real(real64)       :: lc(-1:1), npt(-1:1), dist2PsiN(-1:1,2), dist, d_min, PsiN_final(-1:1), X(3), Xdir(3,-1:1)
+  real(real64)       :: eta, eta_dir(-1:1)
   logical :: distance_to_lcfs
   integer :: itrace, nout, iout(nout_max), i, i2, ig, ig1, iflag, idir, id, id_limit(-1:1)
 
@@ -152,6 +153,8 @@ subroutine connection_length
      ! ... for additional data (distance to flux surface, limiting surface id, ...)
      dist2PsiN = 0.d0
      id_limit  = 0
+     Xdir      = 0.d0
+     eta_dir   = -1.d0
 
      ! ... for distance to last closed flux surface
      d_min = huge(d_min)
@@ -192,8 +195,10 @@ subroutine connection_length
 
 
            ! check intersection with walls
-           if (F%intersect_boundary(id=id)) then
+           if (F%intersect_boundary(id=id, rcut=X, eta=eta)) then
               id_limit(idir) = id
+              Xdir(:,idir)   = X
+              eta_dir(idir)  = eta
               exit trace_loop
            endif
         enddo trace_loop
@@ -238,6 +243,22 @@ subroutine connection_length
            D%x(ig1,5+i) = ntt(-1)
         case (11)
            D%x(ig1,5+i) = ntt(1)
+        case (12)
+           !D%x(ig1,5+i) = Xdir(2,-1)
+           D%x(ig1,5+i) = get_poloidal_angle(Xdir(:,-1))
+        case (13)
+           !D%x(ig1,5+i) = Xdir(2, 1)
+           D%x(ig1,5+i) = get_poloidal_angle(Xdir(:, 1))
+        case (14)
+           D%x(ig1,5+i) = mod(Xdir(3,-1), pi2/N_sym)
+           if (D%x(ig1,5+i) < 0.d0) D%x(ig1,5+i) = D%x(ig1,5+i) + pi2/N_sym
+        case (15)
+           D%x(ig1,5+i) = mod(Xdir(3, 1), pi2/N_sym)
+           if (D%x(ig1,5+i) < 0.d0) D%x(ig1,5+i) = D%x(ig1,5+i) + pi2/N_sym
+        case (16)
+           D%x(ig1,5+i) = eta_dir(-1)
+        case (17)
+           D%x(ig1,5+i) = eta_dir( 1)
         end select
      enddo
 
@@ -315,6 +336,24 @@ subroutine connection_length
      case (11)
         qkey = 'Ltt_fwd'
         text = 'Forward connection length [toroidal turns]'
+     case (12)
+        qkey = 'Zboundary_bwd'
+        text = 'Backward boundary intersection point Z [cm]'
+     case (13)
+        qkey = 'Zboundary_fwd'
+        text = 'Forward boundary intersection point Z [cm]'
+     case (14)
+        qkey = 'Phi_boundary_bwd'
+        text = 'Backward boundary intersection point Phi [cm]'
+     case (15)
+        qkey = 'Phi_boundary_fwd'
+        text = 'Forward boundary intersection point Phi [cm]'
+     case (16)
+        qkey = 'eta_boundary_bwd'
+        text = 'Backward boundary intersection point eta'
+     case (17)
+        qkey = 'eta_boundary_fwd'
+        text = 'Forward boundary intersection point eta'
      case default
         write (6, *) 'error: ', 2**i2, ' is not a valid data id!'
         stop
