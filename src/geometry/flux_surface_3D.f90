@@ -189,11 +189,12 @@ module flux_surface_3D
 
   integer, parameter :: iu = 32
 
-  character(len=80)  :: s
+  character(len=80)  :: s, title
   integer :: i, j, n_phi, n_sym, n_theta
 
 
   open  (iu, file=filename)
+  read  (iu, *) title
   ! read flux surface resolution
   read  (iu, 1000) s
   read  (s(3:80), *) n_phi, n_theta, n_sym
@@ -338,6 +339,9 @@ module flux_surface_3D
   endif
 
 
+  ! write title
+  write (iu0,  999)
+
   ! write flux surface resolution and label
   write (iu0, 1000) this%n_phi, this%n_theta, this%n_sym
   write (iu0, 1001) this%PsiN
@@ -361,6 +365,7 @@ module flux_surface_3D
   ! Output_File given?
   if (present(filename)) close (iu0)
 
+  999 format('# flux_surface_3D')
  1000 format('# ',3i8)
  1001 format('# ',f10.5)
  1002 format('# phi = ',f10.5)

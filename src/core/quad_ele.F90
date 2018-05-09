@@ -70,6 +70,7 @@ module quad_ele
   real*8, dimension(:), allocatable   :: phitmp
   integer, dimension(:), allocatable  :: Di
   character*80 :: s
+  logical :: plot_format
   integer :: i, j, n, m
 
 
@@ -78,7 +79,21 @@ module quad_ele
   read  (iu, '(a)') s;  this%label = s
   if (present(title)) title = s
 
-  read  (iu, *) n, m, this%n_sym, this%dR, this%dZ
+  ! resolution and symmetry
+  plot_format = .false.
+  read  (iu, 1000) s
+  if (s(1:1) == '#') then
+     s = s(2:80)
+     plot_format = .true.
+  endif
+  read  (s, *) n, m, this%n_sym
+  ! optional: offset
+  this%dR = 0.d0
+  this%dZ = 0.d0
+  read  (s, *, end=2000) n, m, this%n_sym, this%dR, this%dZ
+ 2000 continue
+
+
   n = n-1
   m = m-1
   this%n_phi = n
@@ -86,7 +101,12 @@ module quad_ele
   allocate (this%phi(0:n))
   allocate (this%R(0:n, 0:m), this%Z(0:n, 0:m))
   do i=0,n
-     read (iu, *) this%phi(i)
+     if (plot_format) then
+        read (iu, 1000) s;   read (iu, 1000) s;   read (s(9:80), *) this%phi(i)
+     else
+        read (iu, *) this%phi(i)
+     endif
+
      do j=0,m
         read (iu, *) this%R(i, j), this%Z(i, j)
      enddo
@@ -127,6 +147,7 @@ module quad_ele
   call this%setup_coefficients()
   call this%closed_check()
 
+ 1000 format(a80)
   end subroutine quad_ele_load
 !=======================================================================
 
@@ -202,9 +223,10 @@ module quad_ele
 ! Plot surface mesh
 !=======================================================================
   subroutine quad_ele_plot(this, filename, Output_Format)
+  use math
   use curve2D
   class(t_quad_ele)         :: this
-  character*120, intent(in) :: filename
+  character(len=*), intent(in) :: filename
   integer, intent(in)       :: Output_Format
 
   integer, parameter :: iu = 99
@@ -236,7 +258,18 @@ module quad_ele
   write (iu, *) this%label
   write (iu, *) this%n_phi+1, this%n_RZ+1, this%n_sym, this%dR, this%dZ
   do i=0,this%n_phi
-     write (iu, *) this%phi(i)
+     write (iu, *) this%phi(i) / pi * 180.d0
+     do j=0,this%n_RZ
+        write (iu, *) this%R(i, j), this%Z(i, j)
+     enddo
+  enddo
+
+  elseif (Output_Format == 4) then
+  write (iu, 4001) trim(this%label)
+  write (iu, 4002) this%n_phi+1, this%n_RZ+1, this%n_sym, this%dR, this%dZ
+  do i=0,this%n_phi
+     write (iu, *)
+     write (iu, 4003) this%phi(i) / pi * 180.d0
      do j=0,this%n_RZ
         write (iu, *) this%R(i, j), this%Z(i, j)
      enddo
@@ -245,6 +278,9 @@ module quad_ele
   endif
   close (iu)
 
+ 4001 format("# ",a)
+ 4002 format("# ",3i8,2f10.5)
+ 4003 format('# phi = ',f10.5)
   end subroutine quad_ele_plot
 !=======================================================================
 
