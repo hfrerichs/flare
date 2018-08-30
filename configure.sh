@@ -66,8 +66,8 @@ for opt in "$@"; do
      fi
 	echo "  --with-netcdf           compile with netcdf support"
      if [ "$var" == "--help" ]; then
-	echo "  netcf5_cflags=<cflags>  compiler flags for netcdf support"
-	echo "  netcf5_libs=<libs>      libraries for netcdf support"
+	echo "  netcdf_cflags=<cflags>  compiler flags for netcdf support"
+	echo "  netcdf_libs=<libs>      libraries for netcdf support"
         echo "  mpifc=<compiler>        MPI Fortran wrapper compiler"
         echo "  cflags=<cflags>         Extra flags to give to the Fortran compiler"
         echo "  python=<command>        Python 2.7 command"
