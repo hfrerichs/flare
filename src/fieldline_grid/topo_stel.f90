@@ -311,7 +311,7 @@ module modtopo_stel
 
 
   do i=0,nr
-     do j=0,(np-1)/2
+     do j=0,np/2
         j2 = np-j
         x(1) = 0.5d0 * (M(i, j, 1) + M(i, j2, 1))
         x(2) = 0.5d0 * (M(i, j, 2) - M(i, j2, 2))
