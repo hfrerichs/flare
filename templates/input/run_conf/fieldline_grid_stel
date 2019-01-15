@@ -83,7 +83,7 @@
   ! 4. Vacuum and core domain (for EIRENE only)
   !---------------------------------------------------------------------
 
-  core_domain         =    'FLUX_SURFACES 0.2'
+  core_domain         =    'FLUX_SURFACES relative 0.2'
   radial_spacing(-1)  =    'EXPONENTIAL -0.51d0'
 
   !vacuum_domain       =    'LOAD3D vessel.dat; AUTO_EXPAND 5.0; INTERPOLATED_NORMAL'
