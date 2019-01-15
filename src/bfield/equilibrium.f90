@@ -383,6 +383,17 @@ module equilibrium
      use_boundary                  = .false.
      broadcast_equilibrium         => amhd_broadcast
      post_setup_equilibrium        => amhd_post_setup_equilibrium
+  case default
+     get_Bf_eq2D      => default_get_Bf
+     get_JBf_eq2D     => default_get_JBf
+     get_Psi          => default_get_Psi
+     get_DPsi         => default_get_DPsi
+     get_domain       => default_get_domain
+     get_pressure     => default_pressure
+     export_boundary  => null()
+     equilibrium_info => null()
+     broadcast_equilibrium        => null()
+     post_setup_equilibrium        => null()
   end select
 
 
@@ -473,7 +484,7 @@ module equilibrium
   if (i_equi == EQ_SONNET) then
      call Bequi%broadcast()
   else
-     call broadcast_equilibrium()
+     if (associated(broadcast_equilibrium)) call broadcast_equilibrium()
   endif
 
   end subroutine broadcast_mod_equilibrium
