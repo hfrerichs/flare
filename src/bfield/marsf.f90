@@ -6,6 +6,7 @@ module marsf
 
 
   integer, parameter :: B_FIELD = 1, A_FIELD = 2, X_FIELD = 3
+  integer, parameter :: maxdata = 4
 
 
   ! for internal use
@@ -35,8 +36,8 @@ module marsf
   integer, intent(in)  :: iu
   integer, intent(out) :: iconfig
 
-  character(len=256) :: geo_file, data_file
-  integer :: ierr
+  character(len=256) :: geo_file, data_file(maxdata) = ""
+  integer :: i, ierr
 
   namelist /MARSF_Input/ &
      geo_file, data_file, I_scale
@@ -48,8 +49,16 @@ module marsf
   write (6, *)
   write (6, 1001)
   geo_file  = trim(Prefix)//geo_file
-  data_file = trim(Prefix)//data_file
-  call load_module(geo_file, data_file, ierr)
+  nmax = 0
+  do i=1,maxdata
+     if (data_file(i) /= "") then
+        nmax = nmax + 1
+        data_file(nmax) = trim(Prefix)//data_file(i)
+     endif
+  enddo
+  if (nmax == 0) return
+
+  call load_module(geo_file, data_file(1:nmax), ierr)
   if (ierr /= 0) then
      iconfig = 0
      return
@@ -78,6 +87,7 @@ module marsf
   call broadcast_real_s(raxis)
   call broadcast_real_s(zaxis)
   call broadcast_real_s(I_scale)
+  if (nmax == 0) return
 
   if (mype > 0) then
      allocate (r(nr,nz), z(nr,nz), s(nr,nz), chi(nr,nz))
@@ -114,7 +124,7 @@ module marsf
 
   !=====================================================================
   subroutine load_module(geo_file, data_file, ierr)
-  character(len=*), intent(in)  :: geo_file, data_file
+  character(len=*), intent(in)  :: geo_file, data_file(:)
   integer,          intent(out) :: ierr
 
   integer, parameter :: iu = 99
@@ -136,11 +146,10 @@ module marsf
   close (iu)
 
 
-  nmax = 1
   allocate(nn(nmax),mmaxp(nmax),m1(nmax),m2(nmax))
   ! first read B-field data to get dimentsions 
   do n=1,nmax
-  open  (iu, file=data_file, status='old', form='formatted')
+  open  (iu, file=data_file(n), status='old', form='formatted')
   read  (iu, *) nn(n),mmaxe,m1(n),m2(n),nsp,nsv
   close (iu)
 
@@ -163,7 +172,7 @@ module marsf
   ! read B-field data for all toroidal harmonics
   ! followed by X1 data for normal displacement of the plasma      
   do n=1,nmax
-  open  (iu, file=data_file, status='old', form='formatted')
+  open  (iu, file=data_file(n), status='old', form='formatted')
   read  (iu, *) nn(n),mmaxe,m1(n),m2(n),nsp,nsv
   do i=1,ns
      read  (iu, *) cs(i),csm(i),rtmp(1)
