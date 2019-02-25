@@ -73,7 +73,7 @@ module bspline_group
   real(real64) :: rsym(3), rx1
 
 
-  Bf        = 0.d0;   if (this%out_of_bounds(r)) return
+  Bf        = 0.d0;   if (this%out_of_bounds(r)) stop
   rsym(1:2) = r(1:2)
   rsym(3)   = phi_sym(r(3), this%nfp)
   rx1       = 1.d0 / rsym(1)
