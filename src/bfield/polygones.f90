@@ -143,6 +143,7 @@ module polygones
 
 
   call broadcast_inte_s (n_coils)
+  if (mype > 0) allocate (C(n_coils))
   do i=1,n_coils
      call C(i)%broadcast()
   enddo
