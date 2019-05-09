@@ -283,6 +283,8 @@ module toroidal_harmonics
 
 
   call broadcast_inte_s(n_harmonics)
+  if (mype > 0) allocate (H(n_harmonics))
+
   do i=1,n_harmonics
      call H(i)%broadcast()
   enddo
