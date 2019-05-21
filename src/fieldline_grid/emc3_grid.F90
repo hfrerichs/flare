@@ -21,7 +21,7 @@ module emc3_grid
      BFSTREN,             PSI_N
 
   integer, dimension(:), allocatable, save :: &
-     ID_TEM
+     ID_TEM,              IDCELL
 
   integer, save :: NPLTR
 
@@ -108,7 +108,7 @@ module emc3_grid
   do i=1,NZONET
      PHI_PL_OS(i) = PHI_PL_OS(i-1) + SRF_TORO(i-1)
      GRID_P_OS(i) = GRID_P_OS(i-1) + SRF_RADI(i-1)*SRF_POLO(i-1)*SRF_TORO(i-1)
-     MESH_P_OS(i) = GRID_P_OS(i-1) + ZON_RADI(i-1)*ZON_POLO(i-1)*ZON_TORO(i-1)
+     MESH_P_OS(i) = MESH_P_OS(i-1) + ZON_RADI(i-1)*ZON_POLO(i-1)*ZON_TORO(i-1)
   enddo
 
   ! 3. allocate main arrays
@@ -314,6 +314,34 @@ module emc3_grid
  10  deallocate (ntcell)
 
   end subroutine load_emc3_plates
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine load_physical_cell()
+
+  integer, parameter :: iu = 99
+
+  integer :: i(3)
+
+
+  if (allocated(IDCELL)) return
+  allocate (IDCELL(0:MESH_P_OS(NZONET)-1))
+
+
+  open  (iu, file="IDCELL")
+  read  (iu, *) i
+  if (i(1) /= MESH_P_OS(NZONET)) then
+     write (6, *) "MESH_P_OS(NZONET) = ", MESH_P_OS(NZONET)
+     write (6, *) i
+     write (6, 9001);   stop
+  endif
+  read  (iu, *) IDCELL
+  close (iu)
+ 9001 format("error in load_physical_cell: incompatible IDCELL!")
+
+  end subroutine load_physical_cell
 !=======================================================================
 
 
