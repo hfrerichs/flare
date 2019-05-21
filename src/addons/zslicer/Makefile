@@ -1,9 +1,10 @@
 include ../../../include.mk
 
 
-PROGRAM = slice_grid
+PROGRAM = ZSLICER
+SCRIPT  = zslicer
 
-OBJECTS = slice_grid.o
+OBJECTS = zslicer.o
 
 FLARE_OBJ = parallel.o\
             math.o\
@@ -34,7 +35,8 @@ emc3_grid.f90:
 
 
 install:
-	cp $(PROGRAM) $(BINDIR)
+	install $(PROGRAM) $(BINDIR)
+	install $(SCRIPT) $(BINDIR)
 
 
 clean:

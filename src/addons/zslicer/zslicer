@@ -1,0 +1,5 @@
+#!/bin/bash
+
+ZSLICER $1 || exit 1
+cat slice_nodes.txt slice_triang.txt slice_cells.txt >> slice.t2d
+rm slice_nodes.txt slice_triang.txt slice_cells.txt

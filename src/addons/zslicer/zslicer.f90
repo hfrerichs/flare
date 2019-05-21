@@ -1,6 +1,7 @@
 !===============================================================================
 module slicer
   use iso_fortran_env
+  use math, only: pi
   use emc3_grid
   implicit none
   private
@@ -245,14 +246,14 @@ module slicer
 
   real(real64) :: x(2), xi(3), xi1(3), xi2(3), v1(2), v2(2)
   real(real64) :: xcube(-1:1, -1:1, -1:1, 3)
-  real(real64) :: phiA, phiB, R(8), R1, R2, Z(8), Z1, Z2, E(12,3), t
+  real(real64) :: R(8), R1, R2, Z(8), Z1, Z2, E(12,3), t
   !integer :: N(0:1, 0:1, 0:1), last_face, next_face
   integer :: Ncube(-1:1, -1:1, -1:1), Nc, nnode, nedge, jnode, jedge
   integer :: i, i1, i2, ii, j, j1, jj, k, k1, k2, ic, ig(8), m, mm
 
 
-  phiA    = PHI_PLANE(it + PHI_PL_OS(iz))
-  phiB    = PHI_PLANE(it+1 + PHI_PL_OS(iz))
+  !phiA    = PHI_PLANE(it + PHI_PL_OS(iz))
+  !phiB    = PHI_PLANE(it+1 + PHI_PL_OS(iz))
   !ic      = ir + (ip + it*ZON_POLO(iz))*ZON_RADI(iz)  +  MESH_P_OS(iz)
 
   ig(1)   = ir + (ip + it*SRF_POLO(iz))*SRF_RADI(iz) + GRID_P_OS(iz)
@@ -285,9 +286,9 @@ module slicer
      xcube(i,j,k,1) = RG(ic)
      xcube(i,j,k,2) = ZG(ic)
      k2 = 0;  if (k == 1) k2 = 1
-     xcube(i,j,k,3) = PHI_PLANE(it+k2 + PHI_PL_OS(iz))
+     xcube(i,j,k,3) = PHI_PLANE(it+k2 + PHI_PL_OS(iz)) / pi * 180.d0
 
-     if (Z1 == ZG(ic)) Ncube(i,j,k) = 1
+     if (Z0 == ZG(ic)) Ncube(i,j,k) = 1
   enddo
   enddo
   enddo
@@ -403,12 +404,12 @@ module slicer
 
 
   ! DIAGNOSTIC OUTPUT
-  do i=-1,1;  do j=-1,1;  do k=-1,1
-     if (Ncube(i,j,k) == 1) then
-        x(1) = xcube(i,j,k,3);  x(2) = xcube(i,j,k,1)
-        write (98, *) x
-     endif
-  enddo;  enddo;  enddo
+!  do i=-1,1;  do j=-1,1;  do k=-1,1
+!     if (Ncube(i,j,k) == 1) then
+!        x(1) = xcube(i,j,k,3);  x(2) = xcube(i,j,k,1)
+!        write (98, *) x
+!     endif
+!  enddo;  enddo;  enddo
 
 
   ! exactly 3 intersections with Z0-plane
@@ -835,15 +836,38 @@ program slice_grid
   use slicer
   implicit none
 
+  integer, parameter :: iu = 90, iu1 = 91, iu2 = 92, iu3 = 93
+
+  character(len=32) :: Zstr
   type(t_polygon) :: P
   real(real64)    :: Z
   integer         :: iz, ir, ip, it, ic
+  integer         :: ntriang, nnode, i, ios
 
 
+  ! set vertical position for slice from command line argument
+  call get_command_argument(1, Zstr)
+  if (Zstr == "") then
+     write (6, 9001);   call exit(1)
+  endif
+  read (Zstr, *, iostat=ios) Z
+  if (ios /= 0) then
+     write (6, 9002);   call exit(1)
+  endif
+ 9001 format("error: missing argument for vertical position!")
+ 9002 format("error: invalid argument for vertical position!")
+
+
+  ! load grid and cell mapping
   call load_emc3_grid()
+  call load_physical_cell()
 
 
-  Z = 0.d0
+  ntriang = 0
+  nnode   = 0
+  open  (iu1, file="slice_nodes.txt")
+  open  (iu2, file="slice_triang.txt")
+  open  (iu3, file="slice_cells.txt")
   do iz=0,NZONET-1
   do it=0,ZON_TORO(iz)-1
   do ip=0,ZON_POLO(iz)-1
@@ -855,12 +879,45 @@ program slice_grid
      !write (6, *) ir, ip, it, iz
      call Zslice_cell(ir, ip, it, iz, Z, P)
 
-     if (P%n > 2) call P%write(99)
-  enddo
-  enddo
-  enddo
-  enddo
+     !if (P%n > 2) call P%write(99)
+     if (P%n <= 2) cycle
 
+
+     ! add nodes
+     do i=0,P%n-1
+        write (iu1, *) P%x(i,:)
+     enddo
+
+     ! add triangles and cell maps
+     do i=1,P%n-2
+        write (iu2, *) nnode, nnode+i, nnode+i+1
+
+        ic = ir + (ip + it*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
+        write (iu3, *) IDCELL(ic)
+     enddo
+
+     ! update number of nodes and triangles
+     nnode   = nnode + P%n
+     ntriang = ntriang + P%n-2
+  enddo
+  enddo
+  enddo
+  enddo
+  close (iu1)
+  close (iu2)
+  close (iu3)
+
+
+  open  (iu, file="slice.t2d")
+  write (iu, 1000) Z
+  write (iu, 1001)
+  write (iu, 1002) "Slice direction [cm]"
+  write (iu, 1003) nnode, ntriang
+  close (iu)
+ 1000 format("# TITLE Radial slice at Z = ",f0.2," cm")
+ 1001 format("# XLABEL Toroidal Angle [deg]")
+ 1002 format("# YLABEL ",a)
+ 1003 format(2i10)
 
 end program slice_grid
 !===============================================================================
