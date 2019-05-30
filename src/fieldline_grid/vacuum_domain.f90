@@ -11,6 +11,7 @@ subroutine vacuum_domain_for_EIRENE()
 
 
   do iz=0,NZONET-1
+     if (Zone(iz)%nr_vac == 0) cycle
      write (6, 1000)
  1000 format(3x,' - Setting up vacuum domain for EIRENE')
      ! set up vacuum domain in far SOL
