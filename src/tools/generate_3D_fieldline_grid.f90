@@ -13,7 +13,7 @@ subroutine generate_3D_fieldline_grid (run_level, run_level_end)
 
   integer, intent(inout) :: run_level, run_level_end
 
-  integer, parameter     :: max_level = 9
+  integer, parameter     :: max_level = 10
 
   procedure(), pointer :: make_base_grids, post_process_grid
   integer :: ilevel
@@ -151,4 +151,100 @@ subroutine generate_3D_fieldline_grid (run_level, run_level_end)
   endif
 
 
+  ! Level 10: define divertor reservoirs
+  if (level(10)) then
+     call load_emc3_grid()
+     call define_divertor_reservoirs()
+  endif
+
 end subroutine generate_3D_fieldline_grid
+
+
+
+
+
+subroutine define_divertor_reservoirs()
+  use fieldline_grid, only: Zone, npR, npL, topology, TOPO_LSN, TOPO_LSN1
+  use emc3_grid
+  use curve2D
+  use run_control, only: Debug
+  implicit none
+
+  type(t_curve) :: CL, CR
+  integer, dimension(:), allocatable :: res
+  real*8  :: x1(2), x2(2), x(2)
+  integer :: ir, ip, it, iz, im, ig, nr
+
+
+  write (6, *) "setup divertor reservoirs..."
+  if (topology /= TOPO_LSN  .and.  topology /= TOPO_LSN1) then
+     write (6, 9001);   stop
+  endif
+ 9001 format("error: divertor reservoirs implemented only for single null geometry!")
+
+
+  allocate (res(0:MESH_P_OS(NZONET)-1), source=0)
+  do iz=0,NZONET-1
+     if (mod(iz,3) == 0) cycle
+
+
+  it = Zone(iz)%it_base
+  ip = npR(1)
+  nr = Zone(iz)%nr
+  call CR%new(nr)
+  do ir=0,nr
+     ig = ir +(ip+it*SRF_POLO(iz))*SRF_RADI(iz)+GRID_P_OS(iz)
+     CR%x(ir,1) = RG(ig)
+     CR%x(ir,2) = ZG(ig)
+  enddo
+
+  ip = ZON_POLO(iz)-npL(1)
+  call CL%new(nr)
+  do ir=0,nr
+     ig = ir +(ip+it*SRF_POLO(iz))*SRF_RADI(iz)+GRID_P_OS(iz)
+     CL%x(ir,1) = RG(ig)
+     CL%x(ir,2) = ZG(ig)
+  enddo
+
+
+  do ir=0,nr-1
+  do it=0,ZON_TORO(iz)-1
+     ! right divertor leg
+     call RZ_REAL_COORDINATES(iz, ir, 0, 0.d0,0.d0, it+0.5d0, x1(1), x1(2))
+     do ip=0,ZON_POLO(iz)-2
+        im = ir + (ip+it*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
+        res(im) = 1
+        call RZ_REAL_COORDINATES(iz, ir, ip+1, 0.d0,0.d0, it+0.5d0, x2(1), x2(2))
+        if (intersect_curve(x1, x2, CR, x)) then
+           if (Debug) write (97, *) x
+           exit
+        endif
+
+        x1 = x2
+     enddo
+     !write (6, *) ir, it, ip
+
+     ! left divertor leg
+     call RZ_REAL_COORDINATES(iz, ir, ZON_POLO(iz)-1, 0.d0,0.d0, it+0.5d0, x1(1), x1(2))
+     do ip=ZON_POLO(iz)-1,1,-1
+        im = ir + (ip+it*ZON_POLO(iz))*ZON_RADI(iz) + MESH_P_OS(iz)
+        res(im) = 2
+        call RZ_REAL_COORDINATES(iz, ir, ip-1, 0.d0,0.d0, it+0.5d0, x2(1), x2(2))
+        if (intersect_curve(x1, x2, CL, x)) then
+           if (Debug) write (97, *) x
+           exit
+        endif
+
+        x1 = x2
+     enddo
+     !write (6, *) ir, it, ip
+  enddo
+  enddo
+  enddo
+
+
+  open  (99, file="DIVERTOR_RESERVOIRS")
+  write (99, *) res
+  close (99)
+
+end subroutine define_divertor_reservoirs
