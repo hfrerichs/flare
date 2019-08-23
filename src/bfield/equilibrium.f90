@@ -31,7 +31,7 @@ module equilibrium
 !...............................................................................
 ! user defined parameters (to be set via configuration file)                   .
 
-  character*120 :: &
+  character(len=256) :: &
      Data_File        = ''
   character*12  :: &
      Data_Format      = ''
@@ -498,7 +498,7 @@ module equilibrium
 
   integer, parameter :: iu = 32
 
-  character(len=120) :: xpoint_file
+  character(len=256) :: xpoint_file
   logical      :: ex
   real(real64) :: x(2)
   integer      :: ix, nx

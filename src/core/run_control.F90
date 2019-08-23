@@ -20,7 +20,7 @@ module run_control
      IDONTPANIC = 42
 
   ! user defined variables
-  character(len=120) :: &
+  character(len=256) :: &
      Machine        = ' ', &        ! select input directory (1st part)
      Configuration  = ' ', &        ! select input directory (2nd part)
      Boundary       = '', &
@@ -74,10 +74,10 @@ module run_control
 
 
   ! internal variables
-  character*120 :: Prefix = '', &
-                   Boundary_Prefix, &
-                   Bfield_input_file, &
-                   run_control_file
+  character(len=256) :: Prefix = '', &
+                        Boundary_Prefix, &
+                        Bfield_input_file, &
+                        run_control_file
 
 
   namelist /RunControl/ &

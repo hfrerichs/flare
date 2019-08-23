@@ -34,7 +34,7 @@ module boundary
 !  end type t_boundary
 
 
-  character*120 :: boundary_file(N_BNDRY_MAX) = ''
+  character(len=256) :: boundary_file(N_BNDRY_MAX) = ''
   integer       :: boundary_type(N_BNDRY_MAX) = 0
 
   ! type 1 and 4 surfaces can be used to model a limiter. Then boundary_side = -1 defines
@@ -47,7 +47,7 @@ module boundary
 
   type(t_curve), dimension(:), allocatable :: S_axi
   type(t_quad_ele), dimension(:), allocatable :: S_quad
-  character(len=80), dimension(:), allocatable :: L_axi, L_block, L_tri, L_quad
+  character(len=256), dimension(:), allocatable :: L_axi, L_block, L_tri, L_quad
 
   integer, dimension(:), allocatable :: elem_os
 
@@ -80,8 +80,8 @@ module boundary
   character(*), parameter :: Boundary_input_file  =  'boundary.conf'
   character(*), parameter :: Boundary_sub_dir     =  'boundary'
 
-  character*120 :: boundary_dir(4)
-  character*80  :: header
+  character(len=256) :: boundary_dir(4)
+  character(len=80)  :: header
   integer :: io, i, j, irun, n
 
   write (6,1000)
@@ -643,7 +643,7 @@ module boundary
 !=======================================================================
   function boundary_label(iboundary) result(L)
   integer, intent(in) :: iboundary
-  character(len=80)   :: L
+  character(len=256)  :: L
 
   integer :: i
 
