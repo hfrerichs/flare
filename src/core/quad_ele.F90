@@ -442,10 +442,12 @@ module quad_ele
      X = r1 + (r2-r1) * xi
      if (present(tau)) tau = xi
      if (present(eta)) eta = eta_check
-     if (nelem < 0) then
-        write (6, *) 'nelem = ', nelem
-        write (6, *) 'ljump = ', ljump
-        stop
+     if (present(nelem)) then
+        if (nelem < 0) then
+           write (6, *) 'nelem = ', nelem
+           write (6, *) 'ljump = ', ljump
+           stop
+        endif
      endif
   endif
 
@@ -541,7 +543,7 @@ module quad_ele
 
   ! check slice [phi(i), phi(i+1)] for intersections
   istat = 0
-  t     = 2.d0
+  t     = 1.d0 + epsilon(1.d0)
   is    = -1
   js    = -1
   eta   = -1.d0
@@ -572,7 +574,7 @@ module quad_ele
      enddo
 
      ! exit if an intersection has been found in this slice
-     if (t < 2.d0) then
+     if (t <= 1.d0) then
         istat = 1
         eta = (1.d0*(js-1) + (s+1.d0)/2.d0) / this%n_RZ
         if (present(nelem)) then
