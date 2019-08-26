@@ -9,6 +9,7 @@ module quad_ele
      real*8  :: dR, dZ
      real*8, dimension(:), allocatable   :: phi    ! dimension(0:n_phi)
      real*8, dimension(:,:), allocatable :: R, Z   ! dimension(0:n_phi, 0:n_RZ)
+     real*8, dimension(:,:), allocatable :: eta
 
      integer :: closed = 0 ! 0: not closed, 1: closed, -1: closed with opposide meaning of "outside"
      character(len=256) :: label
@@ -50,6 +51,7 @@ module quad_ele
   this%n_sym = n_sym
   allocate (this%phi(0:n_phi))
   allocate (this%R(0:n_phi, 0:n_RZ), this%Z(0:n_phi, 0:n_RZ))
+  allocate (this%eta(0:n_phi, 0:n_RZ))
   this%label = ''
 
   end subroutine new
@@ -100,6 +102,7 @@ module quad_ele
   this%n_RZ  = m
   allocate (this%phi(0:n))
   allocate (this%R(0:n, 0:m), this%Z(0:n, 0:m))
+  allocate (this%eta(0:n, 0:m))
   do i=0,n
      if (plot_format) then
         read (iu, 1000) s;   read (iu, 1000) s;   read (s(9:80), *) this%phi(i)
@@ -190,6 +193,7 @@ module quad_ele
   subroutine setup_coefficients(this)
   class(t_quad_ele)         :: this
 
+  real*8  :: dR, dZ
   integer :: i, j, n, m
 
 
@@ -212,6 +216,17 @@ module quad_ele
      this%cD(i,j,1) = 0.5d0 * (this%R(i-1,j-1) - this%R(i,j-1) + this%R(i,j) - this%R(i-1,j))
      this%cD(i,j,2) = 0.5d0 * (this%Z(i-1,j-1) - this%Z(i,j-1) + this%Z(i,j) - this%Z(i-1,j))
   enddo
+  enddo
+
+  ! setup eta
+  do i=0,n
+     this%eta(i,0) = 0.d0
+     do j=1,m
+        dR            = this%R(i,j) - this%R(i,j-1)
+        dZ            = this%Z(i,j) - this%Z(i,j-1)
+        this%eta(i,j) = this%eta(i,j-1) + sqrt(dR**2 + dZ**2)
+     enddo
+     this%eta(i,:) = this%eta(i,:) / this%eta(i,m)
   enddo
 
   end subroutine setup_coefficients
@@ -459,8 +474,8 @@ module quad_ele
   integer, intent(out) :: istat
 
   real*8  :: Dphi, phil, phir, phi1, phi2
-  real*8  :: xA(2), xB(2), xC(2), xD(2), x5(2), x6(2), y1(2), y2(2), tc(2), ts
-  real*8  :: sc(2), s
+  real*8  :: xA(2), xB(2), xC(2), xD(2), x5(2), x6(2), y1(2), y2(2), uc(2), ts
+  real*8  :: sc(2), s, u
   integer :: Di, i, iA, iB, j, n, is, js
 
 
@@ -558,10 +573,10 @@ module quad_ele
         call solve_bilinear_system_bc (xA, xB, xC, xD, y1, y2, istat)
 
         ! for each intersection with the surface element check if ts in [0,1]
-        sc(1) = y1(1);   tc(1) = y1(2)
-        sc(2) = y2(1);   tc(2) = y2(2)
+        sc(1) = y1(1);   uc(1) = y1(2)
+        sc(2) = y2(1);   uc(2) = y2(2)
         do k=1,istat
-           ts = (this%phi(i-1)-phi1) / Dphi + (this%phi(i)-this%phi(i-1)) / Dphi * tc(k)
+           ts = (this%phi(i-1)-phi1) / Dphi + (this%phi(i)-this%phi(i-1)) / Dphi * uc(k)
 
            ! update intersection if new solution is closer to t=0
            if (ts < t .and. ts.ge.0.d0) then
@@ -569,6 +584,7 @@ module quad_ele
               js = j
               is = i
               s  = sc(k)
+              u  = uc(k)
            endif
         enddo
      enddo
@@ -576,7 +592,13 @@ module quad_ele
      ! exit if an intersection has been found in this slice
      if (t <= 1.d0) then
         istat = 1
-        eta = (1.d0*(js-1) + (s+1.d0)/2.d0) / this%n_RZ
+        !eta = (1.d0*(js-1) + (s+1.d0)/2.d0) / this%n_RZ
+        s    = (s+1.d0)/2.d0
+        eta  =        this%eta(is-1,js-1) &
+             +  u *  (this%eta(is,  js-1) - this%eta(is-1,js-1)) &
+             +  s *  (this%eta(is-1,js  ) - this%eta(is-1,js-1)) &
+             +  u*s* (this%eta(is,  js)   - this%eta(is-1,js) - this%eta(is,js-1) + this%eta(is-1,js-1))
+
         if (present(nelem)) then
            nelem = (js-1) + (is-1)*this%n_RZ
            if (nelem < 0) then
@@ -626,6 +648,7 @@ module quad_ele
   m = S%n_RZ
   allocate (S%phi(0:n))
   allocate (S%R(0:n, 0:m), S%Z(0:n, 0:m))
+  allocate (S%eta(0:n, 0:m))
 
   do i=0,n
      S%phi(i) = pi2/S%n_sym - this%phi(n-i)
