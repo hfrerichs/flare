@@ -7,6 +7,10 @@ module fieldline_grid
   implicit none
 
 !.......................................................................
+  real(real64), parameter :: &
+     stellarator_symmetry_accuracy = 1.d-8
+
+
   ! topology definitions
   character(len=*), parameter :: &
      TOPO_SC     = 'simply_connected', &
@@ -1313,6 +1317,7 @@ module fieldline_grid
 
   real(real64) :: R, R0, Z, B, B0
   integer      :: iz, ir, ip, it(2), jt, ig, igc(2)
+  associate (minarcy => stellarator_symmetry_accuracy)
 
 
   R0 = sum(RG) / GRID_P_OS(NZONET)
@@ -1330,8 +1335,8 @@ module fieldline_grid
               igc(2) = ig + (ZON_POLO(iz)-ip) * SRF_RADI(iz)
 
               ! check geometry
-              if (abs(RG(igc(1))-RG(igc(2)))/R0 > 1.d8  .or. &
-                  abs(ZG(igc(1))-RG(igc(2)))/R0 > 1.d8) then
+              if (abs(RG(igc(1))-RG(igc(2)))/R0 > minarcy  .or. &
+                  abs(ZG(igc(1))-ZG(igc(2)))/R0 > minarcy) then
                  write (6, *) 'error: deviation from up/down symmetry too large!'
                  write (6, *) 'at grid node iz,ir,ip,it = ', iz, ir, ip, it(jt)
                  write (6, *) 'R,Z = ', RG(igc(1)), ZG(igc(1))
@@ -1346,7 +1351,7 @@ module fieldline_grid
 
               ! check field strength (only if it has been set up at this point)
               if (allocated(BFSTREN)) then
-              if (abs(BFSTREN(igc(2))-BFSTREN(igc(1)))/B0 > 1.d8) then
+              if (abs(BFSTREN(igc(2))-BFSTREN(igc(1)))/B0 > minarcy) then
                  write (6, *) 'error: deviation from up/down symmetry too large!'
                  write (6, *) 'at grid node iz,ir,ip,it = ', iz, ir, ip, it(jt)
                  write (6, *) 'R,Z,B = ', RG(igc(1)), ZG(igc(1)), BFSTREN(igc(1))
@@ -1364,6 +1369,7 @@ module fieldline_grid
      enddo
   enddo
 
+  end associate
   end subroutine check_emc3_grid
 !=======================================================================
 
