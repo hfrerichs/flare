@@ -18,6 +18,12 @@
 
   write (6, 1000)
   call read_command(core_domain, 1, command, argument)
+  if (command == "USER_DEFINED") then
+     call user_defined_core_domain(argument)
+     return
+  endif
+
+
   if (argument == 'undefined') then
      alpha_core = alpha_core_default
      alpha_type = 0
@@ -262,4 +268,68 @@
   enddo
 
   end subroutine setup_core_domain_from_flux_surfaces
+  !=====================================================================
+
+
+
+  !=====================================================================
+  subroutine user_defined_core_domain(arguments)
+  use emc3_grid, only: NZONET, SRF_RADI, SRF_POLO, SRF_TORO, GRID_P_OS, RG, ZG
+  use fieldline, only: FULL_FIELD
+  use fieldline_grid
+  use grid
+  implicit none
+  character(len=*), intent(in) :: arguments
+
+  integer, parameter :: iu = 99
+
+  character(len=128) :: filename(0:NZONET-1)
+  type(t_grid)       :: B(0:NZONET-1), G
+  real(real64)       :: phi, x(2)
+  integer            :: iz, ir, ip, it, ig, ios, nr_core
+
+
+  ! read filenames for each zone from argument list
+  read  (arguments, *, iostat=ios) filename
+  if (ios /= 0) then
+     write (6, 9001) NZONET, trim(arguments);  stop
+  endif
+ 9001 format("error: cannot read filenames for ",i0," zones from '",a,"'")
+
+
+  ! zone loop
+  nr_core = nr_EIRENE_core
+  do iz=0,NZONET-1
+     ! initialze base mesh for core region
+     write (6, 1001) iz
+     phi = Zone(iz)%phi(Zone(iz)%it_base) / 180.d0 * pi
+     call B(iz)%new(CYLINDRICAL, MESH_2D, 3, nr_core, SRF_POLO(iz), fixed_coord_value=phi)
+
+
+     ! read base mesh from user defined location
+     open  (iu, file=filename(iz))
+     do ir=0,nr_core-1
+     do ip=0,SRF_POLO(iz)-1
+        read  (iu, *) x
+        B(iz)%mesh(ir,ip,:) = x
+     enddo
+     enddo
+     close (iu)
+
+
+     ! trace nodes from base grid and set up 3D grid
+     call trace_nodes_1zone(iz, B(iz), G, FULL_FIELD)
+     do it=0,SRF_TORO(iz)-1
+     do ip=0,SRF_POLO(iz)-1
+     do ir=0,nr_core-1
+        ig = ir + (ip + it * SRF_POLO(iz)) * SRF_RADI(iz)   +  GRID_P_OS(iz)
+        RG(ig) = G%mesh3D(ir,ip,it,1)
+        ZG(ig) = G%mesh3D(ir,ip,it,2)
+     enddo
+     enddo
+     enddo
+  enddo
+ 1001 format(8x,'Zone ',i0,' ...')
+
+  end subroutine user_defined_core_domain
   !=====================================================================
