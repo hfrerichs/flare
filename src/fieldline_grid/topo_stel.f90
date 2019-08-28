@@ -12,6 +12,8 @@ module modtopo_stel
   ! outer boundary
   type(t_curve) :: B
 
+  integer :: stellarator_symmetric_base = -1
+
 
   public :: &
      setup_topo_stel, &
@@ -50,11 +52,20 @@ module modtopo_stel
      ! 3. show zone information
      write (6, 1002) iz, Zone(iz)%nr, Zone(iz)%np, Zone(iz)%nt
   enddo
-  Zone(0)%isft(1) = SF_UPDOWN
+  if (Zone(0)%it_base == 0) then
+     Zone(0)%isft(1) = SF_UPDOWN
+     stellarator_symmetric_base = 0
+  elseif (Zone(blocks-1)%it_base == Zone(blocks-1)%nt) then
+     Zone(blocks-1)%isft(2) = SF_UPDOWN
+     stellarator_symmetric_base = blocks-1
+  else
+     write (6, 9000);   stop
+  endif
   write (6, *)
 
  1000 format(8x,'Grid resolution is (radial x poloidal x toroidal):')
  1002 format(12x,i3,3x,'(',i0,' x ',i0,' x ',i0,')')
+ 9000 format("error: stellarator symmetric configurations require base grid at stellarator symmetric plane!")
   end subroutine setup_topo_stel
   !=====================================================================
 
@@ -241,7 +252,7 @@ module modtopo_stel
      call sample_flux_surface(M, B, nr(0), np(0), Zone(iz)%Sp)
      call interpolate_flux_surfaces(M, nr(0), np(0), 1, nr(0), Zone(iz)%Sr)
      call setup_inner_boundary0(iblock, G(iblock))
-     if (iblock == 0) call force_up_down_symmetry(M, nr(0), np(0))
+     if (iblock == stellarator_symmetric_base) call force_up_down_symmetry(M, nr(0), np(0))
 
 
      ! output
