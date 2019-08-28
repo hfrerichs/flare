@@ -52,14 +52,16 @@ module modtopo_stel
      ! 3. show zone information
      write (6, 1002) iz, Zone(iz)%nr, Zone(iz)%np, Zone(iz)%nt
   enddo
-  if (Zone(0)%it_base == 0) then
-     Zone(0)%isft(1) = SF_UPDOWN
-     stellarator_symmetric_base = 0
-  elseif (Zone(blocks-1)%it_base == Zone(blocks-1)%nt) then
-     Zone(blocks-1)%isft(2) = SF_UPDOWN
-     stellarator_symmetric_base = blocks-1
-  else
-     write (6, 9000);   stop
+  if (strict_stellarator_symmetry) then
+     if (Zone(0)%it_base == 0) then
+        Zone(0)%isft(1) = SF_UPDOWN
+        stellarator_symmetric_base = 0
+     elseif (Zone(blocks-1)%it_base == Zone(blocks-1)%nt) then
+        Zone(blocks-1)%isft(2) = SF_UPDOWN
+        stellarator_symmetric_base = blocks-1
+     else
+        write (6, 9000);   stop
+     endif
   endif
   write (6, *)
 

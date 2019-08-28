@@ -144,7 +144,8 @@ module fieldline_grid
   logical :: &
      extend_alpha_SOL2   =  .true., &
      sample_Bf_on_extended_grid = .false., &
-     stellarator_symmetry = .false.
+     stellarator_symmetry = .false., &
+     strict_stellarator_symmetry = .false.
 
 
 
@@ -402,7 +403,7 @@ module fieldline_grid
   integer      :: ierr
 
   namelist /FieldlineGrid_Input/ &
-     topology, symmetry, stellarator_symmetry, blocks, Block, &
+     topology, symmetry, stellarator_symmetry, strict_stellarator_symmetry, blocks, Block, &
      phi0, x_in1, x_in2, x_in_coordinates, d_SOL, d_PFR, d_N0, N0_file, vacuum_domain, d_extend, &
      nt, np, npL, npR, nr, nr_EIRENE_core, nr_EIRENE_vac, core_domain, &
      n_interpolate, nr_perturbed, mesh_generator, plate_generator, plate_format, &
@@ -455,6 +456,8 @@ module fieldline_grid
      write (6, *) 'error: invalid x_in_coordinates = ', trim(x_in_coordinates)
      stop
   end select
+  ! strict_stellarator_symmetry implies stellarator_symmetry
+  if (strict_stellarator_symmetry) stellarator_symmetry = .true.
 
 
   ! 2. setup size and position of toroidal blocks
@@ -498,7 +501,7 @@ module fieldline_grid
         Block(ib)%it_base = Block(ib)%nt / 2
 
         ! default base plane in 1st block in stellarator symmetric configurations is 0
-        if (stellarator_symmetry  .and.  ib==0) then
+        if (strict_stellarator_symmetry  .and.  ib==0) then
            Block(ib)%it_base = 0
            default_decomposition = .false.
         endif
@@ -545,7 +548,7 @@ module fieldline_grid
      phi0 = -Delta_phi_sim / 2.d0
 
      ! default lower boundary is 0.0 deg for stellarator symmetric configurations
-     if (stellarator_symmetry) phi0 = 0.d0
+     if (strict_stellarator_symmetry) phi0 = 0.d0
   else
      default_decomposition = .false.
   endif
