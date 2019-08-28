@@ -404,7 +404,7 @@ module quad_ele
   logical             :: l
 
   logical :: ljump
-  real*8  :: r1s(3), r2s(3), rAs(3), rBs(3), Dphi, xi, eta_check
+  real*8  :: r1s(3), r2s(3), rAs(3), rBs(3), Dphi, xi, F_sym, eta_check
   integer :: k, n, Di, istat
 
 
@@ -426,8 +426,8 @@ module quad_ele
      Di       = int(sign(1.d0, Dphi))
      rBs(3)   = pi2/n * (Di+1)/2
      rAs(3)   = pi2/n * (1-Di)/2
-     xi       = (rBs(3) - r1s(3)) / Dphi
-     rAs(1:2) = r1s(1:2) + xi * (r2s(1:2)-r1s(1:2))
+     F_sym    = (rBs(3) - r1s(3)) / Dphi
+     rAs(1:2) = r1s(1:2) + F_sym * (r2s(1:2)-r1s(1:2))
      rBs(1:2) = rAs(1:2)
      ljump    = .true.
 #if defined(DEBUG)
@@ -442,7 +442,12 @@ module quad_ele
   ! now check for intersections
   if (ljump) then
      call check_intersection (r1s, rBs, xi, eta_check, istat)
-     if (istat.ne.1) call check_intersection (rAs, r2s, xi, eta_check, istat)
+     if (istat == 1) then
+        xi = xi * F_sym
+     else
+        call check_intersection (rAs, r2s, xi, eta_check, istat)
+        if (istat == 1) xi = F_sym + (1.d0-F_sym)*xi
+     endif
      ! TODO: update xi?
   else
      call check_intersection (r1s, r2s, xi, eta_check, istat)
