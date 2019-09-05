@@ -218,7 +218,7 @@ module fieldline_grid
      ! additional domain for neutral particles
      real(real64) :: d_N0 = 0.d0
      real(real64) :: d_extend(-1:1) = 0.d0
-     character(len=80) :: N0_file, vacuum_domain
+     character(len=256) :: N0_file, vacuum_domain
 
      contains
      procedure :: setup
