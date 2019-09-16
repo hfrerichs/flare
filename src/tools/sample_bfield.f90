@@ -13,7 +13,8 @@
 !                       = 6: Psi, PsiN, dPsi_dR, dPsi_dZ
 !                       = 7: Psi, d2Psi_dR2, d2Psi_dRdZ, d2Psi_dZ2
 !                       = 8: toroidal, poloidal and radial components of non-equilibrium field
-!                       = 9: Jacobian
+!                       = 9: (BR,BZ,Bphi) of non-equilibrium field
+!                       = 10: Jacobian
 !===============================================================================
 subroutine sample_bfield
   use iso_fortran_env
@@ -62,7 +63,8 @@ subroutine sample_bfield
   if (Output_Format == 6) n = 4
   if (Output_Format == 7) n = 4
   if (Output_Format == 8) n = 4
-  if (Output_Format == 9) n = 9
+  if (Output_Format == 9) n = 3
+  if (Output_Format == 10) n = 9
   call D%new(G%nodes(), n)
   call D%set_info(2, trim(Grid_File))
 
@@ -178,6 +180,15 @@ subroutine sample_bfield
         call D%set_column_info(4, 'BradN', 'Normalized radial perturbation field')
      endif
      if (Output_Format == 9) then
+        ! non-equilibrium field
+        Bf          = get_Bf_Cyl_non2D(r)/1.d4 * 1.d3
+
+        D%x(ig,1:3) = Bf
+        call D%set_column_info(1, 'Br',   'Br [mT]')
+        call D%set_column_info(2, 'Bz',   'Bz [mT]')
+        call D%set_column_info(3, 'Bphi', 'Bphi [mT]')
+     endif
+     if (Output_Format == 10) then
         JBf         = get_JBf_Cyl(r)
         D%x(ig,1:3) = JBf(1,1:3)
         D%x(ig,4:6) = JBf(2,1:3)
