@@ -43,8 +43,10 @@ module equilibrium
      R_sepx       = 0.d0, &        ! user defined position of separatrix
      Z_sepx       = 0.d0, &
      Bt           = 0.d0, &        ! reference toroidal magnetic field [T]
+     scale_Bt     = 1.d0, &        ! scaling factor for Bt
      R0           = 0.d0, &        ! and radial position [cm]
-     Ip           = 0.d0           ! plasma current [A] (equilibrium will be re-scaled)
+     Ip           = 0.d0, &        ! plasma current [A] (equilibrium will be re-scaled)
+     scale_Ip     = 1.d0           ! scaling factor for Ip
 
 
   type(t_Xpoint) :: Xp(nX_max), M
@@ -60,7 +62,7 @@ module equilibrium
 
   namelist /Equilibrium_Input/ &
      Data_File, Data_Format, use_boundary, Current_Fix, Diagnostic_Level, &
-     R_axis, Z_axis, R_sepx, Z_sepx, Bt, R0, Ip, Xp, M, &
+     R_axis, Z_axis, R_sepx, Z_sepx, Bt, scale_Bt, R0, Ip, scale_Ip, Xp, M, &
      Magnetic_Axis_File
 !...............................................................................
 
@@ -305,7 +307,7 @@ module equilibrium
   ierr = 0
   select case (i_equi)
   case (EQ_GEQDSK)
-     call geqdsk_load (filename, Ip, Bt, Current_Fix, Psi_axis, Psi_sepx, Header_Format=i_format)
+     call geqdsk_load (filename, Ip, scale_Ip, Bt, scale_Bt, Current_Fix, Psi_axis, Psi_sepx, Header_Format=i_format)
   case (EQ_DIVAMHD)
      call divamhd_load (filename, Ip, Bt, R0)
 

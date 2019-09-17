@@ -57,13 +57,14 @@ module geqdsk
 ! optional input:
 ! Header_Format        = STRICT, FREE:
 !===============================================================================
-  subroutine geqdsk_load(Data_File, Ip, Bt, CurrentFix, &
+  subroutine geqdsk_load(Data_File, Ip, scale_Ip, Bt, scale_Bt, CurrentFix, &
                          Psi_axis, Psi_sepx, Header_Format)
   use numerics, only: Spline_Order
   use bspline
   use system
   character(len=*), intent(in)  :: Data_File
   real(real64),     intent(inout)  :: Ip, Bt
+  real(real64),     intent(in)  :: scale_Ip, scale_Bt
   logical,          intent(in)  :: CurrentFix
   real(real64),     intent(out) :: Psi_axis, Psi_sepx
   integer,          intent(in), optional :: Header_Format
@@ -112,6 +113,15 @@ module geqdsk
   read  (iu, 2020) Zmaxis, xdum, Sibry, xdum, xdum
   call setup_magnetic_axis_2D (Rmaxis*1.d2, Zmaxis*1.d2)
 
+  ! (optional) scaling of toroidal field
+  Bt_scale = scale_Bt
+  if (Bt .ne. 0.d0) Bt_scale = Bt / Bcentr
+  if (Bt_scale .ne. 1.d0) then
+     Bcentr   = Bcentr * Bt_scale
+  else
+     Bt       = Bcentr
+  endif
+
   ! print characteristic values
   write (6, 3000) adjustl(case_(1)), case_(2:6)
   write (6, *)
@@ -141,16 +151,9 @@ module geqdsk
 
 
   ! 1.3. (optional) equilibrium scale factors
-  Bt_scale = 1.d0
-  if (Bt .ne. 0.d0) then
-     Bt_scale = Bt / Bcentr
-     Bcentr   = Bcentr * Bt_scale
-  else
-     Bt       = Bcentr
-  endif
-  Ip_scale = 1.d0
-  if (Ip .ne. 0.d0) then
-     Ip_scale = Ip / Current
+  Ip_scale = scale_Ip
+  if (Ip .ne. 0.d0) Ip_scale = Ip / Current
+  if (Ip_scale .ne. 1.d0) then
      Current  = Current * Ip_scale
      Simag    = Simag * Ip_scale
      Sibry    = Sibry * Ip_scale
