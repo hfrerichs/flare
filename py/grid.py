@@ -108,6 +108,13 @@ class Grid(object):
         return self.n
 
 
+    def transpose(self, x1, x2, transpose):
+        if transpose:
+            return x2, x1
+        else:
+            return x1, x2
+
+
     # 2d visualization of data in cells
     def plot2d_cells(self, data, *args, **kwargs):
         m = self.cells()
@@ -167,15 +174,20 @@ class Grid(object):
 
     # - structured nodes -
     def plot2d_structured_nodes(self, data, *args, **kwargs):
+        transpose = kwargs.pop("transpose", False)
+        x1, x2 = self.transpose(self.x1, self.x2, transpose)
+
         if self.layout == STRUCTURED  or  self.layout == SEMI_STRUCTURED:
             q    = data.reshape(self.n2, self.n1)
-            plt.contourf(self.x1, self.x2, q, *args, **kwargs)
+            if transpose:
+                q = q.T
+            plt.contourf(x1, x2, q, *args, **kwargs)
 
         if self.layout == MESH_2D:
-            x1   = self.x1.reshape(self.n2, self.n1)
-            x2   = self.x2.reshape(self.n2, self.n1)
+            xx1  = x1.reshape(self.n2, self.n1)
+            xx2  = x2.reshape(self.n2, self.n1)
             q    = data.reshape(self.n2, self.n1)
-            plt.contourf(x1, x2, q, *args, **kwargs)
+            plt.contourf(xx1, xx2, q, *args, **kwargs)
 
 
     # - wrapper -
@@ -183,6 +195,7 @@ class Grid(object):
         if self.layout == UNSTRUCTURED:
             self.plot2d_unstructured_nodes(data, *args, **kwargs)
         else:
+            kwargs.pop("plot_function")
             self.plot2d_structured_nodes(data, *args, **kwargs)
 
 

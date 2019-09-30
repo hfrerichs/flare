@@ -251,7 +251,7 @@ class Dataset():
         if self.data_type == CELL_DATA:
             geometry.plot2d_cells(q, vmin=qmin, vmax=qmax)
         elif self.data_type == NODE_DATA:
-            geometry.plot2d_nodes(q, vmin=qmin, vmax=qmax, levels=levels)
+            geometry.plot2d_nodes(q, vmin=qmin, vmax=qmax, levels=levels, **kwargs)
         elif self.data_type == POINT_DATA:
             geometry.plot2d_points(c=q)
         else:
