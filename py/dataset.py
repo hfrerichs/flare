@@ -240,13 +240,26 @@ class Dataset():
         geometry = self.get_geometry(user_geometry=geometry)
 
         # prepare data
-        q    = self.get_data(qkey)
-        qmin = np.nanmin(q)
-        qmax = np.nanmax(q)
+        if qkey == "minPsiN":
+            def psiN_map(psiN, delta):
+                return np.tanh((psiN-1)/delta) + 1.0
+
+            deltaPsiN = kwargs.pop("deltaPsiN", 0.05)
+            q    = psiN_map(self.get_data(qkey), deltaPsiN)
+            qmin = 0.0
+            qmax = 2.0
+            vticks = np.array([0.9, 0.95, 0.98, 1.0, 1.02, 1.05, 1.1])
+            kwargs['cmap'] = "seismic_r"
+
+        else:
+            q    = self.get_data(qkey)
+            qmin = np.nanmin(q)
+            qmax = np.nanmax(q)
 
 
         # create plot
-        levels = np.linspace(qmin, qmax, 64)
+        nlevels = kwargs.pop("nlevels", 64)
+        levels = np.linspace(qmin, qmax, nlevels)
 
         if self.data_type == CELL_DATA:
             geometry.plot2d_cells(q, vmin=qmin, vmax=qmax)
@@ -262,5 +275,8 @@ class Dataset():
         plt.xlabel(geometry.x1_label)
         plt.ylabel(geometry.x2_label)
         cbar = plt.colorbar()
+        if qkey == "minPsiN":
+            cbar.set_ticks(psiN_map(vticks, deltaPsiN))
+            cbar.ax.set_yticklabels(vticks)
         qlabel = self.get_data_label(qkey)
         cbar.set_label(qlabel)
