@@ -195,7 +195,7 @@ class Grid(object):
         if self.layout == UNSTRUCTURED:
             self.plot2d_unstructured_nodes(data, *args, **kwargs)
         else:
-            kwargs.pop("plot_function")
+            kwargs.pop("plot_function", None)
             self.plot2d_structured_nodes(data, *args, **kwargs)
 
 
