@@ -60,21 +60,24 @@ module diffusion
   real(real64), intent(inout) :: r(3)
   real(real64), intent(in)    :: dl
 
-  real(real64) :: ds0, ds(3), phi, rgauss
+  real(real64) :: ds0, ds(3), phi, rgauss, t
 
 
   ds = 0.d0
   select case(itype)
   case(DIFFUSION_RZ_CIRCLE)
      ds0    = sqrt(4.d0 * D * dl)
-     phi    = rand() * pi2
+     call random_number(t)
+     phi    = t * pi2
      ds(1)  = ds0 * cos(phi)
      ds(2)  = ds0 * sin(phi)
 
   case(DIFFUSION_RZ_GAUSS)
      ds0    = sqrt(2.d0 * D * dl)
-     phi    = rand() * pi2
-     rgauss = min(sqrt(-2.d0 * log(rand())), 10.d0)
+     call random_number(t)
+     phi    = t * pi2
+     call random_number(t)
+     rgauss = min(sqrt(-2.d0 * log(t)), 10.d0)
      ds(1)  = ds0 * rgauss * cos(phi)
      ds(2)  = ds0 * rgauss * sin(phi)
 
