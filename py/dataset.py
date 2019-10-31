@@ -35,7 +35,7 @@ class Dataset():
         self.geometry  = OrderedDict()
 
         if not os.path.isfile(data_file):
-            print "error: data file '{}' does not exist!".format(data_file)
+            print "error: data file '{0}' does not exist!".format(data_file)
             sys.exit(2)
 
         f = open(data_file)
@@ -126,14 +126,14 @@ class Dataset():
 
         info = "Available data:\n"
         for key, value in self.q.items():
-            info += "\t{}: {}\n".format(key, value)
+            info += "\t{0}: {1}\n".format(key, value)
 
         # Derived data
         n = 0
         derived_info = "Supports derived data:\n"
         for key in self.q_derived:
             n +=1
-            derived_info += "\t{}: {}\n".format(key, self.q_derived[key][1])
+            derived_info += "\t{0}: {1}\n".format(key, self.q_derived[key][1])
         if n > 0: info += derived_info
 
         return info
@@ -200,17 +200,17 @@ class Dataset():
         # prepare labeled data (by key)
         for q0 in self.q:
             if re.search(q0, self.q_derived[qkey][0]):
-                exec("{} = self.get_data('{}')".format(q0, q0))
+                exec("{0} = self.get_data('{1}')".format(q0, q0))
         # prepare raw data (by column number)
         for i in range(self.d.shape[1]):
-            q0 = 'COLUMN{}'.format(i+1)
+            q0 = 'COLUMN{0}'.format(i+1)
             if re.search(q0, self.q_derived[qkey][0]):
-                exec("{} = self.get_data('{}')".format(q0, q0))
+                exec("{0} = self.get_data('{1}')".format(q0, q0))
 
         try:
             exec("d = "+self.q_derived[qkey][0])
         except:
-            print "error: cannot evaluate derived quantity {}".format(qkey)
+            print "error: cannot evaluate derived quantity {0}".format(qkey)
             print "from", self.q_derived[qkey][0]
             sys.exit(2)
 
@@ -268,7 +268,7 @@ class Dataset():
         elif self.data_type == POINT_DATA:
             geometry.plot2d_points(c=q)
         else:
-            print("error: invalid data type '{}'!".format(data_type))
+            print("error: invalid data type '{0}'!".format(data_type))
             sys.exit(1)
 
 
