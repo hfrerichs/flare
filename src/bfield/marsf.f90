@@ -424,14 +424,14 @@ module marsf
 
 
       if (type_field==1) then
-         brphz(1) = brphz(1) + 2.*real(br*ctmp)
-         brphz(2) = brphz(2) + 2.*real(bp*ctmp)
-         brphz(3) = brphz(3) + 2.*real(bz*ctmp)
+         brphz(1) = brphz(1) + real(br*ctmp)
+         brphz(2) = brphz(2) + real(bp*ctmp)
+         brphz(3) = brphz(3) + real(bz*ctmp)
       elseif (type_field==2) then
-         brphz(1) = brphz(1) + 2.*real(br*ctmp)
-         brphz(3) = brphz(3) + 2.*real(bz*ctmp)
+         brphz(1) = brphz(1) + real(br*ctmp)
+         brphz(3) = brphz(3) + real(bz*ctmp)
       elseif (type_field==3) then
-         brphz(1) = brphz(1) + 2.*real(br*ctmp)
+         brphz(1) = brphz(1) + real(br*ctmp)
       endif
 
       enddo
