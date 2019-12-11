@@ -31,7 +31,7 @@ grid.f90:
 
 
 install:
-	cp $(PROGRAM) $(BIN_DIR)
+	cp $(PROGRAM) $(BINDIR)
 
 
 clean:
