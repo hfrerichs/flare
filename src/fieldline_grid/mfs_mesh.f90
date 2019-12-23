@@ -629,9 +629,10 @@ module mfs_mesh
 ! TODO: upstream = 0, downstream = np and flip orientation at the end?
 !
 ! Rside: location of seed mesh
+! npA_range:   cell range for quasi-orthogonal grid (upstream)
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
-  subroutine make_divertor_grid(this, Rside, ip0, Sp, Z, ir_skip, ierr)
+  subroutine make_divertor_grid(this, Rside, ip0, npA_range, Sp, Z, ir_skip, ierr)
   use run_control,    only: Debug
   use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor, poloidal_discretization, ORTHOGONAL_AUTO_ADJUST
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
@@ -642,7 +643,7 @@ module mfs_mesh
 !  type(t_curve),   intent(in)  :: R, P
 !  integer,         intent(in)  :: Rside, Pside
 !  type(t_spacing), intent(in)  :: Sr, Sp
-  integer,         intent(in)  :: Rside, ip0, ir_skip
+  integer,         intent(in)  :: Rside, ip0, npA_range(2), ir_skip
   type(t_spacing), intent(in)  :: Sp
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
@@ -654,7 +655,7 @@ module mfs_mesh
 
   real(real64), dimension(:,:,:), pointer :: M
   real(real64), dimension(:,:), allocatable :: MSP
-  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, xi, L0, L, dphi
+  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, xi, xi0, L0, L, dphi
   real(real64)  :: Ladjust, Lu1, Lu2, Lcompress
   integer       :: ir, ir0, ir1, ir2, ip, ips, ipt, dir, iextend, np_SP
   integer       :: it, its, it_start, it_end, dirT, downstream, nsub, np_skip
@@ -748,23 +749,78 @@ module mfs_mesh
 
   M => this%mesh
   allocate (MSP(0:TSP%nt, 2))
+  ! separatrix leg
+  ir = this%ir0
+  if (ir >= 0  .and.  ir /= ir_skip) then
+     ! separatrix strike point is already known from setup_boundary_nodes
+     F%t_curve = t_curve(M(ir, min(ipu,ipt):max(ipu,ipt), :), reverse= ipu > ipt)
+     x = F%x(F%n_seg, :)
+     L0 = F%length()
+
+     ! generate nodes from which field lines connect to strike point x
+     call align_strike_points(x, TSP, MSP)
+
+
+     ! setup downstream strike point nodes
+     do it=it_start,it_end,dirT
+        ip = ips + abs(it - it_end)*dir
+        M(ir,ip,:) = MSP(it,:)
+     enddo
+
+
+     ! length on flux surface for strike point mesh
+     L  = 0.d0
+     do it=TSP%it_base+dirT,it_end,dirT
+        L = L + sqrt(sum(  (MSP(it-dirT,:)-MSP(it,:))**2))
+     enddo
+
+     ! aligned strike point mesh extends beyond upstream reference location?
+     ! -> adjust upstream location by L-L0
+     Ladjust = L - L0
+     if (Ladjust > 0.d0) then
+        write (6, *) "error: separatrix strike point mesh extends beyond upstream reference!"
+        stop
+     endif
+
+
+     ! make suggestion for poloidal spacing
+     write (6, *) "suggestion for poloidal spacing:"
+     write (6, *) L0-L, sqrt(sum( (M(ir,ips,:)-M(ir,ips+dir,:))**2 )), abs(ipu-ips)
+
+
+     ! resample separatrix leg from X-point to first node of strike point mesh
+     call F%setup_length_sampling()
+     do ip=ipu+dir,ips-dir,dir
+        tau = 1.d0 * (ip - ipu) / (ips - ipu)
+        xi  = Sp%sample(tau) * (L0-L) / L0
+
+        call F%sample_at(xi, x)
+        M(ir,ip,:) = x
+     enddo
+  endif
+
+
+     ! generate quasi-orthogonal mesh on upstream end
+     if (npA_range(2) >= npA_range(1)) then
+        call this%make_orthogonal_grid(prange=npA_range)
+     endif
+
+
+
+  ! all other flux surfaces
   do ir=0,this%nr
      if (ir == ir_skip) cycle
 
-     ! separatrix leg
-     if (ir == this%ir0) then
-        ! separatrix strike point is already known from setup_boundary_nodes
-        F%t_curve = t_curve(M(ir, min(ip0,ipt):max(ip0,ipt), :), reverse= ip0 > ipt)
-        ierr = 0
+     ! separatrix leg (already taken care of)
+     if (ir == this%ir0) cycle
+
      ! divertor leg of flux surface
-     else
      x = M(ir,ip0,:)
 
      ! generate flux surface from "upstream" location x to target
      !call F%generate(x, dir, Trace_Step=0.1d0, AltSurf=C_guide)
      call F%generate_branch(x, dir, ierr, reference_direction=CCW_DIRECTION, &
              Trace_Step=0.1d0, cutoff_boundary=C_guide, stop_at_boundary=.false.)
-     endif
      ! A. successfull trace of flux surface to target
      if (ierr == 0) then
 !        select case(dir)
@@ -872,14 +928,16 @@ module mfs_mesh
      call F%setup_length_sampling()
 !     select case(dir)
 !     case(RIGHT_HANDED)
-        F%w = F%w / (1.d0 - L/L0)
+!        F%w = F%w / (1.d0 - L/L0)
 !     case(LEFT_HANDED)
 !        F%w = (F%w - L/L0) / (1.d0 - L/L0)
 !     end select
 
+     tau = 1.d0 * (ip0 - ipu) / (ips - ipu)
+     xi0 = Sp%sample(tau)
      do ip=ip0+dir,ips-dir,dir
-        tau = 1.d0 * (ip - ip0) / (ips - ip0)
-        xi  = Sp%sample(tau)
+        tau = 1.d0 * (ip - ipu) / (ips - ipu)
+        xi  = (Sp%sample(tau) - xi0) / (1.d0 - xi0) * (1.d0 - L/L0)
 !        if (dir == LEFT_HANDED) tau = 1.d0 - tau
         call F%sample_at(xi, x)
         M(ir,ip,:) = x

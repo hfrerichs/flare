@@ -199,6 +199,7 @@ module elements
   logical,          intent(in), optional :: debug
 
   integer :: ir0, iri, iri2, ix(-1:1), ix2(-1:1), iside, addX(2), np0, np1, ierr
+  integer :: npA_range(2)
 
 
   iri = this%rad_bound(irside)
@@ -221,6 +222,7 @@ module elements
   ! quasi-orhogonal mesh in upstream divertor legs
   np0  = np_ortho_divertor
   np1  = 0
+  npA_range = 0
   ! transition PFR between two X-points
   iri2 = this%rad_bound(-irside)
   if (iri2 /= UNDEFINED) then
@@ -243,12 +245,13 @@ module elements
   if (ix(LOWER) == STRIKE_POINT) then
      write (6, *) 'strike point on lower poloidal side'
      if (np0 > 0) then
-        call M%make_orthogonal_grid(prange=(/this%np-np0, this%np-1-np1/), debug=debug)
+        npA_range = (/this%np-np0, this%np-1-np1/)
+!        call M%make_orthogonal_grid(prange=(/this%np-np0, this%np-1-np1/), debug=debug)
      endif
-     if (np1 > 0) then
-        call M%make_interpolated_submesh((/0,this%nr-1/), (/this%np-1-np1, this%np/))
-     endif
-     call M%make_divertor_grid(UPPER, this%np-np0, Sp, this%T, ir0, ierr)
+!     if (np1 > 0) then
+!        call M%make_interpolated_submesh((/0,this%nr-1/), (/this%np-1-np1, this%np/))
+!     endif
+     call M%make_divertor_grid(UPPER, this%np-np0, npA_range, Sp, this%T, ir0, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif
@@ -257,12 +260,13 @@ module elements
   elseif (ix(UPPER) == STRIKE_POINT) then
      write (6, *) 'strike point on upper poloidal side'
      if (np0 > 0) then
-        call M%make_orthogonal_grid(prange=(/1+np1,np0/), debug=debug)
+        npA_range = (/1+np1,np0/)
+!        call M%make_orthogonal_grid(prange=(/1+np1,np0/), debug=debug)
      endif
-     if (np1 > 0) then
-        call M%make_interpolated_submesh((/0,this%nr-1/), (/0, 1+np1/))
-     endif
-     call M%make_divertor_grid(LOWER, np0, Sp, this%T, ir0, ierr)
+!     if (np1 > 0) then
+!        call M%make_interpolated_submesh((/0,this%nr-1/), (/0, 1+np1/))
+!     endif
+     call M%make_divertor_grid(LOWER, np0, npA_range, Sp, this%T, ir0, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif
