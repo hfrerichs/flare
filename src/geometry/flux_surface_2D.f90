@@ -264,6 +264,7 @@ module flux_surface_2D
 ! theta_cutoff       stop tracing at poloidal angle [rad]
 ! cutoff_boundary    stop tracing at this boundary
 ! cutoff_X           stop tracing at this distance from an X-point
+! Lmax               max. trace length
 !
 ! return ierr =
 !    0               successful generation of flux surface branch
@@ -272,7 +273,8 @@ module flux_surface_2D
 !=======================================================================
   subroutine generate_branch(this, xinit, direction, ierr, &
                              reference_direction, x0, trace_step, &
-                             stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X, connectX)
+                             stop_at_boundary, theta_cutoff, cutoff_boundary, cutoff_X, &
+                             connectX, Lmax)
   use ode_solver
   use equilibrium, only: get_PsiN, get_poloidal_angle, Ip_sign, &
       leave_equilibrium_domain, nx_max, Xp, get_flux_surface_curvature, correct_PsiN
@@ -285,7 +287,7 @@ module flux_surface_2D
   integer,       intent(in)  :: direction
   integer,       intent(out) :: ierr
   integer,       intent(in),  optional :: reference_direction
-  real(real64),  intent(in),  optional :: x0(2), trace_step, theta_cutoff, cutoff_X
+  real(real64),  intent(in),  optional :: x0(2), trace_step, theta_cutoff, cutoff_X, Lmax
   logical,       intent(in),  optional :: stop_at_boundary
   type(t_curve), intent(in),  optional :: cutoff_boundary
   integer,       intent(out), optional :: connectX
@@ -445,6 +447,14 @@ module flux_surface_2D
      if (present(cutoff_boundary)) then
      if (intersect_curve(xtmp(i-1,1:2), xtmp(i,1:2), cutoff_boundary, X)) then
         xtmp(i,1:2) = X
+        exit
+     endif
+     endif
+     ! D.5 Lmax
+     if (present(Lmax)) then
+     if (L > Lmax) then
+        t = (L-Lmax) / abs(ds)
+        xtmp(i,:) = t * xtmp(i-1,:) + (1.d0 - t) * xtmp(i,:)
         exit
      endif
      endif
