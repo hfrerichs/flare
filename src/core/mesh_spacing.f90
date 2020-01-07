@@ -16,6 +16,7 @@ module mesh_spacing
      DELTA_R_SYM = 'DELTA_R_SYM', &
      DELTA_R_LB  = 'DELTA_R_LB', &
      DELTA_R_UB  = 'DELTA_R_UB', &
+     F1          = 'F1', &
      X1          = 'X1', &
      X1_SMOOTH   = 'X1_SMOOTH', &
      D_CURVE     = 'D_CURVE', &
@@ -37,6 +38,7 @@ module mesh_spacing
      procedure node
      procedure sample
      procedure plot
+     procedure init_F1
      procedure init_spline_x1
      procedure init_X1
      procedure init_recursive
@@ -61,7 +63,7 @@ module mesh_spacing
   character(len=max(len(distribution), len(LINEAR))) :: distribution_type
   character(len=len(distribution))                   :: arguments
 
-  real(real64) :: eps, kap, del, phi0, dphi, Delta, R, eta1, xi1, beta
+  real(real64) :: eps, kap, del, phi0, dphi, Delta, R, eta1, xi1, beta, a
 
 
   if (associated(this%c)) deallocate(this%c)
@@ -89,6 +91,12 @@ module mesh_spacing
      this%nc   = 1
      allocate(this%c(this%nc))
      read (arguments, *, err=5000, end=5000) this%c
+
+
+  ! linearly increasing/decreasing spacing
+  case(F1)
+     read (arguments, *, err=5000, end=5000) a
+     call this%init_F1(a)
 
 
   ! spline with reference node
@@ -237,6 +245,27 @@ module mesh_spacing
   this%c(2) = xi1
 
   end subroutine init_X1
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine init_F1(this, a)
+  class(t_spacing)         :: this
+  real(real64), intent(in) :: a
+
+
+  this%dist = F1
+  this%nc   = 1
+  if (associated(this%c)) deallocate(this%c)
+  allocate(this%c(this%nc))
+  if (a < -0.95d0  .or.  a > 0.95d0) then
+     write (6, *) 'error: spacing function F1 ill-defined for a = ', a
+     !stop
+  endif
+  this%c(1) = min(max(a, -0.95d0), 0.95d0)
+
+  end subroutine init_F1
 !=======================================================================
 
 
@@ -496,6 +525,10 @@ module mesh_spacing
   case(EXPONENTIAL)
      xi = sample_exp(t, this%c(1))
 
+  ! linearly increasing/decreasing spacing
+  case(F1)
+     xi = sample_F1(t, this%c(1))
+
   ! spline with reference node
   case(SPLINE_X1)
      xi = sample_spline_X1(t, this%c(1), this%c(2), this%c(3))
@@ -538,6 +571,20 @@ module mesh_spacing
   xi = (exp(t/lambda) - 1.d0)/S
 
   end function sample_exp
+!=======================================================================
+
+
+
+!=======================================================================
+  function sample_F1(t, a) result(xi)
+  real(real64), intent(in) :: t, a
+
+  real(real64) :: xi
+
+
+  xi = a * t**2  +  (1.d0-a) * t
+
+  end function sample_F1
 !=======================================================================
 
 
