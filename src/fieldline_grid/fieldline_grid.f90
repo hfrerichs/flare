@@ -101,6 +101,8 @@ module fieldline_grid
      poloidal_spacing_R(0:max_layers-1) = '', &
      toroidal_spacing(0:max_layers-1) = '', &
      guiding_surface(0:max_blocks-1)  = '', &
+     upstream_adjust_L(0:max_blocks-1) = '', &
+     upstream_adjust_R(0:max_blocks-1) = '', &
      N0_file(0:max_layers-1)          = '', &
      vacuum_domain(0:max_layers-1)    = '', &
      core_domain                      = CORE_EXTRAPOLATE, &
@@ -409,6 +411,7 @@ module fieldline_grid
      n_interpolate, nr_perturbed, mesh_generator, plate_generator, plate_format, &
      np_ortho_divertor, np_sub_divertor, &
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
+     upstream_adjust_L, upstream_adjust_R, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
      Dtheta_sampling, Dtheta_separatrix, &
      discretization_method, poloidal_discretization, radial_discretization, guiding_surface, &

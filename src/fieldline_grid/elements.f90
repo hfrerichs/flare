@@ -1,6 +1,6 @@
 module elements
   use iso_fortran_env
-  use curve2D, only: UPPER, LOWER
+  use curve2D, only: t_curve, UPPER, LOWER
   use mesh_interface
   use mfs_mesh
   use fieldline_grid, only: t_toroidal_discretization
@@ -188,7 +188,7 @@ module elements
 ! irside = side of radial reference surface
 ! ipside = side of poloidal reference surface
 !=======================================================================
-  subroutine generate_mesh(this, M, irside, ipside, iblock, Sr, Sp, debug)
+  subroutine generate_mesh(this, M, irside, ipside, iblock, Sr, Sp, U, debug)
   use fieldline_grid, only: n_interpolate, np_ortho_divertor, Zone
   use inner_boundary, only: C_in, DPsiN1
   use mesh_spacing
@@ -196,6 +196,7 @@ module elements
   type(t_mfs_mesh), intent(inout) :: M
   integer,          intent(in)    :: irside, ipside, iblock
   type(t_spacing),  intent(in)    :: Sr, Sp
+  type(t_curve),    intent(in)    :: U
   logical,          intent(in), optional :: debug
 
   integer :: ir0, iri, iri2, ix(-1:1), ix2(-1:1), iside, addX(2), np0, np1, ierr
@@ -251,7 +252,7 @@ module elements
 !     if (np1 > 0) then
 !        call M%make_interpolated_submesh((/0,this%nr-1/), (/this%np-1-np1, this%np/))
 !     endif
-     call M%make_divertor_grid(UPPER, this%np-np0, npA_range, Sp, this%T, ir0, ierr)
+     call M%make_divertor_grid(UPPER, this%np-np0, npA_range, Sp, U, this%T, ir0, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif
@@ -266,7 +267,7 @@ module elements
 !     if (np1 > 0) then
 !        call M%make_interpolated_submesh((/0,this%nr-1/), (/0, 1+np1/))
 !     endif
-     call M%make_divertor_grid(LOWER, np0, npA_range, Sp, this%T, ir0, ierr)
+     call M%make_divertor_grid(LOWER, np0, npA_range, Sp, U, this%T, ir0, ierr)
      if (ierr /= 0) then
         write (6, 9000);  write (6, 9001) ierr;  stop
      endif

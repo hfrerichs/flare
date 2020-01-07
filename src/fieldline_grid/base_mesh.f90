@@ -1092,14 +1092,16 @@ module base_mesh
 !=======================================================================
   subroutine generate_layer(il, iz0, iblock, Sr)
   use run_control, only: Debug
-  use fieldline_grid, only: poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R
+  use fieldline_grid, only: poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, &
+                            upstream_adjust_L, upstream_adjust_R
   use mesh_spacing
   use string
   integer,         intent(in) :: il, iz0, iblock
   type(t_spacing), intent(in) :: Sr
 
   type(t_spacing) :: Sp
-  integer :: i, idir, irside, iri, ipside, ipi, ip0, iz, iz_map, npz(-1:1)
+  type(t_curve)   :: U(-1:1)
+  integer :: i, idir, irside, iri, ir1, ipside, ipi, ip0, iz, iz_map, npz(-1:1)
 
 
   write (6, 1000) il, iz0
@@ -1140,7 +1142,12 @@ module base_mesh
 
 
   ! initialize radial discretization in layer
-  call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr, debug=Debug)
+  ir1 = 0
+  if (Z(iz0)%map_r(-1) == CORE) ir1 = 1
+  call Mtmp(iz0)%setup_boundary_nodes(ipside, POLOIDAL, poloidal_interface(ipi)%C, Sr, ir1, debug=Debug)
+
+  U(LEFT)  = load_upstream_adjust(upstream_adjust_L(il))
+  U(RIGHT) = load_upstream_adjust(upstream_adjust_R(il))
 
 
   ! generate mesh in base element
@@ -1153,7 +1160,8 @@ module base_mesh
   case(RIGHT)
      call Sp%init(poloidal_spacing_R(Z(iz0)%ipl))
   end select
-  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp, debug=Debug)
+  call Z(iz0)%generate_mesh(Mtmp(iz0), irside, ipside, iblock, Sr, Sp, U(ipside), debug=Debug)
+  call upstream_adjust(iz0)
   if (Debug) call Mtmp(iz0)%plot_mesh('Mtmp'//trim(str(iz0))//'.plt')
 
 
@@ -1192,7 +1200,8 @@ module base_mesh
         case(RIGHT)
            call Sp%init(poloidal_spacing_R(Z(iz)%ipl))
         end select
-        call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr, Sp)
+        call Z(iz)%generate_mesh(Mtmp(iz), irside, ipside, iblock, Sr, Sp, U(Z(iz)%ipl_side))
+        call upstream_adjust(iz)
         if (Debug) call Mtmp(iz)%plot_mesh('Mtmp'//trim(str(iz))//'.plt')
         npz(idir) = npz(idir) + 1
      enddo poloidal_scan
@@ -1214,6 +1223,62 @@ module base_mesh
  9001 format('undefined reference nodes on radial boundary!')
  9002 format('undefined radial interface!')
  9003 format('undefined poloidal interface!')
+  contains
+  !.....................................................................
+  subroutine upstream_adjust(iz)
+  use dataset
+  integer, intent(in) :: iz
+
+  character(len=256) :: filename
+  type(t_dataset) :: D
+  type(t_curve) :: U, V
+  integer       :: iz_map, idir
+
+
+  do idir=-1,1,2
+     iz_map = Z(iz)%map_p(idir)
+
+     ! already at divertor mesh?
+     if (iz_map == DIVERTOR) cycle
+
+     ! next mesh is for divertor legt
+     if (Z(iz_map)%map_p(idir) /= DIVERTOR) cycle
+
+     select case(Z(iz_map)%ipl_side)
+     case(LEFT)
+        filename = upstream_adjust_L(il)
+     case(RIGHT)
+        filename = upstream_adjust_R(il)
+     case default
+        write (6, *) "ERROR: THIS SHOULD NOT HAPPEN"
+        stop
+     end select
+     if (filename == '') cycle
+     if (Debug) write (6, *) 'UPSTREAM ADJUST:', Z(iz_map)%ipl, iz, iz_map, &
+        Z(iz_map)%map_p(idir), Z(iz_map)%ipl_side, trim(filename)
+
+     call D%load(filename, 3)
+     U = t_curve(D%x(:,1), D%x(:,2))
+     V = t_curve(D%x(:,1), D%x(:,3))
+     call Mtmp(iz)%upstream_adjust(Z(iz_map)%ipl_side, U, V)
+  enddo
+
+  end subroutine upstream_adjust
+  !.....................................................................
+  function load_upstream_adjust(filename) result(U)
+  character(len=*), intent(in) :: filename
+  type(t_curve) :: U
+
+
+  if (filename == '') then
+     U = t_curve((/0.d0, 1.d0*Z(iz0)%nr/), (/0.d0, 0.d0/))
+  else
+     call U%load(filename)
+     call U%setup_coordinate_sampling(1)
+  endif
+
+  end function load_upstream_adjust
+  !.....................................................................
   end subroutine generate_layer
 !=======================================================================
 

@@ -19,7 +19,7 @@ module mfs_mesh
      AUTOMATIC      = -1024
 
   real(real64), parameter :: &
-     COMPRESSION_FACTOR = 0.2d0
+     COMPRESSION_FACTOR = 2.0d0
 
 
   ! orthogonal, flux surface aligned mesh with strike point adjustment
@@ -46,6 +46,9 @@ module mfs_mesh
      procedure :: arclength ! calculate arclength on flux surface ir between nodes ip1 and ip2
      procedure :: get_segment
      procedure :: compress  ! compress part of flux surface
+     procedure :: push_poloidal
+     procedure :: upstream_adjust
+     procedure :: upstream_adjust_divertor_leg
   end type t_mfs_mesh
 
 
@@ -632,7 +635,7 @@ module mfs_mesh
 ! npA_range:   cell range for quasi-orthogonal grid (upstream)
 !=======================================================================
 !  subroutine make_divertor_grid(this, R, Rside, Sr, P, Pside, Sp, Z, ierr)
-  subroutine make_divertor_grid(this, Rside, ip0, npA_range, Sp, Z, ir_skip, ierr)
+  subroutine make_divertor_grid(this, Rside, ip0, npA_range, Sp, U, Z, ir_skip, ierr)
   use run_control,    only: Debug
   use fieldline_grid, only: t_toroidal_discretization, np_sub_divertor, poloidal_discretization, ORTHOGONAL_AUTO_ADJUST
   use equilibrium, only: get_PsiN, Ip_sign, Bt_sign
@@ -645,6 +648,7 @@ module mfs_mesh
 !  type(t_spacing), intent(in)  :: Sr, Sp
   integer,         intent(in)  :: Rside, ip0, npA_range(2), ir_skip
   type(t_spacing), intent(in)  :: Sp
+  type(t_curve),   intent(in)  :: U
   type(t_toroidal_discretization),    intent(in)  :: Z
   integer,         intent(out) :: ierr
 
@@ -652,11 +656,12 @@ module mfs_mesh
 
   type(t_flux_surface_2D) :: F
   type(t_toroidal_discretization) :: TSP
+  type(t_spacing) :: S
 
   real(real64), dimension(:,:,:), pointer :: M
   real(real64), dimension(:,:), allocatable :: MSP
-  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, xi, xi0, L0, L, dphi
-  real(real64)  :: Ladjust, Lu1, Lu2, Lcompress
+  real(real64)  :: PsiN(0:this%nr), x(2), PsiN_final, tau, xi, xi0, L0, L, dphi, a
+  real(real64)  :: Ladjust, Lu1, Lu2, Lu3
   integer       :: ir, ir0, ir1, ir2, ip, ips, ipt, dir, iextend, np_SP
   integer       :: it, its, it_start, it_end, dirT, downstream, nsub, np_skip
   integer       :: ipu
@@ -765,6 +770,7 @@ module mfs_mesh
      do it=it_start,it_end,dirT
         ip = ips + abs(it - it_end)*dir
         M(ir,ip,:) = MSP(it,:)
+        if (Debug) write (88, *) M(ir,ip,:)
      enddo
 
 
@@ -784,15 +790,15 @@ module mfs_mesh
 
 
      ! make suggestion for poloidal spacing
-     write (6, *) "suggestion for poloidal spacing:"
-     write (6, *) L0-L, sqrt(sum( (M(ir,ips,:)-M(ir,ips+dir,:))**2 )), abs(ipu-ips)
+     a = (abs(ipu-ips)*sqrt(sum( (M(ir,ips,:)-M(ir,ips+dir,:))**2 ))/(L0-L) - 1.d0) / (1.d0 - 1.d0/abs(ipu-ips))
+     call S%init_F1(a)
 
 
      ! resample separatrix leg from X-point to first node of strike point mesh
      call F%setup_length_sampling()
      do ip=ipu+dir,ips-dir,dir
         tau = 1.d0 * (ip - ipu) / (ips - ipu)
-        xi  = Sp%sample(tau) * (L0-L) / L0
+        xi  = S%sample(tau) * (L0-L) / L0
 
         call F%sample_at(xi, x)
         M(ir,ip,:) = x
@@ -803,6 +809,9 @@ module mfs_mesh
      ! generate quasi-orthogonal mesh on upstream end
      if (npA_range(2) >= npA_range(1)) then
         call this%make_orthogonal_grid(prange=npA_range)
+
+        ! account for upstream adjustment
+        call this%upstream_adjust_divertor_leg(U, npA_range)
      endif
 
 
@@ -860,6 +869,7 @@ module mfs_mesh
      do it=it_start,it_end,dirT
         ip = ips + abs(it - it_end)*dir
         M(ir,ip,:) = MSP(it,:)
+        if (Debug) write (88, *) M(ir,ip,:)
      enddo
 
 
@@ -890,59 +900,30 @@ module mfs_mesh
         close (iu_err)
         stop
      endif
-     if (Ladjust > 0.d0) then
-        ! 0. how strong should we compress the mesh upstream?
-        Lcompress = COMPRESSION_FACTOR * Ladjust
-        if (Debug) write (6, 9021) ir, Ladjust, Lcompress
- 9021 format('compressing upstream end of flux surface ',i0,' from ',f0.3,' into ',f0.3,' cm further upstream')
-
-        ! 1. inside this mesh
-        ! distance from upstream reference to upstream end
-        Lu1 = this%arclength(ir,ip0,ipu)
-        ! adjustment fits into this mesh
-        Lu2 = Ladjust + Lcompress - Lu1
-        if (Lu2 < 0.d0) then
-           write (6, 9022)
-        else
-           write (6, 9023) Lu2
-
-           if (Lu2 > Lcompress) then
-              write (6, 9024)
-              if (.not.associated(this%upn)) then
-                 write (6, *) 'error: pointer to upstream mesh not associated!'
-                 stop
-              endif
-              !call this%upn%compress(ir, ip0, ipu, Ladjust - Lu1, Lcompress)
-              call adjust_upstream()
-           else
-              write (6, 9025)
-           endif
+     Lu1 = this%arclength(ir,ip0,ipu)
+     Lu2 = 2*L - (L0+Lu1)
+     if (Ladjust-Lu1 > -L) then
+        if (.not.associated(this%upn)) then
+           write (6, *) 'error: pointer to upstream mesh not associated!'
+           stop
         endif
- 9022 format('adjustment can be done in divertor grid')
- 9023 format('adjustment exceeds divertor grid by ',f0.3, ' cm')
- 9024 format('complete adjustment located in upstream grid')
- 9025 format('partial adjustment located in upstream grid')
+        call adjust_upstream(L)
+
      else
      ! interpolate nodes on flux surface between upstream orthogonal grid nodes
      ! and downstream strike point nodes
-     call F%setup_length_sampling()
-!     select case(dir)
-!     case(RIGHT_HANDED)
-!        F%w = F%w / (1.d0 - L/L0)
-!     case(LEFT_HANDED)
-!        F%w = (F%w - L/L0) / (1.d0 - L/L0)
-!     end select
+        call F%setup_length_sampling()
 
-     tau = 1.d0 * (ip0 - ipu) / (ips - ipu)
-     xi0 = Sp%sample(tau)
-     do ip=ip0+dir,ips-dir,dir
-        tau = 1.d0 * (ip - ipu) / (ips - ipu)
-        xi  = (Sp%sample(tau) - xi0) / (1.d0 - xi0) * (1.d0 - L/L0)
-!        if (dir == LEFT_HANDED) tau = 1.d0 - tau
-        call F%sample_at(xi, x)
-        M(ir,ip,:) = x
-        !write (93, *) x, tau
-     enddo
+
+        a = (abs(ip0-ips)*sqrt(sum( (M(ir,ips,:)-M(ir,ips+dir,:))**2 ))/(L0-L) - 1.d0) / (1.d0 - 1.d0/abs(ip0-ips))
+        call S%init_F1(a)
+        do ip=ip0+dir,ips-dir,dir
+           tau = 1.d0 * (ip - ip0) / (ips - ip0)
+           xi  = S%sample(tau) * (L0-L) / L0
+
+           call F%sample_at(xi, x)
+           M(ir,ip,:) = x
+        enddo
      endif
   enddo
 
@@ -957,46 +938,26 @@ module mfs_mesh
              'see error_strike_point_mesh.plt')
   contains
   !---------------------------------------------------------------------
-  subroutine adjust_upstream()
-  real(real64), dimension(:), allocatable :: w1, w2
-  type(t_curve) :: C
-  real(real64) :: dl, x(2), s
-  integer :: n1, n2, itmp
+  subroutine adjust_upstream(L)
+  real(real64), intent(in) :: L
 
+  real(real64) :: s
 
-  call this%upn%get_segment(ir, dir, Ladjust-Lu1, Lcompress, C, n2, w2)
-  call C%plot(filename="segment.plt")
-  write (6, *) 'n2  = ', n2
-  write (6, *) 'Lu1 = ', Lu1
-
-  write (6, *) 'ips = ', ips ! 41
-  write (6, *) 'ipu = ', ipu ! 0
-  write (6, *) 'dir = ', dir ! 1
-  allocate (w1(abs(ipu-ips+dir)))
-
-  itmp = 1
-  write (6, *) 'ip0 = ', ip0
-  n1 = abs(ipu-ips+dir)
-  write (6, *) 'n1  = ', n1
-
-  ! adjust upstream grid
 
   ! adjust divertor grid
-  call C%setup_length_sampling()
-  do ip=ips-dir,ipu,-dir
-!     dl = sqrt(sum( (M(ir,ip,:)-M(ir,ip+dir,:))**2 ))
-!     write (6, *) itmp, dl
-!     w1(itmp) = dl;  itmp = itmp + 1
+  x = M(ir,ips,:)
+  call F%generate_branch(x, -dir, ierr, reference_direction=CCW_DIRECTION, &
+                Trace_Step=0.1d0, stop_at_boundary=.false., Lmax=L)
 
-  !   do ip=ip0+dir,ips-dir,dir
-  !      tau = 1.d0 * (ip - ip0) / (ips - ip0)
-  !      if (dir == LEFT_HANDED) tau = 1.d0 - tau
-     s = 1.d0 * (ip-ips) / (ipu-ips) * n1 / (n1+n2)
-     call C%sample_at(s, x)
+  do ip=ips-dir,ipu,-dir
+     s = 1.d0 * (ip-ips) / (ipu-ips)
+     call F%sample_at(s, x)
      M(ir,ip,:) = x
   enddo
-!  write (6, *) 'sum(w1) = ', sum(w1)
-!  write (6, *) 'sum(w2) = ', sum(w2)
+
+
+  ! adjust upstream grid
+  call this%upn%push_poloidal(ir, dir, Lu2, Lu2*2)
 
   end subroutine adjust_upstream
   !---------------------------------------------------------------------
@@ -1194,6 +1155,166 @@ module mfs_mesh
   !call C = this%get_segment(ir, 1, offset, length)
 
   end subroutine compress
+!=======================================================================
+
+
+
+!=======================================================================
+  subroutine push_poloidal(this, ir, side, L0, Lpush)
+  use flux_surface_2D
+  class(t_mfs_mesh)        :: this
+  integer,      intent(in) :: ir, side
+  real(real64), intent(in) :: L0, Lpush
+
+  type(t_flux_surface_2D)   :: F
+  real(real64), dimension(:,:,:), pointer :: M
+  real(real64), allocatable :: w(:)
+  real(real64) :: L, dl, x(2), s
+  integer :: ip, ip1, ip2, ipdir, ierr
+
+
+  select case(side)
+  case(1)
+     ip1 = this%np
+     ip2 = 0
+  case(-1)
+     ip1 = 0
+     ip2 = this%np
+  case default
+     write (6, *) 'error: invalid argument side = ', side, '!'
+     stop
+  end select
+  ipdir = -side
+
+
+  ! find index ip2 for Lpush
+  allocate (w(0:this%np), source=0.d0)
+  L = 0.d0
+  M => this%mesh
+  do ip=ip1+ipdir,ip2,ipdir
+     dl    = sqrt(sum( (M(ir,ip,:)-M(ir,ip-ipdir,:))**2 ))
+     w(ip) = w(ip-ipdir) + dl
+     L     = L + dl
+
+     if (L > Lpush) exit
+  enddo
+  ip2 = ip
+  w   = w / Lpush
+
+
+  ! trace flux surface
+  x = M(ir,ip1,:)
+  write (87, *) x
+  call F%generate_branch(x, ipdir, ierr, reference_direction=CCW_DIRECTION, &
+                Trace_Step=0.1d0, stop_at_boundary=.false., Lmax=Lpush)
+  if (ierr /= 0) then
+     write (6, *) "error in push_poloidal"
+     stop
+  endif
+  write (86, *) F%x(F%n_seg,:)
+
+
+  do ip=ip1,ip2-ipdir,ipdir
+     s = (L0 + w(ip)*(Lpush-L0)) / Lpush
+     call F%sample_at(s, x)
+     M(ir,ip,:) = x
+  enddo
+
+  deallocate (w)
+  end subroutine push_poloidal
+!=======================================================================
+
+
+!=======================================================================
+  subroutine upstream_adjust(this, side, U, V)
+  class(t_mfs_mesh)         :: this
+  integer,       intent(in) :: side
+  type(t_curve), intent(in) :: U, V
+
+  real(real64) :: r, x(2), L0, Lpush
+  integer      :: ir
+
+
+  do ir=0,this%nr
+     r = 1.d0 * ir / this%nr
+     call U%sample_at(r, x)
+     if (x(2) <= 0.d0) cycle
+
+     L0 = x(2)
+     call V%sample_at(r, x)
+     Lpush = x(2)
+
+     call this%push_poloidal(ir, side, L0, Lpush)
+  enddo
+
+  end subroutine upstream_adjust
+!=======================================================================
+
+
+!=======================================================================
+  subroutine upstream_adjust_divertor_leg(this, U, np_range)
+  use flux_surface_2D
+  class(t_mfs_mesh)         :: this
+  type(t_curve), intent(in) :: U
+  integer,       intent(in) :: np_range(2)
+
+  type(t_flux_surface_2D)   :: F
+  real(real64), dimension(:,:,:), pointer :: M
+  real(real64) :: r, s, x(2), dl, w(0:this%np), L
+  integer      :: ir, ir0, ip, ip1, ip2, dp, ierr
+
+
+  M => this%mesh
+
+
+  ! find index ir0 with U > 0
+  do ir0=1,this%nr
+     r = 1.d0 * ir0 / this%nr
+     call U%sample_at(r, x)
+     if (x(2) > 0.d0) exit
+  enddo
+  if (ir0 > this%nr) return
+
+
+  ! set weights from last flux surface
+  w = 0.d0
+  ip1 = this%ip0
+  if (ip1 == 0) then
+     ip2 = maxval(np_range)
+     dp  = 1
+  else
+     ip2 = minval(np_range)
+     dp  = -1
+  endif
+  do ip=ip1+dp,ip2,dp
+     dl    = sqrt(sum( (M(ir0-1,ip,:)-M(ir0-1,ip-dp,:))**2 ))
+     w(ip) = w(ip-dp) + dl
+     write (6, *) ip, M(ir0-1,ip,:)-M(ir0-1,ip-dp,:)
+  enddo
+  L = w(ip2)
+  write (6, *) 'DEBUG: ', ir0, ip1, ip2, L, w(ip1:ip2)
+  w = w / L
+
+
+  ! move nodes
+  do ir=ir0,this%nr
+     x = M(ir,ip1,:)
+     call F%generate_branch(x, dp, ierr, reference_direction=CCW_DIRECTION, &
+                Trace_Step=0.1d0, stop_at_boundary=.false., Lmax=L)
+     if (ierr /= 0) then
+        write (6, *) "error in upstream_adjust_divertor_leg!"
+        stop
+     endif
+
+     do ip=ip1+dp,ip2,dp
+        s = w(ip)
+        call F%sample_at(s, x)
+        M(ir,ip,:) = x
+     enddo
+  enddo
+
+
+  end subroutine upstream_adjust_divertor_leg
 !=======================================================================
 
 
