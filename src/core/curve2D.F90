@@ -103,7 +103,7 @@ module curve2D
      procedure :: resample
   end type t_curve
 
-  type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null())
+  type(t_curve), public, parameter :: Empty_curve = t_curve(0,0,0.d0,Empty_dataset,null(),null(),0,'')
 
 
   public :: intersect_curve, intersect_lines, make_2D_curve, connect
@@ -112,6 +112,7 @@ module curve2D
 
   interface t_curve
      procedure constructor
+     procedure :: make_function
   end interface
 
   contains
@@ -156,6 +157,25 @@ module curve2D
   endif
 
   end function constructor
+!=======================================================================
+
+
+!=======================================================================
+  function make_function(x, y) result(F)
+  real(real64) :: x(0:), y(0:size(x,1)-1)
+  type(t_curve) :: F
+
+  integer :: i
+
+
+  call F%new(size(x,1)-1)
+  do i=0,F%n_seg
+     F%x(i,1) = x(i)
+     F%x(i,2) = y(i)
+  enddo
+  call F%setup_coordinate_sampling(1)
+
+  end function make_function
 !=======================================================================
 
 
