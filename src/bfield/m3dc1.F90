@@ -32,6 +32,7 @@ module m3dc1
            timeslice, factor, &
            n_sets, filename, amplitude, phase
 
+  type(fio_search_hint), allocatable :: hint(:)
   integer :: isrcA(n_sets_max), imagA(n_sets_max), iEQ, iPsi
 
   logical, save :: loaded = .false.
@@ -72,6 +73,7 @@ module m3dc1
   write (6, 1004) n_sets
 
 #ifdef FIO
+  allocate (hint(n_sets))
   do i=1,n_sets
      ! Open M3D-C1 source
      Input_File = Prefix(1:len_trim(Prefix))//filename(i)
@@ -98,6 +100,10 @@ module m3dc1
      f = factor * amplitude(i)
      call fio_set_real_option_f(FIO_LINEAR_SCALE, f, ierr)
      call fio_get_field_f(isrcA(i),FIO_MAGNETIC_FIELD,imagA(i),ierr)
+
+
+     ! initialize search hints
+     call fio_allocate_search_hint_f(isrcA(i), hint(i), ierr)
 
      write (6, 1005) i, amplitude(i), phase(i)
   enddo
@@ -179,7 +185,7 @@ end subroutine m3dc1_load
 
   do i=1,n_sets
      R3(2) = r(3) + phase(i) / 180.d0 * pi
-     call fio_eval_field_f(imagA(i), R3, B3, ierr)
+     call fio_eval_field_f(imagA(i), R3, B3, ierr, hint=hint(i))
      if (ierr.gt.0) cycle
 
      !          (R,Z,phi)   (R,phi,Z)
@@ -212,7 +218,7 @@ end subroutine m3dc1_load
   R3(3)   = r(2) /1.d2
   R3(2)   = 0.d0
 
-  call fio_eval_field_f(iEQ, R3, B3, ierr)
+  call fio_eval_field_f(iEQ, R3, B3, ierr, hint=hint(1))
   ! (R,Z,phi)   (R,phi,Z)
   ! convert T -> Gauss
   Bf(1)   =     B3(1) * 1.d4
@@ -237,7 +243,7 @@ end subroutine m3dc1_load
   R3(3)   = r(2) /1.d2
   R3(2)   = r(3)
 
-  call fio_eval_field_f(iPsi, R3, B3, ierr)
+  call fio_eval_field_f(iPsi, R3, B3, ierr, hint=hint(1))
   Psi     = B3(2) * R3(1)
 #endif
 
@@ -279,6 +285,7 @@ end subroutine m3dc1_load
      call fio_close_field_f(imagA(i), ierr)
      call fio_close_source_f(isrcA(i), ierr)
   enddo
+  deallocate (hint)
 #endif
 
   return
