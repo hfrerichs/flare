@@ -32,7 +32,9 @@ module m3dc1
            timeslice, factor, &
            n_sets, filename, amplitude, phase
 
+#ifdef FIO
   type(fio_search_hint), allocatable :: hint(:)
+#endif
   integer :: isrcA(n_sets_max), imagA(n_sets_max), iEQ, iPsi
 
   logical, save :: loaded = .false.
