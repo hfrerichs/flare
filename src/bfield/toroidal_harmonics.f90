@@ -59,6 +59,11 @@ module toroidal_harmonics
   read  (iu, 1000) str
   read  (iu, 1000) str
   read  (iu, 1000) str
+  read  (iu, 1000) str;   read  (str( 9:16), *) n
+  if (n /= mode_number) then
+     write (6, *) "error: found n = ", n, " but expected ", mode_number;   stop
+  endif
+  read  (iu, 1000) str
   read  (str( 9:16), *) nr
   read  (str(21:28), *) nz
   this%nr = nr;  this%nz = nz
