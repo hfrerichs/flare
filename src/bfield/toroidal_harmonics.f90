@@ -11,7 +11,7 @@ module toroidal_harmonics
      ! resolution in R and Z direction
      integer :: nr, nz
 
-     real(real64) :: R_range(0:1), Z_range(0:1), scale_factor
+     real(real64) :: R_range(0:1), Z_range(0:1), scale_factor, phase
      type(t_bspline2D) :: Bn(3,2)
      type(t_bspline2D) :: A(4)
 
@@ -38,11 +38,12 @@ module toroidal_harmonics
 
 
 !===============================================================================
-  subroutine load(this, filename, mode_number, scale_factor)
+  subroutine load(this, filename, mode_number, scale_factor, phase)
+  use math, only: pi
   class(t_harmonic)            :: this
   character(len=*), intent(in) :: filename
   integer,          intent(in) :: mode_number
-  real(real64),     intent(in) :: scale_factor
+  real(real64),     intent(in) :: scale_factor, phase
 
   integer, parameter :: iu = 99
 
@@ -76,6 +77,7 @@ module toroidal_harmonics
  1000 format(a80)
   this%mode_number  = mode_number
   this%scale_factor = scale_factor
+  this%phase        = phase / 180.d0 * pi
 
 
   ! 2. read data
@@ -183,8 +185,8 @@ module toroidal_harmonics
 
   x2   = x(1:2)
   nphi = this%mode_number * x(3)
-  cosnphi = cos(nphi)
-  sinnphi = sin(nphi)
+  cosnphi = cos(nphi - this%phase)
+  sinnphi = sin(nphi - this%phase)
 
   B_Rc = this%Bn(1,1)%eval(x2)
   B_Rs = this%Bn(1,2)%eval(x2)
@@ -212,8 +214,8 @@ module toroidal_harmonics
 
   x2   = x(1:2)
   nphi = this%mode_number * x(3)
-  cosnphi = cos(nphi)
-  sinnphi = sin(nphi)
+  cosnphi = cos(nphi - this%phase)
+  sinnphi = sin(nphi - this%phase)
 
   do i=1,4
      A(i) = this%A(i)%eval(x2)
@@ -267,6 +269,7 @@ module toroidal_harmonics
   call broadcast_real  (this%R_range, 2)
   call broadcast_real  (this%Z_range, 2)
   call broadcast_real_s(this%scale_factor)
+  call broadcast_real_s(this%phase)
   do i=1,3;  do j=1,2
      call this%Bn(i,j)%broadcast()
   enddo;  enddo
@@ -289,14 +292,14 @@ module toroidal_harmonics
   integer, parameter :: MAX_HARMONICS = 128
 
   character(len=256) :: filename(MAX_HARMONICS)
-  real(real64)       :: scale_factor(MAX_HARMONICS) = 1.d0
+  real(real64)       :: scale_factor(MAX_HARMONICS) = 1.d0, phase(MAX_HARMONICS) = 0.d0
   integer            :: mode_number(MAX_HARMONICS)
 
   integer :: i
 
 
   namelist /Toroidal_Harmonics_Input/ &
-     n_harmonics, mode_number, filename, scale_factor
+     n_harmonics, mode_number, filename, scale_factor, phase
 
 
   rewind (iu)
@@ -315,16 +318,16 @@ module toroidal_harmonics
 
   allocate (H(n_harmonics))
   do i=1,n_harmonics
-     write (6, 2000) mode_number(i), trim(filename(i))
+     write (6, 2000) mode_number(i), scale_factor(i), phase(i), trim(filename(i))
 
      filename(i) = trim(Prefix)//filename(i)
-     call H(i)%load(filename(i), mode_number(i), scale_factor(i))
+     call H(i)%load(filename(i), mode_number(i), scale_factor(i), phase(i))
   enddo
 
   return
  1000 format(3x,'- Toroidal harmonics:')
- 1001 format(8x,'mode number')
- 2000 format(8x,i0,4x,a)
+ 1001 format(8x,'mode number    scale factor    phase')
+ 2000 format(8x,i4,11x,f10.4,6x,f0.3," deg",4x,a)
  9000 iconfig = 0
   end subroutine tor_harmonics_load
 !===============================================================================
