@@ -13,10 +13,12 @@ module toroidal_harmonics
 
      real(real64) :: R_range(0:1), Z_range(0:1), scale_factor
      type(t_bspline2D) :: Bn(3,2)
+     type(t_bspline2D) :: A(4)
 
      contains
      procedure :: load
-     procedure :: get_Bf
+     procedure :: get_Bf => get_Bf_interpolateA
+     !procedure :: get_Bf
      procedure :: broadcast
   end type t_harmonic
 
@@ -47,6 +49,7 @@ module toroidal_harmonics
   character(len=80)  :: str
 
   real(real64), dimension(:,:), allocatable :: B_Rc, B_Rs, B_Zc, B_Zs, B_pc, B_ps
+  real(real64), dimension(:,:,:), allocatable :: A
   real(real64), dimension(:,:), allocatable :: R, Z
 
   real(real64), dimension(:),   allocatable :: R1D, Z1D
@@ -89,6 +92,16 @@ module toroidal_harmonics
   enddo
   enddo
   close (iu)
+  ! construct vector potential
+  allocate (A(nr,nz,4))
+  do i=1,nr
+  do j=1,nz
+     A(i,j,1) =  R(i,j) / n * B_Zs(i,j) ! real(AR)
+     A(i,j,2) = -R(i,j) / n * B_Zc(i,j) ! imag(AR)
+     A(i,j,3) = -R(i,j) / n * B_Rs(i,j) ! real(AZ)
+     A(i,j,4) =  R(i,j) / n * B_Rc(i,j) ! imag(AZ)
+  enddo
+  enddo
 
 
   ! 3. check orthogonality of mesh
@@ -137,6 +150,9 @@ module toroidal_harmonics
   call this%Bn(2,2)%init(nr, nz, R1D, Z1D, B_Zs, 4)
   call this%Bn(3,1)%init(nr, nz, R1D, Z1D, B_Pc, 4)
   call this%Bn(3,2)%init(nr, nz, R1D, Z1D, B_Ps, 4)
+  do i=1,4
+     call this%A(i)%init(nr, nz, R1D, Z1D, A(:,:,i), 5)
+  enddo
 
   this%R_range(0) = R( 1, 1)
   this%R_range(1) = R(nr, 1)
@@ -145,6 +161,7 @@ module toroidal_harmonics
 
   deallocate (R1D, Z1D)
   deallocate (R, Z, B_Rc, B_Rs, B_Zc, B_Zs, B_Pc, B_Ps)
+  deallocate (A)
 
  9000 format('error: non-orthogonal mesh is not supported yet!')
  9001 format('R(',i0,') = ',e18.9,' +/- ',e18.9)
@@ -182,6 +199,36 @@ module toroidal_harmonics
   Bf    = Bf * this%scale_factor
 
   end function get_Bf
+!===============================================================================
+  function get_Bf_interpolateA(this, x) result(Bf)
+  class(t_harmonic)        :: this
+  real(real64), intent(in) :: x(3)
+  real(real64)             :: Bf(3)
+
+  real(real64) :: A(4), dA(4)
+  real(real64) :: x2(2), nphi, cosnphi, sinnphi
+  integer      :: i
+
+
+  x2   = x(1:2)
+  nphi = this%mode_number * x(3)
+  cosnphi = cos(nphi)
+  sinnphi = sin(nphi)
+
+  do i=1,4
+     A(i) = this%A(i)%eval(x2)
+  enddo
+  dA(1) = this%A(1)%derivative(x2, 0, 1)
+  dA(2) = this%A(2)%derivative(x2, 0, 1)
+  dA(3) = this%A(3)%derivative(x2, 1, 0)
+  dA(4) = this%A(4)%derivative(x2, 1, 0)
+
+  Bf(1) = this%mode_number / x(1) * ( A(4) * cosnphi  -  A(3) * sinnphi)
+  Bf(2) = this%mode_number / x(1) * (-A(2) * cosnphi  +  A(1) * sinnphi)
+  Bf(3) = (dA(1)-dA(3)) * cosnphi  +  (dA(2)-dA(4)) * sinnphi
+  Bf    = Bf * this%scale_factor
+
+  end function get_Bf_interpolateA
 !===============================================================================
 
 
@@ -223,6 +270,10 @@ module toroidal_harmonics
   do i=1,3;  do j=1,2
      call this%Bn(i,j)%broadcast()
   enddo;  enddo
+
+  do i=1,4
+      call this%A(i)%broadcast()
+  enddo
 
   end subroutine broadcast
 !===============================================================================
