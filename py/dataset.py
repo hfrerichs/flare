@@ -240,6 +240,7 @@ class Dataset():
         geometry = self.get_geometry(user_geometry=geometry)
 
         # prepare data
+        qlabel = kwargs.pop("qlabel", None)
         if qkey == "minPsiN":
             def psiN_map(psiN, delta):
                 return np.tanh((psiN-1)/delta) + 1.0
@@ -278,5 +279,6 @@ class Dataset():
         if qkey == "minPsiN":
             cbar.set_ticks(psiN_map(vticks, deltaPsiN))
             cbar.ax.set_yticklabels(vticks)
-        qlabel = self.get_data_label(qkey)
+        if not qlabel:
+            qlabel = self.get_data_label(qkey)
         cbar.set_label(qlabel)
