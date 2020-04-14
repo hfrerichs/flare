@@ -255,7 +255,7 @@ subroutine poincare_plot
 
  1001 format (8x,'Toroidal symmetry number:         ',i4)
  1002 format (8x,'Number of slices to be generated: ',i4)
- 1003 format (8x,'Reference location     ',f7.3,' deg')
+ 1003 format (8x,'Reference location     ',f8.3,' deg')
  1004 format (8x,'Field line tracing coordinates: ',a)
  2001 format (8x,'radial domain:',5x,'R_start = ',f6.2,5x, &
               'R_end = ',f6.2,5x,'with ',i4,' steps'/)

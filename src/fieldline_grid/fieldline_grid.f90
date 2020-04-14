@@ -603,9 +603,9 @@ module fieldline_grid
   do ib=0,blocks-1
      write (6, 1002) ib, Block(ib)%phi_base, Block(ib)%phi_left, Block(ib)%phi_right
   enddo
- 1000 format (3x,'- Decomposition of simulation domain (',f7.3,' -> ',f7.3,' deg):')
+ 1000 format (3x,'- Decomposition of simulation domain (',f8.3,' -> ',f8.3,' deg):')
  1001 format (8x,'block #, base location [deg], domain [deg]')
- 1002 format (8x,      i7,5x,f7.3,':',5x,f7.3,' -> ',f7.3)
+ 1002 format (8x,      i7,5x,f8.3,':',5x,f8.3,' -> ',f8.3)
  1004 format (8x,'using default decomposition')
 
   contains
