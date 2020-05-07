@@ -1145,7 +1145,7 @@ module fieldline_grid
   write (iu, 9999)
   write (iu, 4001)
  4000 format ('*** 4. Additional surfaces')
- 4001 format ('GEOMETRY/ADD_SF_N0')
+ 4001 format ('__GEOMETRY__/ADD_SF_N0')
 
 
   ! 5. Diagnostics
