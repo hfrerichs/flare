@@ -1342,7 +1342,7 @@ module fieldline_grid
 
               ! check geometry
               if (abs(RG(igc(1))-RG(igc(2)))/R0 > minarcy  .or. &
-                  abs(ZG(igc(1))-ZG(igc(2)))/R0 > minarcy) then
+                  abs(ZG(igc(1))+ZG(igc(2)))/R0 > minarcy) then
                  write (6, *) 'error: deviation from up/down symmetry too large!'
                  write (6, *) 'at grid node iz,ir,ip,it = ', iz, ir, ip, it(jt)
                  write (6, *) 'R,Z = ', RG(igc(1)), ZG(igc(1))
