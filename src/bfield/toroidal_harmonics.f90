@@ -17,8 +17,8 @@ module toroidal_harmonics
 
      contains
      procedure :: load
-     procedure :: get_Bf => get_Bf_interpolateA
-     !procedure :: get_Bf
+     !procedure :: get_Bf => get_Bf_interpolateA
+     procedure :: get_Bf
      procedure :: broadcast
   end type t_harmonic
 
