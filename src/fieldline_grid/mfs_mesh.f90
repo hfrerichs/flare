@@ -308,10 +308,10 @@ module mfs_mesh
 !=======================================================================
 ! Make (quasi) orthogonal grid
 !=======================================================================
-  subroutine make_orthogonal_grid(this, rrange, prange, periodic, addX, debug)
+  subroutine make_orthogonal_grid(this, rrange, prange, periodic, addX, side, debug)
   use equilibrium, only: get_PsiN
   class(t_mfs_mesh)             :: this
-  integer, intent(in), optional :: rrange(2), prange(2), addX(2)
+  integer, intent(in), optional :: rrange(2), prange(2), addX(2), side
   logical, intent(in), optional :: periodic, debug
 
   real(real64), dimension(:,:,:), pointer :: M
@@ -396,6 +396,10 @@ module mfs_mesh
   case(DESCENT)
      ir_final = ir1
   end select
+  if (present(side)) then
+     direction = direction + side
+     inverse   = inverse   + side
+  endif
   PsiN_final = PsiN(ir_final)
 
 
@@ -455,6 +459,7 @@ module mfs_mesh
   subroutine make_interpolated_mesh(this, ir2, Sr, C, PsiN1_max, prange)
   use equilibrium, only: get_PsiN, Xp
   use mesh_spacing
+  use run_control, only: Debug
   class(t_mfs_mesh)           :: this
   integer,         intent(in) :: ir2
   type(t_spacing), intent(in) :: Sr
@@ -490,8 +495,10 @@ module mfs_mesh
      stop
   endif
 
+  if (Debug) print *, "for poloidal indices ", ip1, " -> ", ip2
   do j=ip1,ip2
      x = M(ir2,j,:)
+     if (Debug) print *, j, x
      call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, PsiN1_max, C_limit=C(ir1), sampling=SAMPLE_LENGTH)
 
      ! interpolated surfaces
@@ -507,6 +514,7 @@ module mfs_mesh
      call Rtmp%generate(x, DESCENT_CORE, LIMIT_CURVE, -1.d0, C_limit=C(0))
      M(0,j,:) = Rtmp%boundary_node(UPPER)
   enddo
+  if (Debug) print *, "... done"
 
  1001 format(8x,'interpolating from inner boundary to 1st unperturbed flux surface: ', &
              i0, ' -> ', i0)

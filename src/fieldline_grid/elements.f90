@@ -277,10 +277,12 @@ module elements
   else
      ! connect to X-point?
      addX = UNDEFINED
+     iside = 0
      if (ix(-ipside) > 0) then
         addX(1) = ix(-ipside)
         addX(2) = AUTOMATIC
         write (6, *) 'upstream segment connecting X-point ', ix(ipside), ' to ', ix(-ipside)
+        if (ix(-ipside)*ipside > ix(ipside)*ipside) iside = 1
 
      ! guide by X-point?
      elseif (iri2 > 0) then
@@ -298,13 +300,13 @@ module elements
         call M%make_interpolated_mesh(2+n_interpolate, Sr, C_in(iblock,:), DPsiN1(iblock,1))
 
      else
-        call M%make_orthogonal_grid(addX=addX, debug=debug)
+        call M%make_orthogonal_grid(addX=addX, debug=debug, side=iside)
      endif
   endif
 
  9000 format('error in t_element%generate_mesh:')
  9001 format('make_divertor_grid returned ierr = ', i0)
- 9002 format('geometry of radial interface is undefined!')
+ 9002 format('geometry of radial interface is undefined! ierr = ',i0)
  9003 format('radial interface is undefined!')
   end subroutine generate_mesh
 !=======================================================================
