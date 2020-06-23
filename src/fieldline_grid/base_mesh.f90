@@ -1336,14 +1336,14 @@ module base_mesh
   integer :: iblock
 
 
-  select case(poloidal_discretization)
-  case(ORTHOGONAL)
-  case(ORTHOGONAL_AUTO_ADJUST)
-  case default
-     write (6, 9000) trim(poloidal_discretization)
-     stop
-  end select
- 9000 format('error: invalid poloidal discretization method "',a,'"!')
+!  select case(poloidal_discretization)
+!  case(ORTHOGONAL)
+!  case(ORTHOGONAL_AUTO_ADJUST)
+!  case default
+!     write (6, 9000) trim(poloidal_discretization)
+!     stop
+!  end select
+! 9000 format('error: invalid poloidal discretization method "',a,'"!')
 
 
   ! setup geometry of computational domain

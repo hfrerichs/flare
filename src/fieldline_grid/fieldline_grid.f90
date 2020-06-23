@@ -34,7 +34,7 @@ module fieldline_grid
      ORTHOGONAL_AUTO_ADJUST  = 'quasi_orthogonal_auto_adjust', &
      POLOIDAL_ANGLE          = 'poloidal_angle', &
      ARC_LENGTH              = 'arc_length', &
-     MANUAL                  = 'manual'
+     LEGACY                  = 'legacy'
 
 
   ! zone type definitions
@@ -106,7 +106,7 @@ module fieldline_grid
      N0_file(0:max_layers-1)          = '', &
      vacuum_domain(0:max_layers-1)    = '', &
      core_domain                      = CORE_EXTRAPOLATE, &
-     mesh_generator                   = MANUAL, &
+     mesh_generator                   = ORTHOGONAL, &
      plate_generator                  = PLATES_DEFAULT
 
 

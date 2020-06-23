@@ -80,7 +80,7 @@ subroutine generate_3D_fieldline_grid (run_level, run_level_end)
 
   ! Level 2: generate base grids
   if (level(2)) then
-     if (mesh_generator == MANUAL) then
+     if (mesh_generator == LEGACY) then
         call make_base_grids()
      elseif (mesh_generator == ORTHOGONAL) then
         call make_base_mesh_generic()
