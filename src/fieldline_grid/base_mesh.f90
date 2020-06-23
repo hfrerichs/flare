@@ -258,8 +258,9 @@ module base_mesh
 
   ! connected double null (CDN)
   case(TOPO_CDN, TOPO_CDN1)
-     !call initialize_zones(6)
-     !call initialize_interfaces(3) ! radial interfaces
+     nrpath = 10
+     call initialize_elements(12)
+     call initialize_interfaces(nrpath) ! radial interfaces
      nX = 2;  allocate(connectX(nX))
      connectX(1) = 2
      connectX(2) = 1
@@ -377,6 +378,50 @@ module base_mesh
 
   ! connected double null (CDN)
   case(TOPO_CDN, TOPO_CDN1)
+     ! innermost domain
+     call Z(1)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(1)%setup_mapping  (UPPER, RADIAL,   Z(3), 1)  ! connect to main SOL at interface 1
+     call Z(2)%setup_boundary (LOWER, RADIAL,   CORE)     ! core boundary
+     call Z(2)%setup_mapping  (UPPER, RADIAL,   Z(6), 2)  ! connect to main SOL at interface 2
+     call Z(1)%setup_mapping  (UPPER, POLOIDAL, Z(2))     ! connect left and right segments
+     call Z(2)%setup_mapping  (UPPER, POLOIDAL, Z(1), 1)  ! connect left and right segments at interface R1
+
+     ! rhs SOL
+     call Z(3)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(3)%setup_mapping  (LOWER, POLOIDAL, Z(4), 2)  ! connect to right divertor leg (right branch)
+     call Z(4)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right lower divertor target
+     call Z(3)%setup_mapping  (UPPER, POLOIDAL, Z(5))     ! connect to upper divertor leg  (right branch) at interface R6
+     call Z(5)%setup_boundary (UPPER, POLOIDAL, DIVERTOR) ! upper divertor target
+     call Z(4)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(5)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+
+     ! lhs SOL
+     call Z(6)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(6)%setup_mapping  (LOWER, POLOIDAL, Z(7))     ! connect to right divertor leg (left branch) at interface R7
+     call Z(7)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(6)%setup_mapping  (UPPER, POLOIDAL, Z(8), 3)  ! connect to left divertor leg  (left branch)
+     call Z(8)%setup_boundary (UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+     call Z(7)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+     call Z(8)%setup_boundary (UPPER, RADIAL,   VACUUM)   ! vacuum domain
+
+     ! lower PFR
+     call Z(4)%setup_mapping  (LOWER, RADIAL,   Z(9), 3)  ! connect to right lower PFR at interface I3
+     call Z(9)%setup_boundary (LOWER, RADIAL,   VACUUM)   !
+     call Z(8)%setup_mapping  (LOWER, RADIAL,   Z(10), 4) ! connect to left lower PFR at interface I4
+     call Z(10)%setup_boundary(LOWER, RADIAL,   VACUUM)   !
+     call Z(9)%setup_boundary (LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(9)%setup_mapping  (UPPER, POLOIDAL, Z(10), 4) ! connect to left lower PFR at interface R4
+     call Z(10)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+
+     ! upper PFR
+     call Z(5)%setup_mapping  (LOWER, RADIAL,   Z(12), 6) ! connect to right upper PFR at interface I10
+     call Z(12)%setup_boundary(LOWER, RADIAL,   VACUUM)   !
+     call Z(7)%setup_mapping  (LOWER, RADIAL,   Z(11), 5) ! connect to left upper PFR at interface I9
+     call Z(11)%setup_boundary(LOWER, RADIAL,   VACUUM)   !
+     call Z(11)%setup_mapping (UPPER, POLOIDAL, Z(12), 8) ! connect to left upper PFR at interface R8
+     call Z(11)%setup_boundary(LOWER, POLOIDAL, DIVERTOR) ! right divertor target
+     call Z(12)%setup_boundary(UPPER, POLOIDAL, DIVERTOR) ! left divertor target
+
 
   ! snowflake + (in disconnected double null)
   case(TOPO_DSFP, TOPO_DSFP1)
@@ -593,7 +638,8 @@ module base_mesh
      orientation = 0
      if (ix > 1) then
         ! X-point is in private flux region of main X-point
-        if (Xp(ix)%PsiN() < Xp(1)%PsiN()) then
+        if (Xp(ix)%PsiN() < Xp(1)%PsiN()  .and.  jx /= 1) then
+
            ! set direction of PFR and core
            if (Xp(ix)%X(1) < Xp(1)%X(1)) then
               o(DESCENT_PFR ) = ASCENT_LEFT
@@ -1130,10 +1176,9 @@ module base_mesh
 
   ! select upper or lower poloidal boundary -> start from an X-point
   do ipside=-1,1,2
-     if (radial_interface(iri)%inode(ipside) > 0) exit
+     ipi = Z(iz0)%pol_bound(ipside)
+     if (radial_interface(iri)%inode(ipside) > 0  .and.  ipi /= UNDEFINED) exit
   enddo
-  ipi = Z(iz0)%pol_bound(ipside)
-  write (6, *) 'poloidal boundary ', ipside, ' which is interface ', ipi
   if (ipi == UNDEFINED) then
      write (6, 9000) il, iz0
      write (6, 9003)
