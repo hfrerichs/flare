@@ -711,7 +711,7 @@ module fieldline_grid
      nr1 = R_SURF_PL_TRANS_RANGE(1,iz)
      nr2 = R_SURF_PL_TRANS_RANGE(2,iz)
      if (G%n1-1 /= nr2-nr1) then
-        write (6, *) 'error: mismatching radial resolution: ', G%n1
+        write (6, 9001) 'radial', iz, G%n1
         write (6, *) 'expected index range for aligned grid: ', nr1, '->', nr2
         stop
      endif
@@ -719,14 +719,14 @@ module fieldline_grid
      np1 = P_SURF_PL_TRANS_RANGE(1,iz)
      np2 = P_SURF_PL_TRANS_RANGE(2,iz)
      if (G%n2-1 /= np2-np1) then
-        write (6, *) 'error: mismatching poloidal resolution: ', G%n2
+        write (6, 9001) 'poloidal', iz, G%n2
         write (6, *) 'expected index range for aligned grid: ', np1, '->', np2
         stop
      endif
      ! 4.1.3 toroidal resolution
      nt = Zone(iz)%nt
      if (G%n3-1 /= nt) then
-        write (6, *) 'error: mismatching toroidal resolution: ', G%n3
+        write (6, 9001) 'toroidal', iz, G%n3
         write (6, *) 'expected resolution is: ', nt
         stop
      endif
@@ -762,6 +762,7 @@ module fieldline_grid
      enddo
   enddo
 
+ 9001 format("ERROR: mismatching ",a," resolution in zone ",i0,": ",i0)
   end subroutine initialize_emc3_grid
 !=======================================================================
 
