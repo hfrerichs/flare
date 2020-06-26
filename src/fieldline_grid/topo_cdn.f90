@@ -61,8 +61,8 @@ module modtopo_cdn
 
      ! 1. set up derived parameters
      Block(ib)%np(0) = Block(ib)%npR(0) + Block(ib)%npL(0)
-     Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npR(2)
-     Block(ib)%np(2) = Block(ib)%npL(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
+     Block(ib)%np(1) = Block(ib)%npR(1) + Block(ib)%npR(0) + Block(ib)%npL(2)
+     Block(ib)%np(2) = Block(ib)%npR(2) + Block(ib)%npL(0) + Block(ib)%npL(1)
      Block(ib)%np(3) = Block(ib)%npR(1)                    + Block(ib)%npL(1)
      Block(ib)%np(4) = Block(ib)%npR(2)                    + Block(ib)%npL(2)
 
