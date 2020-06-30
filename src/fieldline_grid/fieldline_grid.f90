@@ -782,6 +782,7 @@ module fieldline_grid
   call write_input_n0g()
   !call write_input_par()
   call write_ADD_SF_N0()
+  call write_index()
 
   contains
   !---------------------------------------------------------------------
@@ -1286,6 +1287,24 @@ module fieldline_grid
   close (iu)
 
   end subroutine write_ADD_SF_N0
+  !---------------------------------------------------------------------
+  subroutine write_index
+
+  integer :: iu
+
+
+  open  (newunit=iu, file='INDEX')
+  write (iu, 1000)
+  write (iu, 1001) "layout", "input.geo"
+  write (iu, 1001) "grid3d", "grid3D.dat"
+  write (iu, 1001) "n0g",    "input.N0G"
+  write (iu, 1001) "plates", "plates.dat"
+  write (iu, 1001) "bfield", "bfield.dat"
+  close (iu)
+ 1000 format("[geometry]")
+ 1001 format(a,' = "',a,'"')
+
+  end subroutine write_index
   !---------------------------------------------------------------------
   end subroutine write_emc3_input_files
 !=======================================================================
