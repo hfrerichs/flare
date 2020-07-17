@@ -55,8 +55,6 @@ module fieldline_grid
      SF_MAPPING  =  3, &
      SF_CORE     = -1, &
      SF_VACUUM   = -2
-  character(len=*), parameter :: &
-     EIRENE_SF(2)= (/'CORE_SF_NUM     ', 'OUTERMOST_SF_NUM'/)
 
 
   ! Type of innermost flux surface (exact or quasi flux surface)
@@ -124,7 +122,10 @@ module fieldline_grid
      nr_EIRENE_core      =   1, &          ! radial resolution in core (EIRENE only)
      nr_EIRENE_vac(0:max_layers-1)       =   1, &          ! radial resolution in vacuum (EIRENE only)
      nr_perturbed        =   2, &          ! number of perturbed flux surfaces at the inner boundary
-     plate_format        =   1             ! format for plate definition file
+     plate_format        =   1, &          ! format for plate definition file
+     EIRENE_SF_NUM(2)    =   0, &          ! non-default std. surface # in input.eir (block 3A)
+     EIRENE_CORE_SF_NUM  =   3, &          ! for innermost (core) surface
+     EIRENE_VAC_SF_NUM   =   2             ! for outermost (vacuum) surface
 
   real(real64) :: &
      phi0                = -360.d0, &      ! lower boundary of simulation domain [deg]
@@ -413,9 +414,11 @@ module fieldline_grid
      radial_spacing, poloidal_spacing, poloidal_spacing_L, poloidal_spacing_R, toroidal_spacing, &
      upstream_adjust_L, upstream_adjust_R, &
      d_cutL, d_cutR, etaL, etaR, alphaL, alphaR, extend_alpha_SOL2, &
-     Dtheta_sampling, Dtheta_separatrix, &
+     Dtheta_sampling, Dtheta_separatrix, EIRENE_CORE_SF_NUM, EIRENE_VAC_SF_NUM, &
      discretization_method, poloidal_discretization, radial_discretization, guiding_surface, &
      sample_Bf_on_extended_grid
+  EIRENE_SF_NUM(1) = EIRENE_CORE_SF_NUM
+  EIRENE_SF_NUM(2) = EIRENE_VAC_SF_NUM
 
 
   ! 1. read user configuration from input file
@@ -1031,7 +1034,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) 0, iz, EIRENE_SF(-Zone(iz)%isfr(1))
+              write (iu, 1015) 0, iz, -EIRENE_SF_NUM(-Zone(iz)%isfr(1))
               write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1039,7 +1042,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) SRF_RADI(iz)-1, iz, EIRENE_SF(-Zone(iz)%isfr(2))
+              write (iu, 1015) SRF_RADI(iz)-1, iz, -EIRENE_SF_NUM(-Zone(iz)%isfr(2))
               write (iu, *) 0, ZON_POLO(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1057,7 +1060,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) 0, iz, EIRENE_SF(-Zone(iz)%isfp(1))
+              write (iu, 1015) 0, iz, -EIRENE_SF_NUM(-Zone(iz)%isfp(1))
               write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1065,7 +1068,7 @@ module fieldline_grid
            if (irun == 0) then
               n = n + 1
            else
-              write (iu, 1015) ZON_POLO(iz), iz, EIRENE_SF(-Zone(iz)%isfp(2))
+              write (iu, 1015) ZON_POLO(iz), iz, -EIRENE_SF_NUM(-Zone(iz)%isfp(2))
               write (iu, *) 0, ZON_RADI(iz)-1, 0, ZON_TORO(iz)-1
            endif
         endif
@@ -1077,7 +1080,7 @@ module fieldline_grid
  1012 format ('* radial')
  1013 format ('* poloidal')
  1014 format ('* toroidal')
- 1015 format (2i8,4x,a)
+ 1015 format (3i8)
 
 
   ! 2. additional physical cells for neutrals
