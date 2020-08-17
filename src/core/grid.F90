@@ -228,7 +228,9 @@ module grid
 
   ! set up internal variables
   screen_output = .true.
-  if (present(silent) .and. silent) screen_output = .false.
+  if (present(silent)) then
+     if (silent) screen_output = .false.
+  endif
 
 
   if (firstP) then
