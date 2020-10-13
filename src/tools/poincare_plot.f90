@@ -132,7 +132,7 @@ subroutine poincare_plot
         if (firstP) write (6,2002) R_start
         G%x(1,1) = R_start; G%x(1,2) = Z_start
      endif
-     G%x(:,3) = x_start(3)
+     G%x(:,3) = x_start(3) / pi * 180.d0
 
   ! use x_start if N_steps is not specified
   elseif (N_steps == 0  .and.  x_start(1).ne.0.d0) then
